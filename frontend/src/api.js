@@ -35,6 +35,10 @@ export const api = {
     fetch(`${BASE}/copybooks/${encodeURIComponent(name)}/fields/${encodeURIComponent(path)}`, {
       method: "DELETE",
     }).then(parse),
+  paragraphLocals: (id, name) =>
+    fetch(`${BASE}/analyses/${id}/paragraphs/${encodeURIComponent(name)}/locals`).then(parse),
+  inputBuffer: (id, buffer = "", assume = "") =>
+    fetch(`${BASE}/analyses/${id}/input-buffer?buffer=${encodeURIComponent(buffer)}&assume=${encodeURIComponent(assume)}`).then(parse),
   paragraphSummary: (id, name) =>
     fetch(`${BASE}/analyses/${id}/paragraphs/${encodeURIComponent(name)}/summary`).then(parse),
   programLog: (limit = 200) => fetch(`${BASE}/program-log?limit=${limit}`).then(parse),

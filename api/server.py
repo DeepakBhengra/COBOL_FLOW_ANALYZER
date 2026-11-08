@@ -28,6 +28,7 @@ from src.summary.paragraph_summary import paragraph_summary, program_insights  #
 from src.values import analyze_values  # noqa: E402
 from src.values.buffer_builder import build_sample  # noqa: E402
 from src.values.buffer_search import analyze_with_buffer, build_by_execution  # noqa: E402
+from src.values.input_buffer import detect_input_buffers  # noqa: E402
 from src.values.local_values import const  # noqa: E402
 from src.values.working_storage import working_storage  # noqa: E402
 
@@ -277,6 +278,25 @@ def get_buffer_search(analysis_id: str, entry: str, paragraph: str = "", buffer:
             raise HTTPException(status_code=404, detail=f"No paragraph named {paragraph}.")
         result["run"] = run
     return result
+
+
+@app.get("/api/analyses/{analysis_id}/input-buffer")
+def get_input_buffer(analysis_id: str, buffer: str = "", assume: str = "") -> dict:
+    """The program's input buffer(s), where it is loaded and read, and a sample built from its tests.
+    assume: comma-separated NAME=value pairs for positions the program does not set."""
+    analysis = _get(analysis_id)
+    found = detect_input_buffers(analysis)
+    if not found:
+        return {"buffers": [], "chosen": None, "built": None}
+    chosen = next((b for b in found if b["buffer"] == buffer.upper()), found[0]) if buffer else found[0]
+    assumptions = {}
+    for pair in filter(None, (part.strip() for part in assume.split(","))):
+        key, _, value = pair.partition("=")
+        if key.strip() and value.strip().lstrip("-").isdigit():
+            assumptions[key.strip().upper()] = const(int(value))
+    built = build_by_execution(analysis, chosen["entry_paragraph"], chosen["buffer"], assumptions)
+    return {"buffers": [{k: v for k, v in b.items()} for b in found], "chosen": chosen["buffer"],
+            "entry_paragraph": chosen["entry_paragraph"], "built": built}
 
 
 @app.get("/api/analyses/{analysis_id}/insights")
