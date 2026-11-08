@@ -1,0 +1,182 @@
+      *================================================================*        
+      *  THIS COPYBOOK IS USED TO LOG ORDER LINE DETAILS FOR WHICH     *        
+      *  ACOP IS APPLIED WITH RESPECT TO MAX/CUST LIMIT(MAQ) QUANTITIES*        
+      *  THIS IS DONE TO KEEP TRACK OF THE MAX/MAQ QUANTITY USAGE IN   *        
+      *  THE ORDERS PLACED CONSIDERING RESPECTIVE ACOPS WITH QUANTITY  *        
+      *  LIMITS.                                                       *        
+      *                                                                *        
+      *  PURPOSE:                                                      *        
+      *  =======                                                       *        
+      *  PERFORM INSERT, READ, UPDATE AND DELETE IN ACOP_MAX_MAQ_LOG   *        
+      *  DB2 TABLE TO TRACK THE USAGE OF ACOP MAX/MAQ VALUES WHEN      *        
+      *  MAQ-COP-QTY-ORDERED/COP-MAX-QTY-TODATE FIELDS ARE UPDATED     *        
+      *  WHEN IT IS USED IN AN ORDER.                                  *        
+      *                                                                *        
+      *  INPUT:                                                        *        
+      *  ======                                                        *        
+      *  A. USES THE VARIBLES PRESENT IN ICWCOP20 COPYBOOK.            *        
+      *     VALUES FOR THESE VARIABLES ARE MANIPULATED IN              *        
+      *     X400-MAX-MAQ-TRK PARAGRAPH PRESENT IN ICSCOP21 COPYBOOK.   *        
+      *     INPUT IS BEING POPULATED IN THE PROGRAM THAT USES ICSCOP21 *        
+      *     COPYBOOK.                                                  *        
+      *     X400-MAX-MAQ-TRK -> SET ICWCOP20-DB2-ACTION-SW ->          *        
+      *     T100-ACOP-MAX-MAQ-TRK-PRCS                                 *        
+      *   1. ICWCOP20-DB2-INSERT:                                      *        
+      *     SET THIS VARIABLE IN THE PROGRAM WHERE THE PARAGRAPH       *        
+      *     T100-ACOP-MAX-MAQ-TRK-PRCS IS BEING PERFORMED.             *        
+      *     PURPOSE: TO PERFORM INSERTION INTO ACOP_MAX_MAQ_LOG DB2    *        
+      *     =======  TABLE WITH ORDER AND ACOP DETAILS.                *        
+      *   2. ICWCOP20-DB2-UPDATE-INVC:                                 *        
+      *     SET THIS VARIABLE IN THE PROGRAM WHERE THE PARAGRAPH       *        
+      *     T100-ACOP-MAX-MAQ-TRK-PRCS IS BEING PERFORMED.             *        
+      *     PURPOSE: USED FOR UPDATING INVC_DT FIELD IN                *        
+      *     =======  ACOP_MAX_MAQ_LOG DB2 TABLE ON THE DAY OF INVOICING*        
+      *              AN ORDER.                                         *        
+      *   3. ICWCOP20-DB2-READ: IS USED FOR FUTURE USE TO READ AND     *        
+      *     SUM UP THE ORDR_QTY FIELD TO KNOW COP-MAX-QTY-TODATE/      *        
+      *     MAQ-COP-QTY-ORDERED FIELD.                                 *        
+      *================================================================*        
+      *                                                                *        
+      * REVISION INFO:                                                 *        
+      * 02/28/20 SPR ACOP TRACK DB2 PROCESS: NEW COPYBOOK              *SPR20059
+      *================================================================*        
+      *                                                                         
+       T100-ACOP-MAX-MAQ-TRK-PRCS.                                              
+      *                                                                         
+           EVALUATE TRUE                                                        
+               WHEN ICWCOP20-DB2-INSERT                                         
+                    PERFORM T200-ACOP-MAX-MAQ-ORDR-LOG                          
+                       THRU T200-ACOP-MAX-MAQ-ORDR-LG-EXIT                      
+               WHEN ICWCOP20-DB2-UPDATE-DS                                      
+                    PERFORM T400-UPD-ORD-DIST-SHP                               
+                       THRU T400-EXIT                                           
+               WHEN ICWCOP20-DB2-UPDATE-INVC                                    
+      *--------FOR FUTURE USE                                                   
+                    CONTINUE                                                    
+               WHEN ICWCOP20-DB2-READ                                           
+      *--------FOR FUTURE USE                                                   
+                    CONTINUE                                                    
+           END-EVALUATE.                                                        
+      *                                                                         
+       T100-ACOP-MAX-MAQ-TRK-PRC-EXIT.                                          
+           EXIT.                                                                
+      *                                                                         
+       T200-ACOP-MAX-MAQ-ORDR-LOG.                                              
+      *                                                                         
+           MOVE ICWCOP20-MAX-MAQ-LOG-DB2-DATA                                   
+                                  TO DCLACOP-MAX-MAQ-LOG.                       
+           PERFORM T300-LOG-ORDER-DETAILS                                       
+              THRU T300-LOG-ORDER-DETAILS-EXIT.                                 
+      *                                                                         
+       T200-ACOP-MAX-MAQ-ORDR-LG-EXIT.                                          
+           EXIT.                                                                
+                                                                                
+       T300-LOG-ORDER-DETAILS.                                                  
+      *                                                                         
+           EXEC SQL                                                             
+              INSERT INTO ACOP_MAX_MAQ_LOG                                      
+                         (CO_CD                                                 
+                         ,ACOP_TRK_NBR                                          
+                         ,BR_NBR                                                
+                         ,CUST_NBR                                              
+                         ,ACOP_EU_ID                                            
+                         ,MAIN_PGM_CD                                           
+                         ,VEND_ACOP_PGM_CD                                      
+                         ,ORDR_BR                                               
+                         ,ORDR_NBR                                              
+                         ,DIST_NBR                                              
+                         ,SHIP_NBR                                              
+                         ,ORDR_DT                                               
+                         ,INVC_DT                                               
+                         ,LINE_NBR                                              
+                         ,PART_NBR                                              
+                         ,ACOP_MAX_QTY                                          
+                         ,ACOP_MAQ_QTY                                          
+                         ,ORDR_QTY                                              
+                         ,EVENT_RSN_TXT                                         
+                         ,ORDR_LINE_DEL_STUS_CD                                 
+                         ,LAST_CHG_OPER_ID                                      
+                         ,LAST_UPD_PGM_ID                                       
+                         ,LAST_UPD_TS                                           
+                         ,CUST_SHIP_TO_SFX                                      
+                         ,ACOP_TYP_CD                                           
+                         )                                                      
+              VALUES                                                            
+                         (:SETACMAX-CO-CD                                       
+                         ,:SETACMAX-ACOP-TRK-NBR                                
+                         ,:SETACMAX-BR-NBR                                      
+                         ,:SETACMAX-CUST-NBR                                    
+                         ,:SETACMAX-ACOP-EU-ID                                  
+                          :ICWCOP20-ACOP-EU-ID-IND                              
+                         ,:SETACMAX-MAIN-PGM-CD                                 
+                         ,:SETACMAX-VEND-ACOP-PGM-CD                            
+                         ,:SETACMAX-ORDR-BR                                     
+                         ,:SETACMAX-ORDR-NBR                                    
+                         ,:SETACMAX-DIST-NBR                                    
+                         ,:SETACMAX-SHIP-NBR                                    
+                         ,:SETACMAX-ORDR-DT                                     
+                          :ICWCOP20-ORD-DT-IND                                  
+                         ,:SETACMAX-INVC-DT                                     
+                          :ICWCOP20-ORD-INVC-DT-IND                             
+                         ,:SETACMAX-LINE-NBR                                    
+                         ,:SETACMAX-PART-NBR                                    
+                         ,:SETACMAX-ACOP-MAX-QTY                                
+                         ,:SETACMAX-ACOP-MAQ-QTY                                
+                         ,:SETACMAX-ORDR-QTY                                    
+                         ,:SETACMAX-EVENT-RSN-TXT                               
+                         ,:SETACMAX-ORDR-LINE-DEL-STUS-CD                       
+                         ,:SETACMAX-LAST-CHG-OPER-ID                            
+                         ,:SETACMAX-LAST-UPD-PGM-ID                             
+                         ,CURRENT TIMESTAMP                                     
+                         ,:SETACMAX-CUST-SHIP-TO-SFX                            
+                         ,:SETACMAX-ACOP-TYP-CD                                 
+                         )                                                      
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                   TO SQLCODE-STATUS                     
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                    MOVE 'T300'           TO WS-ABCODE                          
+                    MOVE 'T300-LOG-ORDER-DETAILS'                               
+                                          TO SYWDB2-EXTRA-MESSAGE-1             
+                    MOVE 'ERROR IN INSERT ACOP_MAX_MAQ_LOG'                     
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+                    PERFORM 990-SQL-MESSAGE                                     
+           END-EVALUATE.                                                        
+      *                                                                         
+       T300-LOG-ORDER-DETAILS-EXIT.                                             
+           EXIT.                                                                
+      *                                                                         
+       T400-UPD-ORD-DIST-SHP.                                                   
+                                                                                
+           EXEC SQL                                                             
+              UPDATE ACOP_MAX_MAQ_LOG                                           
+                 SET DIST_NBR = :SETACMAX-DIST-NBR                              
+                    ,SHIP_NBR = :SETACMAX-SHIP-NBR                              
+               WHERE CO_CD    = :SETACMAX-CO-CD                                 
+                 AND ORDR_BR  = :SETACMAX-ORDR-BR                               
+                 AND ORDR_NBR = :SETACMAX-ORDR-NBR                              
+                 AND ORDR_DT  = :SETACMAX-ORDR-DT                               
+                 AND LINE_NBR = :SETACMAX-LINE-NBR                              
+                 AND PART_NBR = :SETACMAX-PART-NBR                              
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                   TO SQLCODE-STATUS                     
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                    MOVE 'T400'           TO WS-ABCODE                          
+                    MOVE 'T400-UPD-ORD-DIST-SHP'                                
+                                          TO SYWDB2-EXTRA-MESSAGE-1             
+                    MOVE 'ERROR IN UPDATE ACOP_MAX_MAQ_LOG'                     
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+                    PERFORM 990-SQL-MESSAGE                                     
+           END-EVALUATE.                                                        
+                                                                                
+       T400-EXIT.                                                               
+           EXIT.                                                                
+                                                                                

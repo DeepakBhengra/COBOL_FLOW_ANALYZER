@@ -1,0 +1,587 @@
+﻿000400*****************************************************************         
+000500*                                                               *         
+000600*    SYRESFBP - ENHANCED SERVICE FEE PRICING                    *         
+000700*                                                               *         
+000800*****************************************************************         
+000900*****************************************************************         
+001000* REVISIONS:                                                    *         
+001100*                                                               *         
+001200* DATE     PGMR  DESCRIPTION                                    *         
+001300* -------- ----- -----------------------------------------------*         
+001400* 10/05/18 TGF   ADD ABEND FOR SQL ISSUES                       * TGF18278
+001410* 09/07/18 TGF   HELLO WORLD                                    * TGF18250
+001500*****************************************************************         
+001600***  FROM SFP001                                                          
+001700 ENHSFB01-MAIN.                                                           
+001800                                                                          
+001900     INITIALIZE SY777-PARM-DATA.                                          
+002000*    INITIALIZE SYWESFBP-OUTPUT-AREA.                                     
+002100     MOVE ' '                    TO SYWESFBP-NO-MORE-FEE-SW               
+002200                                    SYWESFBP-PART-FEE-CSR-SW      TGF18278
+002300                                    SYWESFBP-CATSUB-FEE-CSR-SW    TGF18278
+002400                                    SYWESFBP-FEE-PRESENT-SW.              
+002500                                                                  TGF18278
+002501     PERFORM ENHSFB02-CLEAR-TABLE                                         
+002502        THRU ENHSFB02-EXIT.                                               
+002503     MOVE 0                      TO SYWESFBP-TBL-CTR.                     
+002600                                                                          
+002700     IF (SYWESFBP-COMPANY    = SPACES OR LOW-VALUES)                      
+002800     OR (SYWESFBP-PART-NBR   = SPACES OR LOW-VALUES)                      
+002900     OR (SYWESFBP-CAT-SUBCAT = SPACES OR LOW-VALUES)                      
+003000     OR (SYWESFBP-CUST-BR    = SPACES OR LOW-VALUES)                      
+003100     OR (SYWESFBP-CUST-NBR   = SPACES OR LOW-VALUES)                      
+003200         MOVE 'E'                TO SYWESFBP-FEE-PRESENT-SW               
+003300         MOVE 'NEEDED INPUT IS MISSING'                                   
+003400                                 TO SYWESFBP-MESSAGE                      
+003500         GO TO ENHSFB01-EXIT                                              
+003600     END-IF.                                                              
+003700                                                                          
+003800     MOVE SYWESFBP-COMPANY       TO SFTSSPEC-CO-CD                        
+003900                                    SY777-IN-COMPANY-CODE.                
+004000     MOVE SYWESFBP-PART-NBR      TO SFTSSPEC-PART-NBR.                    
+004500                                                                          
+004600     MOVE EIBDATE                TO SY777-IN-JUL-YYDDD.                   
+004700     CALL 'SYV777'            USING SY777-PARM-DATA.                      
+004800     MOVE SY777-OUT-ISO-10       TO SYWESFBP-TOD-DATE.                    
+004900                                                                          
+005000     PERFORM ENHSFB03-LOOP-FOR-FEES                                       
+005100        THRU ENHSFB03-EXIT                                                
+005200       UNTIL SYWESFBP-NO-MORE-FEES                                        
+005210          OR SYWESFBP-ERROR                                       TGF18258
+005300          OR SYWESFBP-TBL-CTR > 5.                                        
+005400                                                                          
+005500 ENHSFB01-EXIT.                                                           
+005600     EXIT.                                                                
+005700                                                                          
+005800 ENHSFB02-CLEAR-TABLE.                                                    
+005900                                                                          
+006000     SET SYWESFBP-INDX           TO 1                                     
+006100     MOVE 5                      TO SYWESFBP-TBL-CTR                      
+006200     PERFORM VARYING SYWESFBP-INDX FROM 1 BY 1                            
+006300       UNTIL SYWESFBP-INDX > 5                                            
+006400          MOVE SPACES            TO SYWESFBP-SRV-ID                       
+006500                                    (SYWESFBP-INDX)                       
+006600          MOVE ZEROES            TO SYWESFBP-FEE-UNIT-COST                
+006700                                    (SYWESFBP-INDX)                       
+006800                                    SYWESFBP-FEE-UNIT-PRICE               
+006900                                    (SYWESFBP-INDX)                       
+007000     END-PERFORM.                                                         
+007100     SET SYWESFBP-INDX           TO 1.                                    
+007200                                                                          
+007300 ENHSFB02-EXIT.                                                           
+007400     EXIT.                                                                
+007500                                                                          
+007600 ENHSFB03-LOOP-FOR-FEES.                                                  
+007700                                                                          
+007800     IF SYWESFBP-PART-FEE-CSR-OPEN                                        
+007900        NEXT SENTENCE                                                     
+008000     ELSE                                                                 
+008100        EXEC SQL                                                          
+008200             OPEN PART_FEE_CSR                                            
+008300        END-EXEC                                                          
+008400        EVALUATE SQLCODE                                                  
+008500            WHEN DB2-NORESP                                               
+008600                 SET SYWESFBP-PART-FEE-CSR-OPEN                           
+008700                                    TO TRUE                               
+008800            WHEN OTHER                                                    
+008900                 MOVE 'ENHB'     TO WS-ABCODE                             
+009000                 MOVE 'ENHSFB03-LOOP'                                     
+009100                                 TO SYWESFBP-DB2-ERROR-PARA               
+009200                 MOVE SQLCODE    TO SYWESFBP-SQLCODE-STATUS               
+009300                 MOVE WRK-PROGRAM-NAME                                    
+009400                                 TO SYWESFBP-DB2-PGM-ERROR                
+009500                 MOVE SYWESFBP-EXTRA-MESSAGE-1                            
+009600                                 TO SYWDB2-EXTRA-MESSAGE-1                
+009700                 MOVE 'ERROR OPEN ON PART_FEE_CSR CURSOR'                 
+009800                                 TO SYWDB2-EXTRA-MESSAGE-2                
+009900                                    SYWESFBP-MESSAGE                      
+010000                 MOVE 'E'        TO SYWESFBP-FEE-PRESENT-SW               
+010100                 PERFORM 990-SQL-MESSAGE                                  
+010110*                PERFORM 999-ABEND                                TGF18278
+010200                 GO TO ENHSFB03-EXIT                              TGF18278
+010300        END-EVALUATE                                                      
+010400     END-IF.                                                              
+010500                                                                          
+010600     EXEC SQL                                                             
+010700          FETCH PART_FEE_CSR                                              
+010800           INTO  :SFTSCHG-CUST-BR-NBR                                     
+010900                ,:SFTSCHG-CUST-NBR                                        
+011000                ,:SFTSCHG-CUST-BILL-TO-SFX                                
+011200                ,:SFTSSPEC-VEND-NBR                                       
+011300                ,:SFTSSPEC-CAT-ID                                         
+011400                ,:SFTSSPEC-SUBCAT-ID                                      
+011500                ,:SFTSSPEC-SRV-ID                                         
+011600                ,:SFTSSPEC-SRV-COST-SEQ-NBR                               
+011700                ,:SFTSCHG-PRC-ID                                          
+011800                ,:SFTSCHG-SCG-PRC-AMT                                     
+011900                ,:SFTSCHG-SCG-COST-AMT                                    
+012000                ,:SFTSCOST-SRV-COST-AMT                                   
+012100     END-EXEC.                                                            
+012200                                                                          
+012300     EVALUATE SQLCODE                                                     
+012400         WHEN DB2-NORESP                                                  
+012500              PERFORM ENHSFB05-CUSTOMER-EXCLUSION                         
+012600                 THRU ENHSFB05-EXIT                                       
+012700              IF SYWESFBP-ERROR                                   TGF18278
+012800                 GO TO ENHSFB03-EXIT                              TGF18278
+012801              ELSE                                                TGF18278
+012802                 IF SYWESFBP-CUST-EXCLUSION                               
+012803                    NEXT SENTENCE                                         
+012900                 ELSE                                                     
+013000                    SET SYWESFBP-FEE-PRESENT                              
+013100                                    TO TRUE                               
+013200                    ADD 1        TO SYWESFBP-TBL-CTR                      
+013300                    MOVE SFTSSPEC-SRV-ID                                  
+013400                                    TO SYWESFBP-SRV-ID                    
+013500                                      (SYWESFBP-INDX)                     
+013600                    IF SFTSCHG-SCG-PRC-AMT NUMERIC                        
+013610                       MOVE SFTSCHG-SCG-PRC-AMT                           
+013700                                    TO SYWESFBP-FEE-UNIT-PRICE            
+013800                                      (SYWESFBP-INDX)                     
+013900                    ELSE                                                  
+013902                       MOVE ZEROES TO SYWESFBP-FEE-UNIT-PRICE             
+013903                                      (SYWESFBP-INDX)                     
+013904                    END-IF                                                
+013905                    IF SFTSCHG-SCG-COST-AMT NUMERIC                       
+013906                       MOVE SFTSCHG-SCG-COST-AMT                          
+014000                                    TO SYWESFBP-FEE-UNIT-COST             
+014100                                      (SYWESFBP-INDX)                     
+014200                    ELSE                                                  
+014201                       MOVE ZEROES                                        
+014202                                    TO SYWESFBP-FEE-UNIT-COST             
+014203                                      (SYWESFBP-INDX)                     
+014204                    END-IF                                                
+014205                    PERFORM ENHSFB08-GET-SRV-LINE-NBR                     
+014206                       THRU ENHSFB08-EXIT                                 
+014207                    IF SYWESFBP-ERROR                             TGF18278
+014208                       GO TO ENHSFB03-EXIT                        TGF18278
+014209                    END-IF                                        TGF18278
+014210                    SET SYWESFBP-INDX UP BY 1                             
+014211                    IF SYWESFBP-INDX > 5                                  
+014212                       MOVE 'MORE FEES THAN TABLE CAN HOLD'               
+014213                                    TO SYWESFBP-MESSAGE                   
+014214                    END-IF                                                
+014300                 END-IF                                                   
+014310              END-IF                                              TGF18278
+014400*                PERFORM ENHSFB04-CLOSE-CSR                               
+014600         WHEN DB2-NOT-FOUND                                               
+014700              PERFORM ENHSFB04-CLOSE-CSR                                  
+014800                 THRU ENHSFB04-EXIT                                       
+014801                 MOVE SYWESFBP-CAT-SUBCAT (1:2)                           
+014802                                 TO SFTSSPEC-CAT-ID                       
+014803                 MOVE SYWESFBP-CAT-SUBCAT (3:2)                           
+014804                                 TO SFTSSPEC-SUBCAT-ID                    
+014900              PERFORM ENHSFB06-CAT-SUBCAT                                 
+015000                 THRU ENHSFB06-EXIT                                       
+015100* SHOULD I THEN TRIGGER THE CAT/SUBCAT CHECK?                             
+015200* IF THEN NOTHING IS FOUND THEN SET NO MORE FEES?                         
+015300              SET SYWESFBP-NO-MORE-FEES                                   
+015400                                 TO TRUE                                  
+015500         WHEN OTHER                                                       
+015600              MOVE 'ENHB'        TO WS-ABCODE                             
+015700              MOVE 'ENHSFB03-LOOP'                                        
+015800                                 TO SYWESFBP-DB2-ERROR-PARA               
+015900              MOVE SQLCODE       TO SYWESFBP-SQLCODE-STATUS               
+016000              MOVE WRK-PROGRAM-NAME                                       
+016100                                 TO SYWESFBP-DB2-PGM-ERROR                
+016200              MOVE SYWESFBP-EXTRA-MESSAGE-1                               
+016300                                 TO SYWDB2-EXTRA-MESSAGE-1                
+016400              MOVE 'ERROR FETCH ON PART_FEE_CSR CURSOR'                   
+016500                                 TO SYWDB2-EXTRA-MESSAGE-2                
+016600                                    SYWESFBP-MESSAGE                      
+016700              MOVE 'E'           TO SYWESFBP-FEE-PRESENT-SW               
+016800              PERFORM 990-SQL-MESSAGE                                     
+016810*             PERFORM 999-ABEND                                   TGF18258
+016900     END-EVALUATE.                                                        
+017000                                                                          
+017100 ENHSFB03-EXIT.                                                           
+017200     EXIT.                                                                
+017300                                                                          
+017400 ENHSFB04-CLOSE-CSR.                                                      
+017500                                                                          
+017600     EXEC SQL                                                             
+017700          CLOSE PART_FEE_CSR                                              
+017800     END-EXEC.                                                            
+017900                                                                          
+018000     EVALUATE SQLCODE                                                     
+018100         WHEN DB2-NORESP                                                  
+018200              SET SYWESFBP-PART-FEE-CSR-CLOSED                            
+018300                                 TO TRUE                                  
+018400         WHEN OTHER                                                       
+018500              MOVE 'ENHB'        TO WS-ABCODE                             
+018600              MOVE 'ENHSFB04-CLS-CSR'                                     
+018700                                 TO SYWESFBP-DB2-ERROR-PARA               
+018800              MOVE SQLCODE       TO SYWESFBP-SQLCODE-STATUS               
+018900              MOVE WRK-PROGRAM-NAME                                       
+019000                                 TO SYWESFBP-DB2-PGM-ERROR                
+019100              MOVE SYWESFBP-EXTRA-MESSAGE-1                               
+019200                                 TO SYWDB2-EXTRA-MESSAGE-1                
+019300              MOVE 'ERROR CLOSE ON PART_FEE_CSR CURSOR'                   
+019400                                 TO SYWDB2-EXTRA-MESSAGE-2                
+019500                                    SYWESFBP-MESSAGE                      
+019600              MOVE 'E'           TO SYWESFBP-FEE-PRESENT-SW               
+019700              PERFORM 990-SQL-MESSAGE                                     
+019710*             PERFORM 999-ABEND                                   TGF18258
+019800              GO TO ENHSFB04-EXIT                                         
+019900     END-EVALUATE.                                                        
+020000                                                                          
+020100 ENHSFB04-EXIT.                                                           
+020200     EXIT.                                                                
+020300                                                                          
+020400 ENHSFB05-CUSTOMER-EXCLUSION.                                             
+020500                                                                          
+020600     MOVE ' '                    TO SYWESFBP-CUST-EXCLUSION-SW.           
+020700                                                                          
+020800     MOVE SYWESFBP-COMPANY       TO SFTSCUSE-CO-CD.                       
+020900     MOVE SFTSSPEC-SRV-ID        TO SFTSCUSE-SRV-ID.                      
+021000     MOVE SYWESFBP-CUST-BR       TO SFTSCUSE-CUST-BR-NBR.                 
+021100     MOVE SYWESFBP-CUST-NBR      TO SFTSCUSE-CUST-NBR.                    
+021200                                                                          
+021300     IF SYWESFBP-CUST-SUFFIX > SPACE                                      
+021400        MOVE SYWESFBP-CUST-SUFFIX                                         
+021500                                 TO SFTSCUSE-CUST-SFX                     
+021600     ELSE                                                                 
+021700        MOVE '000'               TO SFTSCUSE-CUST-SFX                     
+021800     END-IF.                                                              
+021900                                                                          
+022000     EXEC SQL                                                             
+022100          OPEN CUST_EXCLU_CSR                                             
+022200     END-EXEC.                                                            
+022300                                                                          
+022400     EVALUATE SQLCODE                                                     
+022500         WHEN DB2-NORESP                                                  
+022600              CONTINUE                                                    
+022700         WHEN OTHER                                                       
+022800              MOVE 'ENHB'        TO WS-ABCODE                             
+022900              MOVE 'ENHSFB02-MAIN'                                        
+023000                                 TO SYWESFBP-DB2-ERROR-PARA               
+023100              MOVE SQLCODE       TO SYWESFBP-SQLCODE-STATUS               
+023200              MOVE WRK-PROGRAM-NAME                                       
+023300                                 TO SYWESFBP-DB2-PGM-ERROR                
+023400              MOVE SYWESFBP-EXTRA-MESSAGE-1                               
+023500                                 TO SYWDB2-EXTRA-MESSAGE-1                
+023600              MOVE 'ERROR OPEN ON CUST_EXCLU_CSR CURSOR'                  
+023700                                 TO SYWDB2-EXTRA-MESSAGE-2                
+023800                                    SYWESFBP-MESSAGE                      
+023900              MOVE 'E'           TO SYWESFBP-FEE-PRESENT-SW               
+024000              PERFORM 990-SQL-MESSAGE                                     
+024010*             PERFORM 999-ABEND                                   TGF18258
+024100              GO TO ENHSFB05-EXIT                                         
+024200     END-EVALUATE.                                                        
+024300                                                                          
+024400* TEST - NEED NEW COLUMN OR TABLE? TO PROCESS THIS SWITCH                 
+024500     EXEC SQL                                                             
+024600          FETCH CUST_EXCLU_CSR                                            
+024700           INTO  :SFTSCUSE-EXCLD-FLG                                      
+024800     END-EXEC.                                                            
+024900                                                                          
+025000     EVALUATE SQLCODE                                                     
+025100         WHEN DB2-NORESP                                                  
+025200              EVALUATE SFTSCUSE-EXCLD-FLG                                 
+025300                  WHEN 'Y'                                                
+025400                       SET SYWESFBP-CUST-EXCLUSION                        
+025500                                 TO TRUE                                  
+025600                  WHEN 'A'                                                
+025700                       SET SYWESFBP-CUST-NOT-EXCLUDED                     
+025800                                 TO TRUE                                  
+025900                  WHEN 'N'                                                
+026000                       SET SYWESFBP-CUST-NOT-EXCLUDED                     
+026100                                 TO TRUE                                  
+026200              END-EVALUATE                                                
+026300         WHEN DB2-NOT-FOUND                                               
+026400              IF SYWESFBP-CUST-SUFFIX > '200'                             
+026500                 MOVE '000'      TO SYWESFBP-CUST-SUFFIX                  
+026600              ELSE                                                        
+026700                 SET SYWESFBP-STOP-LOOP-ON-CUST                           
+026800                                 TO TRUE                                  
+026900              END-IF                                                      
+027000         WHEN OTHER                                                       
+027100              MOVE 'ENHB'        TO WS-ABCODE                             
+027200              MOVE 'ENHSFB05-CUST'                                        
+027300                                 TO SYWESFBP-DB2-ERROR-PARA               
+027400              MOVE SQLCODE       TO SYWESFBP-SQLCODE-STATUS               
+027500              MOVE WRK-PROGRAM-NAME                                       
+027600                                 TO SYWESFBP-DB2-PGM-ERROR                
+027700              MOVE SYWESFBP-EXTRA-MESSAGE-1                               
+027800                                 TO SYWDB2-EXTRA-MESSAGE-1                
+027900              MOVE 'ERROR FETCH ON CUST_EXCLU_CSR CURSOR'                 
+028000                                 TO SYWDB2-EXTRA-MESSAGE-2                
+028100                                    SYWESFBP-MESSAGE                      
+028200              MOVE 'E'           TO SYWESFBP-FEE-PRESENT-SW               
+028300              PERFORM 990-SQL-MESSAGE                                     
+028301              GO TO ENHSFB05-EXIT                                 TGF18278
+028302*             PERFORM 999-ABEND                                   TGF18278
+028400     END-EVALUATE.                                                        
+028500                                                                          
+028600     EXEC SQL                                                             
+028700          CLOSE CUST_EXCLU_CSR                                            
+028800     END-EXEC.                                                            
+028900                                                                          
+029000     EVALUATE SQLCODE                                                     
+029100         WHEN DB2-NORESP                                                  
+029200              CONTINUE                                                    
+029300         WHEN OTHER                                                       
+029400              MOVE 'ENHB'        TO WS-ABCODE                             
+029500              MOVE 'ENHSFB05-CUST'                                        
+029600                                 TO SYWESFBP-DB2-ERROR-PARA               
+029700              MOVE SQLCODE       TO SYWESFBP-SQLCODE-STATUS               
+029800              MOVE WRK-PROGRAM-NAME                                       
+029900                                 TO SYWESFBP-DB2-PGM-ERROR                
+030000              MOVE SYWESFBP-EXTRA-MESSAGE-1                               
+030100                                 TO SYWDB2-EXTRA-MESSAGE-1                
+030200              MOVE 'ERROR CLOSE ON CUST_EXCLU_CSR CURSOR'                 
+030300                                 TO SYWDB2-EXTRA-MESSAGE-2                
+030400                                    SYWESFBP-MESSAGE                      
+030500              MOVE 'E'           TO SYWESFBP-FEE-PRESENT-SW               
+030600              PERFORM 990-SQL-MESSAGE                                     
+030610*             PERFORM 999-ABEND                                   TGF18278
+030700              GO TO ENHSFB05-EXIT                                 TGF18278
+030800     END-EVALUATE.                                                        
+030900                                                                          
+031000 ENHSFB05-EXIT.                                                           
+031100     EXIT.                                                                
+031200                                                                          
+031300 ENHSFB06-CAT-SUBCAT.                                                     
+031400                                                                          
+031500     IF SYWESFBP-CATSUB-FEE-CSR-OPEN                                      
+031600        NEXT SENTENCE                                                     
+031601     ELSE                                                                 
+031602        EXEC SQL                                                          
+031603             OPEN CAT_SUBCAT_FEE_CSR                                      
+031700        END-EXEC                                                          
+031900        EVALUATE SQLCODE                                                  
+032000            WHEN DB2-NORESP                                               
+032100                 SET SYWESFBP-CATSUB-FEE-CSR-OPEN                         
+032101                                    TO TRUE                               
+032102*                CONTINUE                                                 
+032200            WHEN OTHER                                                    
+032300                 MOVE 'ENHB'     TO WS-ABCODE                             
+032400                 MOVE 'ENHSFB05-CAT'                                      
+032500                                    TO SYWESFBP-DB2-ERROR-PARA            
+032600                 MOVE SQLCODE    TO SYWESFBP-SQLCODE-STATUS               
+032700                 MOVE WRK-PROGRAM-NAME                                    
+032800                                    TO SYWESFBP-DB2-PGM-ERROR             
+032900                 MOVE SYWESFBP-EXTRA-MESSAGE-1                            
+033000                                    TO SYWDB2-EXTRA-MESSAGE-1             
+033100                 MOVE 'ERROR OPEN ON CAT-SUBCAT_FEE_CSR CURSOR'           
+033200                                    TO SYWDB2-EXTRA-MESSAGE-2             
+033300                                       SYWESFBP-MESSAGE                   
+033400                 MOVE 'E'        TO SYWESFBP-FEE-PRESENT-SW               
+033500                 PERFORM 990-SQL-MESSAGE                                  
+033510*                PERFORM 999-ABEND                                TGF18278
+033600                 GO TO ENHSFB06-EXIT                              TGF18278
+033700        END-EVALUATE                                                      
+033710     END-IF.                                                              
+033800                                                                          
+033900     EXEC SQL                                                             
+034000          FETCH CAT_SUBCAT_FEE_CSR                                        
+034100           INTO  :SFTSCHG-CUST-BR-NBR                                     
+034200                ,:SFTSCHG-CUST-NBR                                        
+034300                ,:SFTSCHG-CUST-BILL-TO-SFX                                
+034400*               ,:SFTSSPEC-PART-NBR                                       
+034500*               ,:SFTSSPEC-VEND-NBR                                       
+034800                ,:SFTSSPEC-SRV-ID                                         
+034900                ,:SFTSSPEC-SRV-COST-SEQ-NBR                               
+035000                ,:SFTSCHG-PRC-ID                                          
+035100                ,:SFTSCHG-SCG-PRC-AMT                                     
+035200                ,:SFTSCHG-SCG-COST-AMT                                    
+035300                ,:SFTSCOST-SRV-COST-AMT                                   
+035400     END-EXEC.                                                            
+035500                                                                          
+035600     EVALUATE SQLCODE                                                     
+035700         WHEN DB2-NORESP                                                  
+035800              PERFORM ENHSFB05-CUSTOMER-EXCLUSION                         
+035900                 THRU ENHSFB05-EXIT                                       
+036000              IF SYWESFBP-ERROR                                   TGF18278
+036100                 GO TO ENHSFB06-EXIT                              TGF18278
+036101              ELSE                                                TGF18278
+036102                 IF SYWESFBP-CUST-EXCLUSION                               
+036103                    NEXT SENTENCE                                         
+036200                 ELSE                                                     
+036201                    SET SYWESFBP-FEE-PRESENT                              
+036202                                    TO TRUE                               
+036203                    ADD 1        TO SYWESFBP-TBL-CTR                      
+036204                    MOVE SFTSSPEC-SRV-ID                                  
+036205                                    TO SYWESFBP-SRV-ID                    
+036206                                      (SYWESFBP-INDX)                     
+036207                    IF SFTSCHG-SCG-PRC-AMT NUMERIC                        
+036208                       MOVE SFTSCHG-SCG-PRC-AMT                           
+036209                                    TO SYWESFBP-FEE-UNIT-PRICE            
+036210                                      (SYWESFBP-INDX)                     
+036220                    ELSE                                                  
+036221                       MOVE ZEROES                                        
+036222                                    TO SYWESFBP-FEE-UNIT-PRICE            
+036223                                      (SYWESFBP-INDX)                     
+036224                    END-IF                                                
+036225                    IF SFTSCHG-SCG-COST-AMT NUMERIC                       
+036226                       MOVE SFTSCHG-SCG-COST-AMT                          
+036227                                    TO SYWESFBP-FEE-UNIT-COST             
+036228                                      (SYWESFBP-INDX)                     
+036229                    ELSE                                                  
+036230                       MOVE ZEROES                                        
+036231                                    TO SYWESFBP-FEE-UNIT-COST             
+036232                                      (SYWESFBP-INDX)                     
+036233                    END-IF                                                
+036234                    PERFORM ENHSFB08-GET-SRV-LINE-NBR                     
+036235                       THRU ENHSFB08-EXIT                                 
+036236                    SET SYWESFBP-INDX UP BY 1                             
+036237                    IF SYWESFBP-INDX > 5                                  
+036238                       MOVE 'MORE FEES THAN TABLE CAN HOLD'               
+036239                                    TO SYWESFBP-MESSAGE                   
+036240                    END-IF                                                
+036241                 END-IF                                                   
+036242              END-IF                                              TGF18278
+037700         WHEN DB2-NOT-FOUND                                               
+037800              SET SYWESFBP-NO-MORE-FEES                                   
+037900                                 TO TRUE                                  
+037901              PERFORM ENHSFB07-CLOSE-CSR                                  
+037902                 THRU ENHSFB07-EXIT                                       
+038000         WHEN OTHER                                                       
+038100              MOVE 'ENHB'        TO WS-ABCODE                             
+038200              MOVE 'ENHSFB05-MAIN'                                        
+038300                                 TO SYWESFBP-DB2-ERROR-PARA               
+038400              MOVE SQLCODE       TO SYWESFBP-SQLCODE-STATUS               
+038500              MOVE WRK-PROGRAM-NAME                                       
+038600                                 TO SYWESFBP-DB2-PGM-ERROR                
+038700              MOVE SYWESFBP-EXTRA-MESSAGE-1                               
+038800                                 TO SYWDB2-EXTRA-MESSAGE-1                
+038900              MOVE 'ERROR FETCH ON CAT_SUBCAT_FEE_CSR CURSOR'             
+039000                                 TO SYWDB2-EXTRA-MESSAGE-2                
+039100                                    SYWESFBP-MESSAGE                      
+039200              MOVE 'E'           TO SYWESFBP-FEE-PRESENT-SW               
+039300              PERFORM 990-SQL-MESSAGE                                     
+039301              GO TO ENHSFB06-EXIT                                 TGF18278
+039302*             PERFORM 999-ABEND                                   TGF18278
+039400     END-EVALUATE.                                                        
+039500                                                                          
+039501     IF SYWESFBP-CATSUB-FEE-CSR-OPEN                              TGF18278
+039502        PERFORM ENHSFB07-CLOSE-CSR                                TGF18278
+039503           THRU ENHSFB07-EXIT.                                    TGF18278
+039504                                                                          
+039600 ENHSFB06-EXIT.                                                           
+039700     EXIT.                                                                
+039701                                                                          
+039702 ENHSFB07-CLOSE-CSR.                                                      
+039703                                                                          
+039704     EXEC SQL                                                             
+039705          CLOSE CAT_SUBCAT_FEE_CSR                                        
+039706     END-EXEC.                                                            
+039707                                                                          
+039708     EVALUATE SQLCODE                                                     
+039709         WHEN DB2-NORESP                                                  
+039710              SET SYWESFBP-CATSUB-FEE-CSR-CLOSED                          
+039711                                 TO TRUE                                  
+039712         WHEN OTHER                                                       
+039713              MOVE 'ENHB'        TO WS-ABCODE                             
+039714              MOVE 'ENHSFB07-CLS-CSR'                                     
+039715                                 TO SYWESFBP-DB2-ERROR-PARA               
+039716              MOVE SQLCODE       TO SYWESFBP-SQLCODE-STATUS               
+039717              MOVE WRK-PROGRAM-NAME                                       
+039718                                 TO SYWESFBP-DB2-PGM-ERROR                
+039719              MOVE SYWESFBP-EXTRA-MESSAGE-1                               
+039720                                 TO SYWDB2-EXTRA-MESSAGE-1                
+039721              MOVE 'ERROR CLOSE ON CAT_SUBCAT_FEE_CSR CURSOR'             
+039722                                 TO SYWDB2-EXTRA-MESSAGE-2                
+039723                                    SYWESFBP-MESSAGE                      
+039724              MOVE 'E'           TO SYWESFBP-FEE-PRESENT-SW               
+039725              PERFORM 990-SQL-MESSAGE                                     
+039726*             PERFORM 999-ABEND                                   TGF18278
+039727              GO TO ENHSFB07-EXIT                                 TGF18278
+039728     END-EVALUATE.                                                        
+039729                                                                          
+039730 ENHSFB07-EXIT.                                                           
+039740     EXIT.                                                                
+039800                                                                          
+039900 ENHSFB08-GET-SRV-LINE-NBR.                                               
+040000                                                                          
+040100     MOVE SYWESFBP-COMPANY       TO SFTSRV-CO-CD                          
+040200     MOVE SFTSSPEC-SRV-ID        TO SFTSRV-SRV-ID                         
+040300                                                                          
+040400     EXEC SQL                                                             
+040500     SELECT                                                               
+040600          LINE_NBR                                                        
+040700     INTO                                                                 
+040800          :SFTSRV-LINE-NBR                                                
+040900     FROM SF_SRV                                                          
+041000     WHERE CO_CD  = :SFTSRV-CO-CD                                         
+041100       AND SRV_ID = :SFTSRV-SRV-ID                                        
+041200     END-EXEC.                                                            
+041300                                                                          
+041301     EVALUATE SQLCODE                                                     
+041302         WHEN DB2-NORESP                                                  
+041303              MOVE SFTSRV-LINE-NBR                                        
+041304                                 TO SYWESFBP-SRV-LINE                     
+041305                                   (SYWESFBP-INDX)                        
+041306         WHEN DB2-NOT-FOUND                                               
+041307              MOVE 'N/A'                                                  
+041308                                 TO SYWESFBP-SRV-LINE                     
+041309                                   (SYWESFBP-INDX)                        
+041310              MOVE 'W'           TO SYWESFBP-FEE-PRESENT-SW               
+041311              MOVE 'LINE NUMBER NOT FOUND'                                
+041312                                 TO SYWESFBP-MESSAGE                      
+041313         WHEN OTHER                                                       
+041314              MOVE 'ENHB'        TO WS-ABCODE                             
+041315              MOVE 'ENHSFB08-SELECT SR_SFV'                               
+041316                                 TO SYWESFBP-DB2-ERROR-PARA               
+041317              MOVE SQLCODE       TO SYWESFBP-SQLCODE-STATUS               
+041318              MOVE WRK-PROGRAM-NAME                                       
+041319                                 TO SYWESFBP-DB2-PGM-ERROR                
+041320              MOVE SYWESFBP-EXTRA-MESSAGE-1                               
+041321                                 TO SYWDB2-EXTRA-MESSAGE-1                
+041322              MOVE 'ERROR ON SELECT FOR SF_SRV LINE NUMBER'               
+041323                                 TO SYWDB2-EXTRA-MESSAGE-2                
+041324                                    SYWESFBP-MESSAGE                      
+041325              MOVE 'E'           TO SYWESFBP-FEE-PRESENT-SW               
+041326              PERFORM 990-SQL-MESSAGE                                     
+041327*             PERFORM 999-ABEND                                   TGF18278
+041328              GO TO ENHSFB08-EXIT                                         
+041329     END-EVALUATE.                                                        
+041330                                                                          
+041340 ENHSFB08-EXIT.                                                           
+041341     EXIT.                                                                
+041342*                                                                         
+041343*ENHSFB04-SUM-AMOUNTS.                                                    
+041344*                                                                         
+041345*    EVALUATE TRUE                                                        
+041346*        WHEN TB-CPO4-ENH-SFP-BOTH                                        
+041347*             COMPUTE SYWESFBP-UNT-PRICE-WFEE =                           
+041348*                     SYWESFBP-TTL-FEE-PRICE +                            
+041349*                     WS-UNIT-PRICE                                       
+041350*             COMPUTE SYWESFBP-UNT-COST-WFEE =                            
+041351*                     SYWESFBP-TTL-FEE-COST +                             
+041352*                     WS-UNIT-COST                                        
+041353*             IF SYWESFBP-TTL-FEE-PRICE > ZERO                            
+041354*             OR SYWESFBP-TTL-FEE-COST  > ZERO                            
+041355*                SET SYWESFBP-FEE-PRESENT                                 
+041356*                             TO TRUE                                     
+041400*             ELSE                                                        
+041500*                SET SYWESFBP-NO-FEE-PRESENT                              
+041600*                             TO TRUE                                     
+041700*             END-IF                                                      
+041800*        WHEN TB-CPO4-ENH-SFP-PRICE-WFEE                                  
+041900*             COMPUTE SYWESFBP-UNT-PRICE-WFEE =                           
+042000*                     SYWESFBP-TTL-FEE-PRICE +                            
+042100*                     WS-UNIT-PRICE                                       
+042200*             IF SYWESFBP-TTL-FEE-PRICE > ZERO                            
+042300*                SET SYWESFBP-FEE-PRESENT                                 
+042400*                             TO TRUE                                     
+042500*             ELSE                                                        
+042600*                SET SYWESFBP-NO-FEE-PRESENT                              
+042700*                             TO TRUE                                     
+042800*             END-IF                                                      
+042900*        WHEN TB-CPO4-ENH-SFP-COST-WFEE                                   
+043000*             COMPUTE SYWESFBP-UNT-COST-WFEE =                            
+043100*                     SYWESFBP-TTL-FEE-COST +                             
+043200*                     WS-UNIT-COST                                        
+043300*             IF SYWESFBP-TTL-FEE-COST > ZERO                             
+043400*                SET SYWESFBP-FEE-PRESENT                                 
+043500*                             TO TRUE                                     
+043600*             ELSE                                                        
+043700*                SET SYWESFBP-NO-FEE-PRESENT                              
+043800*                             TO TRUE                                     
+043900*             END-IF                                                      
+044000*    END-EVALUATE.                                                        
+044100*                                                                         
+044200*ENHSFB04-EXIT.                                                           
+044300*    EXIT.                                                                
+044400*                                                                         

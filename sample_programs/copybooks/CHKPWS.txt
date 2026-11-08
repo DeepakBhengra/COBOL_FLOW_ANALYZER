@@ -1,0 +1,117 @@
+      ******************************************************************RMF95129
+      *   CHKPWS        CHECKPOINT/RESTART WORKING STORAGE COPYBOOK    *RMF95129
+      * THIS COPYBOOK CONTAINS THE WORKING STORAGE FOR THE CHECKPOINT  *RMF95129
+      * RESTART ROUTINES, AND IS USED IN CONJUCTION WITH THE COPYBOOK  *RMF95129
+      * CHKPPD - PROCEDURE DIVISION.                                   *RMF95129
+      ******************************************************************RMF95129
+      * INGRAM MICRO REVISIONS:                                        *RMF95129
+      * 11/04/22 MXV   ADD ELAPSED TIME CHECKPOINT LOGIC.              *MXV22308
+      * 10/25/95 RMF   CHANGED TO USED A CHECKPOINT DATABASE.          *RMF95296
+      * 05/09/95 RMF   INITIAL INSTALLATION                            *RMF95129
+      ******************************************************************RMF95129
+                                                                                
+       01 CHKP-WORK-AREA.                                                       
+                                                                                
+      **** THE APPLICATION PROGRAM SHOULD MOVE THE PSB NAME TO       ***RMF95129
+      **** CHKP-PSB-NAME BEFORE TAKING ANY CHECKPOINTS.              ***RMF95129
+                                                                                
+           05 CHKP-PSB-NAME                 PIC X(08).                          
+                                                                                
+      **** LENGTH OF THE IO AREA FOR THE CHECKPOINT CALL, IN THIS    ***RMF95129
+      **** CASE THE XRST-WORKAREA.                                   ***RMF95129
+                                                                                
+           05 CHKP-IOAREA-LN                PIC S9(05) COMP VALUE +12.          
+                                                                                
+      **** RESTART CHECKPOINT ID RETURNED HERE IF RESTARTED          ***RMF95129
+                                                                                
+           05 XRST-WORKAREA.                                                    
+               10 XRST-CHKP                 PIC X(08) VALUE SPACES.             
+               10 FILLER                    PIC X(04) VALUE SPACES.             
+                                                                                
+      **** CHKP-ID-1-4 IS THE UNIQUE FOUR CHARACTER IDENTIFIER THAT  ***RMF95129
+      **** IS ASSIGNED TO THE PSB FOR THE PROGRAM. THE VALUE FOR     ***RMF95129
+      **** FOR THIS IS STORED IN THE CHECKPOINT DATABASE AND         ***RMF95296
+      **** MUST BE ASSIGNED BY THE DATABASE ADMINISTRATOR.           ***RMF95129
+      **** CHKP-ID-CTR IS INCREMENTED BY ONE EACH TIME A CHECKPOINT  ***RMF95129
+      **** IS TAKEN, THIS UNIQUELY IDENTIFIES EACH CHECKPOINT FOR    ***RMF95129
+      **** RESTART PURPOSES.                                         ***RMF95129
+                                                                                
+           05 CHKP-ID.                                                          
+               10 CHKP-ID-1-4               PIC X(04) VALUE SPACES.             
+               10 CHKP-ID-CTR               PIC 9(04) VALUE ZERO.               
+                                                                                
+      **** IF RESTARTED, CHKP-RESTARTED WILL BE TRUE.                ***RMF95129
+                                                                                
+           05 CHKP-RESTART-SW               PIC X(01) VALUE 'N'.                
+               88 CHKP-RESTARTED                      VALUE 'Y'.                
+                                                                                
+      **** IF A CHECKPOINT IS TAKEN, CHKP-TAKEN WILL BE TRUE UNTIL   ***RMF95129
+      **** THE NEXT TIME THE 9100-CHECKPOINT-ROUTINE IS PERFORMED.   ***RMF95129
+                                                                                
+           05 CHKP-TAKEN-SW                 PIC X(01) VALUE 'N'.                
+               88 CHKP-TAKEN                          VALUE 'Y'.                
+                                                                                
+      **** FUTURE CONTROL INFORMATION FOR CHECKPOINT REQUIREMENTS    ***RMF95129
+                                                                                
+           05 FILLER                        PIC X(09) VALUE SPACES.             
+                                                                                
+      **** CHKP-LIMIT IS USED TO DETERMINE CHECKPOINT FREQUENCY      ***RMF95129
+      **** BASED ON THE CHKP-COUNT.                                  ***RMF95129
+      **** CHKP-COUNT SHOULD BE INCREMENTED IN THE APPLICATION       ***RMF95129
+      **** PROGRAM FOR EVERY UPDATE OF A LOGICAL RECORD AS FOLLOWS:  ***RMF95129
+      ****                                                           ***RMF95129
+      ****              DATABASE REPL        =  1                    ***RMF95129
+      ****              DATABASE ISRT        =  1                    ***RMF95129
+      ****              DATABASE DLET        =  1                    ***RMF95129
+                                                                                
+           05 CHKP-COUNT                    PIC 9(06) VALUE ZERO.               
+           05 CHKP-LIMIT                    PIC 9(06).                          
+           05 CHKP-LIMIT-TIME               PIC 9(04).                  MXV22308
+              88  CHKP-LIMIT-TIME-DEFAULT             VALUE 10.         MXV22308
+                                                                                
+      **** CHKP-WORK-AREA-1-LN IS THE LENGTH OF THE CHKP-WORK-AREA-1.***RMF95129
+      **** BOTH OF WHICH ARE DEFINED BY THE PROGRAMMER.              ***RMF95129
+                                                                                
+           05 CHKP-WORK-AREA-1-LN           PIC S9(05) COMP.                    
+                                                                                
+      **** CHKP-WORK-AREA-0-LN IS THE LENGTH OF THE CHKP-WORK-AREA-0.***RMF95129
+      **** CHKP-WORK-AREA-0 CONTAINS INFORMATION USED BY THE         ***RMF95129
+      **** CHECKPOINT ROUTINES.                                      ***RMF95129
+                                                                                
+           05 CHKP-WORK-AREA-0-LN           PIC S9(05) COMP VALUE +20.          
+                                                                        MXV22308
+       01  CHKP-TIME-BASED-LIMITS.                                      MXV22308
+           05  CHKP-LILIAN             PIC S9(9) BINARY.                MXV22308
+           05  CHKP-GREGORIAN          PIC X(17).                       MXV22308
+           05  CHKP-SECONDS            COMP-2            VALUE ZERO.    MXV22308
+           05  CHKP-SECONDS-PREVIOUS   COMP-2            VALUE ZERO.    MXV22308
+           05  CHKP-SECONDS-ELAPSED    PIC S9(05) COMP.                 MXV22308
+                                                                        MXV22308
+       01  CHKP-FC.                                                     MXV22308
+           05  CONDITION-TOKEN-VALUE.                                   MXV22308
+               10  CASE-1-CONDITION-ID.                                 MXV22308
+                   15  SEVERITY       PIC S9(4) BINARY.                 MXV22308
+                   15  MSG-NO         PIC S9(4) BINARY.                 MXV22308
+               10  CASE-2-CONDITION-ID                                  MXV22308
+                         REDEFINES CASE-1-CONDITION-ID.                 MXV22308
+                   15  CLASS-CODE     PIC S9(4) BINARY.                 MXV22308
+                   15  CAUSE-CODE     PIC S9(4) BINARY.                 MXV22308
+               10  CASE-SEV-CTL       PIC X.                            MXV22308
+               10  FACILITY-ID        PIC XXX.                          MXV22308
+           05  I-S-INFO               PIC S9(9) BINARY.                 MXV22308
+                                                                                
+       01 CHKP-WORK-AREA-0.                                                     
+                                                                                
+      **** IF THE PROGRAM SHOULD BACK OUT TO THE BEGINNING, PRIOR TO ***RMF95129
+      **** ANY DATA BEING UPDATED, CHKP-BACKOUT-TO-BEGINNING WILL    ***RMF95129
+      **** BE TRUE. IT WILL BE 'N' IF A CHECKPOINT OTHER THAN THE    ***RMF95129
+      **** FIRST, OR ONE RESTARTED AND REPLACING THE FIRST IS TAKEN. ***RMF95129
+                                                                                
+           05 CHKP-BACKOUT-TO-BEGINNING-SW  PIC X(01) VALUE 'Y'.                
+               88 CHKP-BACKOUT-TO-BEGINNING           VALUE 'Y'.                
+                                                                                
+           05 FILLER                        PIC X(19) VALUE SPACES.             
+                                                                                
+      ******************************************************************RMF95129
+      ****                     END OF COPYBOOK CHKPWS                ***RMF95129
+      ******************************************************************RMF95129

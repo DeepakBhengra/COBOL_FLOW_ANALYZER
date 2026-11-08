@@ -1,0 +1,1169 @@
+      ******************************************************************        
+      * LINK / UNLINK ROUTINES                                                  
+      ******************************************************************        
+      *                                                                *CYR23062
+      * !!!!!!    C O R E - W A R R A N T Y - P R O G R A M    !!!!!!  *CYR23062
+      *           #######   ###############   ##############           *CYR23062
+      *        PLEASE CONSULT WARRANTY TEAM BEFORE ANY CHANGES         *CYR23062
+      *      ==> IMPULSE-WARR-CORE-TEAM@INGRAMMICRO.COM  <==           *CYR23062
+      *                                                                *CYR23062
+      ******************************************************************CYR23062
+      * REVISION HISTORY                                                        
+      * 10/03/25 AA7 ADDED THE LOGIC TO STORE THE HARDWARE LINE'S       AA725276
+      *              RESPECTIVE QUANTITY FIELDS INTO WS VARIABLES.      AA725276
+      * 05/05/23 MB3 INCLUDING SELECT QUERY PARA -WARR_LINK             MB323125
+      *              & PREFIXING LINKID WITH COMPANY CODE .             MB323125
+      * 03/03/23 CYR FIX FOR CYCLE STATUS SHOWING ON LAST SHIPMENT      CYR23062
+      *              INSTEAD OF THE WARRANTY SKU (ADDED GU-ORSSHH)      CYR23062
+      *              FIX FOR DIRECT SHIP HARDWARE NOT FLAGGED CORRECTLY.CYR23062
+      * 08/05/22 CYR FIX FOR LINK-ID MISMATCH. LINK-ID SHOULD ONLY USE  CYR22217
+      *              WARRANTY ORDER DT. DEFINE LINK-ID WHEN PROCESSING  CYR22217
+      *              THE WARRANTY PART, AND JUST REUSE IT FOR HW PART.  CYR22217
+      *          TXV ADD ENTRY INTO WARR_LINK TABLE DURING BACKORDER    TXV22217
+      *              GENERATES.                                         TXV22217
+      *               1. WHEN NEW WARRANTY ORDR/BCKORDR CREATES         TXV22217
+      *               2. WHEN NEW HARDWARE ORDR/BCKORDR CREATES         TXV22217
+      * 05/13/22 CYR US APPLECARE                                       CYR22133
+      *              (1) ALLOW LINK TO HW ON DIFFERENT ORDER            CYR22133
+      *              (2) MAINTAIN WARR_LINK TABLE FOR LINK/UNLINK       CYR22133
+      *              (3) ADD CYCLE STATUS LOG FOR LINK/UNLINK           CYR22133
+      * 01/29/22 VYA CHANGE WHEN COPYING EU AND MC TO ORDES - CHG6386769VYA22029
+      * 03/27/20 CYR APPLECARE CHANGES                                  CYR20087
+      * 03/08/19 CYR INITIAL RELEASE                                    CYR19067
+      ******************************************************************        
+       9001-LINK-ROUTINE.                                                       
+           MOVE WR-ORDER-NBR           TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-WARRANTY-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-WARRANTY-LINE       TO WS-ORSLNE-NBR.                        
+           PERFORM 1202-GU-ORSSHH.                                      CYR23062
+           IF NOT WS-ORSSHH-NORESP                                      CYR23062
+              MOVE 'W10A' TO WR-RESP-CODE                               CYR23062
+              PERFORM W999-ERROR-ROUTINE                                CYR23062
+                 THRU W999-EXIT                                         CYR23062
+              GO TO 9001-EXIT                                           CYR23062
+           END-IF.                                                      CYR23062
+           PERFORM 1204-GU-ORSLNE.                                              
+           IF NOT WS-ORSLNE-NORESP                                              
+              MOVE 'W101' TO WR-RESP-CODE                               CYR22133
+              PERFORM W999-ERROR-ROUTINE                                CYR22133
+                 THRU W999-EXIT                                         CYR22133
+              GO TO 9001-EXIT                                                   
+           END-IF.                                                              
+           MOVE '0'                    TO WS-ORSDES-NBR.                        
+           PERFORM 9005-GET-LINKED-HARDWARE                                     
+              THRU 9005-EXIT.                                                   
+           IF WR-LINKED-HW-DS > SPACES                                          
+              AND WR-LINKED-HW-LINE > ZEROS                                     
+              SET WR-LINK-TYP-MULTI TO TRUE                             CYR20087
+           END-IF                                                               
+           IF WR-HARDWARE-ORDER NOT > SPACES                            CYR22133
+              MOVE WR-ORDER-NBR TO WR-HARDWARE-ORDER                    CYR22133
+           END-IF.                                                      CYR22133
+           PERFORM 9002-LINK-WARRANTY                                           
+              THRU 9002-EXIT.                                                   
+           PERFORM 9003-LINK-HARDWARE                                           
+              THRU 9003-EXIT.                                                   
+           PERFORM 9301-COPY-END-USER                                           
+              THRU 9301-EXIT.                                                   
+                                                                                
+       9001-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      * LINK THE WARRANTY LINE BY:                                              
+      * - UPDATE ORLOF-WARRTYP-SW TO LINKED                                     
+      * - INSERT PRINTABLE LINES IN ORSDES TO DISPLAY DISTRIBUTION              
+      *   AND LINE # TO WHICH THIS LINE IS LINKED TO                            
+      ******************************************************************        
+       9002-LINK-WARRANTY.                                                      
+                                                                                
+           MOVE WR-ORDER-NBR           TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-WARRANTY-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-WARRANTY-LINE       TO WS-ORSLNE-NBR.                        
+           MOVE '0'                    TO WS-ORSLNEOF-NBR.                      
+           PERFORM 1213-GHU-ORSLNEOF.                                           
+           IF WS-ORSLNEOF-NORESP                                                
+              MOVE ORLOF-ORSLNEOF      TO ORLOF-ORSLNEOF-0                      
+              IF WR-COMPAT-VALID                                        CYR22133
+                 IF WR-LINK-TYP-MULTI                                   CYR22133
+                    SET ORLOF-WARR-TYP-WARR-MULTIPLE TO TRUE            CYR22133
+                 ELSE                                                   CYR22133
+                    SET ORLOF-WARR-TYP-WARR-LINKED TO TRUE              CYR22133
+                 END-IF                                                 CYR22133
+              ELSE                                                      CYR22133
+                 SET ORLOF-WARR-TYP-CHK-COMPATIBLE TO TRUE              CYR22133
+              END-IF                                                    CYR22133
+              MOVE ORLOF-ORSLNEOF-0    TO ORLOF-ORSLNEOF                        
+              PERFORM 1317-REPL-ORSLNEOF                                        
+           END-IF.                                                              
+                                                                                
+           MOVE 'ORSDES   '            TO WS-UNQUAL-SSA.                        
+           MOVE WR-COMPANY             TO WS-ORSHED-CO.                         
+           MOVE WR-BRANCH              TO WS-ORSHED-BR.                         
+           MOVE WR-ORDER-NBR           TO WS-ORSHED-NBR.                        
+           MOVE WR-WARRANTY-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-WARRANTY-LINE       TO WS-ORSLNE-NBR.                        
+           MOVE SPACES                 TO ORD-DESCRIPTION-ORD.                  
+           SET ORD-SERVICE-SKU-LINKAGE TO TRUE.                                 
+           MOVE 0                      TO ORD-DESC-NBR.                         
+           MOVE 'LINKED TO:'           TO ORD-SL-LINKED-TO-MSG.                 
+           MOVE WR-BRANCH              TO ORD-SL-ORD-BR.                        
+           MOVE '-'                    TO ORD-SL-DASH1.                         
+           MOVE WR-HARDWARE-ORDER      TO ORD-SL-ORD-NBR.               CYR22133
+           MOVE '-'                    TO ORD-SL-DASH2.                         
+           MOVE WR-HARDWARE-DIST       TO ORD-SL-ORD-DIST.                      
+           MOVE WR-HARDWARE-SHIP       TO ORD-SL-ORD-SHIP.                      
+           MOVE ' LINE: '              TO ORD-SL-LINE-MSG.                      
+           MOVE WR-HARDWARE-LINE       TO ORD-SL-LINE-NBR.                      
+           SET WR-LINE-TYP-WARRANTY    TO TRUE.                         CYR22133
+           PERFORM 9004-INSERT-ORSDES                                           
+              THRU 9004-EXIT.                                                   
+           IF NOT WS-ORSDES-NORESP                                      CYR22133
+              MOVE 'W102' TO WR-RESP-CODE                               CYR22133
+              PERFORM W999-ERROR-ROUTINE                                CYR22133
+                 THRU W999-EXIT                                         CYR22133
+           END-IF.                                                      CYR22133
+                                                                                
+      * CALL THE HARDWARE LINE TO GET THE HARDWARE PART                         
+           MOVE WR-HARDWARE-ORDER      TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-HARDWARE-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-HARDWARE-LINE       TO WS-ORSLNE-NBR.                        
+           PERFORM 1204-GU-ORSLNE.                                              
+           IF WS-ORSLNE-NORESP                                                  
+              MOVE ORL-QTY-ORDERED     TO WR-HW-QTY-ORDERED             AA725276
+              MOVE ORL-QTY-SHIPPED     TO WR-HW-QTY-SHIPPED             AA725276
+              MOVE ORL-QTY-BACKORDERED TO WR-HW-QTY-BACKORDERED         AA725276
+              MOVE SPACES TO ORD-DESCRIPTION-ORD                                
+              MOVE 'SKU: '             TO ORD-SM-SKU-MSG                        
+              MOVE ORL-PART-NBR        TO ORD-SM-PART-NBR                       
+              MOVE SPACE               TO ORD-SM-SPACE1                         
+              MOVE ORL-DESCRIPTION     TO ORD-SM-PART-DESC                      
+              SET ORD-SERVICE-SKU-PART-NBR                                      
+                                       TO TRUE                                  
+      * CALL THE WARRANTY LINE TO REPOSTION                                     
+              MOVE WR-ORDER-NBR        TO WS-ORSHED-NBR                 CYR22133
+              MOVE WR-WARRANTY-DS      TO WS-ORSSHH-KEY-VALUE                   
+              MOVE WR-WARRANTY-LINE    TO WS-ORSLNE-NBR                         
+              PERFORM 1200-GU-ORSHED                                    CYR22133
+              IF NOT WS-ORSHED-NORESP                                   CYR22133
+                 GO TO 9002-EXIT                                        CYR22133
+              END-IF                                                    CYR22133
+                                                                        CYR22133
+              PERFORM 1204-GU-ORSLNE                                            
+              IF WS-ORSLNE-NORESP                                               
+                 PERFORM 9004-INSERT-ORSDES                                     
+                    THRU 9004-EXIT                                              
+                 IF NOT WS-ORSDES-NORESP                                CYR22133
+                    MOVE 'W103' TO WR-RESP-CODE                         CYR22133
+                    PERFORM W999-ERROR-ROUTINE                          CYR22133
+                       THRU W999-EXIT                                   CYR22133
+                 END-IF                                                 CYR22133
+      * DEFINE LINK-ID FOR WARR_LINK ENTRY.                             CYR22217
+      * THIS WILL BE USED BY BOTH WARRANTY AND HARDWARE RECORD.         CYR22217
+      * LINK-ID IS PREFIXED WITH COMPANY CODE                           MB323125
+                 MOVE WR-COMPANY       TO WR-LINKID-CO                  MB323125
+                 MOVE WR-BRANCH        TO WR-LINKID-BR                  CYR22217
+                 MOVE WR-ORDER-NBR     TO WR-LINKID-WARR-ORD            CYR22217
+                 MOVE WR-WARRANTY-DS   TO WR-LINKID-WARR-DS             CYR22217
+                 MOVE WR-WARRANTY-LINE TO WR-LINKID-WARR-LN             CYR22217
+                 MOVE ORH-ENTRY-DATE   TO WR-LINKID-WARR-DT             CYR22217
+                                                                        CYR22217
+                 MOVE WR-ORDER-NBR     TO ORTWARLK-ORDR-NBR             CYR22133
+                 MOVE WR-WARRANTY-DIST TO ORTWARLK-DIST-NBR             CYR22133
+                 MOVE WR-WARRANTY-SHIP TO ORTWARLK-SHIP-NBR             CYR22133
+                 MOVE WR-WARRANTY-LINE TO ORTWARLK-ORDR-LINE-NBR        CYR22133
+                 MOVE 'W'              TO ORTWARLK-LINE-TYPE            CYR22133
+                 PERFORM 9006-INSERT-WARR-LINK                          CYR22133
+                    THRU 9006-EXIT                                      CYR22133
+              END-IF                                                    CYR22133
+              INITIALIZE CFWAG62-ORDER-STATUS                           CYR22133
+              MOVE WR-OPER-ID          TO CFWAG62-OPERATOR-ID           CYR22133
+              MOVE WR-PROGRAM          TO CFWAG62-PROGRAM-NAME          CYR22133
+              MOVE WR-WARRANTY-LINE    TO CFWAG62-LINK-SW-LINE          CYR22133
+              MOVE WR-BRANCH           TO CFWAG62-LINK-BR               CYR22133
+              MOVE WR-HARDWARE-ORDER   TO CFWAG62-LINK-ORD              CYR22133
+              MOVE WR-HARDWARE-DS      TO CFWAG62-LINK-DS               CYR22133
+              MOVE WR-HARDWARE-LINE    TO CFWAG62-LINK-LINE             CYR22133
+              IF WR-LINK-TYP-MULTI                                      CYR22133
+                 MOVE ' M-LINKED TO: ' TO CFWAG62-LINK-TYPE             CYR22133
+              ELSE                                                      CYR22133
+                 MOVE ' LINKED TO:   ' TO CFWAG62-LINK-TYPE             CYR22133
+              END-IF                                                    CYR22133
+              MOVE CFWAG62-WARR-LINE-LINKED-TXT                         CYR22133
+                                       TO CFWAG62-UPDATE-TEXT           CYR22133
+              SET CFWAG62-WARR-ORD-LINE-LINKED                          CYR22133
+                                       TO TRUE                          CYR22133
+                                                                        CYR22133
+              SET  CFWAG62-VERSION-2   TO TRUE                          CYR22133
+              PERFORM 000-CFSLOGST-LOG-ORDER-STATUS                     CYR22133
+                 THRU 000-CFSLOGST-EXIT                                 CYR22133
+           END-IF.                                                      CYR22133
+       9002-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      * ONCE WARRANTY LINE IS LINKED, LINK THE HARDWARE LINE BY:                
+      * - UPDATE ORLOF-WARRTYP-SW TO 'H' TO DENOTE THAT THIS HARDWARE           
+      *   LINE HAS BEEN LINKED TO A WARRANTY LINE                               
+      * - INSERT PRINTABLE COMMENT LINES IN ORSDES                              
+      ******************************************************************        
+       9003-LINK-HARDWARE.                                                      
+                                                                                
+           MOVE WR-HARDWARE-ORDER      TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-HARDWARE-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-HARDWARE-LINE       TO WS-ORSLNE-NBR.                        
+           PERFORM 1212-GHU-ORSLNE.                                     CYR20087
+                                                                                
+           IF WS-ORSLNE-NORESP                                                  
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              GO TO 9003-EXIT                                                   
+           END-IF.                                                              
+                                                                        CYR20087
+           SET ORL-EXTRA-DESC TO TRUE.                                  CYR20087
+           PERFORM 1316-REPL-ORSLNE.                                    CYR20087
+                                                                                
+           MOVE '0'                    TO WS-ORSLNEOF-NBR.                      
+           PERFORM 1213-GHU-ORSLNEOF.                                           
+           IF WS-ORSLNEOF-NORESP                                                
+              MOVE ORLOF-ORSLNEOF      TO ORLOF-ORSLNEOF-0                      
+              SET ORLOF-WARR-TYP-HARDWARE                                       
+                                       TO TRUE                                  
+              MOVE ORLOF-ORSLNEOF-0    TO ORLOF-ORSLNEOF                        
+              PERFORM 1317-REPL-ORSLNEOF                                        
+           END-IF.                                                              
+                                                                                
+           MOVE 'ORSDES   '            TO WS-UNQUAL-SSA.                        
+           MOVE WR-COMPANY             TO WS-ORSHED-CO.                 CYR22133
+           MOVE WR-BRANCH              TO WS-ORSHED-BR.                 CYR22133
+           MOVE WR-HARDWARE-ORDER      TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-HARDWARE-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-HARDWARE-LINE       TO WS-ORSLNE-NBR.                        
+           MOVE SPACES                 TO ORD-DESCRIPTION-ORD.                  
+           MOVE 0                      TO ORD-DESC-NBR.                         
+           SET ORD-SERVICE-SKU-LINKAGE TO TRUE.                                 
+           MOVE 'LINKED TO:'           TO ORD-SL-LINKED-TO-MSG.                 
+           MOVE WR-BRANCH              TO ORD-SL-ORD-BR.                        
+           MOVE '-'                    TO ORD-SL-DASH1.                         
+           MOVE WR-ORDER-NBR           TO ORD-SL-ORD-NBR.                       
+           MOVE '-'                    TO ORD-SL-DASH2.                         
+           MOVE WR-WARRANTY-DIST       TO ORD-SL-ORD-DIST.                      
+           MOVE WR-WARRANTY-SHIP       TO ORD-SL-ORD-SHIP.                      
+           MOVE ' LINE: '              TO ORD-SL-LINE-MSG.                      
+           MOVE WR-WARRANTY-LINE       TO ORD-SL-LINE-NBR.                      
+           SET WR-LINE-TYP-HARDWARE    TO TRUE.                         CYR22133
+           PERFORM 9004-INSERT-ORSDES                                           
+              THRU 9004-EXIT.                                                   
+           IF NOT WS-ORSDES-NORESP                                      CYR22133
+              MOVE 'H202' TO WR-RESP-CODE                               CYR22133
+              PERFORM W999-ERROR-ROUTINE                                CYR22133
+                 THRU W999-EXIT                                         CYR22133
+           END-IF.                                                      CYR22133
+                                                                                
+      * CALL THE WARRANTY LINE TO GET THE WARRANTY PART                         
+           MOVE WR-ORDER-NBR           TO WS-ORSHED-NBR                 CYR22133
+           MOVE WR-WARRANTY-DS         TO WS-ORSSHH-KEY-VALUE                   
+           MOVE WR-WARRANTY-LINE       TO WS-ORSLNE-NBR                         
+           PERFORM 1204-GU-ORSLNE                                               
+           IF WS-ORSLNE-NORESP                                                  
+              MOVE SPACES              TO ORD-DESCRIPTION-ORD                   
+              MOVE 'SKU: '             TO ORD-SM-SKU-MSG                        
+              MOVE ORL-PART-NBR        TO ORD-SM-PART-NBR                       
+              MOVE SPACE               TO ORD-SM-SPACE1                         
+              MOVE ORL-DESCRIPTION     TO ORD-SM-PART-DESC                      
+              SET ORD-SERVICE-SKU-PART-NBR                                      
+                                       TO TRUE                                  
+      * CALL THE HARDWARE LINE TO REPOSITION                            CYR22133
+              MOVE WR-HARDWARE-ORDER   TO WS-ORSHED-NBR                 CYR22133
+              MOVE WR-HARDWARE-DS      TO WS-ORSSHH-KEY-VALUE                   
+              MOVE WR-HARDWARE-LINE    TO WS-ORSLNE-NBR                         
+              PERFORM 1200-GU-ORSHED                                    CYR22133
+              IF NOT WS-ORSHED-NORESP                                   CYR22133
+                 GO TO 9003-EXIT.                                       CYR22133
+                                                                        CYR22133
+              PERFORM 1204-GU-ORSLNE                                            
+              IF WS-ORSLNE-NORESP                                               
+                 PERFORM 9004-INSERT-ORSDES                                     
+                    THRU 9004-EXIT                                      CYR22133
+                 IF NOT WS-ORSDES-NORESP                                CYR22133
+                    MOVE 'H203' TO WR-RESP-CODE                         CYR22133
+                    PERFORM W999-ERROR-ROUTINE                          CYR22133
+                       THRU W999-EXIT                                   CYR22133
+                 END-IF                                                 CYR22133
+                 MOVE WR-HARDWARE-ORDER TO ORTWARLK-ORDR-NBR            CYR22133
+                 MOVE WR-HARDWARE-DIST  TO ORTWARLK-DIST-NBR            CYR22133
+                 MOVE WR-HARDWARE-SHIP  TO ORTWARLK-SHIP-NBR            CYR22133
+                 MOVE WR-HARDWARE-LINE  TO ORTWARLK-ORDR-LINE-NBR       CYR22133
+                 MOVE 'H'               TO ORTWARLK-LINE-TYPE           CYR22133
+                 PERFORM 9006-INSERT-WARR-LINK                          CYR22133
+                    THRU 9006-EXIT                                      CYR22133
+              END-IF.                                                   CYR22133
+                                                                        CYR22133
+      * SET WARRANTY FLAG FOR HARDWARE IF IT IS ON A DIFFERENT ORDER.   CYR22133
+      * THIS TELLS ORP600 TO TRIGGER THE WARRANTY PROCESS WHEN BILLING  CYR22133
+      * THE HARDWARE.                                                   CYR22133
+              IF WR-ORDER-NBR NOT = WR-HARDWARE-ORDER                   CYR22133
+                 PERFORM 1202-GU-ORSSHH                                 CYR23062
+                 IF NOT WS-ORSSHH-NORESP                                CYR23062
+                    NEXT SENTENCE                                       CYR23062
+                 END-IF                                                 CYR23062
+                 MOVE 0 TO WS-ORSHEDOF-NBR                              CYR22133
+                 PERFORM 1219-GHU-ORSHEDOF                              CYR22133
+                 IF WS-ORSHEDOF-NORESP                                  CYR22133
+                    MOVE ORHOF-ORSHEDOF      TO ORHOF-ORSHEDOF-0        CYR22133
+                    IF ORSH-DIRECT-ORDER                                CYR23062
+                       SET ORHOF-WARR-EXT-DIRECT-HARDWARE TO TRUE       CYR23062
+                    ELSE                                                CYR23062
+                       SET ORHOF-WARR-EXT-ITEM-ORD TO TRUE              CYR23062
+                    END-IF                                              CYR23062
+                    MOVE ORHOF-ORSHEDOF-0    TO ORHOF-ORSHEDOF          CYR22133
+                    PERFORM 1338-REPL-ORSHEDOF                          CYR22133
+                 END-IF                                                 CYR22133
+              END-IF.                                                   CYR22133
+                                                                                
+           SET SW-LINK-SUCCESS TO TRUE.                                         
+                                                                                
+       9003-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      * ATTEMPT TO INSERT AN ORSDES SEGMENT BY ITERATING ORD-DESC-NBR           
+      * UNTIL AVAILABLE KEY IS FOUND                                            
+      ******************************************************************        
+       9004-INSERT-ORSDES.                                                      
+                                                                                
+           ADD 1                       TO ORD-DESC-NBR.                         
+           IF ORD-DESC-NBR EQUAL 599                                    CYR22133
+              SET WR-TOO-MANY-ORSDES TO TRUE                            CYR22133
+              GO TO 9004-EXIT.                                          CYR22133
+                                                                        CYR22133
+           PERFORM 1344-ISRT-ORSDES.                                            
+           IF WS-ORSDES-DUPREC                                                  
+              GO TO 9004-INSERT-ORSDES                                          
+           END-IF.                                                              
+                                                                                
+       9004-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      *GET THE LINKED HARDWARE BY READING ORSDES UNTIL 'SL' RECORD TYPE         
+      * IS FOUND.                                                               
+      *TO USE THIS, PARENTAGE MUST FIRST BE ESTABLISHED,                        
+      * SET WS-ORSDES-NBR TO ZERO INITIALLY.                                    
+      ******************************************************************        
+       9005-GET-LINKED-HARDWARE.                                                
+                                                                                
+           PERFORM 1266-GNP-ORSDES.                                             
+           IF NOT WS-ORSDES-NORESP                                              
+              GO TO 9005-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           IF ORD-SERVICE-SKU-LINKAGE                                           
+              MOVE ORD-SL-ORD-NBR   TO WR-LINKED-HW-ORDER               CYR22133
+              MOVE ORD-SL-ORD-DIST  TO WR-LINKED-HW-DIST                        
+              MOVE ORD-SL-ORD-SHIP  TO WR-LINKED-HW-SHIP                        
+              MOVE ORD-SL-LINE-NBR  TO WR-LINKED-HW-LINE                        
+           ELSE                                                                 
+              MOVE ORD-DESC-NBR        TO WS-ORSDES-NBR                         
+              GO TO 9005-GET-LINKED-HARDWARE                                    
+           END-IF.                                                              
+                                                                                
+       9005-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9101-UNLINK-ROUTINE.                                                     
+           MOVE WR-ORDER-NBR           TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-WARRANTY-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-WARRANTY-LINE       TO WS-ORSLNE-NBR.                        
+           PERFORM 1202-GU-ORSSHH.                                      CYR23062
+           IF NOT WS-ORSSHH-NORESP                                      CYR23062
+              GO TO 9101-EXIT                                           CYR23062
+           END-IF.                                                      CYR23062
+           PERFORM 1204-GU-ORSLNE.                                              
+           IF NOT WS-ORSLNE-NORESP                                              
+              GO TO 9101-EXIT                                                   
+           END-IF.                                                              
+           MOVE '0'                    TO WS-ORSDES-NBR.                        
+           PERFORM 9005-GET-LINKED-HARDWARE                                     
+              THRU 9005-EXIT.                                                   
+           IF WR-HARDWARE-ORDER NOT > SPACES                            CYR22133
+              MOVE WR-ORDER-NBR TO WR-HARDWARE-ORDER                    CYR22133
+           END-IF.                                                      CYR22133
+           PERFORM 9102-UNLINK-WARRANTY                                         
+              THRU 9102-EXIT.                                                   
+           PERFORM 9103-UNLINK-HARDWARE                                         
+              THRU 9103-EXIT.                                                   
+           PERFORM 9401-DLET-EU-INFO                                            
+              THRU 9401-EXIT.                                                   
+       9101-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9102-UNLINK-WARRANTY.                                                    
+           MOVE WR-COMPANY             TO WS-ORSHED-CO                          
+           MOVE WR-BRANCH              TO WS-ORSHED-BR                          
+           MOVE WR-ORDER-NBR           TO WS-ORSHED-NBR                         
+           MOVE WR-WARRANTY-DS         TO WS-ORSSHH-KEY-VALUE                   
+           MOVE WR-WARRANTY-LINE       TO WS-ORSLNE-NBR                         
+           MOVE '0'                    TO WS-ORSDES-NBR                         
+           MOVE ' >'                   TO WS-ORSDES-SEARCH                      
+           MOVE WR-LINKED-HW-ORDER     TO WR-DES-ORDER                  CYR22133
+           MOVE WR-LINKED-HW-DS        TO WR-DES-DS                             
+           MOVE WR-LINKED-HW-LINE      TO WR-DES-LINE.                          
+           MOVE ' '                    TO WR-DES-DELETED-SW                     
+           SET WR-LINE-TYP-WARRANTY TO TRUE.                                    
+           SET WS-ORSDES-NORESP TO TRUE.                                        
+           PERFORM 9104-DELETE-ORSDES                                           
+              THRU 9104-EXIT                                                    
+             UNTIL NOT WS-ORSDES-NORESP.                                        
+                                                                        CYR22133
+           PERFORM 1200-GU-ORSHED.                                      CYR22133
+           IF NOT WS-ORSHED-NORESP                                      CYR22133
+              GO TO 9102-EXIT.                                          CYR22133
+                                                                        CYR22133
+           MOVE WR-ORDER-NBR           TO ORTWARLK-ORDR-NBR             CYR22133
+           MOVE WR-WARRANTY-DIST       TO ORTWARLK-DIST-NBR             CYR22133
+           MOVE WR-WARRANTY-SHIP       TO ORTWARLK-SHIP-NBR             CYR22133
+           MOVE WR-WARRANTY-LINE       TO ORTWARLK-ORDR-LINE-NBR        CYR22133
+           MOVE 'W'                    TO ORTWARLK-LINE-TYPE            CYR22133
+           PERFORM 9105-DLET-WARR-LINK                                  CYR22133
+              THRU 9105-EXIT                                            CYR22133
+                                                                        CYR22133
+              INITIALIZE CFWAG62-ORDER-STATUS                           CYR22133
+              MOVE WR-OPER-ID          TO CFWAG62-OPERATOR-ID           CYR22133
+              MOVE WR-PROGRAM          TO CFWAG62-PROGRAM-NAME          CYR22133
+              MOVE WR-WARRANTY-LINE    TO CFWAG62-UNLINK-SW-LINE        CYR22133
+              MOVE WR-BRANCH           TO CFWAG62-UNLINK-BR             CYR22133
+              MOVE WR-LINKED-HW-ORDER  TO CFWAG62-UNLINK-ORD            CYR22133
+              MOVE WR-LINKED-HW-DS     TO CFWAG62-UNLINK-DS             CYR22133
+              MOVE WR-LINKED-HW-LINE   TO CFWAG62-UNLINK-LINE           CYR22133
+              MOVE CFWAG62-WARR-LINE-UNLINKED-TXT                       CYR22133
+                                       TO CFWAG62-UPDATE-TEXT           CYR22133
+              SET CFWAG62-WARR-ORD-LINE-UNLINKED                        CYR22133
+                                       TO TRUE                          CYR22133
+                                                                        CYR22133
+              SET  CFWAG62-VERSION-2   TO TRUE                          CYR22133
+              PERFORM 000-CFSLOGST-LOG-ORDER-STATUS                     CYR22133
+                 THRU 000-CFSLOGST-EXIT                                 CYR22133
+                                                                        CYR22133
+           MOVE '=>'                   TO WS-ORSDES-SEARCH.                     
+           PERFORM 1204-GU-ORSLNE.                                      CYR20087
+           IF NOT WS-ORSLNE-NORESP                                      CYR20087
+              GO TO 9102-EXIT                                           CYR20087
+           END-IF.                                                      CYR20087
+           MOVE '0' TO WS-ORSDES-NBR                                    CYR20087
+                       WR-MULTI-LINK-HW-CNT.                            CYR20087
+           PERFORM 9601-GET-ALL-LINKED-HW                               CYR20087
+              THRU 9601-EXIT.                                           CYR20087
+                                                                        CYR20087
+           MOVE '0'                    TO WS-ORSLNEOF-NBR.                      
+           PERFORM 1213-GHU-ORSLNEOF.                                           
+           IF WS-ORSLNEOF-NORESP AND WR-MULTI-LINK-HW-CNT NOT > 1       CYR20087
+              MOVE ORLOF-ORSLNEOF TO ORLOF-ORSLNEOF-0                           
+              IF WR-MULTI-LINK-HW-CNT = 0                               CYR20087
+                 SET ORLOF-WARR-TYP-WARR-INCOMPLETE TO TRUE             CYR20087
+              ELSE                                                      CYR20087
+                 SET ORLOF-WARR-TYP-WARR-LINKED TO TRUE                 CYR20087
+              END-IF                                                    CYR20087
+              MOVE ORLOF-ORSLNEOF-0  TO ORLOF-ORSLNEOF                          
+              PERFORM 1317-REPL-ORSLNEOF                                        
+           END-IF.                                                              
+       9102-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9103-UNLINK-HARDWARE.                                                    
+           MOVE WR-COMPANY             TO WS-ORSHED-CO                          
+           MOVE WR-BRANCH              TO WS-ORSHED-BR                          
+           MOVE WR-LINKED-HW-ORDER     TO WS-ORSHED-NBR                 CYR22133
+           MOVE WR-LINKED-HW-DS        TO WS-ORSSHH-KEY-VALUE                   
+           MOVE WR-LINKED-HW-LINE      TO WS-ORSLNE-NBR                         
+           MOVE '0'                    TO WS-ORSDES-NBR                         
+           MOVE ' >'                   TO WS-ORSDES-SEARCH                      
+           MOVE WR-ORDER-NBR           TO WR-DES-ORDER                  CYR22133
+           MOVE WR-WARRANTY-DS         TO WR-DES-DS                             
+           MOVE WR-WARRANTY-LINE       TO WR-DES-LINE                           
+           MOVE ' '                    TO WR-DES-DELETED-SW                     
+           MOVE ' '                    TO WR-OTHER-LINK-EXISTS-SW               
+           SET WR-LINE-TYP-HARDWARE TO TRUE.                                    
+           SET WS-ORSDES-NORESP TO TRUE.                                        
+           PERFORM 9104-DELETE-ORSDES                                           
+              THRU 9104-EXIT                                                    
+             UNTIL NOT WS-ORSDES-NORESP.                                        
+           MOVE '=>'                   TO WS-ORSDES-SEARCH.                     
+                                                                                
+           PERFORM 1200-GU-ORSHED.                                      CYR22133
+           IF NOT WS-ORSHED-NORESP                                      CYR22133
+              GO TO 9103-EXIT.                                          CYR22133
+                                                                        CYR22133
+           MOVE WR-LINKED-HW-ORDER     TO ORTWARLK-ORDR-NBR             CYR22133
+           MOVE WR-LINKED-HW-DIST      TO ORTWARLK-DIST-NBR             CYR22133
+           MOVE WR-LINKED-HW-SHIP      TO ORTWARLK-SHIP-NBR             CYR22133
+           MOVE WR-LINKED-HW-LINE      TO ORTWARLK-ORDR-LINE-NBR        CYR22133
+           MOVE 'H'                    TO ORTWARLK-LINE-TYPE            CYR22133
+           PERFORM 9105-DLET-WARR-LINK                                  CYR22133
+              THRU 9105-EXIT.                                           CYR22133
+                                                                        CYR22133
+           IF NOT WR-OTHER-LINK-EXISTS                                          
+              MOVE '0'                 TO WS-ORSLNEOF-NBR                       
+              PERFORM 1213-GHU-ORSLNEOF                                         
+              IF WS-ORSLNEOF-NORESP                                             
+                 MOVE ORLOF-ORSLNEOF   TO ORLOF-ORSLNEOF-0                      
+                 MOVE ' '              TO ORLOF-WARR-TYP-SW                     
+                 MOVE ORLOF-ORSLNEOF-0 TO ORLOF-ORSLNEOF                        
+                 PERFORM 1317-REPL-ORSLNEOF                                     
+              END-IF                                                    CYR22133
+              IF WR-LINKED-HW-ORDER NOT = WR-ORDER-NBR                  CYR22133
+                 MOVE WR-LINKED-HW-ORDER TO WR-HARDWARE-ORDER           CYR22133
+                 MOVE WR-LINKED-HW-DS TO WR-HARDWARE-DS                 CYR22133
+                 PERFORM 9107-RESET-ORSHEDOF-FLAG                       CYR22133
+                    THRU 9107-EXIT                                      CYR22133
+              END-IF                                                            
+           END-IF.                                                              
+           SET WR-UNLINK-SUCCESS TO TRUE.                                       
+       9103-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9104-DELETE-ORSDES.                                                      
+           PERFORM 1209-GU-ORSDES.                                              
+           IF NOT WS-ORSDES-NORESP                                              
+              GO TO 9104-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           IF ORD-SERVICE-SKU-SERIAL-NBR OR ORD-SERVICE-SKU-PURCH-DATE          
+              PERFORM 1211-GHU-ORSDES                                           
+              IF WS-ORSDES-NORESP                                               
+                 PERFORM 1304-DLET-ORSDES                                       
+              END-IF                                                            
+              GO TO 9104-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           IF ORD-SERVICE-SKU-LINKAGE                                           
+              IF ORD-SL-ORD-NBR = WR-DES-ORDER                          CYR22133
+                 AND ORD-SL-ORD-DIST = WR-DES-DIST                      CYR22133
+                 AND ORD-SL-ORD-SHIP = WR-DES-SHIP                              
+                 AND ORD-SL-LINE-NBR = WR-DES-LINE                              
+                 PERFORM 1211-GHU-ORSDES                                        
+                 IF WS-ORSDES-NORESP                                            
+                    PERFORM 1304-DLET-ORSDES                                    
+                 END-IF                                                         
+                 SET WR-DES-DELETED TO TRUE                                     
+              ELSE                                                              
+                 SET WR-OTHER-LINK-EXISTS TO TRUE                               
+                 MOVE ORD-DESC-NBR TO WS-ORSDES-NBR                             
+              END-IF                                                            
+           ELSE                                                                 
+              IF WR-DES-DELETED                                                 
+                 AND ORD-SERVICE-SKU-PART-NBR                                   
+                 PERFORM 1211-GHU-ORSDES                                        
+                 IF WS-ORSDES-NORESP                                            
+                    PERFORM 1304-DLET-ORSDES                                    
+                 END-IF                                                         
+      *             IF THIS IS A HARDWARE LINE, ALL ORSDES SEGMENTS             
+      *             NEED TO BE READ TO CHECK IF THIS LINE IS LINKED TO          
+      *             OTHER WARRANTY LINES.                                       
+      *             BUT IF THIS IS NOT A HARDWARE LINE, WE CAN ALREADY          
+      *             STOP READING ORSDES ONCE THE RELEVANT COMMENTS WERE         
+      *             REMOVED.                                                    
+                 IF WR-LINE-TYP-HARDWARE                                        
+                    MOVE ' ' TO WR-DES-DELETED-SW                               
+                 ELSE                                                           
+                    SET WS-ORSDES-NOTFND TO TRUE                                
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+           MOVE ORD-DESC-NBR TO WS-ORSDES-NBR.                                  
+       9104-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+      *CHECK ALL LINES IN ORDER AND VERIFY IF THERE ARE ANY LINKED HW   CYR22133
+      *IF THERE ARE LINKED HW, KEEP ORSHEDOF FLAG                       CYR22133
+      *IF THERE ARE NO MORE LINKED HW, RESET ORSHEDOF FLAG              CYR22133
+       9107-RESET-ORSHEDOF-FLAG.                                        CYR22133
+           MOVE WR-COMPANY             TO WS-ORSHED-CO                  CYR22133
+           MOVE WR-BRANCH              TO WS-ORSHED-BR                  CYR22133
+           MOVE WR-HARDWARE-ORDER      TO WS-ORSHED-NBR.                CYR22133
+           MOVE '0'                    TO WS-ORSLNEOF-NBR.              CYR22133
+           PERFORM 1200-GU-ORSHED.                                      CYR22133
+                                                                        CYR22133
+           SET WR-ORHOF-RESET-YES TO TRUE.                              CYR22133
+           SET WS-ORSLNEOF-NORESP TO TRUE.                              CYR22133
+                                                                        CYR22133
+           PERFORM UNTIL NOT WS-ORSLNEOF-NORESP OR WR-ORHOF-RESET-NO    CYR22133
+              PERFORM 1267-GNP-ORSLNEOF                                 CYR22133
+              MOVE ORLOF-ORSLNEOF         TO ORLOF-ORSLNEOF-0           CYR22133
+              IF ORLOF-WARR-TYP-HARDWARE                                CYR22133
+                 SET WR-ORHOF-RESET-NO TO TRUE                          CYR22133
+              END-IF                                                    CYR22133
+           END-PERFORM.                                                 CYR22133
+                                                                        CYR22133
+           IF WR-ORHOF-RESET-YES                                        CYR22133
+              MOVE 0                   TO WS-ORSHEDOF-NBR               CYR22133
+              PERFORM 1219-GHU-ORSHEDOF                                 CYR22133
+              MOVE ORHOF-ORSHEDOF      TO ORHOF-ORSHEDOF-0              CYR22133
+              MOVE ' '                 TO ORHOF-WARR-EXT-ITEM-EXISTS-SW CYR22133
+              MOVE ORHOF-ORSHEDOF-0    TO ORHOF-ORSHEDOF                CYR22133
+              PERFORM 1338-REPL-ORSHEDOF                                CYR22133
+           END-IF.                                                      CYR22133
+                                                                        CYR22133
+       9107-EXIT.                                                       CYR22133
+           EXIT.                                                        CYR22133
+                                                                        CYR22133
+       9201-CHANGE-LINK-ROUTINE.                                                
+           MOVE WR-ORDER-NBR           TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-WARRANTY-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-WARRANTY-LINE       TO WS-ORSLNE-NBR.                        
+           PERFORM 1202-GU-ORSSHH.                                      CYR23062
+           IF NOT WS-ORSSHH-NORESP                                      CYR23062
+              GO TO 9201-EXIT                                           CYR23062
+           END-IF.                                                      CYR23062
+           PERFORM 1204-GU-ORSLNE.                                              
+           IF NOT WS-ORSLNE-NORESP                                              
+              GO TO 9201-EXIT                                                   
+           END-IF.                                                              
+           IF WR-HARDWARE-ORDER NOT > SPACES                            CYR22133
+              MOVE WR-ORDER-NBR TO WR-HARDWARE-ORDER                    CYR22133
+           END-IF.                                                      CYR22133
+           MOVE '0'                    TO WS-ORSDES-NBR.                        
+           PERFORM 9005-GET-LINKED-HARDWARE                                     
+              THRU 9005-EXIT.                                                   
+           IF WR-LINKED-HW-ORDER = WR-HARDWARE-ORDER                    CYR22133
+              AND WR-LINKED-HW-DS = WR-HARDWARE-DS                      CYR22133
+              AND WR-LINKED-HW-LINE = WR-HARDWARE-LINE                          
+              GO TO 9201-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           PERFORM 9102-UNLINK-WARRANTY                                         
+              THRU 9102-EXIT.                                                   
+           PERFORM 9103-UNLINK-HARDWARE                                         
+              THRU 9103-EXIT.                                                   
+           PERFORM 9401-DLET-EU-INFO                                            
+              THRU 9401-EXIT.                                                   
+           PERFORM 9002-LINK-WARRANTY                                           
+              THRU 9002-EXIT.                                                   
+           PERFORM 9003-LINK-HARDWARE                                           
+              THRU 9003-EXIT.                                                   
+           PERFORM 9301-COPY-END-USER                                           
+              THRU 9301-EXIT.                                                   
+           SET WR-CHANGE-LINK-SUCCESS TO TRUE.                                  
+       9201-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9301-COPY-END-USER.                                                      
+           MOVE WR-HARDWARE-ORDER      TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-HARDWARE-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-HARDWARE-LINE       TO WS-ORSLNE-NBR.                        
+                                                                                
+           PERFORM 9302-GET-EU-FROM-LNE-LNEOF                                   
+              THRU 9302-EXIT.                                                   
+                                                                                
+           MOVE '000'                  TO WS-ORSDES-NBR.                        
+           MOVE '> '                   TO WS-ORSDES-SEARCH.                     
+           PERFORM 9303-GET-EU-MC-FROM-ORSDES                                   
+              THRU 9303-EXIT.                                                   
+           MOVE '>=' TO WS-ORSDES-SEARCH.                                       
+                                                                                
+           MOVE WR-ORDER-NBR           TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-WARRANTY-DS         TO WS-ORSSHH-KEY-VALUE.                  
+           MOVE WR-WARRANTY-LINE       TO WS-ORSLNE-NBR.                        
+                                                                                
+           PERFORM 9304-COPY-EU-TO-LNE-LNEOF                                    
+              THRU 9304-EXIT.                                                   
+                                                                                
+           PERFORM 9305-COPY-EU-MC-TO-ORSDES                                    
+              THRU 9305-EXIT.                                                   
+                                                                                
+       9301-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9302-GET-EU-FROM-LNE-LNEOF.                                              
+           PERFORM 1204-GU-ORSLNE.                                              
+           IF NOT WS-ORSLNE-NORESP                                              
+              GO TO 9302-EXIT                                           CYR22133
+           END-IF.                                                              
+                                                                                
+           MOVE ORL-ACOP-END-USER-IND  TO WR-ORL-ACOP-END-USER-IND              
+           MOVE ORL-ACOP-DELTA-PRICE-IND TO WR-ORL-ACOP-DELTA-PRICE-IND         
+           MOVE ORL-ACOP-END-USER-NBR  TO WR-ORL-ACOP-END-USER-NBR              
+                                                                                
+           MOVE '0'                    TO WS-ORSLNEOF-NBR.                      
+           PERFORM 1205-GU-ORSLNEOF.                                            
+           IF NOT WS-ORSLNEOF-NORESP                                            
+              GO TO 9302-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           MOVE ORLOF-ORSLNEOF         TO ORLOF-ORSLNEOF-0.                     
+           MOVE ORLOF-RSLR-EU-ID       TO WR-ORLOF-RSLR-EU-ID.                  
+           MOVE ORLOF-RSLR-ADDR-SEQ-NBR TO WR-ORLOF-RSLR-ADDR-SEQ-NBR.          
+           MOVE ORLOF-RSLR-EU-CTAC-ID  TO WR-ORLOF-RSLR-EU-CTAC-ID.             
+           MOVE ORLOF-EU-DATA-AVAIL-FLG TO WR-ORLOF-EU-DATA-AVAIL-FLG.          
+           MOVE ORLOF-EU-MRKT-SGMT-TYP-CD                                       
+                                       TO WR-ORLOF-EU-MRKT-SGMT-TYP-CD.         
+           MOVE ORLOF-EU-MRKT-SGMT-TYP-SRC                                      
+                                       TO WR-ORLOF-EU-MRKT-SGMT-TYP-SRC.        
+       9302-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9303-GET-EU-MC-FROM-ORSDES.                                              
+           PERFORM 1209-GU-ORSDES.                                              
+           IF NOT WS-ORSDES-NORESP                                              
+              GO TO 9303-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           IF ORD-DESCRIPTION-ORD(1:3) = 'EU#'                                  
+              MOVE ORD-DESCRIPTION-ORD TO WR-ORD-DESCRIPTION-EU                 
+           END-IF.                                                              
+                                                                                
+           IF ORD-DESCRIPTION-ORD(1:3) = 'MC#'                                  
+              MOVE ORD-DESCRIPTION-ORD TO WR-ORD-DESCRIPTION-MC                 
+           END-IF.                                                              
+                                                                                
+           MOVE ORD-DESC-NBR TO WS-ORSDES-NBR.                                  
+           GO TO 9303-GET-EU-MC-FROM-ORSDES.                                    
+       9303-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9304-COPY-EU-TO-LNE-LNEOF.                                               
+           IF WR-ORL-ACOP-END-USER-IND > SPACES                                 
+              OR WR-ORL-ACOP-DELTA-PRICE-IND > SPACES                           
+              OR WR-ORL-ACOP-END-USER-NBR > ZEROS                               
+              PERFORM 1212-GHU-ORSLNE                                           
+              IF NOT WS-ORSLNE-NORESP                                           
+                 NEXT SENTENCE                                                  
+              END-IF                                                            
+              IF WR-ORL-ACOP-END-USER-IND > SPACES                              
+                 MOVE WR-ORL-ACOP-END-USER-IND                                  
+                                       TO ORL-ACOP-END-USER-IND                 
+              END-IF                                                            
+              IF WR-ORL-ACOP-DELTA-PRICE-IND > SPACES                           
+                 MOVE WR-ORL-ACOP-DELTA-PRICE-IND                               
+                                       TO ORL-ACOP-DELTA-PRICE-IND              
+              END-IF                                                            
+              IF WR-ORL-ACOP-END-USER-NBR > ZEROS                               
+                 MOVE WR-ORL-ACOP-END-USER-NBR                                  
+                                       TO ORL-ACOP-END-USER-NBR                 
+              END-IF                                                            
+              PERFORM 1316-REPL-ORSLNE                                          
+           END-IF.                                                              
+                                                                                
+           IF WR-ORLOF-RSLR-EU-ID > ZEROS                                       
+              OR WR-ORLOF-RSLR-ADDR-SEQ-NBR > ZEROS                             
+              OR WR-ORLOF-RSLR-EU-CTAC-ID > ZEROS                               
+              OR WR-ORLOF-EU-DATA-AVAIL-FLG > SPACES                            
+              OR WR-ORLOF-EU-MRKT-SGMT-TYP-CD > SPACES                          
+              OR WR-ORLOF-EU-MRKT-SGMT-TYP-SRC > SPACES                         
+              PERFORM 1213-GHU-ORSLNEOF                                         
+              IF NOT WS-ORSLNEOF-NORESP                                         
+                 NEXT SENTENCE                                                  
+              END-IF                                                            
+                                                                                
+              MOVE ORLOF-ORSLNEOF TO ORLOF-ORSLNEOF-0                           
+                                                                                
+              IF WR-ORLOF-RSLR-EU-ID > ZEROS                                    
+                 MOVE WR-ORLOF-RSLR-EU-ID TO ORLOF-RSLR-EU-ID                   
+              END-IF                                                            
+                                                                                
+              IF WR-ORLOF-RSLR-ADDR-SEQ-NBR > ZEROS                             
+                 MOVE WR-ORLOF-RSLR-ADDR-SEQ-NBR                                
+                   TO ORLOF-RSLR-ADDR-SEQ-NBR                                   
+              END-IF                                                            
+                                                                                
+              IF WR-ORLOF-RSLR-EU-CTAC-ID > ZEROS                               
+                 MOVE WR-ORLOF-RSLR-EU-CTAC-ID                                  
+                   TO ORLOF-RSLR-EU-CTAC-ID                                     
+              END-IF                                                            
+                                                                                
+              IF WR-ORLOF-EU-DATA-AVAIL-FLG > SPACES                            
+                 MOVE WR-ORLOF-EU-DATA-AVAIL-FLG                                
+                   TO ORLOF-EU-DATA-AVAIL-FLG                                   
+              END-IF                                                            
+                                                                                
+              IF WR-ORLOF-EU-MRKT-SGMT-TYP-CD > SPACES                          
+                 MOVE WR-ORLOF-EU-MRKT-SGMT-TYP-CD                              
+                   TO ORLOF-EU-MRKT-SGMT-TYP-CD                                 
+              END-IF                                                            
+                                                                                
+              IF WR-ORLOF-EU-MRKT-SGMT-TYP-SRC > SPACES                         
+                 MOVE WR-ORLOF-EU-MRKT-SGMT-TYP-SRC                             
+                   TO ORLOF-EU-MRKT-SGMT-TYP-SRC                                
+              END-IF                                                            
+                                                                                
+              MOVE ORLOF-ORSLNEOF-0 TO ORLOF-ORSLNEOF                           
+              PERFORM 1317-REPL-ORSLNEOF                                        
+           END-IF.                                                              
+       9304-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9305-COPY-EU-MC-TO-ORSDES.                                               
+           MOVE '000' TO WS-ORSDES-NBR.                                         
+           MOVE '> ' TO WS-ORSDES-SEARCH.                                       
+           PERFORM 9306-DLET-EU-MC-FROM-ORSDES                                  
+              THRU 9306-EXIT.                                                   
+           MOVE '>=' TO WS-ORSDES-SEARCH.                                       
+                                                                                
+           IF WR-ORD-DESCRIPTION-EU NOT = SPACES                                
+              MOVE SPACES TO ORD-DESCRIPTION-ORD                                
+              MOVE WR-ORD-DESCRIPTION-EU TO ORD-DESCRIPTION-ORD                 
+      *       MOVE '000' TO WS-ORSDES-NBR                               VYA22029
+              MOVE 0     TO ORD-DESC-NBR                                VYA22029
+              PERFORM 9004-INSERT-ORSDES                                        
+                 THRU 9004-EXIT                                                 
+              IF NOT WS-ORSDES-NORESP                                   CYR22133
+                 MOVE 'W105' TO WR-RESP-CODE                            CYR22133
+                 PERFORM W999-ERROR-ROUTINE                             CYR22133
+                    THRU W999-EXIT                                      CYR22133
+              END-IF                                                    CYR22133
+           END-IF.                                                              
+                                                                                
+           IF WR-ORD-DESCRIPTION-MC NOT = SPACES                                
+              MOVE SPACES TO ORD-DESCRIPTION-ORD                                
+              MOVE WR-ORD-DESCRIPTION-MC TO ORD-DESCRIPTION-ORD                 
+              PERFORM 9004-INSERT-ORSDES                                        
+                 THRU 9004-EXIT                                                 
+              IF NOT WS-ORSDES-NORESP                                   CYR22133
+                 MOVE 'W106' TO WR-RESP-CODE                            CYR22133
+                 PERFORM W999-ERROR-ROUTINE                             CYR22133
+                    THRU W999-EXIT                                      CYR22133
+              END-IF                                                    CYR22133
+           END-IF.                                                              
+       9305-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9306-DLET-EU-MC-FROM-ORSDES.                                             
+           PERFORM 1209-GU-ORSDES.                                              
+           IF NOT WS-ORSDES-NORESP                                              
+              GO TO 9306-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           IF (ORD-DESCRIPTION-ORD(1:3) = 'EU#'                                 
+             AND WR-ORD-DESCRIPTION-EU NOT = SPACES)                            
+              OR (ORD-DESCRIPTION-ORD(1:3) = 'MC#'                              
+             AND WR-ORD-DESCRIPTION-MC NOT = SPACES)                            
+              MOVE ORD-DESC-NBR TO WS-ORSDES-NBR                                
+              MOVE '= ' TO WS-ORSDES-SEARCH                                     
+              PERFORM 1211-GHU-ORSDES                                           
+              IF WS-ORSDES-NORESP                                               
+                 PERFORM 1304-DLET-ORSDES                                       
+              END-IF                                                            
+              MOVE '> ' TO WS-ORSDES-SEARCH                                     
+           END-IF.                                                              
+                                                                                
+           MOVE ORD-DESC-NBR TO WS-ORSDES-NBR.                                  
+           GO TO 9306-DLET-EU-MC-FROM-ORSDES.                                   
+       9306-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9401-DLET-EU-INFO.                                                       
+           MOVE WR-ORDER-NBR   TO WS-ORSHED-NBR.                        CYR22133
+           MOVE WR-WARRANTY-DS TO WS-ORSSHH-KEY-VALUE.                          
+           MOVE WR-WARRANTY-LINE TO WS-ORSLNE-NBR.                              
+           PERFORM 9402-DLET-EU-FROM-LNE-LNEOF                                  
+              THRU 9402-EXIT.                                                   
+           MOVE '000' TO WS-ORSDES-NBR.                                         
+           MOVE '> ' TO WS-ORSDES-SEARCH.                                       
+           PERFORM 9306-DLET-EU-MC-FROM-ORSDES                                  
+              THRU 9306-EXIT.                                                   
+           MOVE '>=' TO WS-ORSDES-SEARCH.                                       
+       9401-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       9402-DLET-EU-FROM-LNE-LNEOF.                                             
+           PERFORM 1212-GHU-ORSLNE.                                             
+           IF WS-ORSLNE-NORESP                                                  
+              INITIALIZE ORL-ACOP-END-USER-IND                                  
+                        ORL-ACOP-DELTA-PRICE-IND                                
+                        ORL-ACOP-END-USER-NBR                                   
+              PERFORM 1316-REPL-ORSLNE                                          
+           END-IF.                                                              
+                                                                                
+           PERFORM 1213-GHU-ORSLNEOF.                                           
+           IF WS-ORSLNEOF-NORESP                                                
+              MOVE ORLOF-ORSLNEOF TO ORLOF-ORSLNEOF-0                           
+              INITIALIZE ORLOF-RSLR-EU-ID                                       
+                         ORLOF-RSLR-ADDR-SEQ-NBR                                
+                         ORLOF-RSLR-EU-CTAC-ID                                  
+                         ORLOF-EU-DATA-AVAIL-FLG                                
+                         ORLOF-EU-MRKT-SGMT-TYP-CD                              
+                         ORLOF-EU-MRKT-SGMT-TYP-SRC                             
+              MOVE ORLOF-ORSLNEOF-0 TO ORLOF-ORSLNEOF                           
+              PERFORM 1317-REPL-ORSLNEOF                                        
+           END-IF.                                                              
+       9402-EXIT.                                                               
+           EXIT.                                                                
+                                                                        CYR20087
+       9501-LINK-MULTI-HW-ROUTINE.                                      CYR20087
+           MOVE WR-ORDER-NBR           TO WS-ORSHED-NBR.                CYR22133
+           MOVE WR-WARRANTY-DS         TO WS-ORSSHH-KEY-VALUE.          CYR20087
+           MOVE WR-WARRANTY-LINE       TO WS-ORSLNE-NBR.                CYR20087
+           PERFORM 1202-GU-ORSSHH.                                      CYR23062
+           IF NOT WS-ORSSHH-NORESP                                      CYR23062
+              GO TO 9501-EXIT                                           CYR23062
+           END-IF.                                                      CYR23062
+           PERFORM 1204-GU-ORSLNE.                                      CYR20087
+           IF NOT WS-ORSLNE-NORESP                                      CYR20087
+              GO TO 9501-EXIT                                           CYR22133
+           END-IF.                                                      CYR20087
+           MOVE '0'                    TO WS-ORSDES-NBR.                CYR20087
+           PERFORM 9002-LINK-WARRANTY                                   CYR20087
+              THRU 9002-EXIT.                                           CYR20087
+           PERFORM 9003-LINK-HARDWARE                                   CYR20087
+              THRU 9003-EXIT.                                           CYR20087
+           PERFORM 9301-COPY-END-USER                                   CYR20087
+              THRU 9301-EXIT.                                           CYR20087
+       9501-EXIT.                                                       CYR20087
+           EXIT.                                                        CYR20087
+                                                                        CYR20087
+      ******************************************************************CYR20087
+      *GET THE LINKED HARDWARE BY READING ORSDES UNTIL 'SL' RECORD TYPE CYR20087
+      * IS FOUND.                                                       CYR20087
+      *TO USE THIS, PARENTAGE MUST FIRST BE ESTABLISHED,                CYR20087
+      * SET WS-ORSDES-NBR TO ZERO INITIALLY.                            CYR20087
+      ******************************************************************CYR20087
+       9601-GET-ALL-LINKED-HW.                                          CYR20087
+           PERFORM 1266-GNP-ORSDES.                                     CYR20087
+           IF NOT WS-ORSDES-NORESP                                      CYR20087
+              GO TO 9601-EXIT                                           CYR20087
+           END-IF.                                                      CYR20087
+                                                                        CYR20087
+           IF ORD-SERVICE-SKU-LINKAGE                                   CYR20087
+              ADD 1 TO WR-MULTI-LINK-HW-CNT                             CYR20087
+              MOVE ORD-SL-ORD-NBR                                       CYR22133
+                TO WR-MULTI-HW-ORDER(WR-MULTI-LINK-HW-CNT)              CYR22133
+              MOVE ORD-SL-ORD-DIST                                      CYR20087
+                TO WR-MULTI-HW-DIST(WR-MULTI-LINK-HW-CNT)               CYR20087
+              MOVE ORD-SL-ORD-SHIP                                      CYR20087
+                TO WR-MULTI-HW-SHIP(WR-MULTI-LINK-HW-CNT)               CYR20087
+              MOVE ORD-SL-LINE-NBR                                      CYR20087
+                TO WR-MULTI-HW-LINE(WR-MULTI-LINK-HW-CNT)               CYR20087
+           END-IF.                                                      CYR20087
+           MOVE ORD-DESC-NBR        TO WS-ORSDES-NBR.                   CYR20087
+           GO TO 9601-GET-ALL-LINKED-HW.                                CYR20087
+       9601-EXIT.                                                       CYR20087
+           EXIT.                                                        CYR20087
+                                                                        CYR22133
+       9006-INSERT-WARR-LINK.                                           CYR22133
+           IF NOT WR-UPDATE-WARRLINK                                    CYR22133
+              GO TO 9006-EXIT.                                          CYR22133
+                                                                        CYR22133
+           MOVE WR-COMPANY             TO ORTWARLK-CO-CD                CYR22133
+           MOVE WR-BRANCH              TO ORTWARLK-BR-NBR               CYR22133
+      * LINE INFO AND ENTRY DATE ALREADY PASSED FROM ORP600 SO SKIPPING TXV22217
+      * HERE FOR OVERRIDE                                               TXV22217
+           IF WS-SKIP-FOR-LINKID                                        TXV22217
+              CONTINUE                                                  TXV22217
+           ELSE                                                         TXV22217
+              MOVE ORL-PART-NBR        TO ORTWARLK-PART-NBR             TXV22217
+              MOVE ORL-DESCRIPTION     TO ORTWARLK-PART-DES             TXV22217
+              INITIALIZE SY777-PARM-DATA                                TXV22217
+              MOVE ORH-ENTRY-DATE      TO  SY777-IN-JUL-YYDDD           TXV22217
+              CALL 'SYU777'            USING  DFHEIBLK                  TXV22217
+                                              DFHCOMMAREA               TXV22217
+                                              SY777-PARM-DATA           TXV22217
+              IF SY777-OUT-ERR-SW  =  SPACE                             TXV22217
+                 MOVE SY777-OUT-ISO-10 TO  ORTWARLK-ORDR-DT             TXV22217
+              END-IF                                                    TXV22217
+           END-IF.                                                      TXV22217
+                                                                        CYR22133
+           MOVE WR-PROGRAM             TO ORTWARLK-LAST-CHG-PGM.        TXV22217
+           MOVE WR-LINKID              TO ORTWARLK-LINK-ID.             CYR22133
+                                                                        CYR22133
+           EXEC SQL                                                     CYR22133
+                INSERT INTO WARR_LINK                                   CYR22133
+                         (CO_CD,                                        CYR22133
+                          BR_NBR,                                       CYR22133
+                          ORDR_NBR,                                     CYR22133
+                          DIST_NBR,                                     CYR22133
+                          SHIP_NBR,                                     CYR22133
+                          ORDR_DT,                                      CYR22133
+                          ORDR_LINE_NBR,                                CYR22133
+                          LINK_ID,                                      CYR22133
+                          LINE_TYPE,                                    CYR22133
+                          PART_NBR,                                     CYR22133
+                          LAST_CHG_PGM,                                 CYR22133
+                          LAST_CHG_TS,                                  CYR22133
+                          PART_DES)                                     CYR22133
+                VALUES ( :ORTWARLK-CO-CD,                               CYR22133
+                         :ORTWARLK-BR-NBR,                              CYR22133
+                         :ORTWARLK-ORDR-NBR,                            CYR22133
+                         :ORTWARLK-DIST-NBR,                            CYR22133
+                         :ORTWARLK-SHIP-NBR,                            CYR22133
+                         :ORTWARLK-ORDR-DT,                             CYR22133
+                         :ORTWARLK-ORDR-LINE-NBR,                       CYR22133
+                         :ORTWARLK-LINK-ID,                             CYR22133
+                         :ORTWARLK-LINE-TYPE,                           CYR22133
+                         :ORTWARLK-PART-NBR,                            CYR22133
+                         :ORTWARLK-LAST-CHG-PGM,                        CYR22133
+                         CURRENT TIMESTAMP,                             CYR22133
+                         :ORTWARLK-PART-DES )                           CYR22133
+           END-EXEC.                                                    CYR22133
+                                                                        CYR22133
+           MOVE SQLCODE                TO SQLCODE-STATUS                CYR22133
+           EVALUATE TRUE                                                CYR22133
+               WHEN SQLCODE-NORESP                                      CYR22133
+               WHEN SQLCODE-DUPLICATE                                   CYR22133
+                  CONTINUE                                              CYR22133
+               WHEN OTHER                                               CYR22133
+                  MOVE '9006'          TO WS-ERROR-CODE                 CYR22133
+                  MOVE '9006-INSERT-WARR-LINK'                          CYR22133
+                                       TO SYWDB2-EXTRA-MESSAGE-1        CYR22133
+                  MOVE 'ERROR INSERT WARR_LINK'                         CYR22133
+                                       TO SYWDB2-EXTRA-MESSAGE-2        CYR22133
+                  PERFORM 990-SQL-MESSAGE                               CYR22133
+                  PERFORM W998-ABEND                                    CYR22133
+           END-EVALUATE.                                                CYR22133
+                                                                        CYR22133
+       9006-EXIT.                                                       CYR22133
+           EXIT.                                                        CYR22133
+                                                                        CYR22133
+       9105-DLET-WARR-LINK.                                             CYR22133
+           MOVE WR-COMPANY             TO ORTWARLK-CO-CD                CYR22133
+           MOVE WR-BRANCH              TO ORTWARLK-BR-NBR               CYR22133
+                                                                        CYR22133
+           IF WS-DELETE-ONLY-HW                                         TXV22217
+              CONTINUE                                                  TXV22217
+           ELSE                                                         TXV22217
+              INITIALIZE SY777-PARM-DATA                                TXV22217
+              MOVE ORH-ENTRY-DATE      TO  SY777-IN-JUL-YYDDD           TXV22217
+              CALL 'SYU777'            USING  DFHEIBLK                  TXV22217
+                                              DFHCOMMAREA               TXV22217
+                                              SY777-PARM-DATA           TXV22217
+              IF SY777-OUT-ERR-SW  =  SPACE                             TXV22217
+                 MOVE SY777-OUT-ISO-10 TO  ORTWARLK-ORDR-DT             TXV22217
+              END-IF                                                    TXV22217
+           END-IF.                                                      CYR22133
+                                                                        CYR22133
+           EXEC SQL                                                     CYR22133
+                 DELETE FROM WARR_LINK                                  CYR22133
+                 WHERE CO_CD       = :ORTWARLK-CO-CD                    CYR22133
+                 AND BR_NBR        = :ORTWARLK-BR-NBR                   CYR22133
+                 AND ORDR_NBR      = :ORTWARLK-ORDR-NBR                 CYR22133
+                 AND DIST_NBR      = :ORTWARLK-DIST-NBR                 CYR22133
+                 AND SHIP_NBR      = :ORTWARLK-SHIP-NBR                 CYR22133
+                 AND ORDR_DT       = :ORTWARLK-ORDR-DT                  CYR22133
+                 AND ORDR_LINE_NBR = :ORTWARLK-ORDR-LINE-NBR            CYR22133
+                 AND LINE_TYPE     = :ORTWARLK-LINE-TYPE                CYR22133
+           END-EXEC.                                                    CYR22133
+                                                                        CYR22133
+           MOVE SQLCODE                TO SQLCODE-STATUS                CYR22133
+           EVALUATE TRUE                                                CYR22133
+               WHEN SQLCODE-NORESP                                      CYR22133
+               WHEN SQLCODE-NOT-FOUND                                   CYR22133
+                  CONTINUE                                              CYR22133
+               WHEN OTHER                                               CYR22133
+                  MOVE '9105'          TO WS-ERROR-CODE                 CYR22133
+                  MOVE '9105-DLET-WARR-LINK'                            CYR22133
+                                       TO SYWDB2-EXTRA-MESSAGE-1        CYR22133
+                  MOVE 'ERROR DELETE WARR_LINK'                         CYR22133
+                                       TO SYWDB2-EXTRA-MESSAGE-2        CYR22133
+                  PERFORM 990-SQL-MESSAGE                               CYR22133
+                  PERFORM W998-ABEND                                    CYR22133
+           END-EVALUATE.                                                CYR22133
+                                                                        CYR22133
+       9105-EXIT.                                                       CYR22133
+           EXIT.                                                        CYR22133
+                                                                        CYR22133
+      *---------------------------------------------------------------- TXV22217
+       9106-DLET-OLD-WARR-LINK.                                         TXV22217
+      *---------------------------------------------------------------- TXV22217
+           MOVE WR-COMPANY             TO ORTWARLK-CO-CD                TXV22217
+           MOVE WR-BRANCH              TO ORTWARLK-BR-NBR               TXV22217
+                                                                        TXV22217
+           EXEC SQL                                                     TXV22217
+              DELETE FROM WARR_LINK                                     TXV22217
+               WHERE CO_CD         = :ORTWARLK-CO-CD                    TXV22217
+                 AND LINK_ID IN                                         TXV22217
+                 (                                                      TXV22217
+                  SELECT LINK_ID                                        TXV22217
+                   FROM WARR_LINK                                       TXV22217
+                   WHERE CO_CD         = :ORTWARLK-CO-CD                TXV22217
+                     AND BR_NBR        = :ORTWARLK-BR-NBR               TXV22217
+                     AND ORDR_DT       = :ORTWARLK-ORDR-DT              TXV22217
+                     AND ORDR_NBR      = :ORTWARLK-ORDR-NBR             TXV22217
+                     AND DIST_NBR      = :ORTWARLK-DIST-NBR             TXV22217
+                     AND SHIP_NBR      = :ORTWARLK-SHIP-NBR             TXV22217
+                     AND ORDR_LINE_NBR = :ORTWARLK-ORDR-LINE-NBR        TXV22217
+                     AND LINE_TYPE     = :ORTWARLK-LINE-TYPE            TXV22217
+                 )                                                      TXV22217
+           END-EXEC                                                     TXV22217
+                                                                        TXV22217
+           MOVE SQLCODE                TO SQLCODE-STATUS                TXV22217
+           EVALUATE TRUE                                                TXV22217
+               WHEN SQLCODE-NORESP                                      TXV22217
+               WHEN SQLCODE-NOT-FOUND                                   TXV22217
+                  CONTINUE                                              TXV22217
+               WHEN OTHER                                               TXV22217
+                  MOVE '9106'          TO WS-ERROR-CODE                 TXV22217
+                  MOVE '9106-DLET-OLD-WARR-LINK'                        TXV22217
+                                       TO SYWDB2-EXTRA-MESSAGE-1        TXV22217
+                  MOVE 'ERROR DELETE WARR_LINK'                         TXV22217
+                                       TO SYWDB2-EXTRA-MESSAGE-2        TXV22217
+                  PERFORM 990-SQL-MESSAGE                               TXV22217
+                  PERFORM W998-ABEND                                    TXV22217
+           END-EVALUATE.                                                TXV22217
+                                                                        TXV22217
+       9106-EXIT.                                                       TXV22217
+           EXIT.                                                        TXV22217
+                                                                        TXV22217
+      *---------------------------------------------------------------- MB323125
+       9108-SEL-HW-WARR-LINK.                                           MB323125
+      *---------------------------------------------------------------- MB323125
+      *FETCHING THE WARR_LINK TABLE INFO                                MB323125
+                                                                        MB323125
+           EXEC SQL                                                     MB323125
+                SELECT                                                  MB323125
+                      LINK_ID                                           MB323125
+                     ,PART_NBR                                          MB323125
+                     ,PART_DES                                          MB323125
+                 INTO                                                   MB323125
+                    :ORTWARLK-LINK-ID                                   MB323125
+                   ,:ORTWARLK-PART-NBR                                  MB323125
+                   ,:ORTWARLK-PART-DES                                  MB323125
+                 FROM  WARR_LINK                                        MB323125
+                WHERE CO_CD         = :ORTWARLK-CO-CD                   MB323125
+                  AND BR_NBR        = :ORTWARLK-BR-NBR                  MB323125
+                  AND ORDR_DT       = :ORTWARLK-ORDR-DT                 MB323125
+                  AND ORDR_NBR      = :ORTWARLK-ORDR-NBR                MB323125
+                  AND DIST_NBR      = :ORTWARLK-DIST-NBR                MB323125
+                  AND SHIP_NBR      = :ORTWARLK-SHIP-NBR                MB323125
+                  AND ORDR_LINE_NBR = :ORTWARLK-ORDR-LINE-NBR           MB323125
+                  AND LINE_TYPE     = :ORTWARLK-LINE-TYPE               MB323125
+                FETCH FIRST 1 ROW ONLY                                  MB323125
+           END-EXEC.                                                    MB323125
+                                                                        MB323125
+           MOVE SQLCODE                TO SQLCODE-STATUS                MB323125
+           EVALUATE TRUE                                                MB323125
+               WHEN SQLCODE-NORESP                                      MB323125
+                    SET WS-HW-LINKID-FOUND    TO TRUE                   MB323125
+               WHEN SQLCODE-NOT-FOUND                                   MB323125
+                    SET WS-HW-LINKID-NOTFOUND TO TRUE                   MB323125
+               WHEN OTHER                                               MB323125
+                    MOVE '9108'        TO WS-ERROR-CODE                 MB323125
+                    MOVE '9108-SEL-HW-WARR-LINK'                        MB323125
+                                       TO SYWDB2-EXTRA-MESSAGE-1        MB323125
+                    MOVE 'ERROR SELECT WARR_LINK'                       MB323125
+                                       TO SYWDB2-EXTRA-MESSAGE-2        MB323125
+                    PERFORM 990-SQL-MESSAGE                             MB323125
+                    PERFORM W998-ABEND                                  MB323125
+           END-EVALUATE.                                                MB323125
+                                                                        MB323125
+       9108-EXIT.                                                       MB323125
+           EXIT.                                                        MB323125
+                                                                        MB323125
+       W999-ERROR-ROUTINE.                                              CYR22133
+           SET WR-ERR-IDX              TO 1.                            CYR22133
+           SEARCH WR-ERR-TBL                                            CYR22133
+               AT END                                                   CYR22133
+                   MOVE '0000'         TO WR-RESP-CODE                  CYR22133
+                   MOVE 'NO ERRORS'    TO WR-RESP-MSG                   CYR22133
+               WHEN WR-ERR-CD (WR-ERR-IDX) = WR-RESP-CODE               CYR22133
+                   MOVE WR-ERR-MSG (WR-ERR-IDX) TO WR-RESP-MSG.         CYR22133
+       W999-EXIT.                                                       CYR22133
+           EXIT.                                                        CYR22133
+                                                                        CYR22133
+       W998-ABEND.                                                      CYR22133
+           MOVE WS-ERROR-CODE          TO WR-RESP-CODE.                 CYR22133
+           MOVE SYWDB2-EXTRA-MESSAGE-1 TO WR-RESP-MSG.                  CYR22133
+                                                                        CYR22133
+           EXEC CICS ABEND                                              CYR22133
+                ABCODE(WS-ABCODE)                                       CYR22133
+           END-EXEC.                                                    CYR22133
+       W998-EXIT.                                                       CYR22133
+           EXIT.                                                        CYR22133

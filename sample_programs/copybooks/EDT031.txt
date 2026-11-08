@@ -1,0 +1,247 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT031                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV031 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV031-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV031-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV031-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV031-CO-CD                                  *          
+      *              - EDV031-PARTNER-ID                             *          
+      *              - EDV031-CREDIT-MEMO-FLG                        *          
+      *              - EDV031-ASSET-TAG-FLG                          *          
+      *              - EDV031-ZERO-VALUE-FLG                         *          
+      *              - EDV031-REFUSAL-FLG                            *          
+      *              - EDV031-COMPONENTS-FLG                         *          
+      *              - EDV031-INTEREST-INV-FLG                       *          
+      *              - EDV031-LST-CHG-TS                             *          
+      *              - EDV031-LST-CHG-NAM                            *          
+      *                                                              *          
+      *    OUTPUT: EDV031-OUTPUT-DATA                                *          
+      *          - EDV031-ROW-COUNT                                  *          
+      *          - EDV031-MODULE-RESULT-CD                           *          
+      *          - EDV031-MODULE-MESSAGE                             *          
+      *          - EDV031-DATABASE-RESULT-CODES:                     *          
+      *              - EDV031-SQLCA VALUES                           *          
+      *              - EDV031-SQLCODE                                *          
+      *              - EDV031-SQLSTATE                               *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV031 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV031-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV031-PARTNER-ID.                *          
+      *     MOVE 'S ' TO EDV031-ACTION-CD.     .                     *          
+      *     MOVE 'IE_IN_PO_SW' TO EDV031-OBJECT-ID.                  *          
+      *                                                              *          
+      *     CALL 'EDV031' USING EDV031-COMMUNICATIONS-AREA.          *          
+      *     IF EDV031-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV031 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDR001 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                08/08/25  AXS   NEW FIELD ADDED TO IDENTIFY   *  AXS25220
+      *                                XEDI HOLDING TANK PARTNERS    *  AXS25220
+      *                                SW : XEDI-PRTNR-SW.           *  AXS25220
+      *                10/22/21  NXM   SE8498:ADD ACK DELAY HRS FIELD*  NXM21295
+      *                08/20/21  NXM   SE8498:ADD ACK DELAY SW       *  NXM21232
+      *                06/18/21  MYM   SE8651:ADD FUTURE ORDR SW     *  MYM21169
+      *                05/05/18  CYK   ADD ORDR_CANC_DAYS_FLG AND    *  CYK18125
+      *                                    ORDR_CANC_DAYS_NBR        *  CYK18125
+      *                03/04/17  SXR   ADD AUTO_SPLIT_FLG            *  SXR17063
+      *                09/17/16  DXB   ADD ADDR_VALID_FLG            *  DXB16260
+      *                01/09/16  DXB   ADD ETA_CALC_FLG              *  DXB16009
+      *                                    ETA_DAYS                  *  DXB16009
+      *                09/06/14  VXD   EDI RESERVES-SE21961/SE22969  *  VXD14249
+      *                                CONFIG VISIBLE RESERVES       *  VXD14249
+      *                04/01/13  RZS   ADD RSRV_CUST_NBR,            *  RZS13092
+      *                                    RSRV_ALLOWED AND          *  RZS13092
+      *                                    RSRV_EXPIR_DAYS.          *  RZS13092
+      *                04/22/07  MMV   CHANGED EDV031-SAVE-FRT-FLG   *  MMV07112
+      *                                TO EDV031-LTL-NO-HOLD.        *  MMV07112
+      *                11/01/05  KWC   ADD ST_STORE_OVRRD_FLG        *  KWC05305
+      *                02/11/04  KWC   ADD NEW FIELD AUTO_PO_CHG_FLG *  KWC04042
+      *                          AJS   ADD NEW FIELD CLS_X_HLD_FLG   *  KWC04042
+      *                09/15/03  TWA/  ADD NEW FIELD CUSTOM_CARR_FLG *  KWC03258
+      *                          KWC   AND CASCADE_SKU_FLG.          *  KWC03258
+      *                03/03/03  LXS   ADD NEW EU CAPTURE FLAG       *  LXS03063
+      *                11/18/02  JFH   ADD NEW SPEC PROCE FLAG FIELD *  JFH02322
+      *                10/23/02  JFH   ADD NEW ACK-RPT-FLG FIELD     *  JFH02296
+      *                11/20/01  KXR   ORIGINAL.                     *  KXR01324
+      ****************************************************************          
+                                                                                
+       01  EDV031-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV031-ACTION-CD                     PIC  X(002).                
+               88  EDV031-SELECT                    VALUE 'S '.                 
+               88  EDV031-INSERT                    VALUE 'I '.                 
+               88  EDV031-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV031-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV031-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV031-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV031-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV031-COUNT                     VALUE 'C '.                 
+               88  EDV031-MAX                       VALUE 'MX'.                 
+               88  EDV031-MIN                       VALUE 'MN'.                 
+               88  EDV031-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV031-MASS-UPDATE               VALUE 'MU'.                 
+               88  EDV031-MASS-INSERT               VALUE 'MI'.                 
+           05  EDV031-USER-ID                       PIC  X(010).                
+           05  EDV031-KEY-AREA.                                                 
+               10  EDV031-KEY-CO-CD                 PIC  X(002).                
+               10  EDV031-KEY-PARTNER-ID            PIC  X(015).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV031-INPUT-OUTPUT-AREA.                                        
+               10  EDV031-OBJECT-ID                 PIC  X(030).                
+                   88  EDV031-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV031-IN-PO-SW              VALUE                       
+                                  'IE_IN_PO_SW                   '.             
+               10  EDV031-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV031-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV031-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV031-CO-CD                 PIC  X(002).                
+                   15  EDV031-PARTNER-ID            PIC  X(015).                
+                   15  EDV031-SKIP-FR-TM            PIC  X(008).                
+                   15  EDV031-SKIP-TO-TM            PIC  X(008).                
+                   15  EDV031-CUST-PRTY             PIC  S9(009).               
+                   15  EDV031-ACK-PO-FLG            PIC  X(001).                
+                   15  EDV031-ACK-RPT-FLG           PIC  X(001).        JFH02296
+                   15  EDV031-ACK-PROMO-FLG         PIC  X(001).                
+                   15  EDV031-BASERATE-FLG          PIC  X(001).                
+                   15  EDV031-AGG-CD-CPBL-FLG       PIC  X(001).                
+                   15  EDV031-PRE-IM-HOLD-FLG       PIC  X(001).                
+                   15  EDV031-MULT-SHP-TO-FLG       PIC  X(001).                
+                   15  EDV031-SYSTEM-PARTS-FLG      PIC  X(001).                
+                   15  EDV031-VOID-TAXABLE-FLG      PIC  X(001).                
+                   15  EDV031-CASEPACK-MSG-FLG      PIC  X(001).                
+                   15  EDV031-CHK-CUST-PRC-FLG      PIC  X(001).                
+                   15  EDV031-DIST-DEPTH-FLG        PIC  X(001).                
+                   15  EDV031-DIST-DEPTH-FLG-N REDEFINES                        
+                       EDV031-DIST-DEPTH-FLG        PIC  9(001).                
+                   15  EDV031-AIR-BR-SEQ-FLG        PIC  X(001).                
+                   15  EDV031-BR-SEQ-ORIDE-FLG      PIC  X(001).                
+                   15  EDV031-MULT-BR-SEQ-FLG       PIC  X(001).                
+                   15  EDV031-EXPORT-BR-SEQ-FLG     PIC  X(001).                
+                   15  EDV031-HOLD-ORDER-FLG        PIC  X(001).                
+                   15  EDV031-DFLT-CUST-NBR         PIC  X(011).                
+                   15  EDV031-PROMO-CUST-NBR        PIC  X(011).                
+                   15  EDV031-PRICE-CUST-NBR        PIC  X(011).                
+                   15  EDV031-INST-REBAT-MSG-FLG    PIC  X(001).                
+                   15  EDV031-VLA-FLG               PIC  X(001).                
+                   15  EDV031-MULTI-DIST-FLG        PIC  X(001).                
+                   15  EDV031-LTL-NO-HOLD           PIC  X(001).        MMV07112
+                   15  EDV031-SAVE-DIST-FLG         PIC  X(001).                
+                   15  EDV031-BEST-WHSE-FLG         PIC  X(001).                
+                   15  EDV031-SINGLE-WHSE-FLG       PIC  X(001).                
+                   15  EDV031-PRNT-ORDR-FLG         PIC  X(001).                
+                   15  EDV031-MULT-SHP-SORT-SEQ     PIC  X(001).                
+                   15  EDV031-MAX-FUT-DAY           PIC  S9(004).               
+                   15  EDV031-CLS-X-FILTER-TYP      PIC  X(001).                
+                   15  EDV031-CLS-S-FILTER-TYP      PIC  X(001).                
+                   15  EDV031-UPD-CUST-SKU-FLG      PIC  X(001).                
+                   15  EDV031-SAVE-CUST-PRC-FLG     PIC  X(001).                
+                   15  EDV031-BO-BR-XFER-FLG        PIC  X(001).                
+                   15  EDV031-REJ-ORDR-HDR-FLG      PIC  X(001).                
+                   15  EDV031-REJ-CON-CPLT-HDR-FLG  PIC  X(001).                
+                   15  EDV031-SPEC-PRC-FLG          PIC  X(001).        JFH02322
+                   15  EDV031-EU-CAPTURE-FLG        PIC  X(001).        LXS03063
+                   15  EDV031-CUSTOM-CARR-FLG       PIC  X(001).        KWC03258
+                   15  EDV031-CASCADE-SKU-FLG       PIC  X(001).        KWC03258
+                   15  EDV031-AUTO-PO-CHG-FLG       PIC  X(001).        KWC04042
+                   15  EDV031-CLS-X-HLD-FLG         PIC  X(001).        KWC04042
+                   15  EDV031-ST-STORE-OVRRD-FLG    PIC  X(001).        KWC05305
+                   15  EDV031-RSRV-CUST-NBR         PIC  X(011).        RZS13092
+                   15  EDV031-RSRV-ALLOWED-FLG      PIC  X(001).        RZS13092
+                   15  EDV031-RSRV-EXPIR-DAYS       PIC  S9(004).       RZS13092
+                   15  EDV031-CONFIG-VISIBLE-FLG    PIC  X(001).        VXD14249
+                   15  EDV031-ETA-CALC-FLG          PIC  X(001).        DXB16009
+                   15  EDV031-ETA-DAYS              PIC  S9(007).       DXB16009
+                   15  EDV031-ADDR-VALID-FLG        PIC  X(001).        DXB16260
+                   15  EDV031-AUTO-SPLIT-FLG        PIC  X(001).        SXR17063
+                   15  EDV031-ORDR-CANC-DAYS-FLG    PIC  X(001).        CYK18125
+                   15  EDV031-ORDR-CANC-DAYS-NBR    PIC  S9(004).       CYK18125
+                   15  EDV031-FUTURE-ORDR-SW        PIC  X(001).        MYM21169
+                   15  EDV031-DELAY-855-SW          PIC  X(001).        NXM21232
+                   15  EDV031-DELAY-855-HRS         PIC  S9(004).       NXM21295
+                   15  EDV031-XEDI-PRTNR-SW         PIC  X(001).        AXS25220
+                   15  EDV031-LST-CHG-TS            PIC  X(026).                
+                   15  EDV031-LST-CHG-NAM           PIC  X(015).                
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV031-OUTPUT-DATA.                                              
+               10  EDV031-ROW-COUNT             PIC  S9(009).                   
+               10  EDV031-MODULE-RESULT-CD      PIC  X(002).                    
+                   88  EDV031-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV031-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV031-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV031-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV031-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV031-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV031-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV031-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV031-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV031-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV031-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV031-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV031-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV031-EXCEPTION-MESSAGE.                                    
+                   15  EDV031-MSG-OBJECT            PIC  X(030).                
+                   15  EDV031-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV031-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV031-SQLCA.                                            
+                       20  EDV031-SQLCAID           PIC  X(008).                
+                       20  EDV031-SQLCABC           PIC  S9(009).               
+                       20  EDV031-SQLCODE           PIC  S9(009).               
+                       20  EDV031-SQLERRM.                                      
+                           25  EDV031-SQLERRML      PIC  S9(004).               
+                           25  EDV031-SQLERRMC      PIC  X(070).                
+                       20  EDV031-SQLERRP           PIC  X(008).                
+                       20  EDV031-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV031-SQLWARN.                                      
+                           25  EDV031-SQLWARN0      PIC  X(001).                
+                           25  EDV031-SQLWARN1      PIC  X(001).                
+                           25  EDV031-SQLWARN2      PIC  X(001).                
+                           25  EDV031-SQLWARN3      PIC  X(001).                
+                           25  EDV031-SQLWARN4      PIC  X(001).                
+                           25  EDV031-SQLWARN5      PIC  X(001).                
+                           25  EDV031-SQLWARN6      PIC  X(001).                
+                           25  EDV031-SQLWARN7      PIC  X(001).                
+                       20  EDV031-SQLEXT.                                       
+                           25  EDV031-SQLWARN8      PIC  X(001).                
+                           25  EDV031-SQLWARN9      PIC  X(001).                
+                           25  EDV031-SQLWARNA      PIC  X(001).                
+                           25  EDV031-SQLSTATE      PIC  X(005).                

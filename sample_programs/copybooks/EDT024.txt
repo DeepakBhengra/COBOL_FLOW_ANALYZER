@@ -1,0 +1,230 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT024                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV024 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV024-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV024-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV024-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV024-CO-CD                                  *          
+      *              - EDV024-PARTNER-ID                             *          
+      *              - EDV024-EDI-CO                                 *          
+      *              - EDV024-LST-CHG-TS                             *          
+      *              - EDV024-LST-CHG-NAM                            *          
+      *                                                              *          
+      *    OUTPUT: EDV024-OUTPUT-DATA                                *          
+      *          - EDV024-ROW-COUNT                                  *          
+      *          - EDV024-MODULE-RESULT-CD                           *          
+      *          - EDV024-MODULE-MESSAGE                             *          
+      *          - EDV024-DATABASE-RESULT-CODES:                     *          
+      *              - EDV024-SQLCA VALUES                           *          
+      *              - EDV024-SQLCODE                                *          
+      *              - EDV024-SQLSTATE                               *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV024 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV024-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-CO-CD      TO EDV024-CO-CD.                     *          
+      *     MOVE PGM-PARTNER-ID TO EDV024-PARTNER-ID.                *          
+      *     MOVE PGM-CUST-CARR-CD TO EDV024-CUST-CARR-CD.            *          
+      *     MOVE 'S ' TO EDV024-ACTION-CD.     .                     *          
+      *     MOVE 'IE_CARRIER_XREF' TO EDV024-OBJECT-ID.              *          
+      *                                                              *          
+      *     CALL 'EDV024' USING EDV024-COMMUNICATIONS-AREA.          *          
+      *                                                              *          
+      *     IF EDV024-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV024 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDR001 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      ****************************************************************          
+      ****************************************************************          
+      *   SINGLETON SELECT                                           *          
+      *  ==================                                          *          
+      * INPUT  = EDV024-KEY-*        (SUPPLY ALL KEY VARIABLES)      *          
+      *        = EDV024-ACTION-CD    (SET TO 'S ')                   *          
+      * OUTPUT = EDV024-*(1)         (RESULT WILL APPEAR IN          *          
+      *                               FIRST OCCURANCE OF THE ARRAY)  *          
+      *        = EDV024-OUTPUT-DATA  (ALWAYS CHECK MODULE RESULT)    *          
+      ****************************************************************          
+      ****************************************************************          
+      *   INSERT                                                     *          
+      *  ========                                                    *          
+      * INPUT  = EDV024-USER-ID      (NAME LISTED IN AUDIT TRAIL)    *          
+      *        = EDV024-*(1)         (ALL REQUIRED VALUES FOR NEW    *          
+      *                               RECORD MUST BE IN FIRST        *          
+      *                               OCCURANCE OF THE ARRAY)        *          
+      *        = EDV024-ACTION-CD    (SET TO 'I ')                   *          
+      * OUTPUT = EDV024-OUTPUT-DATA  (ALWAYS CHECK MODULE RESULTS)   *          
+      ****************************************************************          
+      ****************************************************************          
+      *   SINGLETON DELETE                                           *          
+      *  ==================                                          *          
+      * INPUT  = EDV024-KEY-*        (SUPPLY ALL KEY VARIABLES)      *          
+      *        = EDV024-USER-ID      (NAME LISTED IN AUDIT TRAIL)    *          
+      *        = EDV024-ACTION-CD    (SET TO 'D ')                   *          
+      * OUTPUT = EDV024-OUTPUT-DATA  (ALWAYS CHECK MODULE RESULTS)   *          
+      ****************************************************************          
+      ****************************************************************          
+      *   SINGLETON UPDATE                                           *          
+      *  ==================                                          *          
+      * INPUT  = EDV024-*(1)          (REQUIRED VALUES FOR UPDATED   *          
+      *                                RECORD MUST BE IN FIRST       *          
+      *                                OCCURANCE OF THE ARRAY)       *          
+      *        = EDV024-ACTION-CODE   (SET TO 'U ')                  *          
+      * OUTPUT = EDV024-OUTPUT-DATA   (ALWAYS CHECK MODULE RESULTS)  *          
+      ****************************************************************          
+      ****************************************************************          
+      *   OPEN CURSOR                                                *          
+      *  =============                                               *          
+      * INPUT  = EDV024-ACTION-CODE   (SET TO 'CO')                  *          
+      *        = EDV024-*(1)          (PLACE ANY/ALL PARTS OF THE    *          
+      *                                SELECT STATEMENT IN THE FIRST *          
+      *                                OCCURANCE OF THE ARRAY)       *          
+      * OUTPUT = EDV024-OUTPUT-DATA   (ALWAYS CHECK MODULE RESULTS)  *          
+      ****************************************************************          
+      *   MASS SELECT (FETCH)                                        *          
+      *  =====================                                       *          
+      * INPUT  = EDV024-ACTION-CODE   (SET TO 'CF')                  *          
+      *        = EDV024-*(1)          (PLACE ANY/ALL PARTS OF THE    *          
+      *                                BEGINING KEY IN FIRST         *          
+      *                                OCCURANCE OF THE ARRAY)       *          
+      * OUTPUT = EDV024-OUTPUT-DATA   (ALWAYS CHECK MODULE RESULTS)  *          
+      *        = EDV024-*(*)          (ARRAY RETURNS UP TO 20 ROWS.) *          
+      * TO RETRIEVE THE NEXT 20, PLACE *(20) IN *(1) AND FETCH AGAIN *          
+      ****************************************************************          
+      *   CLOSE CURSOR                                               *          
+      *  ==============                                              *          
+      * INPUT  = EDV024-ACTION-CODE   (SET TO 'CL')                  *          
+      * OUTPUT = EDV024-OUTPUT-DATA   (ALWAYS CHECK MODULE RESULTS)  *          
+      ****************************************************************          
+      ****************************************************************          
+      *   COUNT                                                      *          
+      *  =======                                                     *          
+      * INPUT  = EDV024-ACTION-CODE   (SET TO 'C ')                  *          
+      * OUTPUT = EDV024-OUTPUT-DATA   (ALWAYS CHECK MODULE RESULTS)  *          
+      * NUMBER OF RECORDS IN THE TABLE WILL BE IN EDV024-ROW-COUNT   *          
+      ****************************************************************          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                11/10/04  KWC   ADDED EDV024-EDD-FLG          *  KWC04314
+      *                07/03/01  SXP   ORIGINAL.                     *          
+      ****************************************************************          
+                                                                                
+       01  EDV024-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV024-ACTION-CD                     PIC  X(002).                
+               88  EDV024-SELECT                    VALUE 'S '.                 
+               88  EDV024-INSERT                    VALUE 'I '.                 
+               88  EDV024-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV024-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV024-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV024-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV024-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV024-COUNT                     VALUE 'C '.                 
+               88  EDV024-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV024-CL-MASS-DELETE            VALUE 'MC'.                 
+           05  EDV024-USER-ID                       PIC  X(010).                
+           05  EDV024-KEY-AREA.                                                 
+               10  EDV024-KEY-CO-CD                 PIC  X(002).                
+               10  EDV024-KEY-PARTNER-ID            PIC  X(015).                
+               10  EDV024-KEY-CUST-CARR-CD          PIC  X(010).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV024-INPUT-OUTPUT-AREA.                                        
+               10  EDV024-OBJECT-ID                 PIC  X(030).                
+                   88  EDV024-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV024-CARRIER-XREF          VALUE                       
+                                  'IE_CARRIER_XREF            '.                
+                   88  EDV024-IM-CARRIER-CSR        VALUE                       
+                                  'IM CARRIER CSR             '.                
+                   88  EDV024-CUST-CARRIER-CSR      VALUE                       
+                                  'CUST CARRIER CSR           '.                
+               10  EDV024-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV024-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV024-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV024-CO-CD                 PIC  X(002).                
+                   15  EDV024-PARTNER-ID            PIC  X(015).                
+                   15  EDV024-CUST-CARR-CD          PIC  X(010).                
+                   15  EDV024-IM-CARR-CD            PIC  X(002).                
+                   15  EDV024-IM-FRT-OUT-CD         PIC  X(001).                
+                   15  EDV024-CUST-SCAC-CD          PIC  X(005).                
+                   15  EDV024-LST-CHG-TS            PIC  X(026).                
+                   15  EDV024-LST-CHG-NAM           PIC  X(015).                
+                   15  EDV024-EDD-FLG               PIC  X(001).        KWC04314
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV024-OUTPUT-DATA.                                              
+               10  EDV024-ROW-COUNT                 PIC  S9(009).               
+               10  EDV024-MODULE-RESULT-CD          PIC  X(002).                
+                   88  EDV024-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV024-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV024-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV024-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV024-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV024-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV024-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV024-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV024-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV024-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV024-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV024-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV024-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV024-EXCEPTION-MESSAGE.                                    
+                   15  EDV024-MSG-OBJECT            PIC  X(030).                
+                   15  EDV024-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV024-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV024-SQLCA.                                            
+                       20  EDV024-SQLCAID           PIC  X(008).                
+                       20  EDV024-SQLCABC           PIC  S9(009).               
+                       20  EDV024-SQLCODE           PIC  S9(009).               
+                       20  EDV024-SQLERRM.                                      
+                           25  EDV024-SQLERRML      PIC  S9(004).               
+                           25  EDV024-SQLERRMC      PIC  X(070).                
+                       20  EDV024-SQLERRP           PIC  X(008).                
+                       20  EDV024-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV024-SQLWARN.                                      
+                           25  EDV024-SQLWARN0      PIC  X(001).                
+                           25  EDV024-SQLWARN1      PIC  X(001).                
+                           25  EDV024-SQLWARN2      PIC  X(001).                
+                           25  EDV024-SQLWARN3      PIC  X(001).                
+                           25  EDV024-SQLWARN4      PIC  X(001).                
+                           25  EDV024-SQLWARN5      PIC  X(001).                
+                           25  EDV024-SQLWARN6      PIC  X(001).                
+                           25  EDV024-SQLWARN7      PIC  X(001).                
+                       20  EDV024-SQLEXT.                                       
+                           25  EDV024-SQLWARN8      PIC  X(001).                
+                           25  EDV024-SQLWARN9      PIC  X(001).                
+                           25  EDV024-SQLWARNA      PIC  X(001).                
+                           25  EDV024-SQLSTATE      PIC  X(005).                

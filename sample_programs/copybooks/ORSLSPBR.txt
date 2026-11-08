@@ -1,0 +1,217 @@
+﻿      ******************************************************************TLKY8337
+      *** YEAR 2000 READY                                              *TLKY8337
+      ******************************************************************TLKY8337
+      ******************************************************************        
+      *                                                                *        
+      * PURPOSE: FOR FILL RATE PROJECT TO CAPTURE LEGITMATE SHIPPING   *        
+      *          BRANCH (LSB).                                         *        
+      *                                                                *        
+      ******************************************************************        
+      * 07/19/17 SAS  CICS UPGRADE PHASE II - DELETED THE CICS         *SAS17200
+      *               TRANSLATED CODE AND UNCOMMENTED THE EXEC CICS    *SAS17200
+      *               STATEMENTS.                                      *SAS17200
+      * 01/31/97 PWL  ADD LOGIC TO CHECK AVAIL-QTY OF LSB              *PWL97031
+      * 06/18/96 PWL  CREATED                                          *PWL96170
+      ******************************************************************        
+      *                                                                         
+      * THE FILES READ:                                                         
+      *     BRANCH PROFILE                                                      
+      *     TBLMST                                                              
+      *                                                                         
+      * THE FIELDS REQUIRED IN THE ROUTINE:                                     
+      *                                                                         
+      *    COPYBOOKS:                                                           
+      *        ORSSHH                                                           
+      *        ORSLNE                                                           
+      *        TBIBRAN                                                          
+      *        TBIBRSEQ                                                         
+      *        TBICSTBR                                                         
+      *    MISC:                                                                
+      *        05 WS-INVENTORY-BR          PIC X(02).                           
+      *        05 WS-X                     PIC 9(03)  VALUE ZERO.               
+      *        05 WS-STOP-BRSEQ-LOOP-SW    PIC X      VALUE 'N'.                
+      *           88 WS-STOP-BRSEQ-LOOP               VALUE 'Y'.                
+      *****************************************************************         
+      *        05 WS-LSB-CENTRAL-STOCK-SW PIC X(01).                            
+      *           (SET TO 'Y' WHEN LSB IS CENTRAL STOCK BR)                     
+      *        05 WS-LSB-CENTRAL-STOCK-BR PIC X(02).                            
+      *           (FIRST CENTRAL STOCK BR FOR SHP BR IN BR SEQ TBL.)            
+      *                                                                         
+      * THIS COPYBOOK IS USED IN: ORP320MD, ORP350MD, ORP370, ORP380.  *        
+      *                           ORP572MD.                            *        
+      ******************************************************************        
+      *                                                               **        
+       581A-GET-LEGITMATE-SHP-BR.                                               
+      *                                                                         
+      **************************************************************            
+      *                                                                         
+      *   -- FOR FULFILLMENT ORDER GET LSB FROM SYXZPBRC WHICH FINDS            
+      *      GEOGRAPHICALLY CLOSE BRANCH BASED ON CUSTOMER CO/ZIP/STATE.        
+      *                                                                         
+      *   -- FOR NON FULFILLMENT ORDERS, IF CUA-SHIP-FROM EXISTS                
+      *      SET LSB = CUA-SHIP-FROM,                                           
+      *      OTHERWISE SET LSB = INVENTORY BR FOR ORDER BR                      
+      *                                                                         
+      **************************************************************            
+                                                                                
+           IF ORH-FULFILLMENT                                                   
+              PERFORM Z9000-ZIPBR THRU Z9000-EXIT                               
+           ELSE                                                                 
+              IF CUA-SHIP-FROM > SPACES                                         
+                   MOVE CUA-SHIP-FROM TO WS-CUA-SHIP-FROM                       
+              ELSE                                                              
+                   MOVE WS-INVENTORY-BR TO WS-CUA-SHIP-FROM.                    
+      *                                                                         
+      **************************************************************            
+      *                                                                         
+      *   -- FOR CONFIGURATION ORDERS GET LSB FROM BR PROFILE;                  
+      *      RESET LSB = CONFIG. BRANCH FOR LSB.                                
+      *                                                                         
+      *   -- FOR NON CONFIGURATION ORDERS:                                      
+      *      -- IF IT IS CENTRAL STOCK ITEM, LSB SHOULD BE:                     
+      *            IF CURRENT LSB IS A CENTRAL STOCK BR, LSB NOT RESET;         
+      *            IF LSB = ORDER SHIPPING BRANCH (WS-BR-NBR-SHIP-ROM)          
+      *               & ORD-QTY = SHP QTY, LSB NOT RESET;                       
+      *            OTHERWISE RESET LSB USING TBXBRSEQ & TBXBRAN TABLES          
+      *                                                                         
+      **************************************************************            
+                                                                                
+           IF ORL-CONFIG-IND = 'Y'                                              
+              IF TC-COMPANY         NOT = WS-BP-COMPANY OR                      
+                 WS-CUA-SHIP-FROM   NOT = WS-BP-BR-NBR                          
+                 MOVE TC-COMPANY     TO WS-BP-COMPANY                           
+                 MOVE WS-CUA-SHIP-FROM TO WS-BP-BR-NBR                          
+                 MOVE '0'            TO WS-BP-REC-SEQ                           
+                 MOVE WS-BP-MAXLEN   TO WS-BP-REC-LENGTH                        
+            EXEC CICS READ                                              SAS17200
+                 FILE (WS-BP-FILE-NAME)                                 SAS17200
+                 LENGTH (WS-BP-REC-LENGTH)                              SAS17200
+                 INTO (BP-BPRMST)                                       SAS17200
+                 RIDFLD (WS-BP-KEY)                                     SAS17200
+                 RESP (WS-EIBRESP)                                      SAS17200
+            END-EXEC                                                    SAS17200
+      *                                                                         
+                 IF WS-EIB-NORESP                                               
+                    MOVE BP-BR-NBR-CONFIG TO WS-CUA-SHIP-FROM                   
+                 END-IF                                                 PWL97031
+              ELSE                                                              
+                    MOVE BP-BR-NBR-CONFIG TO WS-CUA-SHIP-FROM.                  
+      *                                                                         
+           IF TC-COMPANY NOT = TB-BRN-COMPANY-CODE  OR                          
+              WS-CUA-SHIP-FROM NOT = TB-BRN-BRANCH                              
+              PERFORM 581C-READ-TBXBRAN.                                        
+      *                                                                         
+           IF TB-BRN-NORESP                                                     
+              IF TB-BRN-CENTRAL-STOCK                                           
+                 MOVE 'Y' TO WS-LSB-CENTRAL-STOCK-SW                            
+              ELSE                                                              
+                 MOVE 'N' TO WS-LSB-CENTRAL-STOCK-SW                            
+                 MOVE WS-CUA-SHIP-FROM        TO TB-BS-BR                       
+                 PERFORM 581D-READ-TBXBRSEQ                                     
+                 IF TB-BS-NORESP                                                
+                    MOVE 'N' TO WS-STOP-BRSEQ-LOOP-SW                           
+                    PERFORM 581E-CENTRAL-STOCK-BR THRU 581E-EXIT                
+                        VARYING WS-X FROM 1 BY 1                                
+                           UNTIL WS-STOP-BRSEQ-LOOP OR WS-X > 99.               
+                                                                                
+       581B-GET-LSB-ORSLNE.                                                     
+      *                                                                         
+           IF ORL-CONFIG-IND NOT = 'Y'          AND                     PWL97031
+              INI-CENTRAL-STOCK-ITEM            AND                     PWL97031
+              WS-LSB-CENTRAL-STOCK-SW NOT = 'Y'                         PWL97031
+              PERFORM 581I-CHECK-AVAIL.                                 PWL97031
+                                                                                
+           MOVE WS-CUA-SHIP-FROM     TO ORL-CUA-SHIP-FROM.                      
+           IF ORL-CONFIG-IND NOT = 'Y' AND                                      
+              INI-CENTRAL-STOCK-ITEM                                            
+              IF WS-LSB-CENTRAL-STOCK-SW = 'Y' OR                               
+                (ORL-CUA-SHIP-FROM = WS-BR-NBR-SHIP-FROM AND                    
+                 ORL-QTY-ORDERED = ORL-QTY-SHIPPED)      OR             PWL97031
+                 WS-STOP-BRSEQ-LOOP                                     PWL97031
+                 CONTINUE                                                       
+              ELSE                                                              
+                 MOVE ORL-CUA-SHIP-FROM       TO TB-BS-BR                       
+                 PERFORM 581D-READ-TBXBRSEQ                                     
+                 IF TB-BS-NORESP                                                
+                    MOVE 'N' TO WS-STOP-BRSEQ-LOOP-SW                           
+                    PERFORM 581F-RESET-LSB     THRU 581F-EXIT                   
+                         VARYING WS-X FROM 1 BY 1                               
+                           UNTIL WS-STOP-BRSEQ-LOOP OR WS-X > 99.               
+      *                                                                         
+       581C-READ-TBXBRAN.                                                       
+      *                                                                         
+           MOVE 'K'                     TO TB-BRN-REQUEST-CODE.                 
+           MOVE TC-COMPANY              TO TB-BRN-COMPANY-CODE.                 
+           MOVE WS-CUA-SHIP-FROM        TO TB-BRN-BRANCH.                       
+           CALL 'SYU510'                USING TB-BRAN-PROC-IA.                  
+      *                                                                         
+       581D-READ-TBXBRSEQ.                                                      
+      *                                                                         
+           MOVE 'K'                     TO TB-BS-REQUEST-CODE                   
+           MOVE TC-COMPANY              TO TB-BS-COMPANY-CODE                   
+           CALL 'SYU510'                USING TB-BRANCH-SEQ-IA.                 
+                                                                                
+      *                                                                         
+       581E-CENTRAL-STOCK-BR.                                                   
+      *                                                                         
+           IF TB-BS-BR-NBR (WS-X) <= SPACES                                     
+              MOVE 'Y'    TO WS-STOP-BRSEQ-LOOP-SW                              
+              GO TO 581E-EXIT.                                                  
+      *                                                                         
+           MOVE TB-BS-BR-NBR (WS-X)     TO TB-BRN-BRANCH                        
+           CALL 'SYU510'                USING TB-BRAN-PROC-IA.                  
+           IF NOT TB-BRN-NORESP                                                 
+              GO TO 581E-EXIT.                                                  
+      *                                                                         
+           IF TB-BRN-CENTRAL-STOCK                                              
+              MOVE TB-BS-BR-NBR (WS-X)  TO WS-LSB-CENTRAL-STOCK-BR              
+              MOVE 'Y' TO WS-STOP-BRSEQ-LOOP-SW.                                
+      *                                                                         
+       581E-EXIT.                                                               
+            EXIT.                                                               
+      *                                                                         
+       581F-RESET-LSB.                                                          
+      *                                                                         
+           IF TB-BS-BR-NBR (WS-X) <= SPACES                                     
+              MOVE 'Y'    TO WS-STOP-BRSEQ-LOOP-SW                              
+              GO TO 581F-EXIT.                                                  
+      *                                                                         
+           IF TB-BS-BR-NBR (WS-X) = WS-LSB-CENTRAL-STOCK-BR                     
+              MOVE TB-BS-BR-NBR (WS-X)  TO ORL-CUA-SHIP-FROM                    
+              MOVE 'Y' TO WS-STOP-BRSEQ-LOOP-SW                                 
+           ELSE                                                                 
+              IF WS-BR-NBR-SHIP-FROM = TB-BS-BR-NBR (WS-X) AND                  
+                 ORL-QTY-ORDERED = ORL-QTY-SHIPPED                              
+                 MOVE WS-BR-NBR-SHIP-FROM TO ORL-CUA-SHIP-FROM                  
+                 MOVE 'Y' TO WS-STOP-BRSEQ-LOOP-SW.                             
+      *                                                                         
+       581F-EXIT.                                                               
+            EXIT.                                                               
+      *                                                                         
+       581I-CHECK-AVAIL.                                                PWL97031
+      *                                                                         
+           IF   WS-CUA-SHIP-FROM =  WS-INSBRN-NBR AND                   PWL97031
+                WS-INSBRN-NORESP                                        PWL97031
+                IF  WS-AVAIL-BEFORE  >= ORL-QTY-ORDERED                 PWL97031
+                    MOVE 'Y' TO WS-STOP-BRSEQ-LOOP-SW                   PWL97031
+                ELSE                                                    PWL97031
+                    MOVE 'N' TO WS-STOP-BRSEQ-LOOP-SW                   PWL97031
+                END-IF                                                  PWL97031
+           ELSE                                                         PWL97031
+                MOVE WS-INSBRN-NBR     TO  SAVE-WS-INSBRN-NBR           PWL97031
+                MOVE WS-CUA-SHIP-FROM  TO  WS-INSBRN-NBR                PWL97031
+                PERFORM 1552-GU-INSBRN                                  PWL97031
+                IF WS-INSBRN-NORESP                                     PWL97031
+                   MOVE  WS-AVAIL-QTY  TO WS-AVAIL-SAVE                 PWL97031
+                   PERFORM 960-COMPUTE-AVAILABLE                        PWL97031
+                   IF WS-AVAIL-QTY >= ORL-QTY-ORDERED                   PWL97031
+                       MOVE 'Y' TO WS-STOP-BRSEQ-LOOP-SW                PWL97031
+                   ELSE                                                 PWL97031
+                       MOVE 'N' TO WS-STOP-BRSEQ-LOOP-SW                PWL97031
+                   END-IF                                               PWL97031
+                   MOVE  WS-AVAIL-SAVE TO WS-AVAIL-QTY                  PWL97031
+                ELSE                                                    PWL97031
+                    MOVE 'N' TO WS-STOP-BRSEQ-LOOP-SW                   PWL97031
+                END-IF                                                  PWL97031
+                MOVE  SAVE-WS-INSBRN-NBR    TO  WS-INSBRN-NBR           PWL97031
+                PERFORM 1552-GU-INSBRN.                                 PWL97031

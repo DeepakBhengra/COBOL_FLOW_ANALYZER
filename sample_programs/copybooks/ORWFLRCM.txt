@@ -1,0 +1,128 @@
+000100*                                                                         
+000110* 06/19/97 PXP EXPANDED FLOORING SUFFIX TO 139.                   PXP97170
+000200* 04/23/97 MCV DEFAULT ORSSTO PROCESS TO NOT CREATE SEGMENT       MCV97113
+000300*              ADD OLD I/S AND BILL-TO SUFFIX FOR ORP570 PROCESS. MCV97113
+000400* 03/20/97 MCV COMMON FLOORING AND RESHED LINKAGE STORAGE         MCV97079
+000500*                                                                         
+000600 01  WS-FLOORING-COMMAREA.                                                
+000700*                                                                         
+000800*                                                                         
+000900*   COMMAREA LENGTH  - SET BY THE SYXFLR COPYBOOK.                        
+001000*   ORDER-KEY        - MUST BE SET !                                      
+001100*   SHIPMENT-KEY     - REQUIRED TO PROCESS A SINGLE SHIPMENT.             
+001200*   DATABASE POINTER - SET IF YOU WANT TO LINK WITH PSB ALREADY           
+001300*                    - SCHEDULED BY INVOKING PROGRAM.                     
+001400*                    - RESHED BY SALESMAN NEEDED TO FIND OLD RESHE        
+001500*                    - ENTRIES.  DUPLICATES ON INSERTION ARE ALREA        
+001600*                    - HANDLED BY THE UPDATE PCB.                         
+001700*   PROCESS SWITCH:                                                       
+001800*        ORDER-LEVEL: USED DURING TRANSITION FROM ORDER LEVEL TO          
+001900*            SHIPMENT LEVEL PROCESSING.  ONE FLOORING APPLYS TO           
+002000*            ENTIRE SALES ORDER.   REFERENCED ONLY WHEN RECEIVING         
+002100*            FLOORING AUTHORIZATIONS BACK FROM THE PROVIDERS.             
+002200*                                                                         
+002300*        SHIPMENT-LEVEL: MULTIPLE FLOORING COMPANIES ARE                  
+002400*            APPLIED TO THE ORDER.  EACH TRANSMISSION APPLIES             
+002500*            TO A SINGLE SHIPMENT.                                        
+002600*                                                                         
+002700*   RESHED : PROCESS - BUILD ENTRIES FOR SALES,CAPS, & CREDIT HOLD        
+002800*          : DELETE  - DELETE ENTRIES ONLY !                              
+002900*          : SKIP    - NO PROCESSING.                                     
+003000*                                                                         
+003100*   PREVIOUS SHIP STATUS:  STATUS HAS ALREADY BEEN SUPPLIED BY            
+003200*      THE TIME ORP400 IS STARTED.  THIS IS USED                          
+003300*      WHEN DELETING PREVIOUS RESHED RECORD WHEN CHANGING STATUS          
+003400*      FROM ONE HOLD TO THE NEXT.  THE VECTOR INDEX IS THE DIST #.        
+003500*      THE SUFFIX MUST BE SUPPLIED FOR DELETING A SPECIFIC                
+003600*      BILL-TO SUFFIX ENTRY WHEN SPLIT-BILLING IS USED, OTHERWISE         
+003700*      ALL ENTRIES FOR THAT DIST/SHIP ARE DELETED.                        
+003800*                                                                         
+003900*   ORSSTO : PROCESS - BUILD ENTRIES AS NEEDED.                           
+004000*          : SKIP    - NO PROCESSING.                                     
+004100*                                                                         
+004200*   FLOORING: SEND   - SEND THE FLOORING TRANSACTION                      
+004300*           : SKIP   - NO PROCESSING.                                     
+004400*   FLOORING SEND SUFFIX:  ALLOWS A SPECIFIC BILL-TO SUFFIX               
+004500*           TO BE SENT.  THIS IS USED IN CREDIT RELEASE.                  
+004600*           THE DEFAULT IS TO SEND ALL FLOORING ENTRIES.                  
+004700*   OLD INSIDE-SALESMAN :  ALLOWS FOR I/S SALESMAN CHANGES.       MCV97113
+004800*   OLD BILL-TO SUFFIX  :  ALLOWS FOR BILL-TO SUFFIX CHANGES.     MCV97113
+004900*                                                                         
+005000*   PREVIOUS PROCESS:  WHAT TYPE OF FUNCTION INITIATED THE PROCESS        
+005100*                                                                         
+005200*   CUSTOMER VECTOR: IF THE PROGRAM IS REPEATEDLY LINKED-TO               
+005300*           FOR DIFFERENT SHIPMENTS OF THE SAME ORDER, THEN               
+005400*           THIS SAVE AREA WILL HOLD CUSTOMER DATA SO IT DOESN'T          
+005500*           NEED TO BE REBUILT.  ?????????                                
+005600*      MIGHT BE A WASTED EFFORT AS THE TASK IS LIKELY TO 'STARTED'        
+005700*                                                                         
+005800*   TASK CONTROL - HOW ORP400 IS KICKED-OFF.                              
+005900*                                                                         
+006000     05  WS-SPLIT-INVOICING-WORK.                                         
+006100         10  WS-FV-COMMAREA-LENGTH        PIC S9(04) COMP.                
+006200         10  WS-FV-ORDER-KEY.                                             
+006300             15  WS-FV-COMPANY            PIC  X(02).                     
+006400             15  WS-FV-BR-NBR             PIC  X(02).                     
+006500             15  WS-FV-ORDER-NBR          PIC  X(05).                     
+006600         10  WS-FV-SHIPMENT-KEY.                                          
+006700             15  WS-FV-DIST-NBR           PIC  X(01).                     
+006800             15  WS-FV-SHIP-NBR           PIC  X(01).                     
+006900         10  WS-FV-PCB-PTRS.                                              
+007000             15 WS-FV-CUPCB-PTR          USAGE POINTER VALUE NULL.        
+007100             15 WS-FV-ORPCB-UPDATE-PTR   USAGE POINTER VALUE NULL.        
+007200             15 WS-FV-ORPCB-INQUIRY-PTR  USAGE POINTER VALUE NULL.        
+007300             15 WS-FV-REPCB-PTR          USAGE POINTER VALUE NULL.        
+007400             15 WS-FV-REPCB-SALESMAN-PTR USAGE POINTER VALUE NULL.        
+007500         10  WS-FV-PROCESS-SW             PIC  X(01) VALUE 'S'.           
+007600             88  WS-FV-ORDER-LEVEL                   VALUE 'O'.           
+007700             88  WS-FV-SHIPMENT-LEVEL                VALUE 'S'.           
+007800         10  WS-FV-RESHED-SW              PIC  X(01) VALUE 'Y'.           
+007900             88  WS-FV-PROCESS-RESHED                VALUE 'Y'.           
+008000             88  WS-FV-DELETE-RESHED                 VALUE 'D'.           
+008100             88  WS-FV-SKIP-RESHED                   VALUE 'N'.           
+008200         10  WS-FV-TASK-CONTROL-SW        PIC  X(01) VALUE 'S'.           
+008300             88  WS-FV-LINK                          VALUE 'L'.           
+008400             88  WS-FV-LINK-SYNCONRETURN             VALUE 'D'.           
+008500             88  WS-FV-START                         VALUE 'S'.           
+008600         10  WS-FV-PREVIOUS-SHIP-STATUS              VALUE SPACES.        
+008700             15  FILLER                   OCCURS 9 TIMES.                 
+008800                 20  WS-FV-STATUS-CODE      PIC  X(01).                   
+008900                 20  WS-FV-STATUS-SHIP-NBR  PIC  9(01).                   
+009000                 20  WS-FV-STATUS-SUFFIX    PIC  X(03).                   
+009100                                                                          
+009200         10  WS-FV-ORSSTO-SW              PIC  X(01) VALUE 'N'.   MCV97113
+009300             88  WS-FV-CREATE-ORSSTO                 VALUE 'C'.   MCV97113
+009400             88  WS-FV-SKIP-ORSSTO                   VALUE 'N'.           
+009500         10  WS-FV-FLOORING-SW            PIC  X(01) VALUE 'Y'.           
+009600             88  WS-FV-SEND-FLOORING                 VALUE 'Y'.           
+009700             88  WS-FV-SKIP-FLOORING                 VALUE 'N'.           
+009800         10  WS-FV-FLOORING-SEND-SUFFIX   PIC  X(03) VALUE 'ALL'.         
+009900             88  WS-FV-SEND-ALL-FLOORING             VALUE 'ALL'.         
+010000             88  WS-FV-SEND-BILL-TO-SUFFIX           VALUE '111'          
+010100                                                      THRU '139'. PXP97170
+010200         10  WS-FV-PREVIOUS-PROCESS-SW    PIC  X(01) VALUE 'E'.           
+010300             88  WS-FV-FROM-END-ORDER                VALUE 'E'.           
+010400             88  WS-FV-FROM-CREDIT-RELEASE           VALUE 'C'.           
+010500             88  WS-FV-FROM-SALES-RELEASE            VALUE 'S'.           
+010600             88  WS-FV-FROM-BATCH                    VALUE 'B'.           
+010700             88  WS-FV-FROM-PRINT-REQUEST            VALUE 'P'.           
+010800             88  WS-FV-FROM-OTHER-PROCESS            VALUE 'O'.           
+010900         10  WS-FV-CUST-VECTOR.                                           
+011000             15  WS-FV-CUST-KEY           VALUE HIGH-VALUES.              
+011100                 20  WS-FV-CUST-CO        PIC  X(02).                     
+011200                 20  WS-FV-CUST-BR        PIC  X(02).                     
+011300                 20  WS-FV-CUST-NBR       PIC  X(06).                     
+011400             15  WS-FV-CUST-PARENT.                                       
+011500                 20  WS-FV-PARENT-BR      PIC  X(02).                     
+011600                 20  WS-FV-PARENT-NBR     PIC  X(06).                     
+011700             15  WS-FV-DEFAULT-CR-MGR     PIC  X(02).                     
+011800             15  WS-FV-CUST-CNT           PIC S9(04) COMP.                
+011900                 88  WS-FV-CUST-FULL                 VALUE +20.           
+012000             15  WS-FV-CUST-ENTRY         OCCURS 20 TIMES.                
+012100                 20  WS-FV-CUST-SUFFIX    PIC  X(03).                     
+012200                 20  WS-FV-CUST-CR-MGR    PIC  X(02).                     
+012300                 20  WS-FV-CUST-PROVIDER  PIC  X(01).                     
+012400         10  WS-FV-OLD-BILL-TO-SUFFIX     PIC  X(03)              MCV97113
+012500                                          VALUE LOW-VALUES.       MCV97113
+012600         10  WS-FV-OLD-IS-SALESMAN        PIC  X(04)              MCV97113
+012700                                          VALUE LOW-VALUES.       MCV97113

@@ -1,0 +1,159 @@
+      *================================================================*        
+      *  PURPOSE:                                                      *        
+      *  =======                                                       *        
+      *  THIS COPYBOOK CONTAINS LOGICS FOR POPULATING ACOP AND ORDER   *        
+      *  DETAILS IN THE CALLING PROGRAMS TO LOG THE DETAILS IN         *        
+      *  ACOP_MAX_MAQ_LOG DB2 TABLE.                                   *        
+      *  WORKING STORAGE USED: ICWCOP20.                               *        
+      *                                                                *        
+      *  THIS IS USED IN ADDITION WITH ICSCOP21 AND ICSCOP23.          *        
+      *                                                                *        
+      *================================================================*        
+      *                                                                *        
+      * REVISION INFO:                                                 *        
+      * 02/28/20 SPR ACOP TRACK DB2 PROCESS: NEW COPYBOOK              *SPR20059
+      *================================================================*        
+      *                                                                         
+       L100-INIT-QTY-VAR.                                                       
+                                                                                
+           IF TB-ACOP-MAQ-MAX-DB2-TRAC-OFF                                      
+              GO TO L100-INIT-QTY-VAR-EXIT                                      
+           END-IF.                                                              
+                                                                                
+           MOVE ZEROES    TO ICWCOP20-ACOP-ORDER-QTY                            
+                             ICWCOP20-INC-LNE-ORD-QTY                           
+                             ICWCOP20-REDUCE-ORD-QTY.                           
+                                                                                
+           MOVE SPACES    TO ICWCOP20-ORD-LNE-DEL-STUS-SW                       
+                             ICWCOP20-COP-MAX-MAQ-TRK-SW                        
+                             ICWCOP20-ORC-MAQ-IND.                              
+                                                                                
+       L100-INIT-QTY-VAR-EXIT.                                                  
+           EXIT.                                                                
+                                                                                
+       L110-INIT-MAX-QTY-VAR.                                                   
+                                                                                
+           IF TB-ACOP-MAQ-MAX-DB2-TRAC-OFF                                      
+              GO TO L110-INIT-MAX-QTY-VAR-EXIT                                  
+           END-IF.                                                              
+                                                                                
+           MOVE ZEROES    TO ICWCOP20-ORH-ENTRY-DT.                             
+                                                                                
+           MOVE SPACES    TO ICWCOP20-ORD-BR-NBR                                
+                             ICWCOP20-CU-BR-NBR                                 
+                             ICWCOP20-CU-NBR                                    
+                             ICWCOP20-ORD-NBR                                   
+                             ICWCOP20-ORD-DIST-NBR                              
+                             ICWCOP20-ORD-SHIP-NBR                              
+                             ICWCOP20-LINE-NBR                                  
+                             ICWCOP20-SHIP-TO-SUF.                              
+                                                                                
+       L110-INIT-MAX-QTY-VAR-EXIT.                                              
+           EXIT.                                                                
+                                                                                
+      *COMPUTE THE NO. OF QUANTITIES THAT SHOULD BE ADDED TO THE                
+      *CURRENT MAX-TO-DATE/MAQ-QTY-ORDERED THAT HAS BEEN UTILIZED               
+      *FOR THE ACOP.                                                            
+       L200-ADD-MAX-MAQ-ORD-QTY.                                                
+                                                                                
+           IF TB-ACOP-MAQ-MAX-DB2-TRAC-ON                                       
+              IF ICWCOP20-LNE-QTY-ORDERED > ZERO                                
+                 COMPUTE ICWCOP20-INC-LNE-ORD-QTY =                             
+                 ICWCOP20-LNE-QTY-ORDERED - ICWCOP20-LNE-QTY-RESET              
+                 SET ICWCOP20-COP-MAX-TODATE-UPD                                
+                              TO TRUE                                           
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       L200-ADD-MAX-MAQ-ORD-QTY-EXIT.                                           
+           EXIT.                                                                
+                                                                                
+      *COMPUTE THE NO. OF QUANTITIES THAT SHOULD BE REDUCED FROM THE            
+      *CURRENT MAX-TO-DATE/MAQ-QTY-ORDERED THAT HAS BEEN UTILIZED               
+      *FOR THE ACOP.                                                            
+       L300-RESET-MAX-MAQ-ORD-QTY.                                              
+                                                                                
+           IF TB-ACOP-MAQ-MAX-DB2-TRAC-ON                                       
+              IF ICWCOP20-LNE-QTY-RESET > ZERO                                  
+                 MOVE ICWCOP20-LNE-QTY-RESET                                    
+                              TO ICWCOP20-REDUCE-ORD-QTY                        
+                 SET ICWCOP20-COP-MAX-TODATE-UPD                                
+                              TO TRUE                                           
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       L300-RESET-MAX-MAQ-QTY-EXIT.                                             
+           EXIT.                                                                
+                                                                                
+       L420-INIT-COP-VAR.                                                       
+                                                                                
+           INITIALIZE ICWCOP20-COP-TRACKING-NBR                                 
+                      ICWCOP20-COP-MAX-QTY                                      
+                      ICWCOP20-COP-MAQ                                          
+                      ICWCOP20-COP-ACOP-CODE                                    
+                      ICWCOP20-COP-EU-END-USER-NBR                              
+                      ICWCOP20-COP-COST-OVERRIDE-TYP                            
+                      ICWCOP20-COP-PROGRAM-TYPE.                                
+                                                                                
+       L420-INIT-COP-VAR-EXIT.                                                  
+           EXIT.                                                                
+                                                                                
+       L421-MOVE-COP-VARIABLES.                                                 
+                                                                                
+           IF  COP-TRACKING-NBR IS NUMERIC                                      
+           AND COP-TRACKING-NBR >  ZEROES                                       
+               MOVE COP-TRACKING-NBR TO ICWCOP20-COP-TRACKING-NBR               
+           END-IF.                                                              
+                                                                                
+           IF  COP-MAX-QTY IS NUMERIC                                           
+           AND COP-MAX-QTY >  ZEROES                                            
+               MOVE COP-MAX-QTY      TO ICWCOP20-COP-MAX-QTY                    
+           END-IF.                                                              
+                                                                                
+           IF  COP-MAQ IS NUMERIC                                               
+           AND COP-MAQ >  ZEROES                                                
+               MOVE COP-MAQ          TO ICWCOP20-COP-MAQ                        
+           END-IF.                                                              
+                                                                                
+           IF  COP-ACOP-CODE > SPACES                                           
+               MOVE COP-ACOP-CODE    TO ICWCOP20-COP-ACOP-CODE                  
+           END-IF.                                                              
+                                                                                
+           IF  ICWCOP20-COP-PART-CUST-EU-SPEC                                   
+               MOVE COP-EU-END-USER-NBR                                         
+                                     TO ICWCOP20-COP-EU-END-USER-NBR            
+           END-IF.                                                              
+                                                                                
+           IF  COP-COST-OVERRIDE-TYPE > SPACES                                  
+               MOVE COP-COST-OVERRIDE-TYPE                                      
+                                     TO ICWCOP20-COP-COST-OVERRIDE-TYP          
+           END-IF.                                                              
+                                                                                
+           IF  COP-PROGRAM-SPECIFIC                                             
+               MOVE COP-PROGRAM-TYPE TO ICWCOP20-COP-PROGRAM-TYPE               
+           END-IF.                                                              
+                                                                                
+       L421-MOVE-COP-VARBLE-EXIT.                                               
+           EXIT.                                                                
+                                                                                
+       L500-CALC-MAX-QTY-TODATE-DIFF.                                           
+                                                                                
+           PERFORM L100-INIT-QTY-VAR                                            
+              THRU L100-INIT-QTY-VAR-EXIT.                                      
+                                                                                
+           IF ICWCOP20-PREV-MAX-QTY-TDT > ICWCOP20-CURR-MAX-QTY-TDT             
+              COMPUTE ICWCOP20-REDUCE-ORD-QTY =                                 
+              ICWCOP20-PREV-MAX-QTY-TDT - ICWCOP20-CURR-MAX-QTY-TDT             
+           ELSE                                                                 
+              COMPUTE ICWCOP20-INC-LNE-ORD-QTY =                                
+              ICWCOP20-CURR-MAX-QTY-TDT - ICWCOP20-PREV-MAX-QTY-TDT             
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP20-REDUCE-ORD-QTY  > ZERO                                   
+           OR ICWCOP20-INC-LNE-ORD-QTY > ZERO                                   
+              SET ICWCOP20-COP-MAX-TODATE-UPD TO TRUE                           
+           END-IF.                                                              
+                                                                                
+       L500-CALC-MAX-QTY-TDT-EXIT.                                              
+           EXIT.                                                                
+                                                                                

@@ -1,0 +1,174 @@
+000100******************************************************************        
+000200*** YEAR 2000 READY                                              *PWLY8307
+000300******************************************************************        
+000400*----------------------------------------------------------------*        
+000500* COPYBOOK NAME: WHSSUBFT                                                 
+000600* VERSION: 1.0  12/09/97 JJD NEW                                  JJD97343
+000610* 8/20/04  TMH FIX EXPORT ORDERS BILL FROM U.S. TO CANADA         TMH04233
+000700* 06/16/99 TMH FIX EIB RESPONSE CHECK FOR R80 FILE                TMH99167
+000710* 04/30/99 TMH MODIFY FOR CANADA BASERATE                         TMH99120
+000800* 02/03/98 JJD WS-SUBS-FRT-SW IS NOT GETTING SET IN RIGHT PLACE   JJD98034
+000900* 02/03/98 FXE CHANGE STAMP FROM JJD97034 TO JJD98034             JJD98034
+001000*                                                                         
+001100*-          ****   SUBSIDIZED FREIGHT LOGIC  ****                         
+001200*-                                                                        
+001300*-  OBJECTIVE: WHEN A WHSE RUNS OVER CAPACITY, ORDERS MAY BE              
+001400*-  REDIRECTED AND SHIPPED FROM ANOTHER BRANCH.  INGRAM MAY PAY A         
+001500*-  HIGHER FRT WITH ANOTHER CARRIER TO GET THE SHIPMENT TO THE            
+001600*-  CUSTOMER WITHOUT DELAY.  SUBSIDZIED FREGHTING MAKES SURE A            
+001700*-  CUSTOMER WILL PAY SAME FREIGHT CHARGES AS THEY WOULD HAVE IF          
+001800*-  SHIPPED FROM ORIGINAL WHSE VIA ORIGINAL CARRIER.                      
+001900*-                                                                        
+002000*-  TO QUALIFY FOR SUBSIDIZED FREIGHTING FOLLOWING CONDITIONS             
+002100*-  MUST BE MET:                                                          
+002200*-   - SUBSIDIZED-SW IN TBXBRN2 MUST BE 'Y'                               
+002300*-   - CUSTOMER-SHIP-FROM (CUA-SHIP-FROM) MUST BE SAME AS                 
+002400*-     ORDER-SHIP-FROM.                                                   
+002500*-                                                                        
+002600*-  HOW IT WORKS?                                                         
+002700*-  WHEN ORDER QUALIFIES FOR SUBSIDIZED FREIGHTING, WE READ THE           
+002800*-  BASERATE VSAM FILE(R80D0200) FIRST BY CUSTOMER-NBR;  IF               
+002900*-  NOT FOUND WE THEN READ R80D0200 BY ZIP CODE.  IF WE GET               
+003000*-  SUCCESSFUL READ WE EXTRACT SHIP-FROM AND CARRIER-CODE                 
+003100*-  FROM THE RECORD.  WE USE THESE 2 FIELDS TO RATE THE                   
+003200*-  SHIPMENT FOR FREIGHT FOR WHAT CUSTOMER WILL PAY                       
+003300*-  (ORSH-FRT-OUT-AMT, SM-FRT-CUS-PAYS).                                  
+003400*-                                                                        
+003500*-  WHAT WE NEED?                                                         
+003600*-  - ORSHED AND ORSSHH IS AVAILABLE                                      
+003700*-  - FOLLOWING FIELDS NEED TO BE DEFINED IN THE PGM:                     
+003800*-    WS-SF               PIC X(2)                                        
+003900*-    WS-CC               PIC X(2)                                        
+004000*-    WS-R80-CUS-SW       PIC X(1)                                        
+004100*-    WS-R802-REC-LENGTH  PIC S9(4) COMP.                                 
+004200*-    WS-GENERIC-R802-KEYLENGTH                                           
+004300*-    WS-WHERE-R80-SW     PIC X(1) VALUES ARE:                            
+004400*-                             'B' FROM BILLING(MDP660/RWP620)            
+004500*-                             ' ' FROM ORDER ENTRY SYSTEM                
+004600*----------------------------------------------------------------*        
+004700                                                                          
+004800 B100-SUBSIDIZED-FREIGHTING.                                              
+004900     IF ORSH-BR-NBR-SHIP-FROM NOT = ORSH-CUA-SF                           
+005000        GO                      TO B100-EXIT.                             
+005100                                                                          
+005200     MOVE ORH-COMPANY           TO TB-BRN2-COMPANY-CODE                   
+005300     MOVE ORSH-BR-NBR-SHIP-FROM TO TB-BRN2-BRANCH                         
+005400                                                                          
+005500     CALL 'SYU510' USING TB-BRN2-PROC-IA.                                 
+005600     IF NOT TB-BRN2-NORESP                                                
+005700        GO                      TO B100-EXIT.                             
+005800     IF NOT TB-BRN2-SUBSIDIZED-BR                                         
+005900        GO                      TO B100-EXIT.                             
+006000                                                                          
+006100     IF ORH-US-MODEL-COMPANY AND ORH-COUNTRY-CODE NOT EQUAL 'CA'  TMH04233
+006200          IF NOT ORH-ZIP-CODE NUMERIC                             TMH04233
+006300             MOVE ZEROES        TO ORH-ZIP-CODE                   TMH04233
+006400          END-IF                                                  TMH04233
+006500          MOVE ORH-ZIP-CODE     TO WS-DSI-ZIP-NUM9                TMH04233
+006600     ELSE MOVE ORH-POSTAL-CODES TO WS-DSI-POSTAL-CODE             TMH04233
+006610                                   WS-DSI-TO-POSTAL-CODE.         TMH04233
+006700     MOVE LOW-VALUES            TO R802-RECORD-KEY                        
+006800     MOVE SPACES                TO R802-CLIENT-ID                         
+006900     MOVE 'AA'                  TO R802-CARRIER                           
+007000     MOVE SPACES                TO R802-ORIG-DEST-COUNTRY                 
+007100     MOVE '11'                  TO R802-ORIG-DEST-TYPE                    
+007200     MOVE SPACES                TO R802-ORIG                              
+007300     MOVE SPACES                TO R802-DEST                              
+007400     MOVE ORSH-BR-NBR-SHIP-FROM TO R802-ORIG (1:2)                        
+007500     MOVE ORH-BILL-TO-NBR (1:8) TO R802-DEST (1:8)                        
+007600     MOVE ORH-SHIP-TO-SUFFIX    TO R802-DEST (9:3).                       
+007700     PERFORM B102-READ-DSR80200-GENERIC.                                  
+007800*                                                                         
+007900     IF WS-EIB-NORESP                                 AND                 
+008000        R802-ORIG (1:2)      = ORSH-BR-NBR-SHIP-FROM  AND         TMH99120
+008100        R802-DEST (1:8)      = ORH-BILL-TO-NBR (1:8)  AND         TMH99120
+008200        R802-DEST (9:3)      = ORH-SHIP-TO-SUFFIX     AND         TMH99120
+008300        R802-EQUIPMENT (1:2) = ORSH-CARRIER-CODE                  TMH99120
+008400        MOVE 'Y'                TO WS-R80-CUS-SW                  TMH99120
+008500     ELSE                                                                 
+008600        MOVE SPACES             TO R802-DEST                              
+008710        IF ORH-US-MODEL-COMPANY                                   TMH04233
+008720           AND ORH-COUNTRY-CODE NOT EQUAL 'CA'                    TMH04233
+008800             MOVE WS-DSI-ZIP5   TO R802-DEST (1:5)                TMH99120
+008900        ELSE MOVE WS-DSI-POSTAL-CODE (1:6)                        TMH99120
+009000                                TO R802-DEST (1:6)                TMH99120
+009010        END-IF                                                    TMH99167
+009100        PERFORM B102-READ-DSR80200-GENERIC                                
+009200        IF WS-EIB-NORESP                            AND           TMH99120
+009300           R802-ORIG (1:2) = ORSH-BR-NBR-SHIP-FROM  AND           TMH99120
+009400           R802-EQUIPMENT (1:2) = ORSH-CARRIER-CODE               TMH99120
+009410*          IF ORH-US-MODEL-COMPANY                                TMH04233
+009420*             AND ORH-COUNTRY-CODE NOT EQUAL 'CA'                 TMH04233
+009600*             AND R802-DEST (1:5) = WS-DSI-ZIP5                   TMH04233
+009700*                    NEXT SENTENCE                                TMH99120
+009800*          END-IF                                                 TMH99120
+009803           IF     R802-DEST (1:5) = WS-DSI-ZIP5                   TMH04233
+009804                     NEXT SENTENCE                                TMH99120
+009805           END-IF                                                 TMH99120
+009831           IF     R802-DEST (1:6) = WS-DSI-POSTAL-CODE            TMH04233
+009832               OR R802-DEST (1:6) = WS-DSI-TO-POSTAL-CODE         TMH04233
+009840                     NEXT SENTENCE                                TMH99120
+009850           END-IF                                                 TMH99120
+009900           IF NOT ORH-US-MODEL-COMPANY              AND           TMH99120
+010000                R802-DEST (1:6) = WS-DSI-POSTAL-CODE              TMH99120
+010100                     NEXT SENTENCE                                TMH99120
+010200           END-IF                                                 TMH99120
+010300        ELSE                                                      TMH99120
+010400           GO                   TO B100-EXIT.                     TMH99120
+010500                                                                          
+010600* WE SET WS-SUBS-FRT-SW HERE.  USE THIS SW TO TEACH THE PGM TO    JJD98034
+010700* RATE FRT-CHRG CUST PAYS INGRAM BASED ON NEW WS-CC AND NEW WS-SF JJD98034
+010800* WS-CC: CARRIER; WS-SF: SHIP FROM                                JJD98034
+010900     IF WS-R80-CUS-SW = 'Y'                                       JJD98034
+011000        MOVE 'C'                TO WS-SUBS-FRT-SW                 JJD98034
+011100     ELSE                                                         JJD98034
+011200        MOVE 'Z'                TO WS-SUBS-FRT-SW.                JJD98034
+011300                                                                          
+011400     IF WS-WHERE-R80-SW = ' '                                             
+011500        PERFORM B110-SUBSIDIZED-FREIGHTING                                
+011600        GO                      TO B100-EXIT.                             
+011700                                                                          
+011800*  BASE RATE ORDER (BILLING)                                              
+011900*  NOTE: IF WS-DSI-PRICE-COST NOT = 'P' WE GET OUT                        
+012000     IF ORH-BASE-RATE-ORDER                                               
+012100        IF WS-DSI-PRICE-COST = 'P'                                        
+012200           PERFORM B110-SUBSIDIZED-FREIGHTING                             
+012300           IF WS-WHERE-R80-SW = 'B'                                       
+012400              MOVE WS-DSI-ORIG-WEIGHT TO WS-DSI-TOTAL-WEIGHT              
+012500              GO                TO B100-EXIT                              
+012600           ELSE                                                           
+012700              GO                TO B100-EXIT                              
+012800        ELSE                                                              
+012900           GO                   TO B100-EXIT.                             
+013000                                                                          
+013100*  GET CARRIER CODE (NON BASE RATE)                                       
+013200     MOVE R802-FORM-HOURS       TO WS-SF.                                 
+013300     IF ORSH-FRT-OUT-CODE = 'P'                                           
+013400        MOVE R802-MILEAGE-BUREAU (1:2)                                    
+013500                                TO WS-CC                                  
+013600     ELSE                                                                 
+013700        MOVE R802-MILEAGE-TARIFF (5:2)                                    
+013800                                TO WS-CC.                                 
+013900                                                                          
+014000* WHEN CARRIER AND SHIP-FROM MATCH THEN GET OUT                   HING    
+014100     IF WS-SF = ORSH-BR-NBR-SHIP-FROM AND                                 
+014200        WS-CC = ORSH-CARRIER-CODE                                         
+014300        GO                      TO B100-EXIT.                             
+014400                                                                          
+014500 B100-EXIT.                                                               
+014600      EXIT.                                                               
+014700                                                                          
+014800                                                                          
+014900 B110-SUBSIDIZED-FREIGHTING.                                              
+015000     IF ORSH-FRT-OUT-CODE = 'B' OR ORSH-PRINT-COUNT = 0                   
+015100        MOVE R802-WEIGHT (1)    TO WS-WGT-NUM7                            
+015200        MOVE WS-WGT4            TO TSBR-CONDITION-CODE(4)                 
+015300        MOVE R802-WEIGHT (2)    TO WS-WGT-NUM7                            
+015400        MOVE WS-WGT4            TO TSBR-CONDITION-CODE(5)                 
+015500     ELSE                                                                 
+015600        MOVE R802-WEIGHT (3)    TO WS-WGT-NUM7                            
+015700        MOVE WS-WGT4            TO TSBR-CONDITION-CODE(4)                 
+015800        MOVE R802-WEIGHT (4)    TO WS-WGT-NUM7                            
+015900        MOVE WS-WGT4            TO TSBR-CONDITION-CODE(5).                
+016000 B110-EXIT.                                                               
+016100     EXIT.                                                                

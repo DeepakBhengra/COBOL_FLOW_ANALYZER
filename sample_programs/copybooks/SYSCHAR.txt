@@ -1,0 +1,42 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      * ***********************************************************             
+      *    05/28/97 CREATED BY SHAHDAN KHALED                           SXK97148
+      *    SWEEP TEXT FIELD FOR INVALID EBCDIC CHARACTERS.                      
+      *                                                                         
+      *          ***  NEEDED FROM CALLING PROGRAM   ***                         
+      *    MOVE (TEXT FIELD)          TO VC-TEXT-AREA.   (REQUIRED)             
+      *    MOVE (TEXT FIELD LENGTH)   TO VC-SUB-MAX.     (OPTIONAL)             
+      *                                            (MAX IS DEFAULT)             
+      *                                                                         
+      *          ***  AVAILABLE TO CALLING PROGRAM  ***                         
+      *    ERROR RETURNED WHEN ONE FIELD IS FOUND TO HAVE A                     
+      *    NON-PRINTABLE CHAR.                                                  
+      * ***********************************************************             
+       V100-CLEANUP-TEXT.                                                       
+           IF  VC-SUB-MAX                   > +2048                             
+               MOVE +2048                   TO VC-SUB-MAX.                      
+           MOVE 'N'                         TO VC-TXT-CHANGED-SW.               
+           PERFORM V200-SWEEP-CHARACTERS    THRU V200-EXIT                      
+              VARYING VC-SUB FROM 1 BY 1                                        
+              UNTIL VC-SUB               > VC-SUB-MAX                           
+              OR    VC-INVLD-CHAR-COUNT  > 0.                                   
+                                                                                
+       V100-EXIT.  EXIT.                                                        
+      *                                                                         
+      * ***********************************************************             
+      *     FOR EACH CHARACTER IN A TEXT FIELD DO A BINARY SEARCH               
+      *     OF ALL VALID CHARACTERS REPLACING INVALIED CHARACTERS               
+      *     WITH SPACE.                                                         
+      * ***********************************************************             
+       V200-SWEEP-CHARACTERS.                                                   
+           SEARCH ALL VALID-CHARS                                               
+               AT END                                                           
+                  MOVE VC-SUB               TO VC-TXT-OFFSET-COUNT              
+                  ADD  +1                   TO VC-INVLD-CHAR-COUNT              
+               WHEN                                                             
+                  VALID-CHAR (VCHAR-INDX)    = VC-TXT-CHAR (VC-SUB)             
+                  ADD  +1                   TO VC-VALID-CHAR-COUNT              
+           END-SEARCH.                                                          
+       V200-EXIT.  EXIT.                                                        

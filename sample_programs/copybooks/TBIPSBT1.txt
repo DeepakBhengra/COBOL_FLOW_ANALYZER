@@ -1,0 +1,77 @@
+      * 07-01-01 JWO  CREATED THIS NEW TABLE TO REPLACE TBXPSBTY        JWO01182
+      *                                                                         
+      *     PSB - TYPE TABLE   ;  ONE FOR EACH 'SUPER' PSB.                     
+      * THIS TABLE IS USED IN PROGRAMS THAT USE 'SUPER' PSB'S TO                
+      * ACCESS DATABASES IN MORE THAN 1 COMPANY.                                
+      *                                                                         
+      *  TYPE-COMPANY-POSITION   METHOD :                                       
+      *                                                                         
+      * IF YOU KNOW WHAT TYPE OF PCB YOU WANT AND WHAT COMPANY YOU WANT,        
+      * THEN YOU CAN USE THIS TABLE TO FIND THE RELATIVE POSITION OF            
+      * THE CORRECT PCB IN THE PSB. THIS TELLS YOU                              
+      * WHICH PCB POINTER TO USE FOR SETTING PCB ADDRESS.                       
+      *                                                                         
+      *EXAMPLE:   HERE IS A DIAGRAM OF A PSB WITH 8 PCB'S                       
+      *                                                                         
+      *     PCB TYPE   | DATABASE    COMPANY              POSITION              
+      *                |..............................................          
+      *        I1      | INDMSTB     BE = BELGIUM            1                  
+      *        I1      | INDMSTI     IT = ITALY              2                  
+      *        I1      | INDMSTF     FR = FRANCE             3                  
+      *        I1      | INDMSTN     NL = NETHERLANDS        4                  
+      *        I1      | INDMSTK     UK = UNITED KINGDOM     5                  
+      *                |                                                        
+      *        V1      | VNDMSTB     BE = BELGIUM            6                  
+      *                |                                                        
+      *        C1      | CUDMSTB     BE = BELGIUM            7                  
+      *                |                                                        
+      *        E1      | EMDMSTB     BE = BELGIUM            8                  
+      *                                                                         
+      *                                                                         
+      * IN THIS CASE THE TYPE-COMPANY-POSITION TABLE                            
+      * SHOULD LOOK LIKE THIS :                                                 
+      *                                                                         
+      *   TYPE   COMPANY   POSITION OF PCB                                      
+      *                                                                         
+      *    I1      BE         01                                                
+      *    I1      IT         02                                                
+      *    I1      FR         03                                                
+      *    I1      NL         04                                                
+      *    I1      UK         05                                                
+      *    V1      BE         06                                                
+      *    C1      BE         07                                                
+      *    E1      BE         08                                                
+      *                                                                         
+      *IF THE PROGRAM WANTS TO READ THE CUSTOMER DATABASE THROUGH               
+      *    THE PRIMARY KEY (ACCESS TYPE C1)                                     
+      *   AND COMPANY = BE                                                      
+      *         THEN                                                            
+      *         POSITION IN PSB = 07                                            
+      *           SO THE 7'TH PCB IS THE ONE TO USE.                            
+      *                                                                         
+      *******************************************************                   
+      *                                                                         
+       01 TB-PSB-T1-IA.                                                         
+           05  TB-PSB-T1-REQUEST-CODE    PIC X(1)    VALUE 'K'.                 
+               88  TB-PSB-T1-ALL                     VALUE 'A'.                 
+               88  TB-PSB-T1-KEY                     VALUE 'K'.                 
+               88  TB-PSB-T1-NEXT                    VALUE 'N'.                 
+               88  TB-PSB-T1-CLOSE                   VALUE 'C'.                 
+           05  TB-PSB-T1-RETURN-CODE     PIC X(1)    VALUE ' '.                 
+               88  TB-PSB-T1-NORESP                  VALUE 'Y'.                 
+               88  TB-PSB-T1-TABLE-NOTFND            VALUE 'T'.                 
+               88  TB-PSB-T1-ENTRY-NOTFND            VALUE 'N'.                 
+               88  TB-PSB-T1-EOT                     VALUE 'E'.                 
+               88  TB-PSB-T1-NO-ROOM                 VALUE 'R'.                 
+           05  TB-PSB-T1-COMPANY-CODE    PIC X(2)    VALUE '$$'.                
+           05  TB-PSB-T1-TABLE-NAME      PIC X(8)    VALUE 'TBXPSBT1'.          
+           05  TB-PSB-T1-IA-WORK-AREA    PIC X(20)   VALUE LOW-VALUES.          
+           05  TB-PSB-T1-KEY-VALUE.                                             
+               10  TB-PSB-T1-COMPANY     PIC X(2)   VALUE ' '.                  
+               10  TB-PSB-T1-PSBNAME     PIC X(8)    VALUE ' '.                 
+           05  TB-PSB-T1-SWITCH          PIC X(2).                              
+           05  TB-PSB-T1-TYPE-CO-POS-TABLE.                                     
+               10  TB-PSB-T1-TYPE-CO-POS OCCURS 40 TIMES.                       
+                   15  TB-PSB-T1-TCP-TYPE            PIC X(2).                  
+                   15  TB-PSB-T1-TCP-CO              PIC X(2).                  
+                   15  TB-PSB-T1-TCP-POS             PIC 9(2).                  

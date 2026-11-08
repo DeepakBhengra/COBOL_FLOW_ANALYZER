@@ -1,0 +1,138 @@
+﻿      * 11/18/16 MCB - ACCEPT CF CARRIER FOR ORDERS OUTSIDE UK          MCB17010
+      * 07/01/05 HXJ - NEW ROUTINE FOR UK CARRIER VALIDATION            HXJ05186
+      ******************************************************************        
+      * THIS ROUTINE IS TO CHECK IF THERE IS ANY RESTRICTION ON USE OF *        
+      * A CARRIER TO SPECIFIC POSTCODE SHIPPING FROM THE UK WAREHOUSE. *        
+      *  WORKING STORAGE COPYBOOK = WHWUKCC                            *        
+      ******************************************************************        
+      *                                                                         
+      *A110-VALIDATE-CARRIER.                                                   
+                                                                                
+              MOVE ORH-COMPANY            TO TB-VALCC-COMPANY-CODE.             
+              MOVE WS-UKCC-CARRIER-CODE   TO TB-VALCC-CARRIER-CODE.             
+              CALL 'SYU510'               USING TB-VALCC-PROC-IA.               
+              IF TB-VALCC-NORESP                                                
+                 CONTINUE                                                       
+              ELSE                                                              
+160300           IF WS-UKCC-COUNTRY-CODE = WS-UKCC-COMPANY OR 'IE'              
+                                       OR SPACES OR LOW-VALUES                  
+                 OR WS-UKCC-CARRIER-CODE = 'CF'                         MCB17010
+                    MOVE 'Y' TO WS-UKCC-CARRIER-SW                              
+                    PERFORM A200-VALIDATE-POSTCODE THRU A200-EXIT               
+                    PERFORM A300-SET-SWITCHES      THRU A300-EXIT               
+                    GO TO A110-EXIT                                             
+                 ELSE                                                           
+                    MOVE 'N' TO WS-UKCC-VALID-CHK                               
+                    MOVE 'INVALID INTL CARRIER' TO                              
+                               WS-UKCC-ERROR                                    
+                    GO TO A110-EXIT                                             
+                 END-IF                                                         
+              END-IF.                                                           
+                                                                                
+              IF WS-UKCC-COUNTRY-CODE = WS-UKCC-COMPANY OR 'IE' OR              
+                                        SPACES OR LOW-VALUES                    
+                 CONTINUE                                                       
+              ELSE                                                              
+                 IF TB-VALCC-INTERNATIONAL = 'Y'                                
+                    MOVE 'Y' TO WS-UKCC-INTERNATIONAL                           
+                    GO TO A110-EXIT                                             
+                 ELSE                                                           
+                    MOVE 'N' TO WS-UKCC-VALID-CHK                               
+                    MOVE 'INVALID INTL CARRIER' TO                              
+                               WS-UKCC-ERROR                                    
+                    GO TO A110-EXIT                                             
+                 END-IF                                                         
+              END-IF.                                                           
+                                                                                
+              PERFORM B110-CHECK-CARRIER THRU B110-EXIT                         
+              PERFORM A200-VALIDATE-POSTCODE THRU A200-EXIT                     
+              PERFORM A300-SET-SWITCHES THRU A300-EXIT.                         
+                                                                                
+       A110-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       A200-VALIDATE-POSTCODE.                                                  
+                                                                                
+              MOVE ORH-COMPANY        TO TB-VALPC-COUNTRY-CODE.                 
+              MOVE WS-UKCC-POST-CODE  TO TB-VALPC-POSTCODE.                     
+              CALL 'SYU510'           USING TB-VALPC-PROC-IA.                   
+              IF TB-VALPC-NORESP                                                
+                 PERFORM B120-CHECK-POSTCODE THRU B120-EXIT                     
+              ELSE                                                              
+                 IF TB-VALPC-ENTRY-NOTFND                                       
+                    MOVE 'Y' TO WS-UKCC-POSTCDE-SW                              
+              END-IF.                                                           
+      *                                                                         
+       A200-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       A300-SET-SWITCHES.                                                       
+      *                                                                         
+              IF WS-UKCC-VALID-PCDE AND WS-UKCC-VALID-CARR                      
+                 MOVE 'Y' TO WS-UKCC-VALID-CHK                                  
+              ELSE                                                              
+                IF WS-UKCC-INVALID-PCDE                                         
+                   MOVE 'N' TO WS-UKCC-VALID-CHK                                
+                   MOVE WS-UKCC-PCDE-ERROR TO WS-UKCC-ERROR                     
+                ELSE                                                            
+                   IF WS-UKCC-INVALID-CARR                                      
+                      MOVE 'N' TO WS-UKCC-VALID-CHK                             
+                      MOVE WS-UKCC-CARR-ERROR TO WS-UKCC-ERROR                  
+                   END-IF                                                       
+                END-IF                                                          
+              END-IF.                                                           
+      *                                                                         
+       A300-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       B110-CHECK-CARRIER.                                                      
+                                                                                
+            PERFORM VARYING WS-UKCC-SUB FROM 1 BY 1                             
+               UNTIL(TB-VALCC-PCDE-PREFIX(WS-UKCC-SUB) =                        
+                                   WS-UKCC-POST-CODE)                           
+               OR (TB-VALCC-PCDE-PREFIX(WS-UKCC-SUB) = LOW-VALUES)              
+            END-PERFORM.                                                        
+                                                                                
+            IF TB-VALCC-PCDE-PREFIX(WS-UKCC-SUB) = WS-UKCC-POST-CODE            
+               MOVE 'Y' TO WS-UKCC-CARRIER-SW                                   
+            ELSE                                                                
+               MOVE 'N' TO WS-UKCC-CARRIER-SW                                   
+               MOVE 'INVALID CARR FOR POSTCODE' TO                              
+                                             WS-UKCC-CARR-ERROR                 
+            END-IF.                                                             
+                                                                                
+       B110-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       B120-CHECK-POSTCODE.                                                     
+                                                                                
+            PERFORM VARYING WS-UKCC-SUB FROM 1 BY 1                             
+               UNTIL(TB-VALPC-CARRIER(WS-UKCC-SUB) =                            
+                                             WS-UKCC-CARRIER-CODE)              
+               OR (TB-VALPC-CARRIER(WS-UKCC-SUB) = LOW-VALUES)                  
+            END-PERFORM.                                                        
+                                                                                
+            IF TB-VALPC-CARRIER(WS-UKCC-SUB) = WS-UKCC-CARRIER-CODE             
+               MOVE 'Y' TO WS-UKCC-POSTCDE-SW                                   
+            ELSE                                                                
+               MOVE 1 TO WS-UKCC-SUB                                            
+               MOVE 'N' TO WS-UKCC-POSTCDE-SW                                   
+               MOVE TB-VALPC-CARRIER(WS-UKCC-SUB) TO                            
+                                               WS-UKCC-USE-CARR1                
+               MOVE 2 TO WS-UKCC-SUB                                            
+               MOVE TB-VALPC-CARRIER(WS-UKCC-SUB) TO                            
+                                               WS-UKCC-USE-CARR2                
+               IF (WS-UKCC-USE-CARR2 = SPACES OR LOW-VALUES)                    
+                  STRING 'INVALID CARR USE ' WS-UKCC-USE-CARR1                  
+                         DELIMITED BY SIZE INTO WS-UKCC-PCDE-ERROR              
+                  END-STRING                                                    
+               ELSE                                                             
+                  STRING 'INVALID CARR USE ' WS-UKCC-USE-CARR1                  
+                         ' OR ' WS-UKCC-USE-CARR2                               
+                         DELIMITED BY SIZE INTO WS-UKCC-PCDE-ERROR              
+                  END-STRING                                                    
+               END-IF                                                           
+            END-IF.                                                             
+                                                                                
+       B120-EXIT.                                                               
+           EXIT.                                                                

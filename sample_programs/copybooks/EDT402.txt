@@ -1,0 +1,173 @@
+﻿      ****************************************************************          
+      *  COPYBOOK:  EDT402                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINE  EDV402 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV402-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV402-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV402-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV402-CO-CD                                  *          
+      *              - EDV402-PARTNER-ID                             *          
+      *              - EDV402-CREDIT-MEMO-FLG                        *          
+      *              - EDV402-ASSET-TAG-FLG                          *          
+      *              - EDV402-EDI-PO-FLG                             *          
+      *              - EDV402-ZERO-VALUE-FLG                         *          
+      *              - EDV402-REFUSAL-FLG                            *          
+      *              - EDV402-COMPONENTS-FLG                         *          
+      *              - EDV402-INTEREST-INV-FLG                       *          
+      *              - EDV402-LST-CHG-TS                             *          
+      *              - EDV402-LST-CHG-NAM                            *          
+      *                                                              *          
+      *    OUTPUT: EDV402-OUTPUT-DATA                                *          
+      *          - EDV402-ROW-COUNT                                  *          
+      *          - EDV402-MODULE-RESULT-CD                           *          
+      *          - EDV402-MODULE-MESSAGE                             *          
+      *          - EDV402-DATABASE-RESULT-CODES:                     *          
+      *              - EDV402-SQLCA VALUES                           *          
+      *              - EDV402-SQLCODE                                *          
+      *              - EDV402-SQLSTATE                               *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV402 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV402-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV402-PARTNER-ID.                *          
+      *     MOVE 'S ' TO EDV402-ACTION-CD.                           *          
+      *     MOVE 'IE_STORE_XREF     ' TO EDV402-OBJECT-ID.           *          
+      *                                                              *          
+      *     CALL 'EDV402' USING EDV402-COMMUNICATIONS-AREA.          *          
+      *     IF EDV402-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV402 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT402 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                11/20/01  RPB   ADDED A NEW CURSOR. CO_CD,    *  KXR01324
+      *                                PARTNER_ID, CUST_ACCT_NBR.    *  KXR01324
+      *                06/20/01  WWZ   EXPANDING THE STORE # TO      *  WWZ01190
+      *                                30 CHARACTERS.                *  WWZ01190
+      *                04/22/01  KXR   ORIGINAL.                     *          
+      ****************************************************************          
+                                                                                
+       01  EDV402-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV402-ACTION-CD                     PIC  X(002).                
+               88  EDV402-SELECT                    VALUE 'S '.                 
+               88  EDV402-INSERT                    VALUE 'I '.                 
+               88  EDV402-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV402-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV402-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV402-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV402-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV402-COUNT                     VALUE 'C '.                 
+               88  EDV402-MAX                       VALUE 'MX'.                 
+               88  EDV402-MIN                       VALUE 'MN'.                 
+               88  EDV402-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV402-MASS-UPDATE               VALUE 'MU'.                 
+               88  EDV402-MASS-INSERT               VALUE 'MI'.                 
+           05  EDV402-USER-ID                       PIC  X(010).                
+           05  EDV402-KEY-AREA.                                                 
+               10  EDV402-KEY-CO-CD                 PIC  X(002).                
+               10  EDV402-KEY-PARTNER-ID            PIC  X(015).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV402-INPUT-OUTPUT-AREA.                                        
+               10  EDV402-OBJECT-ID                 PIC  X(030).                
+                   88  EDV402-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV402-IE-STORE-XREF         VALUE                       
+                                  'IE_STORE_XREF                 '.             
+                   88  EDV402-STORE-XREF-LOOKUP     VALUE                       
+                                  'STORE XREF LOOKUP             '.             
+                   88  EDV402-SHIP-TO-SFX-LOOKUP    VALUE                       
+                                  'SHIP TO SFX LOOKUP            '.             
+                   88  EDV402-CUST-NBR-LOOKUP       VALUE               KXR01324
+                                  'CUST ACCT # LOOKUP            '.     KXR01324
+               10  EDV402-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV402-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV402-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV402-CO-CD                 PIC  X(002).                
+                   15  EDV402-PARTNER-ID            PIC  X(015).                
+                   15  EDV402-STOR-NBR              PIC  X(030).        WWZ01190
+                   15  EDV402-SHIP-TO-SFX           PIC  X(003).                
+                   15  EDV402-CUST-ACCT-NBR         PIC  X(011).                
+                   15  EDV402-NEW-STOR-FLG          PIC  X(001).                
+                   15  EDV402-SALES-HOLD-FLG        PIC  X(001).                
+                   15  EDV402-LST-CHG-TS            PIC  X(026).                
+                   15  EDV402-LST-CHG-NAM           PIC  X(015).                
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV402-OUTPUT-DATA.                                              
+               10  EDV402-ROW-COUNT                 PIC  S9(009).               
+               10  EDV402-MODULE-RESULT-CD          PIC  X(002).                
+                   88  EDV402-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV402-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV402-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV402-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV402-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV402-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV402-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV402-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV402-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV402-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV402-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV402-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV402-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV402-EXCEPTION-MESSAGE.                                    
+                   15  EDV402-MSG-OBJECT            PIC  X(030).                
+                   15  EDV402-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV402-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV402-SQLCA.                                            
+                       20  EDV402-SQLCAID           PIC  X(008).                
+                       20  EDV402-SQLCABC           PIC  S9(009).               
+                       20  EDV402-SQLCODE           PIC  S9(009).               
+                       20  EDV402-SQLERRM.                                      
+                           25  EDV402-SQLERRML      PIC  S9(004).               
+                           25  EDV402-SQLERRMC      PIC  X(070).                
+                       20  EDV402-SQLERRP           PIC  X(008).                
+                       20  EDV402-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV402-SQLWARN.                                      
+                           25  EDV402-SQLWARN0      PIC  X(001).                
+                           25  EDV402-SQLWARN1      PIC  X(001).                
+                           25  EDV402-SQLWARN2      PIC  X(001).                
+                           25  EDV402-SQLWARN3      PIC  X(001).                
+                           25  EDV402-SQLWARN4      PIC  X(001).                
+                           25  EDV402-SQLWARN5      PIC  X(001).                
+                           25  EDV402-SQLWARN6      PIC  X(001).                
+                           25  EDV402-SQLWARN7      PIC  X(001).                
+                       20  EDV402-SQLEXT.                                       
+                           25  EDV402-SQLWARN8      PIC  X(001).                
+                           25  EDV402-SQLWARN9      PIC  X(001).                
+                           25  EDV402-SQLWARNA      PIC  X(001).                
+                           25  EDV402-SQLSTATE      PIC  X(005).                

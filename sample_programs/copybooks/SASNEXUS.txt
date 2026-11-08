@@ -1,0 +1,438 @@
+      ******************************************************************        
+      *** YEAR 2000 REMEDIATED                                         *PWLY8338
+      ******************************************************************        
+      *================================================================*        
+      *  THE FOLLOWING COPYBOOKS ARE USED BY THIS ROUTINE AND MUST BE  *        
+      *  COPIED INTO WORKING STORAGE.                                  *        
+      *  1.  SAWNEXUS                                                  *        
+      *  2.  TBIMAFC2                                                  *        
+      *  3.  TBISTCUS                                                  *        
+      *  4.  TBINEXUS                                                  *        
+      *  5.  TBIAGSEQ                                                  *        
+      *  6.  TBICORP2                                                  *        
+      *  7.  BPKMST, BPRMST                                            *        
+      *  8.  CUSMSC, CUKMSC, CUKHEAD                                   *        
+      *                                                                *        
+      *  THE FOLLOWING COPYBOOKS ARE USED BY THIS ROUTINE AND MUST BE  *        
+      *  COPIED INTO THE PROCEDURE DIVISION.                           *        
+      *  1.  1010-GU-CUSMSC COPY CUIO1010.                             *        
+      *                                                                *        
+      *  THE FOLLOWING ROUTINE MUST BE CODED IN THE PROCEDURE DIVISON  *        
+      *  1.  750-READ-BP-RECORD                                        *        
+      *                                                                *        
+      *----------------------------------------------------------------*        
+      *--  DATA FIELD USAGE:       RE(Q)UIRED/(I)NTERNAL/RE(T)URNED    *        
+      *----------------------------------------------------------------*        
+      *--   WS-NEXUS-ORDER-STATUS-SW - 'Y' FOR THE INITIAL HEADER   (Q)*        
+      *--                             SPACE  FOR LINE LEVEL CHANGES.   *        
+      *--   WS-NEXUS-ACTIVE-SW     - TB-CPO2-NEXUS-ACTIVE-SW FROM   (Q)*        
+      *--                            THE TBXCORP2 TABLE MUST BE MOVED  *        
+      *--                            PRIOR TO CALL                     *        
+      *--   WS-NEXUS-GOVT-ORDER-SW - SET TO 'Y' IF THE ORDER HEADER (Q)*        
+      *--                            IS MARKED AS GOVT, SPACE OTHERWISE*        
+      *--   WS-NEXUS-GOVT-END-USER-TYPE-SW - SET TO THE GOVT END    (Q)*        
+      *--                            USER SWITCH FROM THE ORDER HEADER *        
+      *--   WS-NEXUS-GOVT-PUB-PRIV-SW - SET TO THE GOVT PUBLIC OR   (Q)*        
+      *--                            PRIVATE SWITCH FROM THE ORDER     *        
+      *--                            HEADER                            *        
+      *--   WS-NEXUS-COMPANY         - COMPANY CODE OF THE CUSTOMER (Q)*        
+      *--   WS-NEXUS-BILL-TO-BR-NBR  - CUSTOMER BILL TO BRANCH FROM (Q)*        
+      *--                             THE ORDER                        *        
+      *--   WS-NEXUS-BILL-TO-CUST-NBR- CUSTOMER BILL TO NUMBER      (Q)*        
+      *--   WS-NEXUS-BILL-TO-SUFFIX  - CUSTOMER BILL TO SUFFIX      (Q)*        
+      *--   WS-NEXUS-TAX-CODE        - SET TO CUADDR SEGMENT TAX    (Q)*        
+      *--                              CODE OR A USER OVERRIDE IF      *        
+      *--                              PRESENT                         *        
+      *--   WS-NEXUS-SHIP-TO-STATE   - SET TO THE SHIP TO STATE     (Q)*        
+      *--                              FOUND ON THE ORDER ST ADDRESS   *        
+      *--                              THE SHIP FROM BRANCH            *        
+      *--   WS-NEXUS-ENTRY-DATE      - SET TO THE ORDER HEADER      (Q)*        
+      *--                              ENTRY DATE                      *        
+      *--   WS-NEXUS-FULFILLMENT-SW  - SET TO THE FULLFILMENT SWITCH(Q)*        
+      *--                              FROM THE ORDER HEADER           *        
+      *--   WS-NEXUS-CU-AGENCY-FLAG  - SET TO THE AGENCY FLAG ON    (Q)*        
+      *--                              THE CUSHED                      *        
+      *--   WS-NEXUS-BR-NBR-SHIP-FROM - SET TO DEFAULT FROM THE     (Q)*        
+      *--                              THE CUSHED OR A USER OVERRIDE   *        
+      *--                              IF PRESENT.                     *        
+      *--   WS-NEXUS-CU-AGENCY-SHIP-FROM - SET TO AGENCY DEFAULT    (Q)*DGH99295
+      *--                                  FROM THE CUSHED SEGMENT.    *DGH99295
+      *--   WS-NEXUS-CARRIER-CODE    - SET TO CARRIER DEFAULT FROM  (Q)*        
+      *--                              THE CUSHED OR A USER OVERRIDE   *        
+      *--                              IF PRESENT.                     *        
+      *--                                                              *        
+      *--   WS-NEXUS-SUB           -  SUBSCRIPT FOR GOV TABLE SEARCH(I)*        
+      *--   WS-NEXUS-SHIP-FROM-STATE - EXTRACTED FROM BPLMST USING  (I)*        
+      *--   WS-NEXUS-GOVT-TYPE-FOUND-SW - SET WITHIN WHEN GOVT      (I)*        
+      *--                             COULD BE NEXUS (TBINEXUS TABLE)  *        
+      *--   WS-NEXUS-VALID-RESELLER-SW  -  SET WITHIN WHEN A VALID  (I)*        
+      *--                             RESELLER LICENSE IS FOUND        *        
+      *--   WS-NEXUS-CUM-TAX-EXEMPT-KEY - WS KEY USED TO READ THE   (I)*        
+      *--                             MICS. SEGMENT FOR A VALID RESELL.*        
+      *--                                                              *        
+      *--   WS-NEXUS-STATUS-SW       - SET TO 'Y' TAXABLE ORDER     (T)*        
+      *--                                     'A' AGENCY ORDER         *        
+      *--                                     'N' NOT A NEXUS ORDER    *        
+      *--                                     'E' ERROR OCCURED        *        
+      *--   WS-NEXUS-ERROR-MESSAGE-CODE - FILLED WITH THE TABLE     (T)*        
+      *--                             POSITION OF THE ERROR MESSAGE    *        
+      *--                             IF AN ERROR OCCURED.             *        
+      *--   WS-NEXUS-ERROR-MESSAGE-TABLE - STORES ALL THE POSSIBLE  (T)*        
+      *--                             ERROR MESSAGES AND IF            *        
+      *--                             NEXUS-ERROR-ORDER IS SET ON      *        
+      *--                             THE VALUE OF THE FIELD WS-       *        
+      *--                             NEXUS-ERROR-MESSAGE-CODE TELLS   *        
+      *--                             # OF THE ERROR OCCURRENCE        *        
+      *--   WS-NEXUS-ERROR-CODE      - USED FOR MATCHING THE # OF   (T)*        
+      *--                             ERROR OCCURENCE                  *        
+      *--   WS-NEXUS-ERROR-MESSAGE   - MESSAGE CORRESPONDING TO THE (T)*        
+      *--                             CODE # RETURNED                  *        
+      *-----------------------------------------------------------     *        
+      * REVISION INFO:                                                 *        
+      *                                                                *DGH99295
+      * PAR      DATE   PGMR DESCRIPTION                               *DGH99295
+      * ------ -------- ---- ----------------------------------------- *DGH99295
+      * 10/10/13 WTL PROMARK CHANGES                                   *WTL13283
+      * 36821  10/22/99 DGH  NEXUS PHASE II: MICROWHSE IMPLEMENTATION. *DGH99295
+      *                                                                *DGH99295
+      * 12/04/98 MJS NEW COPYBOOK             LAST CHANGED - 11/19/98  *MJS98338
+      * 01/25/99 ETJ USE SPACES FOR BILL TO CUSTOMER SUFFIX            *ETJ99025
+      *              WHEN SEARCHING TBXMAFC2 TABLE.                    *ETJ99025
+      *================================================================*        
+       A1000-NEXUS-TAX-ROUTINE.                                                 
+                                                                                
+           INITIALIZE                     WS-NEXUS-STATUS-SW                    
+                                          WS-NEXUS-ERROR-MESSAGE-CODE           
+                                          WS-NEXUS-VALID-RESELLER-SW.           
+                                                                                
+      *  IF THIS IS A NEW ORDER START AT THE BEGINNING                          
+      *  IF NOT WE ALREADY KNOW WE HAVE AN AGENCY ORDER CONTINUE                
+      *  AT CARRIER CODE/SHIP FROM CHANGE LOGIC                                 
+                                                                                
+           IF NEXUS-NEW-ORDER                                                   
+              CONTINUE                                                          
+           ELSE                                                                 
+              GO                       TO A1000-CC-SF-CHANGE.                   
+                                                                                
+      *    CHECK IF NEXUS IS ACTIVE                                             
+      *    IF ACTIVE WE WANT TO EXECUTE THE NEXUS ROUTINE                       
+      *    IF IT IS NOT WE HAVE TO CHECK IF THE CUSTOMER IS TURNED ON           
+      *    FOR EITHER NEXUS OR TO BE TAXED                                      
+                                                                                
+           IF NEXUS-ACTIVE                                                      
+              CONTINUE                                                          
+           ELSE                                                                 
+              IF WS-NEXUS-CU-AGENCY-TAX                                         
+                 MOVE 'Y'              TO WS-NEXUS-STATUS-SW                    
+                 GO                    TO A1000-EXIT                            
+              ELSE                                                              
+                 IF WS-NEXUS-CU-AGENCY-CUSTOMER                                 
+                    CONTINUE                                                    
+                 ELSE                                                           
+                    MOVE 'N'           TO WS-NEXUS-STATUS-SW                    
+                    GO                 TO A1000-EXIT.                           
+                                                                                
+      *  ONLY FULFILLMENT ORDERS WITH A TAX CODE OF 'N' (DO NOT TAX)            
+      *  SHOULD GO THRU THIS ROUTINE                                            
+                                                                                
+           IF WS-NEXUS-FULFILLMENT AND WS-NEXUS-TAX-CODE = 'N'                  
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE 'N'                 TO WS-NEXUS-STATUS-SW                    
+              GO                       TO A1000-EXIT.                           
+                                                                                
+      *                                                                 DGH99295
+      * CHECK IF CUSTOMER WILL USE AGENT IN SHIP-TO STATE.  IF YES,     DGH99295
+      * JUMP TO CARRIER CODE/SHIP FROM CHANGE LOGIC.                    DGH99295
+      *                                                                 DGH99295
+           MOVE WS-NEXUS-COMPANY       TO TB-STCUS-COMPANY-CODE.        DGH99295
+           MOVE WS-NEXUS-SHIP-TO-STATE TO TB-STCUS-STATE-CODE.          DGH99295
+           MOVE WS-NEXUS-BILL-TO-BR-NBR                                 DGH99295
+                                       TO TB-STCUS-CU-BR-NBR.           DGH99295
+           MOVE WS-NEXUS-BILL-TO-CUST-NBR                               DGH99295
+                                       TO TB-STCUS-CU-CUST-NBR.         DGH99295
+           CALL 'SYU510'               USING TB-STCUS-TABLE-IA.         DGH99295
+                                                                        DGH99295
+           IF TB-STCUS-NORESP AND TB-STCUS-NEXUS-AGENCY                 DGH99295
+              GO TO A1000-CC-SF-CHANGE                                  DGH99295
+           END-IF.                                                      DGH99295
+                                                                        DGH99295
+      *  GOVERNMENT ORDER PROCESSING                                            
+                                                                                
+           IF NEXUS-GOVT-ORDER                                                  
+              PERFORM A2000-GOVERNMENT-ORDER                                    
+                                       THRU A2000-EXIT                          
+              IF WS-NEXUS-STATUS-SW > SPACE                                     
+                 GO                    TO A1000-EXIT.                           
+                                                                                
+      *  CHECK STATE BY CUSTOMER TABLE                                          
+      *  TAX WILL BE CHARGED ON ORDER IF CUSTOMER IS IN TABLE                   
+                                                                                
+           MOVE WS-NEXUS-COMPANY       TO TB-STCUS-COMPANY-CODE.                
+           MOVE WS-NEXUS-SHIP-TO-STATE TO TB-STCUS-STATE-CODE.                  
+           MOVE WS-NEXUS-BILL-TO-BR-NBR                                         
+                                       TO TB-STCUS-CU-BR-NBR.                   
+           MOVE WS-NEXUS-BILL-TO-CUST-NBR                                       
+                                       TO TB-STCUS-CU-CUST-NBR.                 
+           CALL 'SYU510'               USING TB-STCUS-TABLE-IA.                 
+           IF TB-STCUS-NORESP AND TB-STCUS-NEXUS-TAX                            
+              MOVE 'Y'                 TO WS-NEXUS-STATUS-SW                    
+              GO                       TO A1000-EXIT.                           
+                                                                                
+      *  CHECK SHIP TO STATE TO SEE IF IT IS A TAXABLE STATE                    
+      *  IF STATE IS NOT IN TABLE OR TAXABLE SW IS NOT 'Y' EXIT THIS            
+      *  ROUTINE AND PROCESS THE ORDER AS NORMAL                                
+                                                                                
+           MOVE WS-NEXUS-COMPANY       TO TB-NEXUS-COMPANY-CODE.                
+           MOVE WS-NEXUS-SHIP-TO-STATE TO TB-NEXUS-STATE-CODE.                  
+           CALL 'SYU510'               USING TB-NEXUS-TABLE-IA.                 
+           IF TB-NEXUS-NORESP AND TB-NEXUS-TAX-SW = 'Y'                         
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE 'N'                 TO WS-NEXUS-STATUS-SW                    
+              GO                       TO A1000-EXIT.                           
+      *--------------------------------------------------------------*  WTL13283
+      *   CHANGE TO THE NEXUS TABLE READ IS THAT ONLY PROMARK        *  WTL13283
+      *   HAS A PRESENCE IN MARYLAND (BR 43 CUSTOMERS), SO THE       *  WTL13283
+      *   NEXUS VALUES ONLY PERTAIN TO THEM                          *  WTL13283
+      *--------------------------------------------------------------*  WTL13283
+           IF WS-NEXUS-SHIP-TO-STATE = 'MD'    AND                      WTL13283
+             (WS-NEXUS-BILL-TO-BR-NBR NOT = 43)                         WTL13283
+               MOVE LOW-VALUES         TO TB-NEXUS-ENTRY                WTL13283
+               SET TB-NEXUS-ENTRY-NOTFND TO TRUE                        WTL13283
+               MOVE 'N'                TO WS-NEXUS-STATUS-SW            WTL13283
+               GO                      TO A1000-EXIT.                   WTL13283
+      *                                                                 WTL13283
+      *  CHECK TO SEE IF CUSTOMER HAS VALID RESELLER CERTIFICATE                
+      *  IF CUSTOMER DOES EXIT THIS ROUTINE AND PROCSS ORDER AS NORMAL          
+      *  IF CUSTOMER DOES NOT CONTINUE IN THE NEXUS ROUTINE                     
+                                                                                
+           MOVE WS-NEXUS-COMPANY       TO WS-CUSHED-CO                          
+           MOVE WS-NEXUS-BILL-TO-BR-NBR                                         
+                                       TO WS-CUSHED-BR                          
+           MOVE WS-NEXUS-BILL-TO-CUST-NBR                                       
+                                       TO WS-CUSHED-CUST                        
+           MOVE SPACES                 TO WS-NEXUS-CUM-TAX-EXEMPT-KEY           
+           MOVE 'X'                    TO WS-NEXUS-CUM-SEGMENT-TYPE             
+           MOVE WS-NEXUS-SHIP-TO-STATE TO WS-NEXUS-CUM-EXEMPT-STATE             
+           MOVE 'R'                    TO WS-NEXUS-CUM-EXEMPT-TYPE              
+           MOVE WS-NEXUS-CUM-TAX-EXEMPT-KEY                                     
+                                       TO WS-CUSMSC-KEY-VALUE.                  
+           IF WS-DLI-NOT-SCHEDULED                                              
+              PERFORM 980-SCHEDULE-DLI.                                         
+           PERFORM 1010-GU-CUSMSC.                                              
+           IF WS-CUSMSC-NORESP                                                  
+              PERFORM A3000-CHECK-RESELLER THRU A3000-EXIT                      
+              IF NEXUS-VALID-RESELLER                                           
+                 MOVE 'N'              TO WS-NEXUS-STATUS-SW                    
+                 GO                    TO A1000-EXIT.                           
+                                                                                
+      *  CHECK TO SEE IF CUSTOMER IS AN AGENCY CUSTOMER                         
+      *  IF NOT AN AGENCY CUSTOMER TAX WILL BE CHARGED                          
+                                                                                
+           IF WS-NEXUS-CU-AGENCY-CUSTOMER                                       
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE 'Y'                 TO WS-NEXUS-STATUS-SW                    
+              GO                       TO A1000-EXIT.                           
+                                                                                
+      *  SHIP FROM OR CARRIER CODE CHANGES                                      
+                                                                                
+       A1000-CC-SF-CHANGE.                                                      
+                                                                                
+      *                                                                 DGH99295
+      * IF CUSTOMER IS USING AN AGENT IN THE SHIP-TO STATE, THEN THE    DGH99295
+      * SHIP-FROM BRANCH MUST EQUAL THE AGENT DEFAULT SHIP-FROM BRANCH. DGH99295
+      *                                                                 DGH99295
+           IF WS-NEXUS-CU-AGNCY-CUST-DFLT-SF                            DGH99295
+                                                                        DGH99295
+               IF WS-NEXUS-BR-NBR-SHIP-FROM NOT =                       DGH99295
+                  WS-NEXUS-CU-AGENCY-SHIP-FROM                          DGH99295
+                   MOVE 'E'         TO WS-NEXUS-STATUS-SW               DGH99295
+                   MOVE WS-NEXUS-ERROR-CODE (5)                         DGH99295
+                     TO WS-NEXUS-ERROR-MESSAGE-CODE                     DGH99295
+                   GO TO A1000-EXIT                                     DGH99295
+               END-IF                                                   DGH99295
+                                                                        DGH99295
+           END-IF.                                                      DGH99295
+                                                                        DGH99295
+      *  VERIFY AGAINST TBXAGSEQ THAT SHIP FROM IS AN AGENCY DC                 
+                                                                                
+           MOVE WS-NEXUS-COMPANY       TO TB-AGSEQ-COMPANY-CODE.                
+           MOVE WS-NEXUS-BR-NBR-SHIP-FROM                                       
+                                       TO TB-AGSEQ-BR.                          
+           CALL 'SYU510'               USING TB-AGSEQ-TABLE-IA.                 
+           IF TB-AGSEQ-NORESP                                                   
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE 'E'                 TO WS-NEXUS-STATUS-SW                    
+              MOVE WS-NEXUS-ERROR-CODE (1)                                      
+                                       TO WS-NEXUS-ERROR-MESSAGE-CODE           
+              GO                       TO A1000-EXIT.                           
+                                                                                
+      *  CHECK TO SEE IF CUSTOMER IS SETUP WITH A VALID THIRD PARTY             
+      *  CARRIER.                                                               
+                                                                                
+           MOVE WS-NEXUS-COMPANY       TO TB-MAFC2-CO.                          
+           MOVE WS-NEXUS-BR-NBR-SHIP-FROM                                       
+                                       TO TB-MAFC2-SF.                          
+           MOVE WS-NEXUS-BILL-TO-BR-NBR                                         
+                                       TO TB-MAFC2-BILL-TO-BR.                  
+           MOVE WS-NEXUS-BILL-TO-CUST-NBR                                       
+                                       TO TB-MAFC2-BILL-TO-NBR.                 
+           MOVE SPACES                 TO TB-MAFC2-BILL-TO-SUFFIX.      ETJ99025
+           MOVE WS-NEXUS-CARRIER-CODE  TO TB-MAFC2-CARRIER-CODE.                
+           CALL 'SYU510'               USING TB-MAFC2-TABLE-IA.                 
+           IF TB-MAFC2-NORESP                                                   
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE 'E'                 TO WS-NEXUS-STATUS-SW                    
+              MOVE WS-NEXUS-ERROR-CODE (2)                                      
+                                       TO WS-NEXUS-ERROR-MESSAGE-CODE           
+              GO                       TO A1000-EXIT.                           
+                                                                                
+                                                                                
+      *  CHECK TO SEE IF ORDER IS INTRASTATE                                    
+      *  IF IT IS VERIFY THAT INTRASTATE ORDERS ARE ALLOWED                     
+      *  STATE IS DETERMINED BY READING THE '3' RECORD ON BPLMST                
+                                                                                
+           MOVE '3'                    TO WS-BP-REC-SEQ.                        
+           MOVE WS-NEXUS-COMPANY       TO WS-BP-COMPANY.                        
+           MOVE WS-NEXUS-BR-NBR-SHIP-FROM                                       
+                                       TO WS-BP-BR-NBR.                         
+                                                                                
+           PERFORM 750-READ-BP-RECORD THRU 750-EXIT                             
+           IF WS-BP-NORESP                                                      
+              MOVE BP-SHIP-TO-STATE    TO  WS-NEXUS-SHIP-FROM-STATE             
+           ELSE                                                                 
+              MOVE WS-NEXUS-ERROR-CODE (3)                                      
+                                       TO WS-NEXUS-ERROR-MESSAGE-CODE           
+              MOVE 'E'                 TO WS-NEXUS-STATUS-SW                    
+              GO                       TO A1000-EXIT.                           
+                                                                                
+           IF WS-NEXUS-SHIP-TO-STATE = WS-NEXUS-SHIP-FROM-STATE                 
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE 'A'                 TO WS-NEXUS-STATUS-SW                    
+              GO                       TO A1000-EXIT.                           
+                                                                                
+           IF TB-AGSEQ-INTRASTATE-FLAG = 'Y'                                    
+              MOVE 'A'                 TO WS-NEXUS-STATUS-SW                    
+           ELSE                                                                 
+              MOVE 'E'                 TO WS-NEXUS-STATUS-SW                    
+              MOVE WS-NEXUS-ERROR-CODE (4)                                      
+                                       TO WS-NEXUS-ERROR-MESSAGE-CODE.          
+                                                                                
+       A1000-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+       A2000-GOVERNMENT-ORDER.                                                  
+                                                                                
+           IF NEXUS-GOVT-FEDERAL                                                
+              MOVE 'N'                 TO WS-NEXUS-STATUS-SW                    
+              GO                       TO A2000-EXIT.                           
+                                                                                
+           MOVE WS-NEXUS-COMPANY       TO TB-NEXUS-COMPANY-CODE.                
+           MOVE WS-NEXUS-SHIP-TO-STATE TO TB-NEXUS-STATE-CODE.                  
+           CALL 'SYU510'               USING TB-NEXUS-TABLE-IA.                 
+           IF TB-NEXUS-NORESP                                                   
+              MOVE ' '                 TO WS-NEXUS-GOVT-TYPE-FOUND-SW           
+              PERFORM A2010-CHECK-PUBLIC-PRIVATE THRU A2010-EXIT                
+                 VARYING WS-NEXUS-SUB FROM 1 BY 1 UNTIL                         
+                 WS-NEXUS-SUB > 30 OR NEXUS-GOVT-TYPE-FOUND                     
+              IF NEXUS-GOVT-TYPE-FOUND                                          
+                 CONTINUE                                                       
+              ELSE                                                              
+                 MOVE 'N'              TO WS-NEXUS-STATUS-SW                    
+                 GO                    TO A2000-EXIT.                           
+                                                                                
+                                                                                
+       A2000-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      * IF AN ENTRY EXISTS IN THE TBXNEXUS TABLE WE NEED TO CHECK THE           
+      * OCCURRENCES IN THE NEXUS-GOVT-TABLE TO DETERMINE IF THIS GOVT           
+      * TYPE IS TAXABLE                                                         
+      * IF THE TYPE IS FOUND WITH A VALUE OF 'Y' IT IS TAXABLE THEREFORE        
+      * WE WANT TO CONTINUE IN THE NEXUS ROUTINE                                
+       A2010-CHECK-PUBLIC-PRIVATE.                                              
+           IF TB-NEXUS-GOVT-TYPE (WS-NEXUS-SUB) =                               
+              WS-NEXUS-GOVT-END-USER-TYPE-SW                                    
+              IF (NEXUS-GOVT-PUBLIC AND                                         
+                  TB-NEXUS-PUBLIC-TAX-SW (WS-NEXUS-SUB) = 'Y') OR               
+                 (NEXUS-GOVT-PRIVATE AND                                        
+                  TB-NEXUS-PRIVATE-TAX-SW (WS-NEXUS-SUB) = 'Y')                 
+                  MOVE 'Y'             TO WS-NEXUS-GOVT-TYPE-FOUND-SW.          
+           IF TB-NEXUS-GOVT-TYPE (WS-NEXUS-SUB) = ' '                           
+              MOVE 31                  TO WS-NEXUS-SUB.                         
+       A2010-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+       A3000-CHECK-RESELLER.                                                    
+      *  IF THERE IS A TAX EXEMPT DATE MAKE SURE THE ORDER ENTRY DATE IS        
+      *  > OR = TO THIS DATE. ONLY CHECK RENEWAL DATE IF THE RENEWAL            
+      *  PERIOD IS > 0. IF THERE IS A RENEWAL PERIOD MAKE SURE THE ORDER        
+      *  ENTRY DATE IS < OR = TO THAT DATE.  IF THE CERTIFICATE IS NOT          
+      *  VALID WE WANT TO CONTINUE IN THE NEXUS ROUTINE.                        
+           IF CUM-TAX-EXEMPT-DATE > ZEROES                                      
+      *Y2K********************************************************Y2K*          
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *          
+      *Y2K********************************************************Y2K*          
+              CALL 'CAWINUP'                                                    
+                  USING WS-NEXUS-ENTRY-DATE                                     
+                        SAWNEXUS-DEFAULT-WINDOW-SPEC                            
+                        SAWNEXUS-DECIMAL5-TYPE                                  
+                        SAWNEXUS-ENTRY-DATE-Y2K                                 
+                        SAWNEXUS-THIS-YEAR-Y2K                                  
+              CALL 'CAWINUP'                                                    
+                  USING CUM-TAX-EXEMPT-DATE                                     
+                        SAWNEXUS-DEFAULT-WINDOW-SPEC                            
+                        SAWNEXUS-DECIMAL5-TYPE                                  
+                        SAWNEXUS-CUM-EXEMPT-DATE-Y2K                            
+                        SAWNEXUS-THIS-YEAR-Y2K                                  
+      *Y2K********************************************************Y2K*          
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *          
+      *Y2K********************************************************Y2K*          
+      *       IF (WS-NEXUS-ENTRY-DATE > CUM-TAX-EXEMPT-DATE OR                  
+              IF (SAWNEXUS-ENTRY-DATE-Y2K  >                                    
+                  SAWNEXUS-CUM-EXEMPT-DATE-Y2K OR                               
+                  WS-NEXUS-ENTRY-DATE = CUM-TAX-EXEMPT-DATE)                    
+                  IF CUM-RENEWAL-PERIOD > ZEROES                                
+      *Y2K********************************************************Y2K*          
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *          
+      *Y2K********************************************************Y2K*          
+                     CALL 'CAWINUP'                                             
+                         USING WS-NEXUS-ENTRY-DATE                              
+                               SAWNEXUS-DEFAULT-WINDOW-SPEC                     
+                               SAWNEXUS-DECIMAL5-TYPE                           
+                               SAWNEXUS-ENTRY-DATE-Y2K                          
+                               SAWNEXUS-THIS-YEAR-Y2K                           
+                     CALL 'CAWINUP'                                             
+                         USING CUM-RENEWAL-DATE                                 
+                               SAWNEXUS-DEFAULT-WINDOW-SPEC                     
+                               SAWNEXUS-DECIMAL5-TYPE                           
+                               SAWNEXUS-CUM-RENEWAL-DATE-Y2K                    
+                               SAWNEXUS-THIS-YEAR-Y2K                           
+      *Y2K********************************************************Y2K*          
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *          
+      *Y2K********************************************************Y2K*          
+      *              IF WS-NEXUS-ENTRY-DATE > CUM-RENEWAL-DATE                  
+                     IF SAWNEXUS-ENTRY-DATE-Y2K  >                              
+                         SAWNEXUS-CUM-RENEWAL-DATE-Y2K                          
+      *  CERTIFICATE IS NOT VALID SO CONTINUE IN NEXUS ROUTINE                  
+      *  THE ORDER DATE IS > THE RENEWAL(EXPIRATION) DATE                       
+                        GO TO A3000-EXIT                                        
+                     ELSE                                                       
+      *  CERTIFICATE IS VALID                                                   
+                        MOVE 'Y'     TO WS-NEXUS-VALID-RESELLER-SW              
+                  ELSE                                                          
+      *  CERTIFICATE IS VALID                                                   
+                     MOVE 'Y'        TO WS-NEXUS-VALID-RESELLER-SW              
+              ELSE                                                              
+      *  CERTIFICATE IS NOT VALID SO CONTINUE IN NEXUS ROUTINE                  
+                  GO TO A3000-EXIT                                              
+           ELSE                                                                 
+      *  CERTIFICATE IS VALID                                                   
+              MOVE 'Y'               TO WS-NEXUS-VALID-RESELLER-SW.             
+       A3000-EXIT.                                                              
+           EXIT.                                                                

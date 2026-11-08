@@ -1,0 +1,120 @@
+                                                                                
+      *****************************************************************         
+      *            WORKING STORAGE FOR ORP697 EXPLAIN WRITER          *         
+      *                         WRITER PARAMETERS                     *         
+      *                                                               *         
+      *  PURPOSE:  COMMUNICATION AREA CONTAINING THE EXPLAIN WRITER   *         
+      *            PARAMETERS THAT CONTROL HOW THE EXPLAIN WRITER     *         
+      *            PROCESSES THE EXPLAIN DATA PASSED INTO IT.         *         
+      *                                                               *         
+      *  USAGE:    COPY INTO YOUR APPLICATION AND USE ALONG WITH      *         
+      *            PROCEDURE DIVISION COPYBOOK ORS697WM WHICH DOES    *         
+      *            THE STANDARD EXPLAIN WRITER MOVES TO THIS COPYBOOK *         
+      *            BEFORE INVOKING THE EXPLAIN WRITER USING PARA      *         
+      *            SP980-WRITE-EXPLAIN-PLAN IN COPYBOOK SYSPCL/SYSPEL *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 11/02/04 AXR       *** STRATEGIC PRICING - FULL SOLUTION ***  * AXR04307
+      *               1. CREATED COPYBOOK.                            * AXR04307
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+      *****************************************************************         
+      *    WORKING STORAGE - EXPLAIN WRITER REQUEST & RESPONSE AREAS            
+      *****************************************************************         
+                                                                                
+                                                                                
+         01 ORW697WP-WRITER-PARMS.                                              
+                                                                                
+                                                                                
+      *****************************************************************         
+      *    WORKING STORAGE - EXPLAIN WRITER REQUEST AREA                        
+      *****************************************************************         
+                                                                                
+      *       (THE PROGRAM INVOKING THE EXPLAIN WRITER:)                        
+            10 ORW697WP-SOURCE-PGM-ID            PIC X(08).                     
+                                                                                
+      *       (THE PERSON USING THE PROGRAM THAT INVOKED THE WRITER:)           
+            10 ORW697WP-SOURCE-OPER-ID           PIC X(08).                     
+                                                                                
+      *       (FUNCION CODE DESIGNATES THE WRITER FUNCTION TO PERFORM           
+      *          ORDER FUNCTIONS APPLY TO: PE_ORDER_LINE                        
+      *          DATA FUNCTIONS APPLY TO:  PE_EXPLAIN_ID                        
+      *                                    & PE_EXPLAIN_LINE)                   
+                                                                                
+            10 ORW697WP-FUNCTION-CD              PIC X(01).                     
+                                                                                
+      *          (WRITE PE_ORDER_LINE ROW ONLY:)                                
+               88 ORW697WP-WRITE-ORD             VALUE 'O'.                     
+                                                                                
+      *          (WRITE PE_EXPLAIN_LINE ROWS ONLY:)                             
+               88 ORW697WP-WRITE-DATA            VALUE 'W'.                     
+                                                                                
+      *          (WRITE PE_ORDER_LINE & PE_EXPLAIN_LINE ROWS:)                  
+               88 ORW697WP-WRITE-ORD-DATA        VALUE 'B'.                     
+                                                                                
+      *          (WRITE NEW PE_ORDER_LINE TO REPLACE AN EXISTING ROW:)          
+               88 ORW697WP-REPL-ORD              VALUE 'R'.                     
+                                                                                
+      *          (REQUEST TO INSERT MULTIPLE PE_ORDER_LINE ROWS:)               
+               88 ORW697WP-MULT-DATA             VALUE 'M'.                     
+                                                                                
+      *          (REQUEST TO DELETE AN EXPLAIN PLAN BY AN EXPLAIN ID:)          
+               88 ORW697WP-DELETE-DATA-BY-ID     VALUE 'D'.                     
+                                                                                
+      *          (REQUEST TO DELETE AN EXPLAIN PLAN BY ORDER KEY:)              
+               88 ORW697WP-PURGE-DATA-BY-ORD     VALUE 'P'.                     
+                                                                                
+      *          (REQUEST TO APPPEND AN EXPLAIN PLAN DATA)                      
+               88 ORW697WP-APPEND-DATA           VALUE 'A'.                     
+                                                                                
+      *          (REQUEST TO COPY AN EXPLAIN PLAN TO ANOTHER ORDER/LINE)        
+               88 ORW697WP-COPY-DATA             VALUE 'C'.                     
+                                                                                
+      *    (GENERALLY THE COUNTRY CODE OF THE INVOKING PROGRAM)                 
+            10 ORW697WP-COMPANY-CD               PIC X(02).                     
+                                                                                
+      *    (THESE ARE THE ORDER KEYS ASSOCIATED WITH THE EXPLAIN PLAN)          
+            10 ORW697WP-ORDR-KEYS.                                              
+               15 ORW697WP-ORDR-CO-CD            PIC X(02).                     
+               15 ORW697WP-ORDR-BR-NBR           PIC X(02).                     
+               15 ORW697WP-ORDR-DT-YYDDD         PIC 9(05).                     
+               15 ORW697WP-ORDR-NBR              PIC X(05).                     
+               15 ORW697WP-DIST-NBR              PIC X(01).                     
+               15 ORW697WP-SHIP-NBR              PIC X(01).                     
+               15 ORW697WP-ORDR-LINE-NBR         PIC 9(03).                     
+                                                                                
+      *    (SET THESE FIELDS WHEN REPLACING OR COPYING AN ORDER ENTRY)          
+            10 ORW697WP-NEW-ORDR-KEYS.                                          
+               15 ORW697WP-NEW-ORDR-CO-CD        PIC X(02).                     
+               15 ORW697WP-NEW-ORDR-BR-NBR       PIC X(02).                     
+               15 ORW697WP-NEW-ORDR-DT-YYDDD     PIC 9(05).                     
+               15 ORW697WP-NEW-ORDR-NBR          PIC X(05).                     
+               15 ORW697WP-NEW-DIST-NBR          PIC X(01).                     
+               15 ORW697WP-NEW-SHIP-NBR          PIC X(01).                     
+               15 ORW697WP-NEW-ORDR-LINE-NBR     PIC 9(03).                     
+                                                                                
+            10 REQUEST-FILLER                    PIC X(20).                     
+                                                                                
+      *****************************************************************         
+      *    WORKING STORAGE - EXPLAIN WRITER RESPONSE AREA                       
+      *****************************************************************         
+                                                                                
+      *    (THE OVERALL STATUS OF THE EXPLAIN WRITER REQUEST)                   
+            10 ORW697WP-STATUS-CD                PIC X(01).                     
+               88 ORW697WP-STATUS-OK             VALUE SPACE.                   
+               88 ORW697WP-STATUS-ERROR          VALUE 'E'.                     
+                                                                                
+      *    (DIAGNOSTIC TEXT ASSOCIATED TO THE STATUS CODE)                      
+            10 ORW697WP-STATUS-TEXT              PIC X(10).                     
+                                                                                
+      *    (THE TIMESTAMP OF THE ASSOCIATED ERROR LOG ENTRY, IF ANY)            
+            10 ORW697WP-ERROR-LOG-TS             PIC X(26).                     
+                                                                                
+      *    (THE EXPLAIN ID USED OR GENERATED BY THE EXPLAIN WRITER)             
+            10 ORW697WP-EXPLAIN-ID               PIC 9(09).                     
+                                                                                
+            10 RESPONSE-FILLER                   PIC X(20).                     
+                                                                                

@@ -1,0 +1,122 @@
+      *===============================================================*         
+      * ICWCOPRC                                                      *         
+      * PURPOSE:                                                      *         
+      *   THIS IS USED TO RECALCULATE UNIT AND ADJUSTED COST DUE TO   *         
+      *   CURRENCY FLUCTUATIONS AND AVERAGE COST CHANGES.             *         
+      *===============================================================*         
+      * REVISION INFO:                                                *         
+      * 05/02/25 SYJ ADDED NEW 88 VALUES FOR UPLIFT ONLY NP VENDOR    * SYJ25122
+      * 01/14/22 SYJ CNP - ADDED FIELDS TO ENABLED MISC COST COMPUTE  * SYJ22014
+      *              IN INVOICE BATCH CYCLE FOR STOCKING ORDERS ALONE * SYJ22014
+      * 07/10/08 RAL ADDED ICWCOPRC-IN-TOT-ACOP-DELTA                 * RAL08180
+      * 01/18/08 GAE SSEU ENHANCED ACOP PROJECT: CA, EU, TP           * GAE08018
+      *              ADD ICWCOPRC-IN-VENDOR-RETAIL.                   * GAE08018
+      * 09/20/05 GAE NEW COPYBOOK.                                    * GAE05263
+      *===============================================================*         
+       01  ICWCOPRC-INTERFACE-AREA.                                             
+           05 ICWCOPRC-COMPANY-CODE             PIC  X(02).                     
+           05 ICWCOPRC-ACTION-CODE              PIC  X(01).                     
+              88 ICWCOPRC-ACTION-INIT                      VALUE 'I'.           
+              88 ICWCOPRC-ACTION-PROCESS                   VALUE 'P'.           
+              88 ICWCOPRC-ACTION-TERM                      VALUE 'T'.           
+           05 ICWCOPRC-IN-AREA.                                                 
+              10 ICWCOPRC-IN-ACOP-SUB-MAX       PIC S9(05) COMP-3.              
+              10 ICWCOPRC-ORSCAP OCCURS 25 TIMES                                
+                                                PIC  X(112).                    
+              10 ICWCOPRC-IN-INI-INSHED         PIC  X(608).                    
+              10 ICWCOPRC-IN-TBICORP            PIC  X(232).            GAE08018
+              10 ICWCOPRC-IN-TBICORP2           PIC  X(233).            GAE08018
+              10 ICWCOPRC-IN-TBICORP4           PIC  X(232).            GAE08018
+              10 ICWCOPRC-IN-TBICORP5           PIC  X(232).            GAE08018
+              10 ICWCOPRC-IN-TBIACOP            PIC  X(232).            GAE08018
+              10 ICWCOPRC-IN-ORDER-TYPE         PIC  X(01).             GAE08018
+              10 ICWCOPRC-IN-VENDOR-RETAIL      PIC S9(15)V9(02) COMP-3.GAE08018
+              10 ICWCOPRC-IN-TOT-ACOP-DELTA     PIC S9(13)V9(4)  COMP-3.RAL08180
+              10 ICWCOPRC-IN-UNIT-COST-NEW      PIC S9(13)V9(04) COMP-3.        
+              10 ICWCOPRC-IN-UNIT-COST-OLD      PIC S9(13)V9(04) COMP-3.        
+              10 ICWCOPRC-IN-SPC-SYS-COST-OLD   PIC S9(13)V9(04) COMP-3.        
+              10 ICWCOPRC-IN-SUBS-COST-OLD      PIC S9(13)V9(04) COMP-3.        
+              10 ICWCOPRC-IN-REBATE-AMT         PIC S9(13)V9(04) COMP-3.        
+              10 ICWCOPRC-IN-REVERSE-ACOP-IND   PIC  X(01).                     
+                 88 ICWCOPRC-IN-REVERSE-ACOP               VALUE 'Y'.           
+              10 ICWCOPRC-IN-MC-OVERRIDE-SW     PIC  X(01).                     
+                 88 ICWCOPRC-IN-MC-ACOP-OVERRIDE           VALUE 'B'.           
+                 88 ICWCOPRC-IN-MC-REVERSE                 VALUE 'R'.           
+              10 ICWCOPRC-IN-NP-AREA.                                   SYJ22014
+                 15 ICWCOPRC-VNH-NET-PRICING-IND                        SYJ22014
+                                                PIC  X(01) VALUE ' '.   SYJ22014
+                    88 ICWCOPRC-VNH-NET-PRICING          VALUE 'Y' 'U'. SYJ25122
+                    88 ICWCOPRC-VNH-NET-PRICING-CISCO    VALUE 'Y'.     SYJ25122
+                    88 ICWCOPRC-VNH-SO-COST-UPLIFT       VALUE 'U'.     SYJ25122
+                 15 ICWCOPRC-CPO7-NET-PRICING-SW                        SYJ22014
+                                                PIC  X(01) VALUE ' '.   SYJ22014
+                    88 ICWCOPRC-CPO7-NET-PRICING           VALUE 'Y'.   SYJ22014
+                 15 ICWCOPRC-NP-ORDER-IND       PIC  X(01) VALUE ' '.   SYJ22014
+                    88  ICWCOPRC-NP-STOCK-ORDER            VALUES ' '   SYJ22014
+                                                           'S' 'C'.     SYJ22014
+                    88  ICWCOPRC-NP-DIRECT-ORDER           VALUE 'D'.   SYJ22014
+                    88  ICWCOPRC-NP-ORDER-BACK-2-BACK      VALUE 'B'.   SYJ22014
+                    88  ICWCOPRC-NP-ORDER-REPLNISHMNT      VALUE 'R'.   SYJ22014
+                    88  ICWCOPRC-NP-TREAT-AS-STOCK         VALUE 'S'.   SYJ22014
+                 15 ICWCOPRC-OWNING-BASE-COST   PIC S9(15)V99    COMP-3 SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-OWNING-TAX-CODE    PIC  X(02) VALUE SPACES.SYJ22014
+                 15 ICWCOPRC-OWNING-TAX-RATE    PIC S9(1)V9(3)          SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-OWNING-DUTY-CODE   PIC  X(04) VALUE SPACES.SYJ22014
+                 15 ICWCOPRC-OWNING-DUTY-RATE   PIC S9(1)V9(3)          SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-OWNING-VNDR-FRT-CODE                       SYJ22014
+                                                PIC  X(02) VALUE SPACES.SYJ22014
+                 15 ICWCOPRC-OWNING-VNDR-FRT-RATE                       SYJ22014
+                                                PIC S9(1)V9(4)          SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-OWNING-MISC-COST   PIC S9(15)V99    COMP-3 SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-SELLING-TAX-CODE   PIC  X(02) VALUE SPACES.SYJ22014
+                 15 ICWCOPRC-SELLING-TAX-RATE   PIC S9(1)V9(3)          SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-SELLING-DUTY-CODE  PIC  X(04) VALUE SPACES.SYJ22014
+                 15 ICWCOPRC-SELLING-DUTY-RATE  PIC S9(1)V9(3)          SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-SELLING-MISC-COST  PIC S9(15)V99    COMP-3 SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-SELL-MISC-CST-CONV-SW                      SYJ22014
+                                                PIC  X(01) VALUE ' '.   SYJ22014
+                    88 ICWCOPRC-SELL-MISC-CST-CONV         VALUE 'Y'.   SYJ22014
+                 15 ICWCOPRC-EMEA-DUAL-MIRROR-SW                        SYJ22014
+                                                PIC  X(01) VALUE ' '.   SYJ22014
+                    88 ICWCOPRC-EMEA-DUAL-MIRROR           VALUE 'Y'.   SYJ22014
+                 15 ICWCOPRC-DUAL-TAX-CODE      PIC  X(02)              SYJ22014
+                                                           VALUE SPACES.SYJ22014
+                 15 ICWCOPRC-DUAL-TAX-RATE      PIC S9(1)V9(3)          SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-DUAL-DUTY-CODE     PIC  X(04)              SYJ22014
+                                                           VALUE SPACES.SYJ22014
+                 15 ICWCOPRC-DUAL-DUTY-RATE     PIC S9(1)V9(3)          SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-DUAL-MISC-COST     PIC S9(15)V99    COMP-3 SYJ22014
+                                                           VALUE +0.    SYJ22014
+                 15 ICWCOPRC-DUAL-MISC-CST-CONV-SW                      SYJ22014
+                                                PIC  X(01) VALUE ' '.   SYJ22014
+                    88 ICWCOPRC-DUAL-MISC-CST-CONV         VALUE 'Y'.   SYJ22014
+           05 ICWCOPRC-OUT-AREA.                                                
+              10 ICWCOPRC-OUT-UNIT-COST         PIC S9(13)V9(04) COMP-3.        
+              10 ICWCOPRC-OUT-ADJ-COST          PIC S9(13)V9(02) COMP-3.        
+              10 ICWCOPRC-OUT-RETURN-CODE.                                      
+                 15 ICWCOPRC-OUT-RETURN-MAJOR   PIC  X(01).                     
+                    88 ICWCOPRC-OUT-RETURN-OK             VALUE '0' '1'.        
+                    88 ICWCOPRC-OUT-RETURN-RECOST-OK      VALUE '0'.            
+                    88 ICWCOPRC-OUT-RETURN-NORECOST       VALUE '1'.            
+                    88 ICWCOPRC-OUT-RETURN-BAD            VALUE '2'.            
+                 15 ICWCOPRC-OUT-RETURN-MINOR   PIC  X(02).                     
+                    88 ICWCOPRC-OUT-NO-PROBLEM             VALUE '00'.          
+                    88 ICWCOPRC-OUT-WRN-ICLCOP-NFD         VALUE '11'.          
+                    88 ICWCOPRC-OUT-WRN-ICLCOH-NFD         VALUE '12'.          
+                    88 ICWCOPRC-OUT-WRN-SETATRK-NFD        VALUE '13'.          
+                    88 ICWCOPRC-OUT-ERR-ICLCOP-OPEN        VALUE '21'.          
+                    88 ICWCOPRC-OUT-ERR-ICLCOH-OPEN        VALUE '22'.          
+                    88 ICWCOPRC-OUT-ERR-ICLCOP-READ        VALUE '23'.          
+                    88 ICWCOPRC-OUT-ERR-ICLCOH-READ        VALUE '24'.          
+                    88 ICWCOPRC-OUT-ERR-SETATRK-READ       VALUE '25'.          
+              10 ICWCOPRC-OUT-MISC-COST         PIC S9(13)V9(02) COMP-3.SYJ22014

@@ -1,0 +1,71 @@
+000010*                                                                         
+000020*** SYXADRUK IS PD COPYBOOK THAT VALIDATES UK POSTAL CODES                
+000021*** USING DATA ON ORLPEB FILE, Z RECORD                                   
+000030*** IT MUST RUN AFTER SYXADRED PD COPYBOOK                                
+000060*                                                                         
+000070* REVISION INFO:                                                          
+000080* DATE     PROG  DESCRIPTION                                              
+      * 07/19/17 SAS   CICS UPGRADE PHASE II -                          SAS17200
+      *                DELETED THE CICS TRANSLATED CODE AND             SAS17200
+      *                UNCOMMENTED THE EXEC CICS STATEMENTS.            SAS17200
+000090* 06/06/08 MXK   DO VALIDATION JUST FOR COMPANY 'UK'              MXK08159
+000091* 04/02/08 MXK   INITIAL IMPLEMENTATION                           MXK08093
+000100*                                                                         
+000200 134-UK-VALIDATE-POSTCODE.                                                
+000300     IF TC-COMPANY NOT = 'UK'                                     MXK08159
+000301        GO TO 134U-EXIT.                                          MXK08159
+000310                                                                          
+000320     MOVE WS-ADDR-POST-CD       TO WS-ADDR-POST-CHAR-ARRAY                
+000331                                                                          
+000332     PERFORM VARYING WS-POST-CD-SUB FROM 10 BY -1                         
+000333          UNTIL WS-ADDR-POST-CHAR(WS-POST-CD-SUB) > SPACE                 
+000340             OR WS-POST-CD-SUB < 1                                        
+000350     END-PERFORM                                                          
+000360                                                                          
+000361     IF  WS-POST-CD-SUB < 1                                               
+000362         SET WS-ERROR-FOUND     TO TRUE                                   
+000363         GO TO 134U-EXIT.                                                 
+000364                                                                          
+000365     COMPUTE S1 = WS-POST-CD-SUB - 2                                      
+000366     MOVE WS-POST-CD-SUB        TO S2                                     
+000371     COMPUTE P2 = S1 - 1                                                  
+000372                                                                          
+000373     MOVE SPACES                TO WS-ADDR-POST-CD-UK                     
+000380     MOVE WS-ADDR-POST-CD(1:P2) TO WS-ADDR-POST-CD-UK-PREFIX              
+000390     MOVE WS-ADDR-POST-CD(S1:S2) TO WS-ADDR-POST-CD-UK-SUFFIX             
+002200                                                                          
+002600        IF WS-ADDR-POST-CD-UK-SUFFIX (1:1) NOT NUMERIC                    
+002700        OR WS-ADDR-POST-CD-UK-SUFFIX (2:2) NOT ALPHABETIC                 
+002800        OR WS-ADDR-POST-CD-UK-SUFFIX (2:2) = SPACES                       
+002810           SET WS-ERROR-FOUND    TO TRUE                                  
+002830           MOVE 'INVALID POSTAL CODE SUFFIX'                              
+002840                                 TO WS-ADDR-ERROR-MESSAGE                 
+003400           GO TO 134U-EXIT.                                               
+003500                                                                          
+003600     MOVE LOW-VALUE              TO  ORP-PCR-KEY                          
+003700     MOVE TC-COMPANY             TO  ORP-PCR-CO                           
+003800     MOVE 'Z'                    TO  ORP-PCR-CODE                         
+003900     MOVE WS-ADDR-POST-CD-UK-PREFIX TO ORP-PCR-PREFIX                     
+003910                                                                          
+003911     EXEC CICS READ                                               SAS17200
+003920           DATASET (WS-ORP-FILE-NAME)                             SAS17200
+003930           LENGTH  (WS-ORP-PCR-RECLEN)                            SAS17200
+003940           INTO    (ORP-POSTCODE-RECORD)                          SAS17200
+003950           RIDFLD  (ORP-PCR-KEY)                                  SAS17200
+003960           RESP    (WS-EIBRESP)                                   SAS17200
+003970     END-EXEC.                                                    SAS17200
+003975                                                                          
+004900     IF WS-EIB-NORESP                                                     
+005000        CONTINUE                                                          
+005100     ELSE                                                                 
+005200        IF WS-EIB-NOTFND                                                  
+005710           SET WS-ERROR-FOUND    TO TRUE                                  
+005720           MOVE 'INVALID POSTAL CODE PREFIX'                              
+005730                                 TO WS-ADDR-ERROR-MESSAGE                 
+005800        ELSE                                                              
+005810           MOVE '134U'        TO WS-ADDR-ABCODE                           
+005820           MOVE '134-UK-VALIDATE-POSTCODE'                                
+005830                               TO WS-ADDR-ERROR-MESSAGE.                  
+006100*                                                                         
+006200 134U-EXIT.                                                               
+006300     EXIT.                                                                

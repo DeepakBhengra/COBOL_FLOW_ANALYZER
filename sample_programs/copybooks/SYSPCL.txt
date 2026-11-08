@@ -1,0 +1,176 @@
+      *****************************************************************         
+      *                                                               *         
+      *              STRATEGIC PRICING CICS LINK                      *         
+      *                                                               *         
+      * PURPOSE: STANDARD PROCEDURE DIVISION ROUTINES TO INVOKE       *         
+      *          THE PRICING ENGINE CONNECTOR AND EXPLAIN WRITER      *         
+      *          UTILITIES.                                           *         
+      *                                                               *         
+      * USAGE:   COPY IN YOUR APPLICATION AND PERFORM SP900 AFTER     *         
+      *          SETTING UP A STRATEGIC PRICING REQUEST AND/OR        *         
+      *          PERFORM SP980 AFTER SETTING UP THE EXPLAIN WRITER    *         
+      *          REQUEST.                                             *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 08/07/20 MXV    ADD TERM SKU OVERRIDE COST WILL BE USE TO     * MXV20220
+      *                 DERIVE THE CUSTOMER PRICE                     * MXV20220
+      * 07/19/17 SAS    CICS UPGRADE PHASE II -                       * SAS17200
+      *                 DELETED THE CICS TRANSLATED CODE AND          * SAS17200
+      *                 UNCOMMENTED THE EXEC CICS STATEMENTS.         * SAS17200
+      * 11/02/04 AXR       *** STRATEGIC PRICING - FULL SOLUTION ***  * AXR04307
+      *               1. CREATED COPYBOOK.                            * AXR04307
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE PACKAGES TOGETHER THE COMPONENTS OF      <<<**         
+      **>>> STRATEGIC PRICING COMMUNICATION AREA THEN IT          <<<**         
+      **>>> DOES A CICS LINK TO THE PRICING CONNECTOR UTILITY     <<<**         
+      **>>> AND FINALLY IT UNPACKAGES THE COMMAREA COMPONENTS     <<<**         
+      **>>> RETURNED FROM THE CONNECTOR.                          <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP900-STRATEGIC-PRICING.                                                 
+      ***                                                               MXV20220
+      ***-- THIS WILL ALLOW STRAT PRICING TO DERIVE A PRICE BASE        MXV20220
+      ***-- FROM A COST (USE FOR TERM SKU PRICING)                      MXV20220
+            IF ICWCOP-TERM-SKU-PRICING                                  MXV20220
+               IF SYWSPS-OVERRIDE-PRC-IND                               MXV20220
+                                       OF SYWSP-CONNECTOR-DATA(1) = 'Y' MXV20220
+                  CONTINUE                                              MXV20220
+               ELSE                                                     MXV20220
+                  MOVE 'T'             TO SYWSPS-OVERRIDE-PRC-IND       MXV20220
+                                       OF SYWSP-CONNECTOR-DATA(1)       MXV20220
+                  MOVE ICWCOP-NEW-COST TO SYWSPS-OVERRIDE-PRICE         MXV20220
+                                       OF SYWSP-CONNECTOR-DATA(1)       MXV20220
+               END-IF                                                   MXV20220
+            END-IF                                                      MXV20220
+                                                                                
+      *   (INVOKE THE PRICING ENGINE TO DO STRATEGIC PRICING)                   
+                                                                                
+      *   THE CONNECTOR COMMAREA = HEADER PARMS + VARIABLE DATA                 
+                                                                                
+      *   (CALCULATE LENGTHS OF EACH COMMAREA COMPONENT)                        
+           MOVE LENGTH OF SYWSPP-SP-PARAMETERS   TO SYWSPV-PARM-LEN.            
+           MOVE LENGTH OF SYWSP-CONNECTOR-DATA   TO SYWSPV-DATA-LEN.            
+                                                                                
+      *   (THE COMMAREA IS THE COMPRISED OF THE PARM AND DATA AREAS)            
+           COMPUTE SYWSPV-COMMAREA-LEN                                          
+                 = SYWSPV-PARM-LEN + SYWSPV-DATA-LEN.                           
+                                                                                
+      *   (THE DATA STARTS 1 POSITION AFTER THE PARM AREA ENDS)                 
+           COMPUTE SYWSPV-DATA-START                                            
+                 = SYWSPV-PARM-LEN + 1.                                         
+                                                                                
+      *   (STRING IN THE PARMS AREA AS THE FIRST PART OF THE COMMAREA)          
+           MOVE SYWSPP-SP-PARAMETERS                                            
+             TO SYWSPV-COMMAREA.                                                
+                                                                                
+      *   (STRING IN THE DATA AREA AS THE NEXT PART OF THE COMMAREA)            
+           MOVE SYWSP-CONNECTOR-DATA                                            
+             TO SYWSPV-COMMAREA(SYWSPV-DATA-START:).                            
+                                                                                
+      *   (LINK TO THE CONNECTOR PROGRAM WITH A CONSOLIDATED COMMAREA)          
+                                                                                
+           EXEC CICS                                                    SAS17200
+                LINK PROGRAM(SYWSPV-CONNECTOR-PGM)                      SAS17200
+                COMMAREA(SYWSPV-COMMAREA)                               SAS17200
+                LENGTH(SYWSPV-COMMAREA-LEN)                             SAS17200
+                RESP(EIBRESP)                                           SAS17200
+           END-EXEC                                                     SAS17200
+                                                                                
+                                                                                
+      *   (UNSTRING THE PARMS AREA FROM THE FIRST PART OF THE COMMAREA)         
+           MOVE SYWSPV-COMMAREA                                                 
+             TO SYWSPP-SP-PARAMETERS.                                           
+                                                                                
+      *   (UNSTRING THE DATA AREA FROM THE NEXT PART OF THE COMMAREA)           
+           MOVE SYWSPV-COMMAREA(SYWSPV-DATA-START:SYWSPV-DATA-LEN)              
+             TO SYWSP-CONNECTOR-DATA.                                           
+                                                                                
+      *   (CHECK THE RESPONSE CODE OF THE LINK ATTEMPT TO SYPCTR)               
+           MOVE EIBRESP             TO WS-EIBRESP.                              
+           IF NOT WS-EIB-NORESP                                                 
+              PERFORM SP902-CONNECTOR-CALL-ERR                                  
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE IS PERFORMED WHEN THERE IS AN ERROR      <<<**         
+      **>>> INVOKING THE STRATEGIC PRICING CONNECTOR UTILITY.     <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP902-CONNECTOR-CALL-ERR.                                                
+                                                                                
+      *   (IT IS A SEVERE ERROR WHEN YOU CANT INVOKE THE CONNECTOR)             
+                                                                                
+           SET  SYWSPV-INVOCATION-ERROR                                         
+             TO TRUE.                                                           
+                                                                                
+           SET  SYWSPH-STATUS-SEVERE OF SYWSP-CONNECTOR-DATA                    
+             TO TRUE.                                                           
+           MOVE 'ERROR CALLING SYPCTR'                                          
+             TO SYWSPH-OVERALL-STATUS-TXT OF SYWSP-CONNECTOR-DATA.              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE INVOKES THE STRATEGIC PRICING            <<<**         
+      **>>> EXPLAIN WRITER UTILITY WITH A START (THE DEFAULT)     <<<**         
+      **>>> OR LINK TO PERFORM THE DESIGNATED EXPLAIN WRITER      <<<**         
+      **>>> FUNCTION.                                             <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP980-WRITE-EXPLAIN-PLAN.                                                
+                                                                                
+      *   (INVOKE THE EXPLAIN WRITER UTILITY VIA A START OR LINK)               
+           IF SYWSPV-EW-VIA-START                                               
+                                                                                
+              EXEC CICS START                                           SAS17200
+                   TRANSID (SYWSPV-EXPLN-WRTR-TRAN)                     SAS17200
+                   FROM    (SYWSPV-COMMAREA)                            SAS17200
+                   LENGTH  (SYWSPV-COMMAREA-LEN)                        SAS17200
+                   PROTECT                                              SAS17200
+                   NOHANDLE                                             SAS17200
+              END-EXEC                                                  SAS17200
+                                                                                
+           ELSE                                                                 
+                                                                                
+              IF SYWSPV-EW-VIA-LINK                                             
+                 EXEC CICS LINK                                         SAS17200
+                     PROGRAM(SYWSPV-EXPLN-WRTR-PGM)                     SAS17200
+                     COMMAREA(SYWSPV-COMMAREA)                          SAS17200
+                     LENGTH(SYWSPV-COMMAREA-LEN)                        SAS17200
+                 END-EXEC                                               SAS17200
+                                                                                
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+      *   (CHECK THE RESPONSE CODE OF INVOKVING THE EXPLAIN WRITER)             
+           MOVE EIBRESP             TO WS-EIBRESP.                              
+           IF NOT WS-EIB-NORESP                                                 
+              PERFORM SP982-EXPLN-WRTR-CALL-ERR                                 
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE IS PERFORMED WHEN THERE IS AN ERROR      <<<**         
+      **>>> INVOKING THE STRATEGIC PRICING EXPLAIN WRITER         <<<**         
+      **>>> UTILITY.                                              <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+        SP982-EXPLN-WRTR-CALL-ERR.                                              
+                                                                                
+      *   (IT IS A SEVERE ERROR WHEN YOU CANT INVOKE THE EXPLAIN                
+      *    WRITER. THE APPLICATION CAN CHECK SYWSPV-INVOCATION-STATUS           
+      *    AND EIBRESP TO SET ORW697WP-STATUS-ERROR AND                         
+      *    AND AN APPROPRIATE VALUE FOR ORW697WP-STATUS-TEXT)                   
+                                                                                
+           SET  SYWSPV-INVOCATION-ERROR                                         
+             TO TRUE.                                                           
+                                                                                

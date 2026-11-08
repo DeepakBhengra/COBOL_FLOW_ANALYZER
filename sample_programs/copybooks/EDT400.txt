@@ -1,0 +1,146 @@
+      ***************************************************************           
+      *  COPYBOOK:  EDT400                                          *           
+      ***************************************************************           
+      *                                                             *           
+      * OVERVIEW:                                                   *           
+      *  USED BY I/O MODULE SUBROUTINES AS THE PARAMETER            *           
+      *  COMMUNICATIONS AREA TO CALL SUBROUTINE PROGRAM EDV400, THE *           
+      *  AUDIT TRAIL LOGGING MODULE FOR MIE/REDI AND ABLE.          *           
+      *                                                              *          
+      *     INPUT: EDV400-INPUT-DATA                                 *          
+      *            - ACTION CODE                                     *          
+      *            - OBJECT ID                                       *          
+      *            - PROGRAM NAME                                    *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *            - USER ID                                         *          
+      *            - TIMESTAMP                                       *          
+      *            - BEFORE IMAGE LENGTH                             *          
+      *            - BEFORE IMAGE ROW                                *          
+      *            - AFTER  IMAGE LENGTH                             *          
+      *            - AFTER  IMAGE ROW                                *          
+      *                                                              *          
+      *    OUTPUT: EDV400-OUTPUT-DATA                                *          
+      *            - MODULE RESULT CODE                              *          
+      *            - MODULE MESSAGE (IF ANY)                         *          
+      *            - SQL CODE                                        *          
+      *            - SQL STATE CODE                                  *          
+      *            - SQL ERROR MESSAGE (IF ANY)                      *          
+      *                                                              *          
+      *   EDV400 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV400-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV400-PARTNER-ID.                *          
+      *     MOVE 'S '           TO EDV400-ACTION-CD.                 *          
+      *     MOVE 'IE_OUT_ORDR_STS_SW' TO EDV400-OBJECT-ID.           *          
+      *                                                              *          
+      *     CALL 'EDV400' USING EDV400-COMMUNICATIONS-AREA.          *          
+      *     IF EDV400-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            IMPULSE PROGRAM.  IN THIS CASE THE PROGRAMMER     *          
+      *            WOULD LIKE TO SELECT THE COLUMN VALUES FOR A      *          
+      *            PARTICULAR PARTNER_ID.                            *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK THE RESULT     *          
+      *            CODES RETURNED BY EDV400 TO MAKE SURE THAT THEY   *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT400 FOR A    *          
+      *            LIST OF ERROR CODES). ALSO, IF NO INFORMATION IS  *          
+      *            FOUND FOR THIS SELECT, THE MODULE RESULT CODE WILL*          
+      *            CONTAIN A VALUE OF 'NF', OR NOT FOUND FOR THE     *          
+      *            PARTNER_ID SUPPLIED AS THE PRIMARY KEY.           *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                04/22/01  KXR   ORIGINAL.                     *          
+      ****************************************************************          
+                                                                                
+       01  EDV400-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+         03  EDV400-KEY-AREA.                                                   
+           05  EDV400-KEY-ACTION-CD                     PIC  X(002).            
+               88  EDV400-SELECT                    VALUE 'S '.                 
+               88  EDV400-INSERT                    VALUE 'I '.                 
+               88  EDV400-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV400-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV400-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV400-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV400-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV400-COUNT                     VALUE 'C '.                 
+               88  EDV400-MAX                       VALUE 'MX'.                 
+               88  EDV400-MIN                       VALUE 'MN'.                 
+               88  EDV400-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV400-MASS-UPDATE               VALUE 'MU'.                 
+               88  EDV400-MASS-INSERT               VALUE 'MI'.                 
+           05  EDV400-KEY-OBJECT-ID                 PIC  X(030).                
+           05  EDV400-KEY-PROGRAM-NAME              PIC  X(030).                
+           05  EDV400-KEY-CO-CD                     PIC  X(002).                
+           05  EDV400-KEY-PARTNER-ID                PIC  X(015).                
+           05  EDV400-KEY-USER-ID                   PIC  X(010).                
+           05  EDV400-KEY-TIMESTAMP                 PIC  X(026).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV400-INPUT-OUTPUT-ARRAY-AREA.                                  
+               10  EDV400-BEFORE-IMAGE-LENGTH       PIC  9(003).                
+               10  EDV400-BEFORE-IMAGE              PIC  X(500).                
+               10  EDV400-AFTER-IMAGE-LENGTH        PIC  9(003).                
+               10  EDV400-AFTER-IMAGE               PIC  X(500).                
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV400-OUTPUT-DATA.                                              
+               10  EDV400-MODULE-RESULT-CD      PIC  X(002).                    
+                   88  EDV400-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV400-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV400-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV400-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV400-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV400-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV400-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV400-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV400-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV400-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV400-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV400-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV400-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV400-EXCEPTION-MESSAGE.                                    
+                   15  EDV400-MSG-OBJECT            PIC  X(030).                
+                   15  EDV400-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV400-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV400-SQLCA.                                            
+                       20  EDV400-SQLCAID           PIC  X(008).                
+                       20  EDV400-SQLCABC           PIC  S9(009).               
+                       20  EDV400-SQLCODE           PIC  S9(009).               
+                       20  EDV400-SQLERRM.                                      
+                           25  EDV400-SQLERRML      PIC  S9(004).               
+                           25  EDV400-SQLERRMC      PIC  X(070).                
+                       20  EDV400-SQLERRP           PIC  X(008).                
+                       20  EDV400-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV400-SQLWARN.                                      
+                           25  EDV400-SQLWARN0      PIC  X(001).                
+                           25  EDV400-SQLWARN1      PIC  X(001).                
+                           25  EDV400-SQLWARN2      PIC  X(001).                
+                           25  EDV400-SQLWARN3      PIC  X(001).                
+                           25  EDV400-SQLWARN4      PIC  X(001).                
+                           25  EDV400-SQLWARN5      PIC  X(001).                
+                           25  EDV400-SQLWARN6      PIC  X(001).                
+                           25  EDV400-SQLWARN7      PIC  X(001).                
+                       20  EDV400-SQLEXT.                                       
+                           25  EDV400-SQLWARN8      PIC  X(001).                
+                           25  EDV400-SQLWARN9      PIC  X(001).                
+                           25  EDV400-SQLWARNA      PIC  X(001).                
+                           25  EDV400-SQLSTATE      PIC  X(005).                
+                                                                                

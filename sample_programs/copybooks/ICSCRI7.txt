@@ -1,0 +1,142 @@
+      *                                                                *        
+      ******************************************************************        
+      ***                                                            ***        
+      ***  START OF COPYBOOK ICSCRI7                                 ***        
+      ***                                                            ***        
+      ******************************************************************        
+      *                                                                *        
+      *================================================================*        
+      *                                                                *        
+      * PURPOSE:                                                       *        
+      *                                                                *        
+      *  THIS COPYBOOK IS USED TO CONTROL THE CONVERSION OF            *        
+      *  THE REGIONALIZED INVENTORY INSBRN COST FIELDS TO LOCAL        *        
+      *  VALUES, VIA THE SYX889 SUBROUTINE.                            *        
+      *  (WE USE SUBROUTINE SYU889 FOR CICS PROGRAMS, AND SYV889 FOR   *        
+      *  BATCH).                                                       *        
+      *                                                                *        
+      *  ALSO INCLUDED ARE UTILITY PARAGRAPHS, WHICH ARE NOT CALLED    *        
+      *  FROM WITHIN THIS COPYBOOK.  THEY ARE THERE TO AID THE         *        
+      *  PROGRAMMER WITH CERTAIN MUNDANE TASKS ASSOCIATED WITH THE     *        
+      *  REGIONALIZED INVENTORY PROCESSING.                            *        
+      *                                                                *        
+      * REVISION INFO:                                                 *        
+      * 07/30/01  WFP  NEW COPYBOOK.                                   *WFP01211
+      *                                                                *        
+      *================================================================*        
+      *                                                                *        
+      ***                                                        ***            
+      ***  THIS PARAGRAPH WILL DETERMINE IF REMOTE COSTS SHOULD  ***            
+      ***  BE USED, AND IF THE CONVERSION PROGRAMS NEEDS TO BE   ***            
+      ***  CALLED.                                               ***            
+      ***                                                        ***            
+                                                                                
+       9000-ICRI-SET-IH-INSBRN-DATA.                                            
+                                                                                
+           IF WS-INAL2-CO = ICRI-INV-OWNING-COMPANY                             
+            AND WS-INAL2-CO > SPACES                                            
+            AND WS-INAL2-PART = ICRI-LOC-PART                                   
+            AND WS-INAL2-PART > SPACES                                          
+            AND ICRI-DATA-FOUND                                                 
+              MOVE 'Y'                                                          
+                TO ICRI-BR-STATUS-SW                                            
+           ELSE                                                                 
+           IF ICRI-FORCE-PROCESSING                                             
+              MOVE 'N'                                                          
+                TO ICRI-BR-STATUS-SW                                            
+           ELSE                                                                 
+              MOVE 'N'                                                          
+                TO ICRI-BR-STATUS-SW                                            
+              GO TO 9000-ICRI-EXIT.                                             
+                                                                                
+           IF ICRI-LAST-BRANCH-INSBRN > SPACES                                  
+            AND ICRI-LAST-BRANCH-INSBRN = WS-INSBRN-NBR                         
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              MOVE WS-INSBRN-NBR                                                
+                TO ICRI-LAST-BRANCH-INSBRN                                      
+              PERFORM 9400-ICRI-CONV-COST-DATA                                  
+                 THRU 9400-ICRI-EXIT.                                           
+                                                                                
+       9000-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+      ***                                                         ***           
+      ***  CONVERT THE INPUT COST DATA TO LOCAL CURRENCY.         ***           
+      ***                                                         ***           
+                                                                                
+       9400-ICRI-CONV-COST-DATA.                                                
+                                                                                
+      *===>  CLEAR THE OUTPUT (CONVERTED) FINANCIAL FIELDS.                     
+                                                                                
+           INITIALIZE ICRI-BR-AVG-COST.                                         
+                                                                                
+           IF ICRI-USE-DATABASE-DATA                                            
+              PERFORM 9600-ICRI-INSBRN-COSTS-TO-IH                              
+                 THRU 9600-ICRI-EXIT.                                           
+                                                                                
+           MOVE 'C'                                                             
+             TO ICRI-REQ-CODE.                                                  
+           PERFORM 8300-ICRI-CALL-COST-CONV-PROG                                
+              THRU 8300-ICRI-EXIT.                                              
+                                                                                
+       9400-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+      ***                                                         ***           
+      ***  RESET THE INSBRN COST FIELDS TO THEIR ORIGINAL VALUES. ***           
+      ***                                                         ***           
+                                                                                
+       9500-ICRI-RESET-INSBRN-COSTS.                                            
+                                                                                
+           MOVE ICRI-ORIG-BR-AVG-COST                                           
+             TO INB-AVG-COST.                                                   
+                                                                                
+       9500-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+      ***                                                         ***           
+      ***  SAVE THE INSHED COST DATA IN THE WORK FIELDS.          ***           
+      ***                                                         ***           
+                                                                                
+       9600-ICRI-INSBRN-COSTS-TO-IH.                                            
+                                                                                
+           IF INB-AVG-COST NUMERIC                                              
+              MOVE INB-AVG-COST                                                 
+                TO ICRI-ORIG-BR-AVG-COST                                        
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ORIG-BR-AVG-COST.                                       
+                                                                                
+       9600-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+                                                                                
+      ***                                                         ***           
+      ***  OVERLAY THE INSHED COST FIELDS WITH THE CONVERTED      ***           
+      ***  VALUES.                                                ***           
+      ***                                                         ***           
+                                                                                
+       9700-ICRI-IH-COSTS-TO-INSBRN.                                            
+                                                                                
+           IF ICRI-DATA-FOUND                                                   
+            AND (ICRI-BR-STATUS-RI-SEG                                          
+                 OR ICRI-FORCE-PROCESSING)                                      
+              MOVE ICRI-BR-AVG-COST                                             
+                TO INB-AVG-COST.                                                
+                                                                                
+       9700-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+      *                                                                *        
+      ******************************************************************        
+      ***                                                            ***        
+      ***  END OF COPYBOOK ICSCRI7                                   ***        
+      ***                                                            ***        
+      ******************************************************************        
+      *                                                                *        

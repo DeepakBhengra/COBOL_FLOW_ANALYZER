@@ -1,0 +1,111 @@
+      ******************************************************************TLKY8337
+      *** YEAR 2000 READY                                              *TLKY8337
+      ******************************************************************TLKY8337
+      ******************************************************************        
+      * SYXZPBRC :: BASED ON CUSTOMER CO/ZIP/STATE TO GET BRANCH NUMBER         
+      *             CICS VERSION                                                
+      *             SYXZIPBR WILL BE REPLACED BECAUSE IT DOES NOT READ          
+      *             TBXCTSBR USING STATE CODE.                                  
+      ******************************************************************        
+      * 07/28/17 JZA ENDLESS AISLE - ALPHA BRANCH CHANGES. MODIFIED    *JZA17209
+      *              THE NUMERIC CHECK ON TB-IMDZ-SHIP-FROM-BR.        *JZA17209
+      * 07/19/17 SAS  CICS UPGRADE PHASE II -                          *SAS17200
+      *               DELETED THE CICS TRANSLATED CODE AND             *SAS17200
+      *               UNCOMMENTED THE EXEC CICS STATEMENTS.            *SAS17200
+      * 09/24/96 PWL  COMMENTED OUT USE OF TABLE TBXCSTBR              *PWL96268
+      * 06/18/96 PWL  CREATED                                          *PWL96170
+      ******************************************************************        
+      *                                                                         
+      * THE FILES READ:                                                         
+      *     TBLIMD                                                              
+      *     TBLMST - TBXCSTBR TABLE (COMMENTED OUT )                   *PWL96268
+      *                                                                         
+      * THE FIELDS REQUIRED:                                                    
+      *                                                                         
+      *    COPYBOOKS:                                                           
+      *       TBICSTBR                                                          
+      *       TBRIMD                                                            
+      *                                                                         
+      ******************************************************************        
+      *Z9000-ZIPBR.                                                             
+      *                                                                         
+           IF WS-COMPANY           =  'MD'                                      
+              PERFORM Z9010-GET-BRANCH-NUMBER THRU Z9010-EXIT                   
+           ELSE                                                                 
+              PERFORM Z9020-ACCESS-TBLIMD-ZIP-CODE THRU Z9020-EXIT.             
+      *                                                                         
+       Z9000-EXIT.                                                              
+             EXIT.                                                              
+      *                                                                         
+       Z9010-GET-BRANCH-NUMBER.                                                 
+      *    USING STATE CODE FROM INPUT FILE, ACCESS TBXCSTBR TABLE TO           
+      *    GET BRANCH NUMBER OF CUSTOMER.                                       
+      *      ==>  FOR CALIFORNIA & NEVADA  ACCESS TBLIMD TABLE AND USE          
+      *      ==>  ZIP CODE TO GET SHIPPING BRANCH.                              
+                                                                                
+      *    IF WS-STATE-CODE <= SPACE OR                                 PWL96268
+      *       WS-STATE-CODE = 'CA'   OR                                 PWL96268
+      *       WS-STATE-CODE = 'NV'                                      PWL96268
+              PERFORM Z9020-ACCESS-TBLIMD-ZIP-CODE THRU Z9020-EXIT.     PWL96268
+      *       GO TO Z9010-EXIT.                                         PWL96268
+                                                                        PWL96268
+      *    MOVE WS-COMPANY            TO  TB-CSTBR-COMPANY-CODE.        PWL96268
+      *    MOVE WS-STATE-CODE         TO  TB-CSTBR-STATE.               PWL96268
+      *    CALL 'SYU510'  USING   TB-CSTBR-PROC-IA.                     PWL96268
+      *    IF TB-CSTBR-NORESP                                           PWL96268
+      *       MOVE TB-CSTBR-BRANCH  TO  WS-BR-NBR-SHIP-FROM.            PWL96268
+                                                                                
+       Z9010-EXIT.                                                              
+           EXIT.                                                                
+      *                                                                         
+       Z9020-ACCESS-TBLIMD-ZIP-CODE.                                            
+      *                                                                         
+           MOVE 'TBIZIPBR'            TO  TB-IMD-TABLE-NAME                     
+           MOVE WS-COMPANY            TO  TB-IMDZ-CO                            
+      *                                                                         
+           IF WS-ZIP-CODE NUMERIC                                               
+              MOVE 19                 TO  WS-TBLIMD-GENERIC-KEY-LENGTH          
+              MOVE WS-ZIP-CODE        TO  TB-IMDZ-ZIP-CODE                      
+           ELSE                                                                 
+              MOVE 16                 TO  WS-TBLIMD-GENERIC-KEY-LENGTH          
+              MOVE WS-POSTAL-CODES    TO  TB-IMDZ-POSTAL-CODE.                  
+      *                                                                         
+           MOVE TB-IMDZ-KEY           TO  WS-TB-IMD-KEY                         
+      *                                                                         
+       EXEC CICS STARTBR DATASET(WS-TBLIMD-FILE-NAME)                   SAS17200
+                         RIDFLD(TB-IMDZ-KEY)                            SAS17200
+                         KEYLENGTH(WS-TBLIMD-GENERIC-KEY-LENGTH)        SAS17200
+                         GENERIC                                        SAS17200
+                         GTEQ                                           SAS17200
+                         RESP(WS-EIBRESP)                               SAS17200
+                         END-EXEC.                                      SAS17200
+      *                                                                         
+       EXEC CICS READNEXT DATASET (WS-TBLIMD-FILE-NAME)                 SAS17200
+                          RIDFLD (TB-IMDZ-KEY)                          SAS17200
+                          INTO (TB-IMD-TABLE)                           SAS17200
+                          LENGTH (WS-TBLIMD-REC-LENGTH)                 SAS17200
+                          RESP(WS-EIBRESP)                              SAS17200
+                          END-EXEC.                                     SAS17200
+      *                                                                         
+           IF WS-EIB-NORESP                                                     
+              IF  TB-IMDZ-SHIP-FROM-BR       = '00'                     JZA17209
+              OR (TB-IMDZ-SHIP-FROM-BR(1:1) <= SPACES OR                JZA17209
+                  TB-IMDZ-SHIP-FROM-BR(2:1) <= SPACES)                  JZA17209
+                 CONTINUE                                               JZA17209
+              ELSE                                                      JZA17209
+                 IF (TB-IMDZ-SHIP-FROM-BR       IS NUMERIC)             JZA17209
+                 OR ((TB-IMDZ-SHIP-FROM-BR(1:1) IS NUMERIC   OR         JZA17209
+                      TB-IMDZ-SHIP-FROM-BR(1:1) IS ALPHABETIC)  AND     JZA17209
+                     (TB-IMDZ-SHIP-FROM-BR(2:1) IS NUMERIC   OR         JZA17209
+                      TB-IMDZ-SHIP-FROM-BR(2:1) IS ALPHABETIC))         JZA17209
+                      MOVE TB-IMDZ-SHIP-FROM-BR TO WS-BR-NBR-SHIP-FROM  JZA17209
+                 END-IF                                                 JZA17209
+              END-IF                                                    JZA17209
+           END-IF.                                                      JZA17209
+      *                                                                         
+           EXEC CICS ENDBR DATASET(WS-TBLIMD-FILE-NAME)                 SAS17200
+                         RESP(WS-EIBRESP)                               SAS17200
+                         END-EXEC.                                      SAS17200
+                                                                                
+       Z9020-EXIT.                                                              
+           EXIT.                                                                

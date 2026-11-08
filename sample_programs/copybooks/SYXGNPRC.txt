@@ -1,0 +1,366 @@
+﻿000400******************************************************************        
+000500*                                                                *        
+000600*    GENERATE PRICE COPYBOOK                                     *        
+000700*                                                                *MCV01032
+000800*        THIS COPYBOOK PERFORMS PRICE CALCULATIONS FOR THE       *MCV01032
+000900*    PRICING METHODS EXERCISED IN THE PRICING COPYBOOK SYXCPRA.  *MCV01032
+001000*                                                                *MCV01032
+001100*                                                                *        
+001200* NOTE:  WORKING STORAGE COPYBOOK SYRPWSA CONTAINS NECESSARY     *RXDY8308
+001300*        FIELDS FOR CA Y2K FIX LOGIC THAT WAS ADDED TO THIS      *RXDY8308
+001400*        COPYBOOK.                                               *RXDY8308
+001500******************************************************************        
+      * 08/07/20 MXV  ADD TERM SKU LOGIC                               *MXV20220
+      * 07/14/17 AZD  FIX FOR HP CARE DIRECT SHIPMENT ORDERS.          *AZD17195
+      * 09/08/09 KAB  FIX TRUNCATION ON WS-MINIMUM-MARGIN BY USING     *INF09251
+      *               WS-REQ-PCT  (ISS064)                             *INF09251
+001501* 01/31/08 MXK CHANGED COST PLUS LOGIC CALCULATION                MXK08031
+001600* 01/28/08 MXK  USE ICWCOP-AVG-COST FOR COST-PLUS CALCULATION     MXK08028
+001601* 01/14/08 MXK  SSEU ENHANCED ACOP PROJECT: EU, CA, TP            MXK08014
+001610* 03/28/03 RDM  NEW COL IND ALLOWING PRICING ON AVG OR REPL COST  RDM03087
+001700*               BASED ON STOCK AVAILABILITY                       RDM03087
+001800* 04/00/01 DNF  ADD NEW COST FIELDS FOR SUNRISE PROJECT.         *DNF01158
+001900* 02/01/01 MCV  FIX MINIMUM MARGIN CHANGES                       *MCV01032
+002000* 11/15/00 RPB  DETERMINE IF A CUSTOMER IS SET FOR MINIMUM       *RPB00230
+002100*               MARGIN PRICING.                                  *RPB00230
+002200* 10/27/00 LMH  PRICE SYSTEMS ITEMS AT LANDED COST OR INGRAM COST*LMH00301
+002300*               IF LANDED COST OR INGRAM COST CUSTOMER           *LMH00301
+002400* 11/30/99 RMR  PRICE SYSTEMS ITEMS AT ADJ-COST IF ADJ-COST CUST *RMR99334
+002500* 01/04/99 EJB  USE INI-AVG-COST INSTEAD OF THE CALC BASED ON     EJB99004
+002600*               RETAIL-PRICE. THIS AFFECTS CFG-ORDER PARTS        EJB99004
+002700*               THAT ARE ON RESERVE ONLY.                         EJB99004
+002800* 11/04/98  RXD  Y2K REMEDIATION                                  RXDY8308
+002900* 03/14/97  KLM  USED WS-INM-COST-REB-LOCAL-AMT INSTEAD OF        KLM97245
+003000*                WS-INM-COST-REBATE-AMT FOR PRICE AND COST        KLM97245
+003100*                COMPUTATIONS FOR NON-U.S. COMAPNIES.             KLM97245
+003200* 09/16/96  MCV  END-USER PRICING: PRICE BASED ON PARENT'S PRICE  MCV96260
+003300* 04/19/96  MCV  BASE COLUMN PRICING CALCULATION DIRECTLY FROM    MCV96110
+003400*                INI-RETAIL-PRICE.  USE RETAIL PRICE IN PLACE OF  MCV96110
+003500*                WS-SAVE-BASE.                                    MCV96110
+003600* 02/27/96  MCV  LANDED COST COLUMN PRICING.                      MCV96058
+003700*                MOVED IN NO-CHARGE PRICING FROM SYXCPRA.         MCV96058
+003800*                CHANGE PRICING PROCESSING SEQUENCE.              MCV96058
+003900* 02/10/96  KMB  ADD PCT MARKUP FROM COST                         KMB96041
+004000* 09/15/95  MCV  PREMIER VAR PLUS PRICING ONLY FOR POSITIVE MARGINMCV95258
+004100* 12/21/94  MCV  PREMIER VAR PLUS PRICING BY VELOCITY             MCV94355
+004200* 10/21/94  GAE  TAKE OUT MOVE "Y" TO WS-COST-PROMO-READ-SW       GAE94294
+004300*                AFTER COST PROMO READ                            GAE94294
+004400* 09/22/94  GAE  CHANGE TO GET REBATE ONLY IF WS-CUST-SPECIALS-   GAE94265
+004500*                ALLOWED INSTEAD OF EXCLUDING WS-CUST-NONE-       GAE94265
+004600*                ALLOWED.                                         GAE94265
+004700* 08/22/94  GAE  ADDED CACLULATION TO SUBTRACT UNIT COST          GAE94234
+004800*                BY REBATE AMOUNT WHEN SKU HAS COST PROMOTION     GAE94234
+004900* 08/01/94  MCV  INGRAM COST PRICING                              MCV94213
+005000* 06/20/94  MCV  PREMIER VAR PLUS PRICING                         MCV94171
+005100* 04/13/94  MCV  MOVE FROM SYXCPRA.                               MCV94103
+005200*                DELETE ALL 'HOLD' PROCESSING.                    MCV94103
+005300******************************************************************        
+005400*                                                                         
+005500 970-GENERATE-PRICE.                                                      
+005600*                                                                         
+005610     IF  WS-ACOP-COST-PLUS-PRICING                                MXK08007
+005650     OR  WS-ACOP-MARGIN-PRICING                                   MXK08007
+005660        PERFORM 973-SET-COLUMN-PRICE                              MXK08007
+005670     ELSE                                                         MXK08007
+005700     IF WS-PRC-STANDARD-PROCESS                                   MCV96260
+005800        IF WS-INGRAM-COL-PRICING                                          
+005900           IF WS-SAVE-INSMSC > SPACES                                     
+006000              MOVE WS-SAVE-INSMSC TO INM-INSMSC                           
+006100           ELSE                                                           
+006200              MOVE '**'          TO  WS-INSMSC-BR-IND                     
+006300              MOVE 'E'           TO  WS-INSMSC-SEG-IND                    
+006400              PERFORM 1556-GU-INSMSC                                      
+006500              IF WS-INSMSC-NORESP                                         
+006600                 MOVE INM-INSMSC TO  WS-SAVE-INSMSC               MCV96260
+006700              END-IF                                              MCV96260
+006800           END-IF                                                 MCV96260
+006900        END-IF                                                    MCV96260
+007000        PERFORM 973-SET-COLUMN-PRICE                              MCV96260
+007100     ELSE                                                         MCV96260
+007200        PERFORM E973-SET-COLUMN-PRICE.                            MCV96260
+007300*                                                                         
+007400 973-SET-COLUMN-PRICE.                                                    
+007500*                                                                         
+007600     IF  WS-NO-CHARGE-COL-PRICING                                 MCV96058
+007700         MOVE ZEROS              TO  WS-UNIT-PRICE                MCV96058
+007800                                     WS-REQ-PCT                   MCV96058
+007900     ELSE                                                         MCV96058
+008000     IF  WS-DEALER-COL-PRICING        OR                          MCV96058
+008100         WS-DEALER-MARGIN-PRICING                                 MCV96058
+008200            COMPUTE WS-UNIT-PRICE ROUNDED =                       MCV96058
+008300                    (1.000 - WS-REQ-PCT) * INI-BASE-PRICE         MCV96058
+008400            IF  WS-DEALER-MARGIN-PRICING                          MCV96058
+008500                PERFORM 9350-COST-BASIS                           MCV96058
+008600                IF  WS-UNIT-PRICE < WS-COST-BASIS                 MCV96058
+008700                                  / (1 - WS-MINIMUM-MARGIN)       MCV96058
+008800                    COMPUTE WS-UNIT-PRICE ROUNDED =               MCV96058
+008900                       WS-COST-BASIS / (1 - WS-MINIMUM-MARGIN)    MCV96058
+009000                END-IF                                            MCV96058
+009100            END-IF                                                MCV96058
+009200     ELSE                                                         MCV96058
+009300     IF  WS-GROSS-MARGIN-COL-PRICING                              MCV96058
+009400         COMPUTE WS-UNIT-PRICE ROUNDED = SYRPWSA-REPLACEMENT-COST DNF01158
+009500                                       / (1.000 - WS-REQ-PCT)     MCV96058
+009600     ELSE                                                         RDM03087
+009700     IF  WS-AVG-COST-COL-PRICING                                  RDM03087
+009800         COMPUTE WS-UNIT-PRICE ROUNDED  =                         RDM03087
+009900           SYRPWSA-INSBRN-AVG-COST /  (1.000  -  WS-REQ-PCT)      RDM03087
+010000     ELSE                                                         MCV96058
+010100     IF  WS-INGRAM-COL-PRICING   AND                              MCV96058
+010200         WS-INSMSC-NORESP        AND                              MCV96058
+010300         INM-COL-PRICE (WS-COL-INDEX) > ZERO                      MCV96058
+010400            COMPUTE WS-UNIT-PRICE ROUNDED =                       MCV96058
+010500              (1.000 - WS-REQ-PCT) * INM-COL-PRICE (WS-COL-INDEX) MCV96058
+                  IF ICWCOP-TERM-SKU-PRICING                            MXV20220
+                     COMPUTE WS-UNIT-PRICE ROUNDED                      MXV20220
+                           = (1.000 - WS-REQ-PCT)                       MXV20220
+                           * (INM-COL-PRICE (WS-COL-INDEX)              MXV20220
+                           -  ICWCOP-TOT-ACOP-DELTA-PRC)                MXV20220
+                  END-IF                                                MXV20220
+010600     ELSE                                                         MCV96058
+010700     IF  WS-PREMIER-VAR-PLUS-PRICING                              MCV96058
+010800         PERFORM 974-PREMIER-VAR-PLUS-PRICING                     MCV96058
+010900     ELSE                                                         MCV96058
+011000     IF  WS-PCT-MKUP-FROM-COST                                    MCV96058
+011100         COMPUTE WS-UNIT-PRICE ROUNDED =                          MCV96058
+011200                 (1.000 + WS-REQ-PCT) * SYRPWSA-REPLACEMENT-COST  DNF01158
+011300     ELSE                                                         MCV96058
+011400     IF  WS-COST-COL-PRICING                                      MCV96058
+011500         PERFORM 975-COMPUTE-COST-ROUTINE                         MCV96058
+011600         IF TB-CPO-US-MODEL-COMPANY                               KLM97245
+011700            COMPUTE WS-UNIT-PRICE ROUNDED =                       KLM97245
+011800                 (1.000 - WS-REQ-PCT) *                           KLM97245
+011900             (WS-SAVE-INV-UNIT-COST + WS-INM-COST-REBATE-AMT)     KLM97245
+012000         ELSE                                                     KLM97245
+012100            COMPUTE WS-UNIT-PRICE ROUNDED =                       KLM97245
+012200                 (1.000 - WS-REQ-PCT) *                           KLM97245
+012300             (WS-SAVE-INV-UNIT-COST + WS-INM-COST-REB-LOCAL-AMT)  KLM97245
+012400     ELSE                                                         MCV96058
+012500     IF  WS-BASE-COL-PRICING                                      MCV96058
+012600         COMPUTE WS-UNIT-PRICE ROUNDED =                          MCV96058
+012700                 INI-RETAIL-PRICE * (1.000 - WS-REQ-PCT)          MCV96110
+               IF ICWCOP-TERM-SKU-PRICING                               MXV20220
+                  COMPUTE WS-UNIT-PRICE ROUNDED                         MXV20220
+                        = (INI-RETAIL-PRICE - ICWCOP-TOT-ACOP-DELTA-PRC)MXV20220
+                        * (1.000 - WS-REQ-PCT)                          MXV20220
+               END-IF                                                   MXV20220
+012800     ELSE                                                         MCV96058
+012900     IF  WS-ADJ-COST-COL-PRICING                                  LMH00301
+013000         COMPUTE WS-UNIT-PRICE ROUNDED =                          LMH00301
+013100                 SYRPWSA-ADJUSTED-COST / (1.000 - WS-REQ-PCT)     DNF01158
+013200     ELSE                                                         LMH00301
+013300     IF  WS-INGRAM-COST-COL-PRICING                               LMH00301
+013400         COMPUTE WS-UNIT-PRICE ROUNDED =                          LMH00301
+013500                 SYRPWSA-INGRAM-COST / (1.000 - WS-REQ-PCT)       DNF01158
+013600     ELSE                                                         LMH00301
+013700     IF  WS-LANDED-COST-COL-PRICING                               LMH00301
+013800         COMPUTE WS-UNIT-PRICE ROUNDED =                          LMH00301
+013900                 SYRPWSA-LANDED-COST / (1.000 - WS-REQ-PCT)       MXK08007
+014000     ELSE                                                         MXK08007
+014100     IF  WS-ACOP-COST-PLUS-PRICING                                MXK08007
+014200         COMPUTE WS-UNIT-PRICE ROUNDED =                          MXK08007
+014210           (SYRPWSA-INSBRN-AVG-COST - ICWCOP-TOT-ACOP-DELTA-PRC)  MXK08031
+014300               * (1.000 + WS-REQ-PCT)                             MXK08031
+               IF ICWCOP-TERM-SKU-PRICING                               MXV20220
+                 COMPUTE WS-UNIT-PRICE ROUNDED                          MXV20220
+                       = SYRPWSA-INSBRN-AVG-COST                        MXV20220
+                       * (1.000 + WS-REQ-PCT)                           MXV20220
+               END-IF                                                   MXV20220
+014310         IF WS-UNIT-PRICE   < ZERO                                MXK08031
+014320            MOVE ZERO         TO WS-UNIT-PRICE                    MXK08031
+014330         END-IF                                                   MXK08031
+014400     ELSE                                                         MXK08007
+014500     IF  WS-ACOP-MARGIN-PRICING                                   MXK08007
+014600         COMPUTE WS-UNIT-PRICE ROUNDED =                          MXK08007
+014610           (SYRPWSA-INSBRN-AVG-COST - ICWCOP-TOT-ACOP-DELTA-PRC)  MXK08031
+014700                            / (1 - WS-REQ-PCT)                    INF09251
+               IF ICWCOP-TERM-SKU-PRICING                               MXV20220
+                 COMPUTE WS-UNIT-PRICE ROUNDED                          MXV20220
+                       = SYRPWSA-INSBRN-AVG-COST                        MXV20220
+                       / (1 - WS-REQ-PCT)                               MXV20220
+               END-IF                                                   MXV20220
+014710         IF WS-UNIT-PRICE   < ZERO                                MXK08031
+014720            MOVE ZERO         TO WS-UNIT-PRICE.                   MXK08031
+014800*                                                                         
+014900     PERFORM 976-MINIMUM-MARGIN-PRICE-CHECK.                      MCV01032
+015000*                                                                 RPB00230
+015100 974-PREMIER-VAR-PLUS-PRICING.                                    MCV94213
+015200*                                                                 MCV94213
+015300     IF INI-VELOCITY-CODE >= 4                                    MCV96260
+015400        SET WS-PVAR-NDX           TO  4                           MCV96260
+015500     ELSE                                                         MCV95258
+015600        SET WS-PVAR-NDX           TO  INI-VELOCITY-CODE.          MCV95258
+015700*                                                                 MCV95258
+015800     MOVE WS-PRC-PVAR-PCT (WS-PVAR-NDX)                           MCV95258
+015900                                  TO  WS-REQ-PCT                  MCV95258
+016000*                                                                 MCV95258
+016100     IF WS-REQ-PCT > ZERO                                         MCV95258
+016200        PERFORM 9350-COST-BASIS                                   MCV95258
+016300        IF WS-COST-BASIS > +0.01                                  MCV95258
+016400           COMPUTE WS-UNIT-PRICE ROUNDED =                        MCV95258
+016500                   WS-COST-BASIS /                                MCV95258
+016600                   ( 1 - INI-DEALER-MARGIN * ( 1 - WS-REQ-PCT ) ) MCV95258
+016700           IF WS-UNIT-PRICE <                                     MCV95258
+016800              WS-COST-BASIS / ( 1 - WS-MINIMUM-MARGIN )           MCV95258
+016900              COMPUTE WS-UNIT-PRICE ROUNDED =                     MCV95258
+017000                      WS-COST-BASIS / ( 1 - WS-MINIMUM-MARGIN ).  MCV95258
+017100*                                                                         
+017200 E973-SET-COLUMN-PRICE.                                           MCV96260
+017300*                                                                 MCV96260
+017400*    END-USER PRICE GENERATION                                    MCV96260
+017500*    NOTE THAT ALL DISCOUNT PRICING, WHICH SHOULD NOT BE USED     MCV96260
+017600*    FOR END-USERS, HAS BEEN CHANGED TO COST PLUS PRICING         MCV96260
+017700*                                                                 MCV96260
+017800     IF  WS-NO-CHARGE-COL-PRICING                                 MCV96260
+017900         MOVE ZEROS              TO  WS-UNIT-PRICE                MCV96260
+018000                                     WS-REQ-PCT                   MCV96260
+018100     ELSE                                                         MCV96260
+018200     IF  WS-GROSS-MARGIN-COL-PRICING   OR                         MCV96260
+018300         WS-ADJ-COST-COL-PRICING       OR                         MCV96260
+018400         WS-INGRAM-COST-COL-PRICING    OR                         MCV96260
+018500         WS-AVG-COST-COL-PRICING       OR                         RDM03087
+018600         WS-LANDED-COST-COL-PRICING                               MCV96260
+018700            COMPUTE WS-UNIT-PRICE ROUNDED =                       MCV96260
+018800                    WS-PARENT-UNIT-PRICE / (1.000 - WS-REQ-PCT)   MCV96260
+018900     ELSE                                                         MCV96260
+019000     IF  WS-DEALER-COL-PRICING         OR                         MCV96260
+019100         WS-DEALER-MARGIN-PRICING      OR                         MCV96260
+019200         WS-INGRAM-COL-PRICING         OR                         MCV96260
+019300         WS-PCT-MKUP-FROM-COST         OR                         MCV96260
+019400         WS-COST-COL-PRICING           OR                         MCV96260
+019500         WS-BASE-COL-PRICING                                      MCV96260
+019600            COMPUTE WS-UNIT-PRICE ROUNDED =                       MCV96260
+019700                    WS-PARENT-UNIT-PRICE * (1.000 + WS-REQ-PCT)   MCV96260
+019800     ELSE                                                         MCV96260
+019900     IF  WS-PREMIER-VAR-PLUS-PRICING                              MCV96260
+020000         MOVE WS-MINIMUM-MARGIN  TO  WS-REQ-PCT                   MCV96260
+020100         COMPUTE WS-UNIT-PRICE ROUNDED =                          MCV96260
+020200                 WS-PARENT-UNIT-PRICE / (1.000 - WS-REQ-PCT).     MCV96260
+020300*                                                                 MCV01032
+020400     IF INI-MIN-MARGIN NOT NUMERIC                                MCV01032
+020500        MOVE ZEROES              TO  INI-MIN-MARGIN.              MCV01032
+020600                                                                  MCV01032
+020700     IF WS-CPO3-MIN-MARGIN-SW = 'Y'            AND                MCV01032
+020800        NOT WS-PRICE-INV-QTY-BREAK             AND                MCV01032
+020900        WS-CU-NO-SKU-PCT-OVERRIDE NOT = 'Y'    AND                MCV01032
+021000        WS-CU-NO-PRICE-OVRD-SW NOT = 'Y'       AND                MCV01032
+021100        WS-UNIT-PRICE  > ZERO                  AND                MCV01032
+021200        INI-MIN-MARGIN > ZERO                                     MCV01032
+021300           COMPUTE WS-MIN-MARGIN-PRICE ROUNDED =                  MCV01032
+021400                   WS-UNIT-PRICE                                  MCV01032
+021500                 / (1.0 - INI-MIN-MARGIN / 100)                   MCV01032
+021600              ON SIZE ERROR                                       MCV01032
+021700                  CONTINUE                                        MCV01032
+021800              NOT ON SIZE ERROR                                   MCV01032
+021900                  IF WS-MIN-MARGIN-PRICE > WS-UNIT-PRICE          MCV01032
+022000                     MOVE WS-MIN-MARGIN-PRICE                     MCV01032
+022100                                       TO  WS-UNIT-PRICE          MCV01032
+022200                  END-IF                                          MCV01032
+022300           END-COMPUTE.                                           MCV01032
+022380*                                                                         
+022390*                                                                         
+022500 975-COMPUTE-COST-ROUTINE.                                                
+022600*                                                                         
+022700     IF  WS-UM-FACTOR = ZERO                                      MCV93218
+022800         MOVE 1.0                TO  WS-UM-FACTOR.                MCV93218
+022900*                                                                         
+023000     IF  WS-INSBRN-NORESP                                                 
+              IF INB-AVG-COST NUMERIC                                   AZD17195
+023100         COMPUTE WS-SAVE-INV-UNIT-COST ROUNDED =                          
+023200            INB-AVG-COST * WS-UM-FACTOR                                   
+              END-IF                                                    AZD17195
+023300     ELSE                                                         EJB99004
+023400         IF WS-PRC-FROM-CNFG  = 'Y'                               EJB99004
+023500            COMPUTE WS-SAVE-INV-UNIT-COST ROUNDED =               EJB99004
+023600               SYRPWSA-INSHED-AVG-COST * WS-UM-FACTOR             DNF01158
+023700     ELSE                                                                 
+               IF ICWCOP-TERM-SKU-PRICING                               MXV20220
+                  COMPUTE WS-SAVE-INV-UNIT-COST ROUNDED                 MXV20220
+                        = (1 + WS-SAVE-FRT)                             MXV20220
+                        * (INI-RETAIL-PRICE - ICWCOP-TOT-ACOP-DELTA-PRC)MXV20220
+                        * WS-SAVE-COST * WS-UM-FACTOR                   MXV20220
+               ELSE                                                     MXV20220
+023800         COMPUTE WS-SAVE-INV-UNIT-COST ROUNDED =                          
+023900            (1 + WS-SAVE-FRT) *                                           
+024000            INI-RETAIL-PRICE * WS-SAVE-COST * WS-UM-FACTOR.       MCV96110
+024100*                                                                 GAE94234
+024200*--- GET COST PROMOTION INFO IF PRODUCT IS IN THE REBATE PROGRAM  GAE94234
+024300     IF  NOT COST-PROMO-READ                                      GAE94234
+024400     AND WS-CUST-SPECIALS-ALLOWED                                 GAE94265
+024500     AND INI-COST-PROMOTION                                       GAE94234
+024600         MOVE '**' TO WS-INSMSC-BR-IND                            GAE94234
+024700         MOVE 'F'  TO WS-INSMSC-SEG-IND                           GAE94234
+024800         PERFORM 1556-GU-INSMSC                                   GAE94234
+024900*Y2K********************************************************Y2K*  RXDY8308
+025000*      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+025100*Y2K********************************************************Y2K*  RXDY8308
+025200         CALL 'CAWINUP'                                           RXDY8308
+025300             USING INM-COST-EFF-DATE                              RXDY8308
+025400                   SYRPWSA-DEFAULT-WINDOW-SPEC                    RXDY8308
+025500                   SYRPWSA-DECIMAL5-TYPE                          RXDY8308
+025600                   SYRPWSA-INM-COST-EFF-DATE-Y2K                  RXDY8308
+025700                   SYRPWSA-THIS-YEAR-Y2K                          RXDY8308
+025800         CALL 'CAWINUP'                                           RXDY8308
+025900             USING INM-COST-END-DATE                              RXDY8308
+026000                   SYRPWSA-DEFAULT-WINDOW-SPEC                    RXDY8308
+026100                   SYRPWSA-DECIMAL5-TYPE                          RXDY8308
+026200                   SYRPWSA-INM-COST-END-DATE-Y2K                  RXDY8308
+026300                   SYRPWSA-THIS-YEAR-Y2K                          RXDY8308
+026400         IF  WS-INSMSC-NORESP                                     RXDY8308
+026500         AND NOT INM-DELETE-STATUS                                RXDY8308
+026600*Y2K********************************************************Y2K*  RXDY8308
+026700*      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+026800*Y2K********************************************************Y2K*  RXDY8308
+026900*        AND INM-COST-EFF-DATE <= EIBDATE                         RXDY8308
+027000         AND SYRPWSA-INM-COST-EFF-DATE-Y2K <= EIBDATE             RXDY8308
+027100*Y2K********************************************************Y2K*  RXDY8308
+027200*      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+027300*Y2K********************************************************Y2K*  RXDY8308
+027400*        AND INM-COST-END-DATE >= EIBDATE                         RXDY8308
+027500         AND SYRPWSA-INM-COST-END-DATE-Y2K >= EIBDATE             RXDY8308
+027600             MOVE INM-COST-REBATE-AMT TO WS-INM-COST-REBATE-AMT   GAE94234
+027700         ELSE                                                     GAE94234
+027800             MOVE +0               TO WS-INM-COST-REBATE-AMT      KLM97245
+027900                                      WS-INM-COST-REB-CUST-AMT    KLM97245
+028000                                      WS-INM-COST-REB-LOCAL-AMT.  KLM97245
+028100*                                                                 GAE94234
+028200     IF TB-CPO-US-MODEL-COMPANY                                   KLM97245
+028300        COMPUTE WS-SAVE-INV-UNIT-COST ROUNDED =                   KLM97245
+028400             WS-SAVE-INV-UNIT-COST - WS-INM-COST-REBATE-AMT       GAE94234
+028500     ELSE                                                         KLM97245
+028600        COMPUTE WS-SAVE-INV-UNIT-COST ROUNDED =                   KLM97245
+028700             WS-SAVE-INV-UNIT-COST - WS-INM-COST-REB-LOCAL-AMT.   KLM97245
+028800*                                                                 MCV01032
+028900 976-MINIMUM-MARGIN-PRICE-CHECK.                                  MCV01032
+029000*                                                                 MCV01032
+029100     IF INI-MIN-MARGIN NOT NUMERIC                                MCV01032
+029200        MOVE ZEROES              TO  INI-MIN-MARGIN.              MCV01032
+029300                                                                  MCV01032
+029400     IF WS-CPO3-MIN-MARGIN-SW = 'Y'            AND                MCV01032
+029500        NOT WS-PRICE-INV-QTY-BREAK             AND                MCV01032
+029600        WS-CU-NO-SKU-PCT-OVERRIDE NOT = 'Y'    AND                MCV01032
+029700        WS-CU-NO-PRICE-OVRD-SW NOT = 'Y'       AND                MCV01032
+029800        WS-UNIT-PRICE   > ZERO                 AND                MCV01032
+029900        SYRPWSA-LANDED-COST > ZERO             AND                DNF01158
+030000        INI-MIN-MARGIN  > ZERO                                    MCV01032
+030100           COMPUTE WS-MIN-MARGIN-PRICE ROUNDED =                  MCV01032
+030200                   SYRPWSA-LANDED-COST                            DNF01158
+030300                 / (1.0 - INI-MIN-MARGIN / 100)                   MCV01032
+030400              ON SIZE ERROR                                       MCV01032
+030500                  CONTINUE                                        MCV01032
+030600              NOT ON SIZE ERROR                                   MCV01032
+030700                  IF WS-MIN-MARGIN-PRICE > WS-UNIT-PRICE          MCV01032
+030800                     MOVE WS-MIN-MARGIN-PRICE                     MCV01032
+030900                                       TO  WS-UNIT-PRICE          MCV01032
+031000                  END-IF                                          MCV01032
+031100           END-COMPUTE.                                           MCV01032
+031200*                                                                 MCV93284
+031300*    THIS MUST BE THE END OF THE COPYBOOK !!                      MCV93284
+031400*                                                                 MCV93284
+031500 9350-COST-BASIS.                                                 MCV93284
+031600*                                                                 MCV93284
+031700     COPY SYCSTBAS.                                               MCV93284
+031800*                                                                 MCV93284
+031900*                                                                 RDM03087
+032000*                END OF SYXGNPRC COPYBOOK                         RDM03087
+032100*                                                                 RDM03087

@@ -1,0 +1,965 @@
+      *****************************************************************         
+      * COPYBOOK:  CSWFRT    -  "ONLINE" BASERATE LINK                          
+      *                                                                         
+      *    SUB-ROUTINE TO "RATE" AN ORDER FOR PRICE AND/OR COST.                
+      *    USED IN PROGRAMS: WHP890.                                    RPM04090
+      * INPUTS:                                                                 
+      *    INTERFACE FROM CSW - INTERACTIVE CALL                                
+      *                                                                         
+      * OUTPUTS:                                                                
+      *    RATED INTERFACE FOR CSW                                              
+      *****************************************************************         
+      * MODIFICATIONS:                                                          
+      * 06/01/19 MAK FIX FOR THE SPLIT SURCHARGE                        MAK19152
+      * 07/24/16 TND DIM WEIGHT PROJECT                                 TND16206
+      * 06/08/16 TND DIM WEIGHT PROJECT                                 TND16160
+      * 04/07/10 PRI TRUCKLOAD BASERATE PROJECT                         PRI10097
+      * 09/20/04 JRA FRT BILLING PROJECT                                JRA05263
+      * 04/04/04 RPM PAR #54321A.  UPS/MI PROJECT.                      RPM04090
+      * 11/14/01 TYS MOVE CUST COND CODES TO TSBR-CONDITION-CODES       TYS01314
+      * 10/17/01 TYS ADD ANY CARRIER RESIDENTIAL                        TYS01290
+      * 10/31/00 TYS ADD UPS RESIDENTIAL                                TYS00300
+      * 03/15/00 TYS NEW                                                TYS00222
+      *****************************************************************         
+                                                                                
+       D5000-EXECUTE-FRT-CALL.                                                  
+      *****************************************************************         
+      * SET UP BASERATE CALL -                                                  
+      *****************************************************************         
+                                                                                
+           PERFORM D5010-INIT-WORK-FIELDS.                                      
+           PERFORM D1000-DSI-INIT             THRU D1000-EXIT.                  
+           PERFORM D5200-MOVE-TSBR-FIELDS.                                      
+           PERFORM D5500-LOAD-DATA.                                             
+           PERFORM D5100-DETERMINE-PRICING.                                     
+                                                                                
+                                                                                
+       D5010-INIT-WORK-FIELDS.                                                  
+           MOVE ZEROS TO WS-DSI-RATED-PRICE                                     
+                         WS-DSI-COD-PRICE                                       
+                         WS-DSI-AK-PRICE                                        
+                         WS-DSI-SAT-PRICE                                       
+                         WS-DSI-COD-COST                                        
+                         WS-DSI-RATED-COST                                      
+                         WS-DSI-RATED-DIM-PRICE                         TND16160
+                         WS-DSI-RATED-DIM-COST                          TND16160
+                         WS-DSI-FSAP-COST                               TND16160
+                         WS-DSI-TOT-SURCHG                              TND16160
+                         WS-DSI-SPLT-SURCHG                             TND16160
+                         WS-DSI-FSAR-COST                               TND16160
+                         WS-DSI-OS-COST                                 TND16160
+                         WS-DSI-OC-COST                                 TND16160
+                         WS-DSI-AK-COST                                         
+                         WS-DSI-SAT-COST                                        
+                         WS-DSI-FEDEX-ZONE                                      
+                         WS-DSI-ZONE                                            
+                         WS-DSI-FEDX-CWT                                        
+                         WS-DSI-FEDX-INGR                                       
+                         WS-DSI-FEDX-1LB                                        
+                         TSBR-PROD-DW-CUBE(1)                           TND16160
+                         WS-DSI-FEDX-5LB.                               JRA05263
+                                                                                
+           MOVE SPACES   TO WS-DSI-FEDEX-NEW-METHOD-SW                          
+                            WS-DSI-RATED-DIM-SW                         TND16160
+                            WS-DSI-COND-CODE-USED                               
+                            WS-DSI-GPS-NORTH-SOUTH-SW                           
+                            WS-DSI-UPS-GRND-SAVER-FLAG                          
+                            WS-DSI-UPS-HUNDREDWEIGHT-SW                         
+                            WS-DSI-BASERATE-ERROR                               
+                            WS-DSI-BASERATE-ERROR1                              
+                            TSBR-CONDITION-CODE(1)                      TND16160
+                            TSBR-CONDITION-CODE(2)                      TND16160
+                            TSBR-CONDITION-CODE(3)                      TND16160
+                            TSBR-CONDITION-CODE(4)                      TND16160
+                            TSBR-CONDITION-CODE(5)                      TND16160
+                            WS-DSI-BASERATE-ERROR2.                             
+                                                                                
+      *--- POPULATE BASERATE CONDITION CODES  (START) ---------------*  RPM04090
+           MOVE 'CUST'                 TO WS-DSI-CUST-COND-1            RPM04090
+           MOVE 'CCWT'                 TO WS-DSI-CUST-COND-2            RPM04090
+           MOVE 'INGR'                 TO WS-DSI-CARR-COND-1            RPM04090
+           MOVE 'ICWT'                 TO WS-DSI-CARR-COND-2            RPM04090
+                                                                                
+      **RX IF WS-DSI-UNIT-OF-MEASURE = 'OZ'                             JRA05263
+      **RX    MOVE 'COZC'              TO WS-DSI-CUST-COND-1            JRA05263
+      **RX    MOVE 'CCOZ'              TO WS-DSI-CUST-COND-2.           JRA05263
+                                                                                
+           IF WS-DSI-RES-SW = 'Y'                                       RPM04090
+              IF WS-DSI-US-MODEL-COMPANY                                RPM04090
+                 MOVE 'CRES'           TO WS-DSI-CUST-COND-1            TYS01290
+                 MOVE 'CRWT'           TO WS-DSI-CUST-COND-2            TYS01290
+                 MOVE 'IRES'           TO WS-DSI-CARR-COND-1            TYS01290
+                 MOVE 'IRWT'           TO WS-DSI-CARR-COND-2.           RPM04090
+                                                                                
+      **RX IF WS-DSI-RES-SW = 'Y'                                       JRA05263
+      **RX    IF WS-DSI-US-MODEL-COMPANY                                JRA05263
+      **RX       IF WS-DSI-UNIT-OF-MEASURE = 'OZ'                       JRA05263
+      **RX          MOVE 'COZR'        TO WS-DSI-CUST-COND-1            JRA05263
+      **RX          MOVE 'CROZ'        TO WS-DSI-CUST-COND-2.           JRA05263
+                                                                                
+           IF WS-DSI-COD-SWITCH = 'Y'                                   RPM04090
+              MOVE 'CCOD'              TO WS-DSI-CARR-COND-1.           RPM04090
+      * POPULATE THE BELOW CONDITION CODE IN CASE OF TRUCKLOAD ORDER.   PRI10097
+           IF WS-DSI-TRUCKLOAD-ORDER                                    PRI10097
+              MOVE 'PLLF'              TO WS-DSI-CUST-COND-1            PRI10097
+              MOVE 'PLTL'              TO WS-DSI-CUST-COND-2            PRI10097
+              MOVE 'ICLF'              TO WS-DSI-CARR-COND-1            PRI10097
+              MOVE 'ICTL'              TO WS-DSI-CARR-COND-2            PRI10097
+           END-IF.                                                      PRI10097
+      *--- POPULATE BASERATE CONDITION CODES  (END) -----------------*  RPM04090
+       D5010-EXIT.                                                      RPM04090
+             EXIT.                                                      RPM04090
+                                                                                
+                                                                                
+       D5100-DETERMINE-PRICING.                                                 
+      ******************************************************************        
+      ** DETERMINE WHICH PRICING IS USED -  CUSTOMER OR INGRAM'S      **        
+      ** SET SWITCH TO KNOW IF THE FREIGHT IS BEING CALCULATE FOR     **        
+      ** THE ACTUAL SHIPPING CARRIER CODE --- WS-DSI-PRIM OR          **        
+      ** THE SPLIT FREIGHT CARRIER CODE   --- WS-DSI-SPLT             **        
+      ******************************************************************        
+                                                                                
+      *** SPLIT (INGRAM CHOICE) CARRIER                                 JRA05263
+           IF WS-DSI-FRT-OUT-CODE = 'S'                                         
+              MOVE WS-DSI-SPLT-CC          TO TSBR-CARRIER                      
+              MOVE WS-DSI-SPLT-DC          TO TSBR-FROM-CUST-CODE               
+              MOVE WS-DSI-CARR-MODE-SPLT   TO WS-DSI-CARR-MODE          JRA05263
+      *** WS-DSI-RATED-WGT IS USED IN CARTON PROCESSING                 JRA05263
+      *** WS-DSI-RATED-WGT-TOTAL IS USED IN ORDER (LAST BOX) PROCESS    JRA05263
+      *** RECEIVING FIELDS UNDER THE WS-DSI-FROM-BILLING-CALL-SW ARE    JRA05263
+      *** POPULATED DIRECTLY IN WHP890                                  JRA05263
+              IF WS-DSI-FROM-BILLING-CALL-SW = 'Y'                      JRA05263
+      *** FROM WHP819                                                   JRA05263
+                 MOVE WS-DSI-RATED-WGT-SPLT  TO WS-DSI-RATED-WGT        JRA05263
+                 MOVE WS-DSI-TOTAL-WGT-SPLT  TO WS-DSI-RATED-WGT-TOTAL  JRA05263
+                 MOVE WS-DSI-MIN-PKG-WGT-SPLT TO WS-DSI-MIN-PKG-WGT-CWT JRA05263
+              END-IF                                                    JRA05263
+              SET WS-DSI-SPLT              TO TRUE                              
+              IF WS-DSI-SPLT-FRT-RATING-SW = 'C' OR 'E' OR 'Y'                  
+                 PERFORM D5300-USE-CUSTOMER-PRICING                             
+                 MOVE WS-DSI-RATED-PRICE   TO WS-DSI-SPLT-FRT                   
+              ELSE                                                              
+                 PERFORM D6000-USE-CARRIER-PRICING                              
+                 MOVE WS-DSI-ZONE          TO WS-DSI-SPLT-ZONE          JRA05263
+                 MOVE WS-DSI-UPS-HUNDREDWEIGHT-SW  TO                   JRA05263
+                                    WS-DSI-UPS-SPLT-HUNDREDWGT-SW       JRA05263
+                 MOVE WS-DSI-RATED-COST    TO WS-DSI-SPLT-FRT           JRA05263
+                 MOVE TSBR-TOTAL-ACCESS-CHARGE  TO WS-DSI-SPLT-SURCHG   TND16160
+                                                WS-DSI-SPLT-SURCHG-BKUP MAK19152
+              END-IF                                                    JRA05263
+              PERFORM D5010-INIT-WORK-FIELDS                            JRA05263
+              PERFORM D1000-DSI-INIT             THRU D1000-EXIT        JRA05263
+              PERFORM D5200-MOVE-TSBR-FIELDS                            JRA05263
+              PERFORM D5500-LOAD-DATA.                                  JRA05263
+                                                                        JRA05263
+      *** PRIMARY (ORIGINAL ORDER) CARRIER                              JRA05263
+           SET WS-DSI-PRIM              TO TRUE.                        JRA05263
+           MOVE WS-DSI-CARR-MODE-PRIM   TO WS-DSI-CARR-MODE.            JRA05263
+      *** WS-DSI-RATED-WGT IS USED IN CARTON PROCESSING                 JRA05263
+      *** WS-DSI-RATED-WGT-TOTAL IS USED IN ORDER (LAST BOX) PROCESS    JRA05263
+      *** RECEIVING FIELDS UNDER THE WS-DSI-FROM-BILLING-CALL-SW ARE    JRA05263
+      *** POPULATED DIRECTLY IN WHP890                                  JRA05263
+           IF WS-DSI-FROM-BILLING-CALL-SW = 'Y'                         JRA05263
+      *** FROM WHP819                                                   JRA05263
+              MOVE WS-DSI-RATED-WGT-ORIG    TO WS-DSI-RATED-WGT         JRA05263
+              MOVE WS-DSI-TOTAL-WEIGHT-ORIG TO WS-DSI-RATED-WGT-TOTAL   JRA05263
+              MOVE WS-DSI-MIN-PKG-WGT-PRIM  TO WS-DSI-MIN-PKG-WGT-CWT.  JRA05263
+                                                                        JRA05263
+           IF WS-DSI-PRIM-FRT-RATING-SW = 'C' OR 'E' OR 'Y'             JRA05263
+              PERFORM D5300-USE-CUSTOMER-PRICING                        JRA05263
+              MOVE WS-DSI-RATED-PRICE   TO WS-DSI-ORIG-FRT              JRA05263
+           ELSE                                                         JRA05263
+              PERFORM D6000-USE-CARRIER-PRICING                         JRA05263
+              MOVE WS-DSI-ZONE          TO WS-DSI-ORIG-ZONE             JRA05263
+              MOVE WS-DSI-UPS-HUNDREDWEIGHT-SW  TO                      JRA05263
+                                    WS-DSI-UPS-ORIG-HUNDREDWGT-SW       JRA05263
+              MOVE WS-DSI-RATED-COST    TO WS-DSI-ORIG-FRT.             JRA05263
+                                                                                
+            MOVE WS-DSI-BASERATE-ERROR   TO WS-DSI-BASERATE-ERROR1.             
+           IF  NOT WS-DSI-DIM-ON                                        TND16160
+               MOVE ZERO     TO WS-DSI-TOT-SURCHG  WS-DSI-SPLT-SURCHG   TND16160
+                                WS-DSI-FSAP-COST   WS-DSI-FSAR-COST     TND16160
+                                WS-DSI-OS-COST     WS-DSI-OC-COST       TND16160
+                                WS-DSI-TOT-CHARGE-WEIGHT.               TND16160
+                                                                                
+      **RX IF WS-DSI-LAST-BOX-SW = 'Y'                                  JRA05263
+      **RX    PERFORM D7100-LAST-BOX-PROCESSING                         JRA05263
+      **RX    IF WS-DSI-FRT-OUT-CODE = 'S'                              JRA05263
+      **RX       COMPUTE WS-DSI-FINAL-FRT = WS-DSI-ORIG-FRT -           JRA05263
+      **RX               WS-DSI-SPLT-FRT.                               JRA05263
+                                                                                
+       D5200-MOVE-TSBR-FIELDS.                                                  
+                                                                                
+      ******************************************************************        
+      ** THIS IS THE GENERIC'S NEEDED FOR THE CARRIER SELECT CALL     **        
+      ******************************************************************        
+                                                                                
+           MOVE 'R'                      TO TSBR-REQUEST.                       
+                                                                                
+           MOVE WS-DSI-FROM              TO TSBR-FROM-CUST-CODE.                
+                                                                                
+           IF WS-DSI-CSW-NUM NUMERIC                                            
+              MOVE WS-DSI-CSW-NUM         TO TSBR-TO-CUST-CODE                  
+           ELSE                                                                 
+              MOVE WS-DSI-CSW-POSTAL-CODE TO TSBR-TO-CUST-CODE.                 
+                                                                                
+           MOVE WS-DSI-IN-CARR           TO TSBR-CARRIER.                       
+                                                                                
+                                                                                
+       D5300-USE-CUSTOMER-PRICING.                                              
+      ******************************************************************        
+      ** PRICING FOR CUSTOMER PRICING IS SHIPMENT LEVEL ONLY --       **        
+      **                LAST BOX PROCESSING                           **        
+      ******************************************************************        
+                                                                                
+           MOVE +0 TO WS-DSI-RATED-PRICE.                                       
+           MOVE +0 TO  WS-DSI-RATED-DIM-PRICE                           TND16160
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'                                          
+              MOVE WS-DSI-RATED-WGT-TOTAL TO WS-DSI-TOTAL-WEIGHT                
+              PERFORM D5310-CUSTOMER-LAST-BOX.                                  
+                                                                                
+                                                                                
+       D5310-CUSTOMER-LAST-BOX.                                                 
+      ******************************************************************        
+      ** THIS PARAGRAPH IS SET UP FOR PROCESSING OF CUSTOMER LAST     **        
+      **                BOX SHIPMENT PRICING                          **        
+      ** WS-DSI-RES-SW WILL INDICATE THAT WE SHOULD USE RESIDENTIAL   **        
+      **               UPS PRICING OTHERWISE NORMAL PRICING           **        
+      ** WS-DSI-AOD-SW WILL INDICATE THAT WE NEED TO CHARGE FOR       **        
+      **               ADULT SIGNATURE REQUIRED                       **        
+      ******************************************************************        
+                                                                                
+           MOVE WS-DSI-CUST-COND-1  TO TSBR-CONDITION-CODE(1)           TYS01314
+           MOVE WS-DSI-CUST-COND-2  TO TSBR-CONDITION-CODE(2).          TYS01314
+                                                                                
+      **RX IF WS-DSI-AOD-SW = 'Y'                                       JRA05263
+      **RX    MOVE 'CAOD'           TO TSBR-CONDITION-CODE(3)           JRA05263
+      **RX ELSE                                                         JRA05263
+      **RX    MOVE SPACES           TO TSBR-CONDITION-CODE(3).          JRA05263
+                                                                                
+           MOVE SPACES              TO TSBR-CONDITION-CODE(4)                   
+                                       TSBR-CONDITION-CODE(3)           JRA05263
+                                       TSBR-CONDITION-CODE(5).                  
+                                                                                
+           MOVE WS-DSI-TOTAL-WEIGHT TO TSBR-PROD-WEIGHT (1).                    
+                                                                                
+           PERFORM D5400-BASERATE-CALL.                                         
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+              MOVE TSBR-NET-CHARGES        TO WS-DSI-RATED-PRICE                
+           ELSE                                                                 
+              MOVE TSBR-RATED              TO WS-DSI-BASERATE-ERROR.            
+                                                                                
+                                                                                
+       D5400-BASERATE-CALL.                                                     
+      ******************************************************************        
+      ** ACTUAL CALL TO BASERATE -- - BOTH ONLINE AND BATCH           **        
+      ******************************************************************        
+                                                                                
+      *    CALL 'X80NCR' USING TSBR-DATA-AREA.                                  
+                                                                                
+           PERFORM D2000-DSI-LINK THRU D2000-EXIT.                              
+                                                                                
+      *   (NOTE: THIS IS ONLY LINE OF CODE THAT IS DIFFERENT                    
+      *          BETWEEN BATCH & ONLINE VERSIONS)                               
+                                                                                
+           IF TSBR-RATED-TRUE                                           JRA05263
+              PERFORM D5410-DO-ZONE.                                    JRA05263
+                                                                        JRA05263
+                                                                        JRA05263
+       D5410-DO-ZONE.                                                   JRA05263
+      ***************************************************************   JRA05263
+      * GET THE ZONE TO PASS TO THE MANIFEST FILE                   *   JRA05263
+      ***************************************************************   JRA05263
+                                                                        JRA05263
+            MOVE TSBR-RATE-BASE-NBR    TO WS-DSI-ZONE.                  JRA05263
+            MOVE TSBR-CHARGE-ID-TARIFF TO WS-DSI-TARIFF-COND-CODE.      JRA05263
+                                                                        JRA05263
+            IF WS-DSI-UPS-AIR-ZONE NUMERIC                              JRA05263
+               MOVE WS-DSI-UPS-AIR-ZONE TO WS-ZONE                      JRA05263
+               MOVE WS-DSI-UPS-AIR-ZONE TO WS-DSI-ZONE                  JRA05263
+            ELSE                                                        JRA05263
+               MOVE TSBR-CHARGE-R-TARIFF TO                             JRA05263
+                                    WS-DSI-TARIFF-COND-CODE             JRA05263
+               IF WS-DSI-UPS-AIR-ZONE NUMERIC                           JRA05263
+                  MOVE WS-DSI-UPS-AIR-ZONE TO WS-ZONE                   JRA05263
+                  MOVE WS-DSI-UPS-AIR-ZONE TO WS-DSI-ZONE               JRA05263
+               ELSE                                                     JRA05263
+                  PERFORM D5415-CONTINUE-ZONE.                          JRA05263
+                                                                        JRA05263
+       D5415-CONTINUE-ZONE.                                             JRA05263
+                                                                        JRA05263
+           IF TSBR-CHARGE-USED-FALSE                                    JRA05263
+              MOVE TSBR-PROD-R-TARIFF(1) TO WS-DSI-TARIFF-COND-CODE     JRA05263
+           ELSE                                                         JRA05263
+              MOVE TSBR-CHARGE-R-TARIFF  TO WS-DSI-TARIFF-COND-CODE.    JRA05263
+                                                                        JRA05263
+           IF WS-DSI-UPS-AIR-ZONE NUMERIC                               JRA05263
+              MOVE WS-DSI-UPS-AIR-ZONE   TO WS-ZONE                     JRA05263
+              MOVE WS-DSI-UPS-AIR-ZONE   TO WS-DSI-ZONE                 JRA05263
+           ELSE                                                         JRA05263
+           IF WS-DSI-EXP-SAVER-ZONE    NUMERIC                          JRA05263
+      *       MOVE 0                     TO WS-DSI-EXP-SAVER-ZONE       JRA05263
+              MOVE WS-DSI-EXP-SAVER-ZONE TO WS-ZONE                     JRA05263
+              MOVE WS-DSI-EXP-SAVER-ZONE TO WS-DSI-ZONE                 JRA05263
+                                            WS-DSI-FEDEX-ZONE.          JRA05263
+                                                                        JRA05263
+                                                                        JRA05263
+       D5500-LOAD-DATA.                                                         
+                                                                                
+      ******************************************************************        
+      ** WE NEED TO CONVERT SHIP DATE TO GREGORIAN DATE FORMAT        **        
+      ** THIS IS ONLY NEEDED FOR BATCH PROCESSING - COMMENT OUT       **        
+      ** IN COPYBOOK CSWFRT - ONLY NEEDED FOR CSWFRTB                 **        
+      ******************************************************************        
+      *                                                                         
+      *    CALL 'SYU001'            USING  WS-DSI-SHIP-DATE                     
+      *                                    SYU1-EXISTING-GREG-DATE              
+      *                                    SYU1-EXISTING-GREG-DATE-6            
+      *                                    SYU1-NEW-FORMAT-FIELDS.              
+      *                                                                         
+      *    MOVE SYU1-MMDDYY-DATE-8      TO WS-SHIPMENT-DATE-GREG.               
+      *    MOVE WS-SHIPMENT-DATE-MM     TO TSBR-SHIPMENT-MONTH.                 
+      *    MOVE WS-SHIPMENT-DATE-DD     TO TSBR-SHIPMENT-DAY.                   
+      *    MOVE WS-SHIPMENT-DATE-YY     TO TSBR-SHIPMENT-YEAR.                  
+      *                                                                         
+                                                                                
+       D6000-USE-CARRIER-PRICING.                                               
+                                                                                
+      ******************************************************************        
+      ** PRIMARY AND SPLIT FREIGHT USING CARRIER RATES                **        
+      ** LISTED BELOW 5 PRICING SCENARIOS                             **        
+      ******************************************************************        
+                                                                                
+           IF WS-DSI-PRIM                                                       
+              IF WS-DSI-CAR3-RATING-TYPE-PRIM = '1'                             
+                 PERFORM D6100-PRICING-SCENARIO-1                               
+              ELSE                                                              
+                 IF WS-DSI-CAR3-RATING-TYPE-PRIM = '2'                          
+                    PERFORM D6200-PRICING-SCENARIO-2                            
+                 ELSE                                                           
+                    IF WS-DSI-CAR3-RATING-TYPE-PRIM = '3'                       
+                       IF  WS-DSI-DIM-ON                                TND16160
+                           PERFORM D6100-PRICING-SCENARIO-1             TND16160
+                       ELSE                                             TND16160
+                           PERFORM D6300-PRICING-SCENARIO-3             TND16160
+                       END-IF                                           TND16160
+                    ELSE                                                        
+                       IF WS-DSI-CAR3-RATING-TYPE-PRIM = '4'                    
+                          PERFORM D6400-PRICING-SCENARIO-4                      
+                       ELSE                                                     
+                          PERFORM D6500-PRICING-SCENARIO-5.                     
+                                                                                
+           IF WS-DSI-SPLT                                                       
+              IF WS-DSI-CAR3-RATING-TYPE-SPLT = '1'                             
+                 PERFORM D6100-PRICING-SCENARIO-1                               
+              ELSE                                                              
+                 IF WS-DSI-CAR3-RATING-TYPE-SPLT = '2'                          
+                    PERFORM D6200-PRICING-SCENARIO-2                            
+                 ELSE                                                           
+                    IF WS-DSI-CAR3-RATING-TYPE-SPLT = '3'                       
+                       IF  WS-DSI-DIM-ON                                TND16160
+                           PERFORM D6100-PRICING-SCENARIO-1             TND16160
+                       ELSE                                             TND16160
+                           PERFORM D6300-PRICING-SCENARIO-3             TND16160
+                       END-IF                                           TND16160
+                    ELSE                                                        
+                       IF WS-DSI-CAR3-RATING-TYPE-SPLT = '4'                    
+                          PERFORM D6400-PRICING-SCENARIO-4                      
+                       ELSE                                                     
+                          PERFORM D6500-PRICING-SCENARIO-5.                     
+                                                                                
+                                                                                
+       D6100-PRICING-SCENARIO-1.                                                
+                                                                                
+      ***************************************************************           
+      * PRICING SCENARIO 1 IS THE NORMAL SMALL PARCEL PKG PRICING   *           
+      * RATING LOGIC.  CARRIERS SUCH AS UPS RPS AND AIRBORNE WILL   *           
+      * GO THRU THIS SET OF PRICING LOGIC                           *           
+      * PRICING AGREEMENTS WITH PACKAGE PRICING AND A CWT AGREEMENT *           
+      ***************************************************************           
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'  AND                             JRA05263
+              WS-DSI-FROM-BILLING-CALL-SW = 'Y'                         JRA05263
+              NEXT SENTENCE                                             JRA05263
+           ELSE                                                         JRA05263
+              PERFORM D6110-INDIVIDUAL-PKG.                             JRA05263
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'                                          
+              MOVE WS-DSI-RATED-WGT-TOTAL TO WS-DSI-TOTAL-WEIGHT                
+              PERFORM D7000-CALCULATE-CWT-WEIGHT                                
+              PERFORM D6130-LAST-BOX.                                   JRA05263
+      **RX    PERFORM D6140-CALCULATE-FINAL-COST.                       JRA05263
+                                                                                
+                                                                                
+       D6110-INDIVIDUAL-PKG.                                                    
+      ***************************************************************           
+      * THIS IS THE PACKAGE PRICING CALL ON AN INDIVIDUAL CARTON    *           
+      * THE RESULT OF EACH CARTON RATING MUST BE ACCUMULATED AND    *           
+      * HELD UNTIL THE FINAL CARTON - THIS ROUTINE IS USED IN       *           
+      * SEVERAL OF THE PRICING SCENARIOS.                           *           
+      * BASERATE 9.07 - PASS PKG DIM AND 'OS' FOR OVERSIZE CARTON   *   TND16160
+      ***************************************************************           
+                                                                                
+           MOVE WS-DSI-RATED-WGT    TO TSBR-PROD-WEIGHT (1).                    
+           MOVE WS-DSI-CARR-COND-1  TO TSBR-CONDITION-CODE(1).          TYS01290
+           MOVE SPACES              TO TSBR-CONDITION-CODE(2)                   
+                                       TSBR-CONDITION-CODE(3)                   
+                                       TSBR-CONDITION-CODE(4)                   
+                                       TSBR-CONDITION-CODE(5).                  
+           IF  WS-DSI-RATED-DIM NOT NUMERIC                             TND16160
+               MOVE ZERO TO WS-DSI-RATED-DIM.                           TND16160
+      ***  ONLY SEND ADDITIONAL FSAP AND FSAR OR TYPE 1 AND 5********   TND16160
+           IF  WS-DSI-DIM-ON                                            TND16160
+               MOVE WS-DSI-RATED-DIM TO TSBR-PROD-DW-CUBE(1)            TND16160
+               IF  WS-DSI-CAR3-RATING-TYPE-PRIM NOT = '2'               TND16160
+                   MOVE WS-DSI-FSAP-COND TO TSBR-CONDITION-CODE(2)      TND16160
+                   IF WS-DSI-OVERSIZE-CODE = 'OS'                       TND16160
+                    MOVE WS-DSI-OS01-COND TO TSBR-CONDITION-CODE(3)     TND16160
+                   END-IF                                               TND16160
+                   IF  WS-DSI-FOC-CODE NOT = 'P'                        TND16160
+                     IF WS-DSI-OVERSIZE-CODE = 'OS'                     TND16160
+                      MOVE WS-DSI-FSAR-COND TO TSBR-CONDITION-CODE(4)   TND16160
+                      MOVE WS-DSI-OC01-COND TO TSBR-CONDITION-CODE(5)   TND16160
+                     ELSE                                               TND16160
+                      MOVE WS-DSI-FSAR-COND TO TSBR-CONDITION-CODE(3)   TND16160
+                     END-IF                                             TND16160
+                   END-IF                                               TND16160
+               END-IF                                                   TND16160
+           END-IF.                                                      TND16160
+                                                                                
+           PERFORM D5400-BASERATE-CALL.                                         
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+               MOVE TSBR-NET-CHARGES   TO WS-DSI-RATED-COST                     
+               IF  WS-DSI-DIM-ON                                        TND16160
+                  PERFORM D8000-GET-SURCHARGE                           TND16160
+                   IF  TSBR-DW-TOTAL-CHARGE-WEIGHT NOT NUMERIC          TND16160
+                       MOVE ZERO TO TSBR-DW-TOTAL-CHARGE-WEIGHT         TND16160
+                   END-IF                                               TND16160
+                   IF  TSBR-TOTAL-ACCESS-CHARGE    NOT NUMERIC          TND16160
+                       MOVE ZERO TO TSBR-TOTAL-ACCESS-CHARGE            TND16160
+                   END-IF                                               TND16160
+                   IF TSBR-DW-TOTAL-CHARGE-WEIGHT > TSBR-TOTAL-WEIGHT   TND16160
+                       MOVE 'Y'        TO  WS-DSI-RATED-DIM-SW          TND16160
+                   END-IF                                               TND16160
+                   MOVE TSBR-DW-TOTAL-CHARGE-WEIGHT TO                  TND16160
+                            WS-DSI-TOT-CHARGE-WEIGHT                    TND16160
+               END-IF                                                   TND16160
+               PERFORM D6120-ACCUM-PKGS                                         
+           ELSE                                                                 
+               MOVE TSBR-RATED         TO WS-DSI-BASERATE-ERROR.                
+                                                                                
+       D6120-ACCUM-PKGS.                                                        
+                                                                                
+      ***************************************************************           
+      * THIS ROUTINE ACCUMULATES THE INDIVIDUAL CARTONS TO STORE    *           
+      * AND PASS BACK TO CSW FOR USE AT LAST CARTON            D    *           
+      ***************************************************************           
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'                                          
+              IF WS-DSI-PRIM                                                    
+                 ADD WS-DSI-RATED-COST TO                                       
+                                          WS-DSI-ACCUM-PKG-FRT-PRIM             
+              ELSE                                                              
+                 ADD WS-DSI-RATED-COST TO                                       
+                                          WS-DSI-ACCUM-PKG-FRT-SPLT             
+           ELSE                                                                 
+              IF WS-DSI-PRIM                                                    
+                 MOVE WS-DSI-RATED-COST TO                                      
+                                          WS-DSI-ACCUM-PKG-FRT-PRIM             
+              ELSE                                                              
+                 MOVE WS-DSI-RATED-COST TO                                      
+                                          WS-DSI-ACCUM-PKG-FRT-SPLT.            
+                                                                                
+       D6130-LAST-BOX.                                                          
+                                                                                
+      ***************************************************************           
+      * THIS ROUTINE CALCULATES THE HUNDREDWEIGHT (CWT) PRICING     *           
+      * AT LAST BOX - FOR COMPARISION TO ACCUMULATED PKG PRICING    *           
+      * FOR 9.07, ALSO PASS THE NBR OF OVERISIZE CARTONS            *   TND16160
+      ***************************************************************           
+                                                                                
+           MOVE WS-DSI-TOTAL-WEIGHT TO TSBR-PROD-WEIGHT (1).                    
+           MOVE WS-DSI-CARR-COND-2  TO TSBR-CONDITION-CODE(1).          TYS01290
+           MOVE SPACES              TO TSBR-CONDITION-CODE(2)                   
+                                       TSBR-CONDITION-CODE(3)                   
+                                       TSBR-CONDITION-CODE(4)                   
+                                       TSBR-CONDITION-CODE(5)           TND16160
+                                       TSBR-CONDITION-CODE(6).          TND16160
+           IF  WS-DSI-TOTAL-CARTON-OS NOT NUMERIC                       TND16160
+               MOVE ZERO TO WS-DSI-TOTAL-CARTON-OS.                     TND16160
+           IF  WS-DSI-TOTAL-VOLUMN NOT NUMERIC                          TND16160
+               MOVE ZERO TO WS-DSI-TOTAL-VOLUMN.                        TND16160
+           IF  WS-DSI-DIM-ON                                            TND16160
+               MOVE WS-DSI-FSAP-COND TO TSBR-CONDITION-CODE(2)          TND16160
+               MOVE WS-DSI-TOTAL-VOLUMN TO TSBR-PROD-DW-CUBE(1)         TND16160
+               IF  WS-DSI-CAR3-RATING-TYPE-PRIM      = '2'              TND16160
+                   MOVE WS-DSI-CARR-COND-1 TO TSBR-CONDITION-CODE(1)    TND16160
+               END-IF                                                   TND16160
+               IF  WS-DSI-FOC-CODE NOT = 'P'                            TND16160
+                   MOVE WS-DSI-FSAR-COND TO TSBR-CONDITION-CODE(3)      TND16160
+                   IF  WS-DSI-TOTAL-CARTON-OS > ZERO                    TND16160
+                       MOVE 'OS'               TO WS-DSI-OS-CODE        TND16160
+                       MOVE WS-DSI-TOTAL-CARTON-OS TO WS-DSI-OS-COUNT   TND16160
+                       MOVE WS-DSI-OS-COND TO TSBR-CONDITION-CODE(4)    TND16160
+                       MOVE 'OC'               TO WS-DSI-OC-CODE        TND16160
+                       MOVE WS-DSI-TOTAL-CARTON-OS TO WS-DSI-OC-COUNT   TND16160
+                       MOVE WS-DSI-OC-COND TO TSBR-CONDITION-CODE(5)    TND16160
+                   END-IF                                               TND16160
+               ELSE                                                     TND16160
+                   IF  WS-DSI-TOTAL-CARTON-OS > ZERO                    TND16160
+                       MOVE 'OS'               TO WS-DSI-OS-CODE        TND16160
+                       MOVE WS-DSI-TOTAL-CARTON-OS TO WS-DSI-OS-COUNT   TND16160
+                       MOVE WS-DSI-OS-COND TO TSBR-CONDITION-CODE(3).   TND16206
+                                                                                
+           PERFORM D5400-BASERATE-CALL.                                         
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+              MOVE TSBR-NET-CHARGES TO WS-DSI-RATED-COST                        
+               IF  WS-DSI-DIM-ON                                        TND16160
+                  PERFORM D8000-GET-SURCHARGE                           TND16160
+                   IF TSBR-DW-TOTAL-CHARGE-WEIGHT > TSBR-TOTAL-WEIGHT   TND16160
+                       MOVE 'Y'        TO  WS-DSI-RATED-DIM-SW          TND16160
+                   END-IF                                               TND16160
+               END-IF                                                   TND16160
+           ELSE                                                                 
+               MOVE TSBR-RATED      TO WS-DSI-BASERATE-ERROR.                   
+                                                                                
+       D6140-CALCULATE-FINAL-COST.                                              
+                                                                                
+      ***************************************************************           
+      * THIS ROUTINE COMPARES THE ACCUMULATED PKG PRICING RESULTS   *           
+      * AND LAST BOX HUNDREDWEIGHT PRICING - LOWEST APPLIES         *           
+      ***************************************************************           
+                                                                                
+           IF WS-DSI-PRIM                                                       
+              IF WS-DSI-ACCUM-PKG-FRT-PRIM < WS-DSI-RATED-COST                  
+                 MOVE WS-DSI-ACCUM-PKG-FRT-PRIM TO WS-DSI-RATED-COST.           
+                                                                                
+           IF WS-DSI-SPLT                                                       
+              IF WS-DSI-ACCUM-PKG-FRT-SPLT < WS-DSI-RATED-COST                  
+                 MOVE WS-DSI-ACCUM-PKG-FRT-SPLT TO WS-DSI-RATED-COST.           
+                                                                                
+                                                                                
+       D6200-PRICING-SCENARIO-2.                                                
+                                                                                
+      ***************************************************************           
+      * PRICING SCENARIO 2 IS THE FEDEX VERSION OF PKG PRICING      *           
+      * RATING LOGIC.                                               *           
+      * RATING TYPE 2 HAS CHANGED                                   *   TND16160
+      ***************************************************************           
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'  AND                             JRA05263
+              WS-DSI-FROM-BILLING-CALL-SW = 'Y'                         JRA05263
+              NEXT SENTENCE                                             JRA05263
+           ELSE                                                         JRA05263
+              PERFORM D6110-INDIVIDUAL-PKG.                             JRA05263
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'                                          
+              MOVE WS-DSI-RATED-WGT-TOTAL TO WS-DSI-TOTAL-WEIGHT                
+              PERFORM D6130-LAST-BOX.                                   TND16160
+      **RX    PERFORM D6140-CALCULATE-FINAL-COST.                       JRA05263
+                                                                                
+                                                                                
+       D6210-FEDX-MIN-RULE.                                                     
+                                                                                
+      ***************************************************************           
+      * FEDEX HAS A DIFFERENT WAY TO CALCULATE CWT HUNDREDWEIGHT    *           
+      * MINIMUMS - YOU GET THE 5LB RATE FROM THE PKG PRICING        *           
+      * CONTRACT AND MULTIPLY BY THE TOTAL NUMBER OF CARTONS        *           
+      * THIS IS THEN COMPARED TO THE HUNDREDWEIGHT PRICING AND      *           
+      * THE HIGHER RATE APPLIES                                     *           
+      * THIS PARAGRAPH CALCULATES THE 5LB MINIMUM PRICE.            *           
+      ***************************************************************           
+                                                                                
+           MOVE 1                   TO TSBR-PROD-WEIGHT (1).                    
+           MOVE ZERO                TO TSBR-PROD-DW-CUBE(1).            TND16160
+           IF WS-DSI-RES-SW = 'Y'                                       JRA05263
+              MOVE 'RFDX'           TO TSBR-CONDITION-CODE(1)           JRA05263
+           ELSE                                                         JRA05263
+              MOVE 'IFDX'           TO TSBR-CONDITION-CODE(1).          JRA05263
+           MOVE SPACES              TO TSBR-CONDITION-CODE(2)                   
+                                       TSBR-CONDITION-CODE(3)                   
+                                       TSBR-CONDITION-CODE(4)                   
+                                       TSBR-CONDITION-CODE(5).                  
+                                                                                
+           PERFORM D5400-BASERATE-CALL.                                         
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+              COMPUTE WS-DSI-FEDX-5LB =                                         
+                      TSBR-NET-CHARGES * WS-DSI-TOTAL-CTNS                      
+              IF WS-DSI-FEDX-5LB > WS-DSI-RATED-COST                            
+                 MOVE WS-DSI-FEDX-5LB TO WS-DSI-RATED-COST                      
+              END-IF                                                            
+            ELSE                                                                
+               MOVE TSBR-RATED      TO WS-DSI-BASERATE-ERROR.                   
+                                                                                
+       D6300-PRICING-SCENARIO-3.                                                
+                                                                                
+      ***************************************************************           
+      * PRICING SCENARIO 3 IS THE FEDEX VERSION OF SHIPMENT         *           
+      * PRICING LOGIC WITH THE MINIMUMS.                            *           
+      * FOR SHIPMENTS WITH WEIGHT LESS THAN 100LBS -                *           
+      *     1)  GET CHARGE FROM INGR CALL                           *           
+      *     2)  GET 1LB CHARGE - MULTIPLY BY TOTAL NUMBER OF CARTONS*           
+      *     3)  COMPARE RESULTS OF 1 AND 2 -- THE HIGHER APPLIES    *           
+      *     4)  GET 5LB CHARGE - MULTIPLY BY TOTAL NUMBER OF CARTONS*           
+      *     5)  GET CWT CHARGE                                      *           
+      *     6)  COMPARE RESULTS OF 4 AND 5 -- THE HIGHER APPLIES    *           
+      *     7)  COMPARE RESULTS OF 3 AND 6 -- THE LOWER APPLIES     *           
+      * FOR SHIPMENTS WITH WEIGHT GREATER THAN 99LBS                *           
+      *     1)  GET 5LB CHARGE - MULTIPLY BY TOTAL NUMBER OF CARTONS*           
+      *     2)  GET CWT CHARGE                                      *           
+      *     3)  COMPARE RESULTS OF 1 AND 2 -- THE HIGHER APPLIES    *           
+      ***************************************************************           
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'                                          
+              IF WS-DSI-RATED-WGT-TOTAL < 100                                   
+                 PERFORM D6310-SHPMNT-PRICING-LOW                               
+              ELSE                                                              
+                 PERFORM D6340-SHPMENT-PRICING-HIGH.                            
+                                                                                
+                                                                                
+       D6310-SHPMNT-PRICING-LOW.                                                
+      ***************************************************************           
+      * FOR SHIPMENTS WITH WEIGHT LESS THAN 100LBS -                *           
+      *     1)  GET CHARGE FROM INGR CALL                           *           
+      ***************************************************************           
+                                                                                
+           MOVE WS-DSI-RATED-WGT-TOTAL TO TSBR-PROD-WEIGHT (1).                 
+           MOVE WS-DSI-CARR-COND-1   TO TSBR-CONDITION-CODE(1).         TYS01290
+           MOVE SPACES               TO TSBR-CONDITION-CODE(2)                  
+                                       TSBR-CONDITION-CODE(3)                   
+                                       TSBR-CONDITION-CODE(4)                   
+                                       TSBR-CONDITION-CODE(5).                  
+           IF  WS-DSI-TOTAL-VOLUMN NOT NUMERIC                          TND16160
+               MOVE ZERO TO WS-DSI-TOTAL-VOLUMN.                        TND16160
+           IF  WS-DSI-TOTAL-CARTON-OS NOT NUMERIC                       TND16160
+               MOVE ZERO TO WS-DSI-TOTAL-CARTON-OS.                     TND16160
+           MOVE WS-DSI-TOTAL-VOLUMN    TO TSBR-PROD-DW-CUBE(1).         TND16160
+           IF  WS-DSI-TOTAL-CARTON-OS > ZERO                            TND16160
+               MOVE 'OS'                    TO WS-DSI-OS-CODE           TND16160
+               MOVE WS-DSI-TOTAL-CARTON-OS  TO WS-DSI-OS-COUNT          TND16160
+               MOVE WS-DSI-OS-COND          TO TSBR-CONDITION-CODE(2).  TND16160
+                                                                                
+           PERFORM D5400-BASERATE-CALL.                                         
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+              MOVE TSBR-NET-CHARGES       TO WS-DSI-FEDX-INGR                   
+              PERFORM D6320-FEDX-LOW-MIN                                        
+            ELSE                                                                
+               MOVE TSBR-RATED      TO WS-DSI-BASERATE-ERROR.                   
+                                                                                
+      ***************************************************************           
+      *     7)  COMPARE RESULTS OF 3 AND 6 -- THE LOWER APPLIES     *           
+      ***************************************************************           
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+              IF WS-DSI-FEDX-CWT < WS-DSI-FEDX-INGR                             
+                 MOVE WS-DSI-FEDX-CWT TO WS-DSI-RATED-COST                      
+              ELSE                                                              
+                 MOVE WS-DSI-FEDX-INGR TO WS-DSI-RATED-COST.                    
+                                                                                
+       D6320-FEDX-LOW-MIN.                                                      
+                                                                                
+      ***************************************************************           
+      *     2)  GET 1LB CHARGE - MULTIPLY BY TOTAL NUMBER OF CARTONS*           
+      ***************************************************************           
+                                                                                
+           MOVE 1                   TO TSBR-PROD-WEIGHT (1).                    
+           MOVE ZERO                TO TSBR-PROD-DW-CUBE(1).            TND16160
+           MOVE 'ISHP'              TO TSBR-CONDITION-CODE(1).                  
+           MOVE SPACES              TO TSBR-CONDITION-CODE(2)                   
+                                       TSBR-CONDITION-CODE(3)                   
+                                       TSBR-CONDITION-CODE(4)                   
+                                       TSBR-CONDITION-CODE(5).                  
+                                                                                
+           PERFORM D5400-BASERATE-CALL.                                         
+                                                                                
+      ***************************************************************           
+      *     3)  COMPARE RESULTS OF 1 AND 2 -- THE LOWER APPLIES     *           
+      ***************************************************************           
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+              COMPUTE WS-DSI-FEDX-1LB      =                                    
+                 TSBR-NET-CHARGES * WS-DSI-TOTAL-CTNS                           
+              IF WS-DSI-FEDX-1LB  > WS-DSI-FEDX-INGR                            
+                 MOVE WS-DSI-FEDX-1LB TO WS-DSI-FEDX-INGR                       
+              END-IF                                                            
+              PERFORM D6330-FEDX-LOW-CWT                                        
+           ELSE                                                                 
+              MOVE TSBR-RATED      TO WS-DSI-BASERATE-ERROR.                    
+                                                                                
+       D6330-FEDX-LOW-CWT.                                                      
+                                                                                
+           PERFORM D6350-FEDX-HIGH-MIN.                                         
+                                                                                
+      ***************************************************************           
+      * FOR SHIPMENTS WITH WEIGHT LESS THAN 100LBS -                *           
+      *     5)  GET CWT CHARGE                                      *           
+      * FOR SHIPMENTS WITH WEIGHT GREATER THAN 99LBS                *           
+      *     2)  GET CWT CHARGE                                      *           
+      ***************************************************************           
+                                                                                
+           MOVE WS-DSI-RATED-WGT-TOTAL TO TSBR-PROD-WEIGHT (1).                 
+           MOVE WS-DSI-CARR-COND-2   TO TSBR-CONDITION-CODE(1).         TYS01290
+           MOVE SPACES               TO TSBR-CONDITION-CODE(2)                  
+                                        TSBR-CONDITION-CODE(3)                  
+                                        TSBR-CONDITION-CODE(4)                  
+                                        TSBR-CONDITION-CODE(5).                 
+           IF  WS-DSI-TOTAL-VOLUMN NOT NUMERIC                          TND16160
+               MOVE ZERO TO WS-DSI-TOTAL-VOLUMN.                        TND16160
+           MOVE WS-DSI-TOTAL-VOLUMN    TO TSBR-PROD-DW-CUBE(1).         TND16160
+           IF  WS-DSI-TOTAL-CARTON-OS NOT NUMERIC                       TND16160
+               MOVE ZERO TO WS-DSI-TOTAL-CARTON-OS.                     TND16160
+           IF  WS-DSI-TOTAL-CARTON-OS > ZERO                            TND16160
+               MOVE 'OS'                    TO WS-DSI-OS-CODE           TND16160
+               MOVE WS-DSI-TOTAL-CARTON-OS  TO WS-DSI-OS-COUNT          TND16160
+               MOVE WS-DSI-OS-COND          TO TSBR-CONDITION-CODE(2).  TND16160
+                                                                                
+           PERFORM D5400-BASERATE-CALL.                                         
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+              MOVE TSBR-NET-CHARGES TO WS-DSI-FEDX-CWT                          
+              IF WS-DSI-FEDX-5LB > WS-DSI-FEDX-CWT                              
+                 MOVE WS-DSI-FEDX-5LB TO WS-DSI-FEDX-CWT                        
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE TSBR-RATED      TO WS-DSI-BASERATE-ERROR.                    
+                                                                                
+                                                                                
+       D6340-SHPMENT-PRICING-HIGH.                                              
+                                                                                
+      ***************************************************************           
+      * FOR SHIPMENTS WITH WEIGHT GREATER THAN 99LBS                *           
+      *     1)  GET 5LB CHARGE - MULTIPLY BY TOTAL NUMBER OF CARTONS*           
+      *     2)  GET CWT CHARGE                                      *           
+      *     3)  COMPARE RESULTS OF 1 AND 2 -- THE HIGHER APPLIES    *           
+      ***************************************************************           
+                                                                                
+           PERFORM D6330-FEDX-LOW-CWT.                                          
+           MOVE WS-DSI-FEDX-CWT TO WS-DSI-RATED-COST.                           
+                                                                                
+       D6350-FEDX-HIGH-MIN.                                                     
+                                                                                
+      ***************************************************************           
+      * FOR SHIPMENTS WITH WEIGHT LESS THAN 100LBS -                *           
+      *     4)  GET 5LB CHARGE - MULTIPLY BY TOTAL NUMBER OF CARTONS*           
+      * FOR SHIPMENTS WITH WEIGHT GREATER THAN 99LBS                *           
+      *     1)  GET 5LB CHARGE - MULTIPLY BY TOTAL NUMBER OF CARTONS*           
+      ***************************************************************           
+                                                                                
+           MOVE 1                   TO TSBR-PROD-WEIGHT (1).                    
+           MOVE ZERO                TO TSBR-PROD-DW-CUBE(1).            TND16160
+           IF WS-DSI-RES-SW = 'Y'                                       JRA05263
+              MOVE 'RFDX'           TO TSBR-CONDITION-CODE(1)           JRA05263
+           ELSE                                                         JRA05263
+              MOVE 'IFDX'           TO TSBR-CONDITION-CODE(1).          JRA05263
+           MOVE SPACES              TO TSBR-CONDITION-CODE(2)                   
+                                       TSBR-CONDITION-CODE(3)                   
+                                       TSBR-CONDITION-CODE(4)                   
+                                       TSBR-CONDITION-CODE(5).                  
+                                                                                
+           PERFORM D5400-BASERATE-CALL.                                         
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+              COMPUTE WS-DSI-FEDX-5LB =                                         
+               TSBR-NET-CHARGES  * WS-DSI-TOTAL-CTNS                            
+           ELSE                                                                 
+              MOVE TSBR-RATED      TO WS-DSI-BASERATE-ERROR.                    
+                                                                                
+       D6400-PRICING-SCENARIO-4.                                                
+                                                                                
+      ***************************************************************           
+      * PRICING SCENARIO 4 IS THE LTL / AIRH PRICING LOGIC -        *           
+      * PURE SHIPMENT PRICING -- NO SPECIAL MINIMUMS                *           
+      ***************************************************************           
+                                                                                
+           MOVE +0                 TO WS-DSI-RATED-COST                 TND16160
+                                      WS-DSI-RATED-DIM-COST.            TND16160
+           MOVE WS-DSI-RATED-WGT-TOTAL TO WS-DSI-TOTAL-WEIGHT.                  
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'                                          
+               IF WS-DSI-DIM-ON                                         TND16160
+                   PERFORM D6130-LAST-BOX                               TND16160
+               ELSE                                                     TND16160
+                  PERFORM D6410-PROCESS-SCENARIO-4.                     TND16160
+                                                                                
+                                                                                
+       D6410-PROCESS-SCENARIO-4.                                                
+      ***************************************************************           
+      * PRICING IS BASED ON TOTAL SHIPMENT WEIGHT - THIS            *           
+      * IS ONLY EXECUTED ON LAST BOX                                *           
+      * 9.7 - INCLUDE THE NUMBER OF OVERSIZED CARTONS               *   TND16160
+      ***************************************************************           
+                                                                                
+           MOVE WS-DSI-TOTAL-WEIGHT TO TSBR-PROD-WEIGHT (1).                    
+           MOVE WS-DSI-CARR-COND-1  TO TSBR-CONDITION-CODE(1).          TYS01290
+           MOVE WS-DSI-CARR-COND-2  TO TSBR-CONDITION-CODE(2).          TYS01290
+           MOVE SPACES              TO TSBR-CONDITION-CODE(3)                   
+                                       TSBR-CONDITION-CODE(4)                   
+                                       TSBR-CONDITION-CODE(5).                  
+                                                                                
+           PERFORM D5400-BASERATE-CALL.                                         
+                                                                                
+           IF TSBR-RATED-TRUE                                                   
+              MOVE TSBR-NET-CHARGES TO WS-DSI-RATED-COST                        
+           ELSE                                                                 
+              MOVE TSBR-RATED      TO WS-DSI-BASERATE-ERROR.                    
+                                                                                
+       D6500-PRICING-SCENARIO-5.                                                
+                                                                                
+      ***************************************************************           
+      * PRICING SCENARIO 5 IS PACKAGE PRICING ONLY -                *           
+      * NO CWT CONTRACT                                             *           
+      ***************************************************************           
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'  AND                             JRA05263
+              WS-DSI-FROM-BILLING-CALL-SW = 'Y'                         JRA05263
+              NEXT SENTENCE                                             JRA05263
+           ELSE                                                         JRA05263
+              PERFORM D6110-INDIVIDUAL-PKG.                             JRA05263
+                                                                                
+           IF WS-DSI-LAST-BOX-SW = 'Y'                                          
+              PERFORM D6510-POP-WS-DSI-RATED-COST.                              
+                                                                                
+       D6510-POP-WS-DSI-RATED-COST.                                             
+                                                                                
+      ***************************************************************           
+      * SINCE THERE IS NO CWT CONTRACT - THE ACCUMULATED PKG CHARGE *           
+      * BECOMES THE FINAL COST - POPULATE WS-DSI-RATED-COST.        *           
+      ***************************************************************           
+                                                                                
+           IF WS-DSI-PRIM                                                       
+              MOVE WS-DSI-ACCUM-PKG-FRT-PRIM TO WS-DSI-RATED-COST.              
+                                                                                
+           IF WS-DSI-SPLT                                                       
+              MOVE WS-DSI-ACCUM-PKG-FRT-SPLT TO WS-DSI-RATED-COST.              
+                                                                                
+       D7000-CALCULATE-CWT-WEIGHT.                                              
+                                                                                
+      ***************************************************************           
+      * SCENARIO 1 REQUIRES MINIMUM WEIGHTS TO TAKE ADVANTAGE OF    *           
+      * THE HUNDREDWEIGHT CONTRACT                                  *           
+      * WS-DSI-MIN-PKG-WGT-CWT ORIGINALLY IS STORED ON THE          *           
+      * TBXCAR2 TABLE - PASSED TO CSW AND THEN PASSED TO THIS       *           
+      * ROUTINE - THE HIGHER OF ACTUAL WEIGHT AND CALCULATED        *           
+      * WEIGHT IS THE WEIGHT USED TO EXECUTE THE CWT RATING LOGIC.  *           
+      ***************************************************************           
+                                                                                
+           COMPUTE WS-DSI-TOTAL-WEIGHT =                                        
+                   WS-DSI-MIN-PKG-WGT-CWT * WS-DSI-TOTAL-CTNS.                  
+                                                                                
+           IF WS-DSI-TOTAL-WEIGHT < WS-DSI-RATED-WGT-TOTAL                      
+              MOVE WS-DSI-RATED-WGT-TOTAL TO WS-DSI-TOTAL-WEIGHT.               
+                                                                                
+       D7100-LAST-BOX-PROCESSING.                                               
+                                                                                
+      ***************************************************************           
+      * FOR AFFINITY AND GPS PROJECTS - WE NOW HAVE A PROGRAM TO    *           
+      * MARK UP CUSTOMER PAID FREIGHT BASED ON THE INGRAM'S         *           
+      * CARRIERS RATES OR MARK DOWN CUSTOMER PAID FREIGHT BASED     *           
+      * ON INGRAM'S CUSTOMERS RATES.                                *           
+      * WE MUST DO THIS FOR BOTH THE ACTUAL CARRIER AND THE         *           
+      * SPLIT CARRIER                                               *           
+      ***************************************************************           
+                                                                                
+           IF WS-DSI-PRIM                                                       
+              MOVE WS-DSI-ORIG-FRT       TO WS-DSI-FRT-OUT-AMT-R                
+              MOVE WS-DSI-END-USER-TYPE-P TO WS-DSI-END-USER-TYPE               
+              MOVE WS-DSI-END-USER-PCT-FEE-P TO WS-DSI-END-USER-PCT-FEE         
+              MOVE WS-DSI-END-USER-MIN-P  TO WS-DSI-END-USER-MIN                
+              MOVE WS-DSI-CUST-FRT-PERCENT-P TO WS-DSI-CUST-FRT-PERCENT         
+              IF WS-DSI-PRIM-FRT-RATING-SW = 'I' OR 'P'                         
+                 PERFORM D7110-CALC-USING-CARRIER-RATES                         
+              ELSE                                                              
+                 PERFORM D7150-CALC-USING-CUST-RATES                            
+              END-IF                                                            
+              MOVE WS-DSI-FRT-OUT-AMT-R TO WS-DSI-FINAL-FRT                     
+              MOVE WS-DSI-FRT-OUT-AMT-R TO WS-DSI-ORIG-FRT.                     
+                                                                                
+           IF WS-DSI-SPLT                                                       
+              MOVE WS-DSI-SPLT-FRT    TO WS-DSI-FRT-OUT-AMT-R                   
+              MOVE WS-DSI-END-USER-TYPE-S TO WS-DSI-END-USER-TYPE               
+              MOVE WS-DSI-END-USER-PCT-FEE-S TO WS-DSI-END-USER-PCT-FEE         
+              MOVE WS-DSI-END-USER-MIN-S  TO WS-DSI-END-USER-MIN                
+              MOVE WS-DSI-CUST-FRT-PERCENT-S TO WS-DSI-CUST-FRT-PERCENT         
+              IF WS-DSI-SPLT-FRT-RATING-SW = 'I' OR 'P'                         
+                 PERFORM D7110-CALC-USING-CARRIER-RATES                         
+              ELSE                                                              
+                 PERFORM D7150-CALC-USING-CUST-RATES                            
+              END-IF                                                            
+              MOVE WS-DSI-FRT-OUT-AMT-R TO WS-DSI-SPLT-FRT.                     
+                                                                                
+                                                                                
+       D7110-CALC-USING-CARRIER-RATES.                                          
+                                                                                
+      ***************************************************************           
+      * COMPUTE MARKUP OVER INGRAM CARRIER RATES                    *           
+      ***************************************************************           
+                                                                                
+           COMPUTE  WS-DSI-FRT-OUT-AMT-R ROUNDED =                              
+                    WS-DSI-FRT-OUT-AMT-R +                                      
+              ((WS-DSI-CUST-FRT-PERCENT * WS-DSI-FRT-OUT-AMT-R) / 100).         
+                                                                                
+           PERFORM D7300-CALC-END-USER.                                         
+                                                                                
+       D7150-CALC-USING-CUST-RATES.                                             
+                                                                                
+      ***************************************************************           
+      * COMPUTE MARK DOWN FROM CUSTOMER RATES                       *           
+      ***************************************************************           
+                                                                                
+           COMPUTE  WS-DSI-FRT-OUT-AMT-R ROUNDED =                              
+                    WS-DSI-FRT-OUT-AMT-R -                                      
+           ((WS-DSI-CUST-FRT-PERCENT * WS-DSI-FRT-OUT-AMT-R) / 100).            
+                                                                                
+           PERFORM D7300-CALC-END-USER.                                         
+      *                                                                         
+       D7300-CALC-END-USER.                                                     
+                                                                                
+      ***************************************************************           
+      * COMPUTE END-USER RATE - WHICH IS ALWAYS MARK UP OF WHAT WE  *           
+      * WILL CHARGE OUR CUSTOMER                                    *           
+      ***************************************************************           
+                                                                                
+           IF WS-DSI-END-USER-PCT-TYPE                                          
+              COMPUTE WS-DSI-FRT-OUT-AMT-R ROUNDED =                            
+              WS-DSI-FRT-OUT-AMT-R +                                            
+              ((WS-DSI-END-USER-PCT-FEE * WS-DSI-FRT-OUT-AMT-R) / 100)          
+              IF WS-DSI-END-USER-MIN > WS-DSI-FRT-OUT-AMT-R                     
+                 MOVE WS-DSI-END-USER-MIN TO WS-DSI-FRT-OUT-AMT-R.              
+                                                                                
+           IF WS-DSI-END-USER-FEE-TYPE                                          
+              COMPUTE  WS-DSI-FRT-OUT-AMT-R ROUNDED =                           
+              WS-DSI-FRT-OUT-AMT-R + WS-DSI-END-USER-PCT-FEE                    
+              IF WS-DSI-END-USER-MIN > WS-DSI-FRT-OUT-AMT-R                     
+                 MOVE WS-DSI-END-USER-MIN TO WS-DSI-FRT-OUT-AMT-R.              
+                                                                                
+                                                                                
+       D8000-GET-SURCHARGE.                                             TND16160
+      * REMOVE THE ACCESORY CHARGE                                      TND16160
+           PERFORM VARYING WS-SUB FROM 1 BY 1 UNTIL WS-SUB > 5          TND16160
+               IF TSBR-ACCESS-CODE (WS-SUB) = WS-DSI-FSAP-COND          TND16160
+                   MOVE TSBR-ACCESS-CHARGE (WS-SUB) TO                  TND16160
+                                   WS-DSI-FSAP-COST                     TND16160
+               END-IF                                                   TND16160
+               IF TSBR-ACCESS-CODE (WS-SUB) = WS-DSI-FSAR-COND          TND16160
+                   MOVE TSBR-ACCESS-CHARGE (WS-SUB) TO                  TND16160
+                                   WS-DSI-FSAR-COST                     TND16160
+               END-IF                                                   TND16160
+               IF TSBR-ACCESS-CODE (WS-SUB) (01:02) = 'OS'              TND16160
+                   MOVE TSBR-ACCESS-CHARGE (WS-SUB) TO                  TND16160
+                                   WS-DSI-OS-COST                       TND16160
+               END-IF                                                   TND16160
+               IF TSBR-ACCESS-CODE (WS-SUB) (01:02) = 'OC'              TND16160
+                   MOVE TSBR-ACCESS-CHARGE (WS-SUB) TO                  TND16160
+                                   WS-DSI-OC-COST                       TND16160
+               END-IF                                                   TND16160
+           END-PERFORM.                                                 TND16160
+           COMPUTE WS-DSI-TOT-SURCHG =                                  TND16160
+              WS-DSI-FSAP-COST + WS-DSI-FSAR-COST +                     TND16160
+              WS-DSI-OS-COST + WS-DSI-OC-COST.                          TND16160
+      ************* END CSWFRT COPYBOOK ***************************             

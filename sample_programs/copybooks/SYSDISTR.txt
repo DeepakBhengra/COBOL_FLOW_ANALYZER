@@ -1,0 +1,369 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8350
+      ******************************************************************        
+      * ==============================================================**        
+      * 10/03/25 KMP  ADVANCE COMPLIANCE - CLEAR PASS THRU RESTRICT    *KMP25276
+      *               ENCRYPTION FLAG.                                 *KMP25276
+      * 05/09/25 TXV  ADVANCE COMPLAINCE - CLEAR PASS THRU SHIPMENT    *TXV25129
+      *               OFLW FLAG.                                       *TXV25129
+      * 10/04/24 TXV  OMS PROJECT - HANDLED LOCAL WHSE TO OVERRIDE     *TXV24278
+      *               ON THE SAME DIST SHIPMENT INDEX                  *TXV24278
+      *               ESD BRANCH AND ALT WHSE BRANCH ALLOW TO GO NEW   *TXV24278
+      *               DIST SHIP INDEX                                  *TXV24278
+      * 08/23/24 SS4  EMEA-AT LOCAL ESD/LICENSE SKU CHANGES            *SS424236
+      *               TO POPULATE THE WAREHOUSE BRANCH AS SPACES       *SS424236
+      *               IF SKU IS LOCALLY SOURCED(COMP-SWITCH = SPACES)  *SS424236
+      *          ISB  ADD MULTI VENDOR LOGIC FOR SPECIAL ORDERS.       *ISB07302
+      *               ISB056   VIJAYKUMAR P.                            ISB07302
+000591* 05/05/03 RAL  ADD CISCO LOG FOR MULTI VENDORS ON DS             RAL03120
+      * 12/21/01 MJF  COPYBOOK CREATED FOR IMS EXPANSION PROJECT.       MJF01355
+      *               THIS COPYBOOK WAS CREATED FROM SYXDISTR.          MJF01355
+      * ==============================================================*         
+      *  THIS IS THE PROCEDURAL COPYBOOK FOR DISTRIBUTION PROCESS               
+      *  IN ORDER ENTRY. ALL PROGRAMS MUST HAVE THE FOLLOWING DEFINED           
+      *  WS-BR-SW, WS-ZERO, WS-SHIP-FROM, WS-DIST-GENERATED-SW, OERTEMP,        
+      *  ORSSHH, PARAGRAPH 750-READ-ALT-BP-RECORD 750-EXIT                      
+      * ===============================================================         
+003700                                                                          
+003800     MOVE ' '                    TO WS-BR-SW.                             
+003800     MOVE ' '                    TO WS-BR-SW2.                    RAL03120
+003900     SET BR-INX                  TO WS-ZERO.                              
+004000     PERFORM 810-SF-SEARCH-TEMP THRU 810-SF-EXIT                          
+004100       UNTIL WS-NO-MORE-BR OR WS-BR-FOUND OR WS-NEW-BR.                   
+             MOVE SPACES           TO WS-CHECK-FOR-IMPLS-ORDR-SW.       TXV24278
+004200     IF WS-NO-MORE-BR                                                     
+004300         GO TO 800-SF-EXIT.                                               
+004400     IF WS-BR-FOUND                                                       
+004500         GO TO 800-SF-EXIT.                                               
+004600     IF WS-SHIP-FROM NOT EQUAL 'DS'                                       
+004700         MOVE WS-SHIP-FROM       TO WS-BP-BR-NBR                          
+004800         MOVE OET-COMPANY        TO WS-BP-COMPANY                         
+004900         MOVE '0'                TO WS-BP-REC-SEQ                         
+005000         PERFORM 750-READ-BP-RECORD THRU 750-EXIT                         
+005100         IF WS-BP-NORESP AND BP-OPERATING-BR                              
+005200             MOVE BP-BR-NBR-INV  TO OET-BR-NBR-INV (BR-INX)               
+005300             MOVE WS-SHIP-FROM   TO OET-SHIP-BR (BR-INX)                  
+005400             ADD 1               TO OET-SHIPMENTS                         
+005500                                                                          
+005600             IF USE-ALTERNATE-WHSE                                        
+005700                AND WS-OET-ALT-WAREHOUSE-CO GREATER THAN SPACES           
+005800                AND WS-OET-ALT-WAREHOUSE-CO NOT EQUAL                     
+005900                                       TB-CPO-COMPANY-CODE                
+006000                MOVE WS-OET-ALT-WAREHOUSE-CO                              
+006100                     TO OET-ALT-WAREHOUSE-CO (BR-INX)                     
+006200             END-IF                                                       
+006300                                                                          
+006400         ELSE                                                             
+006500             MOVE 'E'            TO WS-BR-SW.                             
+006600     IF WS-SHIP-FROM EQUAL 'DS'                                           
+006700         ADD 1                   TO OET-SHIPMENTS                         
+006800         MOVE OET-BR-NBR-INV (1) TO OET-BR-NBR-INV (BR-INX)               
+006900         MOVE WS-SAVE-VEND       TO OET-VENDOR-NBR (BR-INX)               
+007000         MOVE 'D'                TO OET-ST-NS-IND (BR-INX)                
+007100         MOVE WS-SHIP-FROM       TO OET-SHIP-BR (BR-INX).                 
+007200*                                                                         
+007300 800-SF-EXIT.                                                             
+007400        EXIT.                                                             
+007500*                                                                         
+007600 810-SF-SEARCH-TEMP.                                                      
+           MOVE SPACES               TO WS-STOCK-LINE-SW                TXV24278
+007700*                                                                         
+007800     SET BR-INX UP BY 1.                                                  
+007900     IF BR-INX > 9               OR                                       
+008000        ( BR-INX > 1 AND OET-DIRECT-ORDER ) OR                    ISB07302
+008000        ( BR-INX > 1 AND OET-SPECIAL-ORDER AND                    ISB07302
+                               TB-CPO6-ALLOW-SPEC-ORD)                  ISB07302
+008100           MOVE 'E'              TO WS-BR-SW                              
+008200           SET BR-INX            TO 9                                     
+008300           GO TO 810-SF-EXIT.                                             
+008400     IF BR-INX GREATER THAN OET-SHIPMENTS                                 
+008500         MOVE 'N'                TO WS-BR-SW                              
+008600         GO TO 810-SF-EXIT.                                               
+                                                                        TXV24278
+           IF TB-CPO7-OMS-ENABLED AND                                   TXV24278
+              WS-CHECK-FOR-IMPLS-ORDR                                   TXV24278
+              PERFORM 810A-OMS-SF-DIST-PARA                             TXV24278
+                 THRU 810A-OMS-SF-DIST-PARA-EXIT                        TXV24278
+           END-IF                                                       TXV24278
+                                                                        TXV24278
+008700     IF OET-DIRECT-ORDER OR                                       ISB07302
+              (OET-SPECIAL-ORDER AND TB-CPO6-ALLOW-SPEC-ORD)            ISB07302
+008800         IF OET-VENDOR-NBR (1) EQUAL SPACES                               
+008900             MOVE WS-SAVE-VEND   TO OET-VENDOR-NBR (1)                    
+009000             MOVE 'D'            TO OET-ST-NS-IND (1)                     
+009100             MOVE 'Y'            TO WS-BR-SW                              
+009100             MOVE 'Y'            TO WS-BR-SW2                     RAL03120
+009200             GO TO 810-SF-EXIT                                            
+009300         ELSE                                                             
+009400             IF WS-SAVE-VEND EQUAL OET-VENDOR-NBR (BR-INX)                
+009500                 MOVE 'Y'            TO WS-BR-SW                          
+009100                 MOVE 'Y'            TO WS-BR-SW2                 RAL03120
+009600                 GO TO 810-SF-EXIT                                        
+                   ELSE                                                         
+139080               IF (OET-DIRECT-ORDER AND                           ISB07302
+139080                  TB-CPO4-ALLOW-DIR-SHIP-GRP) OR                  ISB07302
+139080                  (OET-SPECIAL-ORDER AND TB-CPO6-ALLOW-SPEC-ORD)  ISB07302
+009500                 MOVE 'Y'            TO WS-BR-SW                  RAL03120
+009600                 GO TO 810-SF-EXIT                                RAL03120
+009700               ELSE                                               RAL03120
+009800                 IF OET-COMPANY = 'SG'                                    
+009900                     MOVE 'Y'        TO WS-BR-SW                          
+009100                     MOVE 'Y'        TO WS-BR-SW2                 RAL03120
+010000                     GO TO 810-SF-EXIT                                    
+010100                 ELSE                                             RAL03120
+010200                   GO TO 810-SF-EXIT.                             RAL03120
+010300     IF WS-SHIP-FROM EQUAL 'DS'                                           
+010400        IF WS-SHIP-FROM EQUAL OET-SHIP-BR (BR-INX) AND                    
+010500           WS-SAVE-VEND EQUAL OET-VENDOR-NBR (BR-INX)                     
+010600             MOVE 'Y'            TO WS-BR-SW                              
+009100             MOVE 'Y'            TO WS-BR-SW2                     RAL03120
+010700        ELSE                                                              
+010800             NEXT SENTENCE                                                
+010900     ELSE                                                                 
+011000        IF USE-ALTERNATE-WHSE                                             
+011100           IF OET-ALT-WAREHOUSE-CO (BR-INX)                               
+011200                               EQUAL WS-OET-ALT-WAREHOUSE-CO              
+011300              AND OET-SHIP-BR (BR-INX) EQUAL WS-SHIP-FROM                 
+011400                  MOVE 'Y'               TO WS-BR-SW                      
+011500           ELSE                                                           
+011600              IF WS-NO-SPLIT-SHIPMENTS                                    
+011700                 MOVE 'Y'                TO WS-BR-SW                      
+011800              ELSE                                                        
+011900                 NEXT SENTENCE                                            
+012000        ELSE                                                              
+012100           IF OET-SHIP-BR (BR-INX) EQUAL WS-SHIP-FROM AND                 
+012200              OET-ALT-WAREHOUSE-CO (BR-INX) EQUAL SPACES                  
+012300              MOVE 'Y'         TO WS-BR-SW                        TXV24278
+                 ELSE                                                   TXV24278
+      * THIS PLACE TO OVERRIDE THE EXISTING SHIP FROM BRANCH            TXV24278
+                    IF WS-STOCK-LINE                                    TXV24278
+      *                 MOVE WS-SHIP-FROM     TO OET-SHIP-BR(BR-INX).   TXV24278
+                      MOVE WS-SHIP-FROM       TO  WS-BP-BR-NBR          TXV24278
+                      MOVE OET-COMPANY        TO  WS-BP-COMPANY         TXV24278
+                      MOVE '0'                TO  WS-BP-REC-SEQ         TXV24278
+                      PERFORM 750-READ-BP-RECORD THRU 750-EXIT          TXV24278
+                      IF WS-BP-NORESP AND BP-OPERATING-BR               TXV24278
+                          MOVE BP-BR-NBR-INV                            TXV24278
+                                         TO OET-BR-NBR-INV (BR-INX)     TXV24278
+                          MOVE WS-SHIP-FROM   TO OET-SHIP-BR (BR-INX)   TXV24278
+                          MOVE 'Y'         TO WS-BR-SW.                 TXV24278
+012400*                                                                         
+012500 810-SF-EXIT.                                                             
+012600        EXIT.                                                             
+012700*                                                                         
+012800 820-SF-DISTRIBUTION-PROCESS.                                             
+012900*                                                                         
+013000     IF OET-ADD-TO-ORDER                                                  
+013100         SET BR-INX              TO  OET-DIST-NBR                         
+013200         MOVE OET-SHIP-BR (BR-INX)                                        
+013300                                 TO  WS-SHIP-FROM                         
+013400         SET BR-INX DOWN BY 1                                             
+013500     ELSE                                                                 
+013600         IF WS-SHIP-FROM EQUAL SPACES                                     
+013700             MOVE OET-SHIP-BR (1)                                         
+013800                                 TO  WS-SHIP-FROM.                        
+013900*                                                                         
+014000     MOVE ' '                    TO  WS-BR-SW.                            
+014100     PERFORM 810-SF-SEARCH-TEMP THRU 810-SF-EXIT                          
+014200        UNTIL WS-NO-MORE-BR OR WS-BR-FOUND OR WS-NEW-BR.                  
+                                                                        TXV24278
+             MOVE SPACES           TO WS-CHECK-FOR-IMPLS-ORDR-SW.       TXV24278
+014300     IF WS-NO-MORE-BR                                                     
+014400         MOVE 'Y'                TO  WS-DIST-GENERATED-SW                 
+014500         SET WS-ORSSHH-DIST      TO  BR-INX                               
+014600         GO TO 820-SF-EXIT.                                               
+014700     IF WS-BR-FOUND                                                       
+014800         IF OET-ST-NS-IND (BR-INX) EQUAL ' '                              
+014900             MOVE 'Y'            TO  WS-DIST-GENERATED-SW                 
+015000             MOVE WS-SAVE-INV-IND                                         
+015100                                 TO  OET-ST-NS-IND (BR-INX)               
+015200             PERFORM 830-SF-PROCESS-SHIP-HEADER                           
+015300             GO TO 820-SF-EXIT.                                           
+015400     IF WS-BR-FOUND                                                       
+015500         IF (OET-ST-NS-IND (BR-INX) EQUAL 'S'                             
+015600             AND WS-SAVE-INV-IND EQUAL 'S')                               
+015700             OR (OET-ST-NS-IND (BR-INX) EQUAL 'D'                         
+015800                  AND WS-SHIP-FROM EQUAL 'DS')                            
+015900             OR OET-NO-DIST OR OET-ADD-TO-ORDER                           
+016000             OR OET-OR-MANUAL                                             
+016100              MOVE 'Y'           TO  WS-DIST-GENERATED-SW                 
+016200              SET WS-ORSSHH-DIST TO  BR-INX                               
+016300              GO TO 820-SF-EXIT                                           
+016400         ELSE                                                             
+016500             IF (OET-ST-NS-IND (BR-INX) EQUAL ('N' OR 'C'                 
+016600                                     OR 'O' OR 'E' OR 'X')                
+016700                 AND  WS-SAVE-INV-IND   EQUAL ('N' OR 'C'                 
+016800                                     OR 'O' OR 'E' OR 'X'))               
+016900                  MOVE 'Y'      TO  WS-DIST-GENERATED-SW                  
+017000                  SET WS-ORSSHH-DIST                                      
+017100                                 TO  BR-INX                               
+017200                  GO TO 820-SF-EXIT.                                      
+017300     IF WS-NEW-BR                                                         
+017400         ADD 1                   TO  OET-SHIPMENTS                        
+017500         IF WS-SHIP-FROM EQUAL 'DS'                                       
+017600             MOVE OET-BR-NBR-INV (1)                                      
+017700                                 TO  OET-BR-NBR-INV (BR-INX)              
+017800*            MOVE OET-BR-TERM (1)                                         
+017900*                                TO  OET-BR-TERM (BR-INX)                 
+018000             MOVE WS-SHIP-FROM                                            
+018100                                 TO  OET-SHIP-BR (BR-INX)                 
+018200             MOVE WS-SAVE-VEND                                            
+018300                                 TO  OET-VENDOR-NBR (BR-INX)              
+018400             MOVE 'Y'            TO  WS-DIST-GENERATED-SW                 
+018500             MOVE 'D'            TO  OET-ST-NS-IND (BR-INX)               
+018600             PERFORM 830-SF-PROCESS-SHIP-HEADER                           
+018700             GO TO 820-SF-EXIT.                                           
+018800     IF WS-NEW-BR                                                         
+018900         MOVE WS-SHIP-FROM       TO  WS-BP-BR-NBR                         
+019000         MOVE OET-COMPANY        TO  WS-BP-COMPANY                        
+019100         MOVE '0'                TO  WS-BP-REC-SEQ                        
+019200         PERFORM 750-READ-BP-RECORD THRU 750-EXIT                         
+019300         IF WS-BP-NORESP AND BP-OPERATING-BR                              
+019400             MOVE BP-BR-NBR-INV  TO  OET-BR-NBR-INV (BR-INX)              
+019500             MOVE WS-SHIP-FROM   TO  OET-SHIP-BR (BR-INX)                 
+019600             MOVE 'Y'            TO  WS-DIST-GENERATED-SW                 
+019700             MOVE WS-SAVE-INV-IND TO OET-ST-NS-IND (BR-INX)               
+019800             PERFORM 830-SF-PROCESS-SHIP-HEADER                           
+019900         ELSE                                                             
+020000             MOVE 'Y'            TO  WS-DIST-GENERATED-SW.                
+020100*                                                                         
+020200 820-SF-EXIT.                                                             
+020300        EXIT.                                                             
+020400*                                                                         
+020500 830-SF-PROCESS-SHIP-HEADER.                                              
+020600*                                                                         
+020700     IF BR-INX NOT EQUAL 1                                                
+020800         MOVE ' '                TO  WS-ORSSHH-QUAL                       
+020900         PERFORM 1202-GU-ORSSHH                                           
+021000         IF WS-ORSSHH-NORESP                                              
+021100             MOVE ORSH-DIST-NBR  TO  WS-ORSSHH-DIST                       
+021200             MOVE ORSH-SHIP-NBR  TO  WS-ORSSHH-SHIP                       
+021300             MOVE '('            TO  WS-ORSSHH-QUAL                       
+021400             SET ORSH-DIST-NBR   TO  BR-INX                               
+021500             MOVE OET-SHIP-BR (BR-INX)                                    
+021600                                 TO  ORSH-BR-NBR-SHIP-FROM                
+021700             MOVE OET-ST-NS-IND (BR-INX)                                  
+021800                                 TO  ORSH-INV-IND                         
+021900             MOVE OET-ALT-WAREHOUSE-CO (BR-INX)                           
+022000                                 TO ORSH-ALT-WAREHOUSE-CO                 
+022100             IF OET-BASE-RATE-ORDER AND OET-COMPANY NOT = 'CQ'            
+022200                AND ORSH-THIRD-PARTY-FRT-ACCOUNT = SPACES                 
+022300                IF TC-DFLT-CARRIER-CODE-SW = 'Y' OR                       
+022400                   TC-DEFAULT-CARR > SPACES      OR                       
+022410                   (TC-COMPANY = 'FT'                                     
+022500                     AND ORSH-CARRIER-CODE = 'N1') OR                     
+022501                   (TC-COMPANY = 'FT' AND OET-COD-ORDER)                  
+022600                   CONTINUE                                               
+022700                ELSE                                                      
+022800                   MOVE SPACES   TO ORSH-CARRIER-CODE                     
+022900                END-IF                                                    
+023000             END-IF                                                       
+023100             IF ORSH-BACKORDER-STATUS EQUAL 'D'                           
+023200                     MOVE 'Y'    TO  ORSH-BACKORDER-STATUS.               
+023300     IF WS-ORSSHH-NORESP                                                  
+023400         IF WS-SHIP-FROM EQUAL 'DS'                                       
+023500             MOVE 'D'            TO  ORSH-ORDER-TYPE                      
+023600             MOVE OET-BR-NBR     TO ORSH-BR-NBR-SHIP-FROM.                
+023700     IF WS-SHIP-FROM EQUAL 'DS'                                           
+023800         MOVE 'D'                TO  OET-ST-NS-IND (BR-INX).              
+023900     MOVE SPACES                 TO ORSH-STATUS                           
+024000                                    ORSH-HOLD-REASON.                     
+024100     IF BR-INX NOT EQUAL 1                                                
+024200         IF WS-ORSSHH-NORESP                                              
+024300             MOVE ' '            TO  WS-ORSSHH-QUAL                       
+024400             MOVE 'ORSSHH   '    TO  WS-UNQUAL-SSA                        
+024500             MOVE ZEROES         TO  ORSH-TOTAL-SALES                     
+024600                                     ORSH-TOTAL-COST                      
+024700                                     ORSH-TOTAL-LINES                     
+024800                                     ORSH-REPACK-LINES                    
+024900                                     ORSH-FULLCASE-LINES                  
+025000                                     ORSH-BATCH-SEQ                       
+025100             MOVE SPACES         TO  ORSH-REPACK-SHIPPABLE-SW             
+025200                                     ORSH-FULLCASE-SHIPPABLE-SW           
+025300                                     ORSH-PICK-STATUS-SW                  
+025400                                     ORSH-BATCH-NBR                       
+025500                                     ORSH-BATCH-CUT-OFF                   
+025600                                     ORSH-EMERGE-SW                       
+      *WHEN THE ORDER IS CREATED THRU IMPULSE (ONE LINE AND MORE )      SS424236
+      *THEN THE BELOW LOGIC WILL BE PROCESSED                           SS424236
+      *                                                                 SS424236
+                   IF TB-CPO-EUROPEAN-CNTRY             AND             SS424236
+                      INI-COMPONENT-BUSINESS-SW = SPACE AND             SS424236
+                      INI-SKU-TYPE-LICENSE                              SS424236
+                      MOVE SPACES      TO ORSH-ALT-WAREHOUSE-CO         SS424236
+                   ELSE                                                 SS424236
+                      MOVE OET-ALT-WAREHOUSE-CO (BR-INX)                SS424236
+                                       TO ORSH-ALT-WAREHOUSE-CO         SS424236
+                   END-IF                                               SS424236
+025900             PERFORM 1334-ISRT-ORSSHH                                     
+026000             MOVE '('            TO  WS-ORSSHH-QUAL                       
+                   IF WS-ORSSHH-NORESP                                          
+                      MOVE ZERO       TO  WS-ORSSHHOF-NBR                       
+                      PERFORM 1206-GU-ORSSHHOF                                  
+                      IF WS-ORSSHHOF-NORESP                                     
+                         MOVE ORSHOF-ORSSHHOF TO ORSHOF-ORSSHHOF-0              
+                         IF ORSHOF-AI-DIFFUSION-CHK                     TXV25129
+                            MOVE SPACES     TO ORSHOF-ADVANCE-COMPL-FLG TXV25129
+                         END-IF                                                 
+                         IF ORSHOF-RESTRCT-ENCRPTED                     KMP25276
+                            MOVE SPACES     TO ORSHOF-RESTRCT-ENCRPT-SW KMP25276
+                         END-IF                                         KMP25276
+                      ELSE                                                      
+                        INITIALIZE               ORSHOF-ORSSHHOF-0              
+                        MOVE ZERO             TO ORSHOF-ORSSHHOF-KEY-0          
+                      END-IF                                                    
+                      MOVE ' ' TO WS-ORSSHHOF-QUAL                              
+                      MOVE ORSHOF-ORSSHHOF-0 TO ORSHOF-ORSSHHOF                 
+                      MOVE 'ORSSHHOF '       TO WS-UNQUAL-SSA                   
+                      MOVE ORSH-DIST-NBR     TO WS-ORSSHH-DIST                  
+                      MOVE ORSH-SHIP-NBR     TO WS-ORSSHH-SHIP                  
+                      PERFORM 1335-ISRT-ORSSHHOF                                
+                   END-IF.                                                      
+                                                                                
+           MOVE '('            TO  WS-ORSSHHOF-QUAL.                            
+           SET WS-ORSSHH-DIST          TO  BR-INX.                              
+                                                                                
+      *-------------------------------------------------------          TXV24278
+       810A-OMS-SF-DIST-PARA.                                           TXV24278
+      *-------------------------------------------------------          TXV24278
+           MOVE SPACES          TO WS-STOCK-LINE-SW                     TXV24278
+                                   WS-ESD-SHIP-FROM-SW                  TXV24278
+                                   WS-ESD-OET-SF-SW                     TXV24278
+                                                                        TXV24278
+      * OVERRIDE RULES                                                  TXV24278
+      *        1. SHOULD NOT BE ESD BRANCH                              TXV24278
+      *        2. SHOULD NOT BE ALTERNATE WHSE BRANCH                   TXV24278
+      *                                                                 TXV24278
+      *  CHECK ESD BRANCH FOR SHIP FROM BRANCHES                        TXV24278
+           MOVE WS-SHIP-FROM    TO TB-ESDVIR-BR                         TXV24278
+           MOVE OET-COMPANY     TO TB-ESDVIR-CO                         TXV24278
+           CALL 'SYU510'     USING TB-ESDVIR-TABLE-IA                   TXV24278
+           IF TB-ESDVIR-NORESP                                          TXV24278
+              IF TB-ESDVIR-ESD                                          TXV24278
+                 SET WS-ESD-SHIP-FROM    TO TRUE                        TXV24278
+              END-IF                                                    TXV24278
+           END-IF                                                       TXV24278
+                                                                        TXV24278
+           MOVE OET-SHIP-BR(BR-INX)                                     TXV24278
+                                TO TB-ESDVIR-BR                         TXV24278
+           MOVE OET-COMPANY     TO TB-ESDVIR-CO                         TXV24278
+           CALL 'SYU510'     USING TB-ESDVIR-TABLE-IA                   TXV24278
+           IF TB-ESDVIR-NORESP                                          TXV24278
+              IF TB-ESDVIR-ESD                                          TXV24278
+                 SET WS-ESD-OET-SF       TO TRUE                        TXV24278
+              END-IF                                                    TXV24278
+           END-IF                                                       TXV24278
+                                                                        TXV24278
+      * CASE 1 IF 1ST INDEX NEED TO OVERRIDE                            TXV24278
+      *                                                                 TXV24278
+           IF OET-SHIP-BR(BR-INX) NOT EQUAL TO                          TXV24278
+                            WS-SHIP-FROM                                TXV24278
+                AND (NOT WS-ESD-SHIP-FROM)                              TXV24278
+                AND (NOT WS-ESD-OET-SF)                                 TXV24278
+                SET WS-STOCK-LINE TO TRUE                               TXV24278
+           END-IF                                                       TXV24278
+           IF USE-ALTERNATE-WHSE                                        TXV24278
+              MOVE SPACES         TO WS-STOCK-LINE-SW                   TXV24278
+           END-IF.                                                      TXV24278
+       810A-OMS-SF-DIST-PARA-EXIT.                                      TXV24278
+           EXIT.                                                        TXV24278

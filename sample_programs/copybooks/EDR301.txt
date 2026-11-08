@@ -1,0 +1,94 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDR301                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      * `````````                                                    *          
+      *  INTERFACE USED FOR SUB-ROUTINE EDV301 TO SUPPLY ACTION      *          
+      *  CODES, DATA, AND AN ARRAY (DATA AREA TO BE SORTED) AND TO   *          
+      *  RECEIVE PROCESSING RESULTS (RETURN CODE) FROM EDV301.       *          
+      *                                                              *          
+      * INPUT:                                                       *          
+      * ``````                                                       *          
+      *         EDV301-INPUT                                         *          
+      *        - ACTION CODE : A - ASCENDING, D - DESCENDING         *          
+      *        - ROW COUNT   : THE NUMBER OF ROWS IN THE ARRAY       *          
+      *                        TO BE SORTED                          *          
+      *        - ROW LENGTH  : THE LENGTH OF EACH ROW (IN NUMBER     *          
+      *                        OF CHARACTERS)                        *          
+      *        - KEY POSITION: THE START POSITION OF THE "KEY"       *          
+      *                        WITHIN EACH ROW                       *          
+      *        - KEY LENGTH  : THE LENGTH OF THE KEY WITHIN EACH     *          
+      *                        ROW                                   *          
+      *        - ARRAY       : THE ARRAY (4MG DATA AREA) TO BE       *          
+      *                        SORTED                                *          
+      * OUTPUT:                                                      *          
+      * ```````                                                      *          
+      *        EDV301-OUTPUT                                         *          
+      *        - ARRAY       : THE SORTED ARRAY DATA AREA            *          
+      *        - RETURN CODE : MODULE EDIT/PROCESSING RESULTS        *          
+      *                                                              *          
+      * USAGE EXAMPLE:                                               *          
+      * ``````````````                                               *          
+      * SCENARIO: A WORKING ARRAY (W-ARRAY) INTO WHICH W-ROW-CT      *          
+      * ~~~~~~~~  ENTRIES HAVE BEEN LOADED. THE ENTRY "KEY" STARTS   *          
+      *           IN, SAY, POSITION 12. THE PROGRAM NEEDS THE ARRAY  *          
+      *           TO BE SORTED IN ASCENDING ORDER BY ENTRY KEY.      *          
+      *                                                              *          
+      *     IN THIS CASE, THE CALLING PROGRAM WOULD CALL EDV301      *          
+      *     AS FOLLOWS:                                              *          
+      *                                                              *          
+      *     INITIALIZE EDV301-COMMUNICATIONS-AREA.                   *          
+      *     SET EDV301-ASCENDING          TO TRUE.                   *          
+      *     MOVE W-ROW-CT                 TO EDV301-ROW-CNT          *          
+      *     MOVE LENGTH OF W-ENTRY(1)     TO EDV301-ROW-LEN          *          
+      *     MOVE 12                       TO EDV301-KEY-POS          *          
+      *     MOVE LENGTH OF W-ENTRY-KEY(1) TO EDV301-KEY-LEN          *          
+      *     MOVE W-ARRAY                  TO EDV301-ARRAY            *          
+      *     CALL 'EDV301' USING EDV301-COMMUNICATIONS-AREA.          *          
+      *     IF EDV301-STATUS-OKAY                                    *          
+      *        MOVE EDV301-ARRAY          TO W-ARRAY                 *          
+      *     ELSE                                                     *          
+      *        TAKE APPROPRIATE ACTIONS                              *          
+      *     END-IF.                                                  *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      * DATE      PGMR COMMENTS                                      *          
+      * --------  ---- ----------------------------------------------*          
+      * 03/04/09  AZS  CREATED.                                      *  AZS09008
+      ****************************************************************          
+       01  EDV301-COMMUNICATIONS-AREA.                                          
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           03 EDV301-INPUT.                                                     
+              05 EDV301-ACTION-CD                    PIC  X(01).                
+                 88 EDV301-ASCENDING                 VALUE 'A'.                 
+                 88 EDV301-DESCENDING                VALUE 'D'.                 
+              05 EDV301-ARRAY-INFO.                                             
+                 10 EDV301-ROW-CNT                   PIC  9(09) COMP-4.         
+                 10 EDV301-ROW-LEN                   PIC  9(04) COMP-4.         
+                 10 EDV301-KEY-POS                   PIC  9(04) COMP-4.         
+                 10 EDV301-KEY-LEN                   PIC  9(04) COMP-4.         
+      **********************************************************                
+      *                   INPUT/OUTPUT DATA                    *                
+      **********************************************************                
+              05 EDV301-ARRAY.                                                  
+                 10 EDV301-ROWS OCCURS 4096.                                    
+                    15 EDV301-ENTRY                   PIC  X(1024).             
+      **********************************************************                
+      *                   OUTPUT DATA                          *                
+      **********************************************************                
+           03 EDV301-OUTPUT.                                                    
+              05 EDV301-RETURN-CD                     PIC  X(02).               
+                 88 EDV301-STATUS-OKAY                VALUE 'OK'.               
+                 88 EDV301-ERROR                      VALUES                    
+                 'IA', 'RL', 'RZ', 'AL', 'KL', 'KZ', 'KP'.                      
+                 88 EDV301-INVALID-ACTION             VALUE 'IA'.               
+                 88 EDV301-ROW-COUNT-TOO-LARGE        VALUE 'RL'.               
+                 88 EDV301-ROW-COUNT-IS-ZERO          VALUE 'RZ'.               
+                 88 EDV301-ARRAY-TOO-LARGE            VALUE 'AL'.               
+                 88 EDV301-KEY-LARGER-THAN-ROW        VALUE 'KL'.               
+                 88 EDV301-KEY-LENGTH-IS-ZERO         VALUE 'KL'.               
+                 88 EDV301-KEY-POS-BEYOND-ROW         VALUE 'KP'.               

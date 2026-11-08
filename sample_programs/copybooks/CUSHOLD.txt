@@ -1,0 +1,92 @@
+﻿      *****************************************************************         
+      * COPYBOOK:  CUSHOLD  - CREDIT LIMIT EXPOSURE                             
+      * - READ/UPDATE - CUSHEDOF AND ORSSHHOF                                   
+      * - CALLED FROM RELEASE PROGRAMS ONLY                                     
+      * - SALES ORDER VALUE WILL BE DEDUCTED FROM CUSTOMER HEADER               
+      *   OVERFLOW S&W ORDER VALUE                                              
+      *****************************************************************         
+      * MODIFICATIONS:                                                          
+      * 10/04/19  SMP  COMMON COPYBOOK FOR UPDATING SALES HOLD TOTAL    SMP19277
+      *                FOR CREDIT PROCESS OPTIMIZATION PROJECT          SMP19277
+      *****************************************************************         
+                                                                                
+      *****************************************************************         
+      * CHECK FOR STATUS BEFORE RELEASE                                         
+      *       PROCESS ONLY ORDERS WHICH WAS ON HOLD                             
+      *       DEDUCT SALES AMOUNT ONLY IF IT IS SET AT SHIPMENT LEVEL           
+      *       ORSHOF-DEDUCT-SALES-HOLD IS SET IN BATCH (ORP038)                 
+      *****************************************************************         
+       D9000-S-STS-HOLD-CHECK.                                                  
+      *                                                                         
+           IF WS-ORSH-STATUS = 'S' OR 'O' OR 'P'                                
+              PERFORM D9002-CHECK-FOR-DEDUCT-ELIG                               
+                 THRU D9002-EXIT                                                
+              IF WS-ORSSHHOF-NORESP                                             
+                 IF ORSHOF-DEDUCT-SALES-HOLD                                    
+                    PERFORM D9001-DEDUCT-SALES-HOLD                             
+                       THRU D9001-EXIT                                          
+                    IF WS-CUSHEDOF-NORESP                                       
+                       PERFORM D9003-UPDATE-SALES-CHECK                         
+                          THRU D9003-EXIT                                       
+                    END-IF                                                      
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       D9000-EXIT.                                                              
+             EXIT.                                                              
+                                                                                
+      *****************************************************************         
+      * DEDUCT SALES AMOUNT FROM CUSTOMER OVERFLOW                              
+      *     FIELD : CUOF-SALES-HOLD-TOTAL                                       
+      *****************************************************************         
+       D9001-DEDUCT-SALES-HOLD.                                                 
+              MOVE TC-COMPANY               TO WS-CUSHED-CO                     
+              MOVE WS-CUST-BR-NBR           TO WS-CUSHED-BR                     
+              MOVE WS-CUST-NBR              TO WS-CUSHED-CUST                   
+              MOVE '0'                      TO WS-CUSHEDOF-NBR                  
+              PERFORM 2213-GHU-CUSHEDOF                                         
+              IF WS-CUSHEDOF-NORESP                                             
+                 MOVE CUOF-CUSHEDOF         TO CUOF-CUSHEDOF-0                  
+                 SUBTRACT WS-TOTAL-SALES-AMT                                    
+                                            FROM CUOF-SALES-HOLD-TOTAL          
+                 MOVE CUOF-CUSHEDOF-0       TO CUOF-CUSHEDOF                    
+                 PERFORM 2214-REPL-CUSHEDOF                                     
+              END-IF.                                                           
+                                                                                
+       D9001-EXIT.                                                              
+             EXIT.                                                              
+                                                                                
+      *****************************************************************         
+      * CALL ORSHOF SEGMENT TO RETRIEVE THE SWITCH UPDATED BY THE BATCH         
+      * PROGRAM ORP038                                                          
+      *****************************************************************         
+       D9002-CHECK-FOR-DEDUCT-ELIG.                                             
+              MOVE ORSH-DIST-NBR          TO WS-ORSSHH-DIST                     
+              MOVE ORSH-SHIP-NBR          TO WS-ORSSHH-SHIP                     
+              MOVE ZERO                   TO WS-ORSSHHOF-KEY-VALUE              
+              PERFORM 1206-GU-ORSSHHOF                                          
+              IF WS-ORSSHHOF-NORESP                                             
+                 MOVE ORSHOF-ORSSHHOF     TO ORSHOF-ORSSHHOF-0                  
+              END-IF.                                                           
+                                                                                
+       D9002-EXIT.                                                              
+             EXIT.                                                              
+                                                                                
+      *****************************************************************         
+      * RESET THE ORSHOF-DEDUCT-SALES-HOLD-SW AFTER ORDER IS RELEASED           
+      * FROM HOLD. LIMIT DEDUCTION ONLY ONCE IN ONLINE PER ORDER                
+      *****************************************************************         
+       D9003-UPDATE-SALES-CHECK.                                                
+              PERFORM 1214-GHU-ORSSHHOF                                         
+              IF WS-ORSSHHOF-NORESP                                             
+                 MOVE ORSHOF-ORSSHHOF                                           
+                                       TO ORSHOF-ORSSHHOF-0                     
+                 MOVE SPACES           TO ORSHOF-DEDUCT-SALES-HOLD-SW           
+                 MOVE ORSHOF-ORSSHHOF-0                                         
+                                       TO ORSHOF-ORSSHHOF                       
+                 PERFORM 1315-REPL-ORSSHHOF                                     
+              END-IF.                                                           
+                                                                                
+       D9003-EXIT.                                                              
+             EXIT.                                                              

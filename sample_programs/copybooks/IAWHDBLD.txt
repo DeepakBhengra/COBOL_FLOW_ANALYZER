@@ -1,0 +1,75 @@
+﻿      * ****************************************************************        
+      *    INDIA GST - HARD BUNDLE ITEMS - WORKING STORAGE             *        
+      ******************************************************************        
+      ******************************************************************        
+      * REVISIONS:                                                     *        
+      *                                                                *        
+      * DATE     PGMR DESCRIPTION                                      *        
+      * -------- ---- ------------------------------------------------ *        
+      * 06/23/17 TGF  CREATED                                          *TGF17174
+      ******************************************************************        
+       01  WS-INDIA-GST-HARD-BUNDLE.                                            
+           05 WS-PRCPL-LINE-NBR        PIC X(03) VALUE SPACES.                  
+           05 KEY-CMPNT-PART-NBR       PIC X(12) VALUE SPACES.                  
+           05 WS-CHILD-COMP-PRICE      PIC S9(13)V9(4) COMP-3 VALUE 0.          
+           05 WS-CHILD-COMPUTE-PRICE   PIC S9(13)V9(4) COMP-3 VALUE 0.          
+           05 WS-CHILD-COMP-COST       PIC S9(13)V9(4) COMP-3 VALUE 0.          
+           05 WS-CHILD-COMPUTE-COST    PIC S9(13)V9(4) COMP-3 VALUE 0.          
+           05 WS-PRCPL-COMP-PRICE      PIC S9(13)V9(4) COMP-3 VALUE 0.          
+           05 WS-PRCPL-COMP-COST       PIC S9(13)V9(4) COMP-3 VALUE 0.          
+           05 WS-PRCPL-COMP-EXT-COST   PIC S9(13)V9(4) COMP-3 VALUE 0.          
+           05 WS-SAVE-HARD-PRICE       PIC S9(13)V9(4) COMP-3 VALUE 0.          
+                                                                                
+       01  WS-IA-GST-HRDBNDLE-SWTICHES.                                         
+           05 WS-BEEN-HERE-SW          PIC X(01) VALUE ' '.                     
+              88 WS-BEEN-HERE                    VALUE 'Y'.                     
+           05 WS-DATA-NOT-FOUND-SW     PIC X(01) VALUE ' '.                     
+               88 DATA-NOT-FOUND                 VALUE ' '.                     
+               88 DATA-FOUND                     VALUE 'Y'.                     
+           05 WS-CURSOR-END            PIC X(01) VALUE ' '.                     
+               88 CURSOR-END                     VALUE 'Y'.                     
+                                                                                
+      * DB2 PROCESSING                                                          
+           05 IAWHDBLD-DB2-ERROR-AREA.                                          
+              10  IAWHDBLD-EXTRA-MESSAGE-1.                                     
+                  15 IAWHDBLD-DB2-ERROR-PARA PIC X(50)  VALUE SPACES.           
+                  15 FILLER                  PIC X(14)  VALUE                   
+                     'SQLCODE ERROR '.                                          
+                  15 IAWHDBLD-SQLCODE-STATUS PIC -ZZZZZ.                        
+                  15 FILLER                  PIC X(02)  VALUE SPACES.           
+                  15 IAWHDBLD-DB2-PGM-ERROR  PIC X(08)  VALUE SPACES.           
+              10  IAWHDBLD-EXTRA-MESSAGE-2.                                     
+                  15 IAWHDBLD-OPERATION-OBJECT                                  
+                                             PIC X(35) VALUE                    
+                     'OPERATION - OPJECT OF OPERATION'.                         
+      *              'DATA USED FOR DB2 TABLE '.                                
+                  15 IAWHDBLD-DB2-ERROR-PARA2-CO PIC X(02) VALUE SPACES.        
+                  15 FILLER                  PIC X(01).                         
+                  15 IAWHDBLD-DB2-ERROR-PARA2-BR PIC X(02) VALUE SPACES.        
+                  15 FILLER                  PIC X(01).                         
+                  15 IAWHDBLD-DB2-ERROR-PARA2-ORD                               
+                                             PIC X(05) VALUE SPACES.            
+                  15 FILLER                  PIC X(01).                         
+                  15 IAWHDBLD-DB2-ERROR-PARA2-PART                              
+                                             PIC X(12) VALUE SPACES.            
+                  15 IAWHDBLD-EXTRA-INFO     PIC X(79).                         
+                                                                                
+      *--- CURSOR DECLARATION TO HARD BUNDLE COMPONENT DB2 TABLE                
+           EXEC SQL                                                             
+                DECLARE HARD_BUNDLE_CSR CURSOR FOR                              
+                SELECT  CMPNT_PART_NBR                                          
+                       ,DESC_TXT                                                
+                       ,UNIT_COST_AMT                                           
+                       ,UNIT_PRC_AMT                                            
+                       ,CMPNT_QTY                                               
+                       ,HSN_SAC_CD                                              
+                       ,PRCPL_CMPNT_IND                                         
+                       ,LAST_CHG_TS                                             
+                  FROM  HARD_BUNDLE_COMPONENT                                   
+                 WHERE  CO_CD           = :INTHRDC-CO-CD                        
+                   AND  PART_NBR        = :INTHRDC-PART-NBR                     
+                   AND  CMPNT_PART_NBR  > :INTHRDC-CMPNT-PART-NBR               
+              ORDER BY  PRCPL_CMPNT_IND DESC                                    
+                       ,UNIT_PRC_AMT DESC                                       
+           END-EXEC.                                                            
+                                                                                

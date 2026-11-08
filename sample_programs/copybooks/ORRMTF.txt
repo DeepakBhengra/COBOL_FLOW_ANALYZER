@@ -1,0 +1,739 @@
+      ******************************************************************        
+      * SHIPMENT MANIFEST RECORD (VARIABLE LENGTH RECORD)    9/24/92   *        
+      *    FIXED PORTION: 744                                          *RPM97093
+      *    VAR SEGMENT  : 93   OCCURS UP TO 80 TIMES                   *RPM97093
+      *----------------------------------------------------------------*        
+      * COPYBOOKS ORRMTF, ORRMTF1, ORRMTF2, ORRMTF3, MANIFCTL, EDRDP2  *SJD01361
+      *           ORRMTFI, ORRMTFD ARE TIGHTLY RELATED TO THIS COPYBOOK*JAV08228
+      *           AND MUST BE REVIEW FOR ALIGNMENT WHEN RECORD SIZE IS *SJD01361
+      *           ADJUSTED.                                            *SJD01310
+      *----------------------------------------------------------------*        
+      ******************************************************************DGH00242
+      * REVISIONS:                                                     *DGH00242
+      *                                                                *DGH00242
+      * PAR      DATE   PGMR DESCRIPTION                               *DGH00242
+      * ------ -------- ---- ----------------------------------------- *DGH00242
+      *        11/05/21 JH1  ADD COMPANY Z3 FOR ITALY                  *JH121309
+      * PROJCT 05/15/21 SXL  NORDIC CONVERSION PROJECT - DK DEPLOYMENT *SXL21135
+      *        07/12/19 AP3  PORTUGAL CONVERSION PROJECT               *APX19193
+      * CR8063 08/07/18 DRM  INCREASE SIZE OF SM-DIM-TOTAL-OS-CHG      *DRM18264
+      *                      AND SM-DIM-TOTAL-OC-CHG                   *DRM18264
+      *        06/08/16 TND  BASERATE 9.07                             *TND16160
+      * CR1526 06/23/14 MYN  ADDED SM-DHL-SE-FRT-SHP-NBR FOR DHL       *KYC14162
+      *                      SWEDEN IMPLEMENTATION                     *KYC14162
+      *        10/09/13 KMP  ADDED IM-MOBILITY GERMANY COMPANY 'DC'    *KMP13282
+      *                      TO 88 LEVEL SM-GERMANY.                   *KMP13282
+      *        07/30/13 VKM  CAPTURE DANGEROUS GOODS AT ORDER          *VKM13211
+      *                      LEVEL FOR DHL UK.                         *VKM13211
+      *        02/07/13 CMB  NEW CARRIER SCHENKER FOR SWEDEN           *CMB13038
+      *        02/10/12 CMB  NEW HUB DATA FOR SEUR SPAIN               *CMB12041
+      *        07/05/11 ESS  TDD & TDI IMPLEMENTATION FOR ITALY        *SXC11186
+      *                      PAR:20376                                 *SXC11186
+      *        ??/??/10 ESS  SSCC NUMBER FOR ECI LABELS SPAIN           ESS10140
+      *                 GLS  CHG ABOVE DATE FR ??/??/10 TO 05/30/10     ESS10140
+      *        10/26/09 AXN  HEAVY WEIGHT PROJECT - RENAMED             AXN09299
+      *                      SM-FEDEX-CYCLE-NBR TO SM-FRT-HVYWGT-CHRG.  AXN09299
+      * 15354  07/20/09 CMB  NEW CARRIER MONDIAL RELAY FOR FRANCE       CMB09201
+      *        27/01/09 JAV  REDEFINED SM-FEDEX-ROUTING-CD              JAV09027
+      *        15/08/08 JAV  REDEFINED SM-UPS-100W-LINE-BILL-SW         JAV08228
+      *        06/26/08 BXK  REUSE THE FEDEX FIELDS FOR STORING DHL     BXK08178
+      *                      SAC CODE INFORMATION                       BXK08178
+      *        04/03/07 TFM  ADDED DAS FIELDS                           TFM07164
+      *        03/29/07 WXE  13952  NEW CARRIER TYPE DHL FOR ITALY      WXE07088
+      *        08/24/06 CMB  NEW DHL CARRIER SERVICES FOR SE DOMESTIC   CMB06236
+      *        07/25/06 TMH  CHANGE ROUTING CODE FROM 4 TO 7 BYTES      TMH06206
+      *        03/06/06 TMH  ADD ROUTING C0DE FOR FRANCE TAT CARRIER    TMH06065
+      *        09/19/05 RXK  ADDED LOGIC FOR FRT BILL PROJECT           RXK05262
+      *        08/23/05 MAW  ADD "HU" TO SM-EUROPE CONDITION            MAW05225
+      * 12789  07/01/05 TXS  NEW CARRIER FEX FOR FRANCE                 TXS05186
+      *        05/25/05 TXS  NEW CARRIER DHL FOR SWITZERLAND            TXS05140
+      * 34567E 05/13/05 RPM  MANIFEST EXCEPTIONS PROJECT.  ADD NEW      RPM05130
+      *                      REC-TYPE (T) AND ASSOCIATED 88-LEVELS.     RPM05130
+      *        11/11/04 RXK  ADDED SM-LTL-PROCESS 88 LEVEL              RXK04316
+      * 12215  10/14/04 ESS  NEW CARRIER NOP FOR NORDIC REGION          ESS04291
+      * 11227  10/14/04 CMB  NEW CARRIER DHL FOR NORDIC REGION          CMB04287
+      *  7901  09/26/04 TLC  NEW CARRIER STARTRACK FOR AUSTRALIA        TLC04270
+      * 36367  09/06/04 TLC  DELL DATA                                  TLC04250
+      * 11912  08/25/04 TXS  NEW CARRIER BARSANTI FOR ITALY             TXS04238
+      *        08/26/04 TND  ADD PALLET-SW                              TND04239
+      *        06/14/04 TYS  ADD CARRIER DROP ID                        TYS04157
+      *        03/09/04 TYS  ADD LINE HAUL CARR SW                      TYS04098
+      * 11691  02/26/04 WXE  NEW CARRIER GL FOR AUSTRIA                *WXE04057
+      * 28926  09/22/03 JRA  WE PAY WE PICK PROJECT                    *JRA03265
+      *  4131  05/05/03 TLC  ADD AU CARRIER COPE                       *TLC03124
+      * 10368  01/02/03 EXG  ADD FRENCH CARRIER OLL(AS)                *EXG03090
+      * 26475  09/06/02 PJD ADD NEW 88 LEVEL TO SM-LABEL-OPTIONS       *PJD02249
+      * 9273   09/20/02 GZS  ADD FRENCH CARRIER GRAVELEAU              *GZS02263
+      * 10074  08/30/02 TXS  ADD FRENCH CARRIER DEJ                    *TXS02241
+      * 17030N 06/10/02 ETJ  ADD P.O. BOX INDICATOR FIELD              *ETJ02161
+      *  1834  06/07/02 TLC  ADD CONNOTE NUMBER FOR AIRROAD IN AU      *TLC02157
+      *  1086  04/10/02 TLC  ADD AUSTRALIAN CARRIER AAE                *TLC02099
+      *  9106  02/19/02 CMB  ADD REDEFINE FOR FRENCH CARRIER CALBERSON *CMB02050
+      *  8426  01/02/02 WXE  ADD EUROPEAN CARRIER DANZAS               *WXE02002
+      * 12-27-01 SJD MODIFY COMMENT ABOVE TO ADD EDRDP2                *SJD01361
+      * 11-06-01 SJD MODIFY COMMENT ABOVE TO ADD ORRMTF3               *SJD01310
+      * 10-25-01 PJD ADD NEW 88 LEVEL TO SM-LABEL-OPTIONS              *PJD01298
+      * 10-11-01 CMB ADD REDEFINE FOR CHRONOPOST                       *CMB01284
+      * 10-30-00 JRA CHANGE 88 LEVEL VALUE OF SM-FEDEX-OLD-METHOD TO O *JRA00304
+      *        09/11/00 TND  ADD UPS RESIDENTIAL SW                    *RXK00272
+      * 55972  08/29/00 DGH  ALLOW RESELLERS TO WAIVE ADULT SIGNATURE. *DGH00242
+      *                      ADD 88 LEVEL SM-AOD-NOT-REQUIRED TO       *DGH00242
+      *                      SM-AOD-SW.                                *DGH00242
+      *                                                                *DGH00242
+      * 08/20/00 TLC ADD VERSION NUMBER FOR DPD                         WXE00237
+      * 08/16/00 RXK REPLACED FILLER IN SM-FEDEX-DATA TO SM-FEDEX-      RXK00229
+      *              EMERGE-SW                                          RXK00229
+      * 06/02/00 CZS NEW CARRIER FOR SWEDEN 'SWEDISH POST'              CZS00154
+      * 04/18/00 NPH -ADDED SM-BOL-ASSIGN-SW                            NPH00109
+      * 04/18/00 FXE -ADD STAMP                                         NPH00109
+      * 01/10/00 CMB -LEXMARK PRINTERS IN GERMANY. ADD SYS PLUS HUB     CMB00010
+      * 01/26/00 ESS -DENMARK CARRIER - PAKKE TRANS                     ESS00035
+      * 08/16/99 ESS -ITALY CARRIERS - ASCOLI AND LA LINCE              ESS99280
+      * 08/16/99 RAV -ADDED QPC TOUR INFO TO THE MANIFEST               RAV99246
+      * 07/13/99 ESS -BELGIUM KEY CARRIER - GATE NUMBER FIELD           ESS99208
+      * 06/10/99 RMR -ADJUST 88 LEVEL VALUES SM-US-COMPANIES - REMOVE   RMR99161
+      *               OBSOLETE AND ADD NEW ONES                         RMR99161
+      * 02/23/99 DWR -ADD NEW 88 LEVEL VALUE SM-MANIFESTED TO INDICATE  DWR99054
+      *               PACKAGE IS BILLED AND MANIFESTED.                 DWR99054
+      * 03/02/99 CMB -MACROTRON AUSTRIA CONVERSION - ADD AUSTRIA        CMB99061
+      *               SWITZERLAND AND FINLAND TO SM-EUROPE.             CMB99061
+      * 12/11/98 ETJ -INCLUDE NEW 88 LEVEL VALUE FOR AGENT/NEXUS ORDERS ETJ98345
+      * 06/05/98 ETJ -ADD NEW 88 LEVEL FOR NEXUS FULFILLMENT ORDERS.    ETJ98156
+      * 06/08/98 JJD -ADD SM-CTN-NBR-OVERRIDE-SW                        JJD98159
+      * 04/27/98 CMB -ADD REDEFINES FOR UPS EUROPE                      CMB98117
+      * 12/09/97 JJD -SUBSIDIZED-FREIGHTING.  ADDED FIELDS:             JJD97343
+      *              -SM-SUBS-FRT-SW, SM-CUS-CUA-SF.                    JJD97343
+      *              -ADD DEPOT/SERVICE FIELDS FOR CARRIER TNT (UK).    JJD97343
+      * 10/27/97 MWO -ADD SM-LABEL-OPTIONS                              MWO97300
+      * 10/27/97 CMB -ADD NEW 88-LEVELS SM-COD-TERMS-CASH AND           CMB97300
+      *               SM-COD-TERMS-CHECK                                CMB97300
+      * 10/02/97 RPM -PAR#5840N.  ADDED NEW FIELD, SM-DSI-ERROR-CODE.   RPM97275
+      * 10/01/97 TLC -ADD NEW FIELDS FOR TRANS-O-FLEX GERMANY           TLC97274
+      * 07/09/97 MWO -ADD SM-ASSIGN-CTN-NBR-AT-PA-SW                    MWO97190
+      * 05-21-97 JJD -ADD ORDER TYPE AND BIN COMIT SW                   JJD97141
+      *               SM-BR-COMIT-SW                                    JJD97141
+      * 04-22-97 GMM -REMOVED FIELDS SM-PACK-BRANCH, SM-PACK-DASH.      GMM97122
+      *               MOVED SM-LANE-DIVERTER-CODE OUT OF REDEFINES.     GMM97122
+      * 04/03/97 RPM  J/RELEASE PROJECT.  REMOVED THESE FIELDS:         RPM97093
+      *               SM-NBR-OF-FC-CNT, SM-PA-TOTES-FC.                 RPM97093
+      *               ALTERED SIZES OF THESE FIELDS: SM-TL-CTN-PA,      RPM97093
+      *               SM-PA-TOTAL-BOXES, SM-NBR-OF-BOXES-BILLED,        RPM97093
+      *               SM-NO-OF-CARTONS, SMU-CTN-NBR, SMU-CM-APPLIED.    RPM97093
+      *               SM-FRT-TAX, SM-INV-VALUE, SM-FRT-CUS-PAYS,        RPM97093
+      *               SM-AMT-APPLIED, SM-COD-COLL-AMT,                  RPM97093
+      *               SM-COD-COLL-AMT-FOREIGN, SM-INV-VALUE-FOREIGN.    RPM97093
+      *               ADDED FIELDS: SM-ZONE1, SM-ZONE3.                 RPM97093
+      * 01-03-97 PJD -ADDED NEW FULFILLMENT CO. CODE 'PI'              *PJD97003
+      * 11-19-96 LAB -ADD 3 NEW '88' LEVEL TO SM-FULFILLMENT-ORDER-SW  *LAB96324
+      * 11-12-96 PJD -ADDED NEW FULFILLMENT CO. CODE 'AC' AND REMOVED  *PJD96317
+      *               SM-US-MODEL-COMPANY AND SM-FULFILL-COMPANY        PJD96317
+      * 09-20-96 DAC -ADDED NEW FULFILLMENT CO. CODE 'EI' AND REMOVED  *DAC96264
+      *               INACTIVE CO. CODES 'BM' 'CT' & 'IO'.             *DAC96264
+      * 08/12/96 EDJ  ADD END USER PO NUMBER FIELD                      EDJ95363
+      * 03/20/96 JJD -ADD LANE DIVERTER CODE                            JJD96080
+      * 01/29/96 RDM -ADD FIELDS FOR DPD AND SYSTEM GUT IN GERMANY      RDM96029
+      *              -ADD FIELD FOR EUROPE RESELLER USD FREIGHT CHG     RDM96029
+      * 11/06/95 JJD -ADD 88 LEVEL TO SM-METHOD-OF-ENTRY                JJD95310
+      * 10/20/95 CCL -ADD SM-ALLIANCE-ORDER-SW                          CCL95293
+      * 09/18/95 NCL -US-MODEL & FULFILLMENT COMPANY ADDITIONS;         NCL95261
+      *               ADD ZONE-ERROR                                    NCL95261
+      * 09/11/95 JJD -ADD SM-PA-TOTAL-BOXES                             JJD95254
+      * 08/01/95 MPB -ADD BASERATE-ORDER-SW AND COD-CUST-PAYS FIELDS    MPB95213
+      * 07/26/95 JEW -ADD 88 LEVEL TO SM-COMPANY AND SM-MAIF-CO FOR     JEW95206
+      *               FOR FULFILLMENT COMPANIES                         JEW95206
+      * 06/26/95 TMH -ADD "PRIVATE" TOUR NUMBER FOR GERMAN PARCEL       TMH95177
+      * 06/16/95 JEW -ADD 88 LEVEL TO SM-COMPANY AND SM-MAIF-CO         JEW95167
+      * 05/19/95 JJD -ADD OPID PICKED                                   JJD95139
+      * 05/02/95 JJD -ADD SM-DSI-COND-CODE-USED                         JJD95122
+      * 04/19/95 RDM -REDEFINE AOD-NBR FOR EUROPE PALLET INFO           RDM95109
+      *               ADD SWEDEN, DENMARK AND NORWAY TO SM-EUROPE       RDM95109
+      * 04-18-95 GEH -ADD FEDEX DELIVERY COMMITTMENT                    GEH95108
+      * 03/08/95 JJD -NEW UPS AOD SYSTEM - ADD OPID/DATE/TIME/BILLED    JJD95067
+      * 11/23/94 JJD -ADDED PKG IN PROCESS SW                           JJD94327
+      *              -ADDED SM-TL-CTN-PA                                JJD94327
+      * 11/15/94 JJD  ADD 88 LEVEL FOR METHOD OF ENTRY                  JJD94319
+      * 10/17/94 KAC  ADD SPAIN SEUR FIELDS                             KAC94290
+      * 09/28/94 GEH  FIX  88 LEVEL SM-MAIF-CO; ADD SM-EUROPE           GEH94271
+      * 09/21/94 JJD  ADDED 88 LEVEL TO SM-METHOD                       JJD94264
+      * 08/26/94 KAC  ADDED GERMAN PARCEL FILE DATE FIELD               KAC94238
+      * 08/02/94 GEH  ADDED 88 LEVEL TO INDICATE NORTH AMERICAN CO'S    GEH94214
+      * 06/10/94 JJD  ADD LINE-BILLING-FIELDS                           JJD94161
+      * 06/20/94 KAC  ADD NBR OF PALLETS FIELD FOR EUROPE               KAC94171
+      * 04/20/94 JJD  ADD SM-COD-AMT-OVERRIDE-SW                        JJD94110
+      * 04/15/94 JJD  ADD SM-UPS-100W-LINE-BILL-SW                      JJD94105
+      * 03/23/94 KAC  ADD GP AND ASCHERL FREIGHT FIELDS FOR GERMANY     KAC94082
+      * 03/08/94 KAC  ADD GERMAN PARCEL FIELDS                          KAC94067
+      * 02/25/94 BRH  ADD INTEL TO 88 LEVEL                             BRH94055
+      * 02/14/94 JJD  ADD TAKE OUT 'C' FORM SM-AOD-SW                   JJD94045
+      * 02/10/94 JJD  ADD SM-UPS150-SW                                  JJD94041
+      * 01/12/94 JJD  ADD SM-CARRIER-CF-SW                              JJD94012
+      * 01/03/94 JJD  ADD TRACK-REQ-SW                                  JJD94003
+      * 01/03/93 GEH  ADD REPORT FORMAT 88 LEVEL MDLC (NEW UPS FORMAT)  GEH94003
+      * 12/03/93 GEH  ADD INVOICE EXCEPTION SWITCH     (PAR# 31747)     GEH93340
+      * 11/30/93 JJD -ELIMINATE SM-CARRIER-TYPE 88 LEVEL - USE NCARRWS  JJD93333
+      *              -ADD OUTSIDE SALESMAN                              JJD93333
+      * 09/21/93 JJD  ADD ADD GPS-NORTH-SOUTH-SW                        JJD93264
+      * 09/21/93 JWO  ADD SM-ORDER-SOURCE-CO : COMPANY WHERE ORDER      JWO93264
+      *               WAS ENTERED. THIS IS FOR THE ECW PROJECT.         JWO93264
+      * 09/17/93 JJD  ADD 88 LEVEL FOR INTERNATIONAL                    JJD93260
+      * 09/14/93 JJD  ADD CHANGE THE VALUE OF 2ND SEQ TO TBIMAF TABLE   JJD93257
+      * 09/09/93 JJD  ADD SM-CARRIER-FN-SW                              JJD93252
+      * 07/07/93 JJD  ADD SM-UPS-HUNDREDWEIGHT-SW                       JJD93188
+      * 06/18/93 JJD  ADD 88 LEVE TO SM-MAIF-CO                         JJD93169
+      * 05/20/93 TMH  ADD REDEFINITION FOR SM-CUST-ADR4                 TMH93140
+      * 05/20/93 JJD  ADD SM-END-CUST-NUM                               JJD93140
+      * 05/19/93 GEH  ADD DELIVERY TYPE SWITCH FOR IMEX                 GEH93139
+      * 04/29/93 GEH  ADD NON BILLING METHOD ENTRY 88 LVL               GEH93119
+      * 04/23/93 GEH  ADD CO 88 LEVELS FOR SM-MAIF-CO                   GEH93113
+      * 04/19/93 GEH  ADD GROUP IDENT FOR FIXED & VARIABLE REC PORTIONS GEH93109
+      * 04/09/93 JJD  ADD SM-INV-COST                                   JJD93099
+      * 03/31/93 JJD  ADD SM-PACKSLIP-NBR                               JJD93090
+      * 03/30/93 JJD  ADD 88 SM-LINE-BILLING                            JJD93089
+      * 03/25/93 JJD  ADD SM-NBR-BILLED                                 JJD93086
+      * 03/11/93 JJD  ADD 88 SM-EDP520IM-CALLTAG                        JJD93070
+      * 03/09/93 JJD  ADD SM-INVOICE-TO-BE                              JJD93068
+      * 02/11/93 GEH  ADD 88 LVL FOR LINE BILLING BASE REC TYPE ('Z'), *GEH93042
+      *               REMOVE SM-INBOUND 88 LVL SINCE ITS NOT USED....  *GEH93042
+      * 02/01/93 GEH  ADD SM-LAST-PKG-ID & SM-PICK-CNTL-NBR            *GEH93032
+      * 12/09/92 GEH  ADD SM-MASTER-TRACK-NBR, 88 LVL FOR WGT ENTRY,   *GEH92344
+      *               SM-RECONCILE-BILL-SW AND SM-FULFILLMENT-NAME     *GEH92344
+      * 11/05/92 JJD  ADDED CM-CARRIER-ACCOUNT-NBR                     *JJD92310
+      * 10/23/92 JJD  ADDED FEDEX FIELDS                               *JJD92297
+      * 10/19/92 KMB  ADDED EDI COMPANY                                *KMB92293
+      * 09/17/92 TMH  ADD 88 LEVEL TO SM-TERMS                         *TMH92261
+      * 08/24/92 JJD  REVAMP RECORD LAYOUT (INLUDES ITALY CONV)        *JJD92237
+      ******************************************************************        
+       01  SM-SMRMST.                                                           
+           02 SM-SMRMST-FIXED.                                          GEH93109
+              05 SM-KEY.                                                        
+                 10 SM-COMPANY               PIC X(02).                         
+                 10 SM-SHIP-FROM-BR          PIC X(02).                 NCL95261
+                 10 SM-REC-TYPE              PIC X(01).                         
+                    88 SM-CORRECTION         VALUE 'T'.                 RPM05130
+                    88 SM-OUTBOUND           VALUE 'U'.                         
+                    88 SM-LINEBILL-BASE-REC  VALUE 'Z'.                 GEH93042
+                 10 SM-MANIFEST-SHIPV-CODE   PIC X(02).                         
+                    88 SM-CARRIER-HAVE-2-SEQ VALUE 'LP' 'VP'.           JJD93257
+                 10 SM-ORDER-NO.                                                
+                    15 SM-ORDER-BR-NBR       PIC X(02).                         
+                    15 SM-ORDER-NBR          PIC X(05).                         
+                    15 SM-ORDER-DIST-NBR     PIC X(01).                         
+                    15 SM-ORDER-SHIP-NBR     PIC X(01).                         
+              05 SM-CARRIER-TYPE             PIC X(03).                         
+              05 SM-SHIP-DATE                PIC 9(05)    COMP-3.               
+              05 SM-PRINT-COUNT              PIC X(01).                         
+              05 SM-ZONE3.                                              RPM97093
+                 10 SM-ZONE1                 PIC X(01).                 RPM97093
+                 10 SM-ZONE                  PIC X(02).                 RPM97093
+              05 SM-SHIP-VIA                 PIC X(20).                         
+              05 SM-CUST-INFO.                                                  
+                 10 SM-CUST-NBR              PIC X(06).                         
+                 10 SM-CUST-NAME             PIC X(35).                         
+                 10 SM-CUST-ADR1             PIC X(35).                         
+                 10 SM-CUST-ADR2             PIC X(35).                         
+                 10 SM-CUST-ADR3             PIC X(35).                         
+                 10 SM-CUST-ADR4             PIC X(35).                         
+                 10 SM-CUST-ADR4-R REDEFINES SM-CUST-ADR4.              TMH93140
+                    15  SM-CITY-ADR4         PIC X(21).                 TMH93140
+                    15  FILLER               PIC X(01).                 TMH93140
+                    15  SM-ST-ADR4           PIC X(02).                 TMH93140
+                    15  FILLER               PIC X(01).                 TMH93140
+                    15  SM-ZIP-ADR4          PIC X(09).                 TMH93140
+                    15  FILLER               PIC X(01).                 TMH93140
+                 10 SM-CUST-ST               PIC X(02).                         
+                 10 SM-CUST-ZIP              PIC X(5).                          
+                 10 SM-CUST-PHONE-NBR        PIC X(15).                         
+                 10 SM-CUSTOMER-PO-NBR       PIC X(18).                         
+              05 SM-NO-OF-CARTONS            PIC 9(05)    COMP-3.       RPM97093
+              05 SM-FEDEX-DATA.                                                 
+                 10 SM-FEDEX-HAWAII-ALASKA-CHRG PIC S9(3)V9(2) COMP-3.          
+                 10 SM-COD-FEE-CUST-PAYS     PIC S9(3)V99 COMP-3.       MPB95213
+                 10 SM-BASE-RATE-ORDER-SW    PIC X(01).                 MPB95213
+                    88 SM-BASE-RATE-ORDER    VALUE 'Y'.                 MPB95213
+                 10 SM-SUBS-FRT-SW           PIC X(1).                  JJD97343
+                    88 SM-SUBS-CUS           VALUE 'C'.                 JJD97343
+                    88 SM-SUBS-ZIP           VALUE 'Z'.                 JJD97343
+                    88 SM-SUBS-NONE          VALUE ' '.                 JJD97343
+                 10 SM-FEDEX-VERSION-ID      PIC X(01).                         
+                 10 SM-PO-BOX-IND REDEFINES SM-FEDEX-VERSION-ID         ETJ02161
+                                             PIC X(01).                 ETJ02161
+                    88 SM-BOX-IND-NOT-SET    VALUE ' '.                 ETJ02161
+                    88 SM-NO-BOX-NBR         VALUE 'N'.                 ETJ02161
+                    88 SM-VALID-PO-BOX       VALUE 'P'.                 ETJ02161
+                    88 SM-VALID-DG-BOX       VALUE 'D'.                 VKM13211
+                 10 SM-FEDEX-DEL-COM         PIC X(02).                 GEH95108
+                 10 SM-FEDEX-SAT-DEL         PIC X(01).                         
+                 10 SM-UPS-SAT-DEL REDEFINES SM-FEDEX-SAT-DEL PIC X(1).         
+015800           10 SM-FEDEX-EMERGE-SW       PIC X(01) VALUE ' '.       RXK00229
+015800              88 SM-FEDEX-EMERGE       VALUE 'F'.                 RXK00229
+                 10 SM-PALLET-PROCESS-SW REDEFINES SM-FEDEX-EMERGE-SW   TND04239
+                                             PIC X(01).                 TND04239
+                    88  SM-PALLET-PROCESS    VALUE 'P'.                 TND04239
+                    88  SM-LTL-PROCESS       VALUE 'L'.                 RXK04316
+                 10 SM-COD-AMT-OVERRIDE-SW   PIC X(01).                 JJD94110
+                 10 SM-FRT-HVYWGT-CHRG       PIC S9(07)V99 COMP-3.      AXN09299
+              05 SM-DHLTDI-PARCEL REDEFINES SM-FEDEX-DATA.              SXC11186
+                 10 SM-TDI-SRV-AREA          PIC X(03).                 SXC11186
+                 10 SM-TDI-FACILITY          PIC X(03).                 SXC11186
+                 10 SM-TDI-WAYBILL-NBR       PIC X(10).                 SXC11186
+                 10 FILLER                   PIC X(03).                 SXC11186
+              05 SM-DHL-SE-FRT    REDEFINES SM-FEDEX-DATA.              KYC14162
+                 10 SM-DHL-SE-FRT-SHP-NBR    PIC X(10).                 KYC14162
+                 10 FILLER                   PIC X(09).                 KYC14162
+              05 SM-GERMAN-PARCEL REDEFINES SM-FEDEX-DATA.              KAC94067
+                 10 SM-GP-TOUR-NBR           PIC X(4).                  KAC94067
+                 10 SM-GP-DEST-DEPOT         PIC X(4).                  KAC94067
+                 10 SM-GP-LABEL-SW-1         PIC X(3).                  WXE04057
+                 10 SM-GP-LABEL-SW-2         PIC X(1).                  KAC94082
+                 10 SM-GP-FILE-DATE          PIC S9(5) COMP-3.          KAC94238
+                 10 SM-GP-TOUR-NBR-PVT       PIC X(4).                  JWO95163
+              05 SM-TOF-GERMANY REDEFINES SM-FEDEX-DATA.                KAC94082
+                 10 SM-TOF-COUNTRY-CODE      PIC X(3).                  TLC97274
+                 10 SM-TOF-COUNTRY-NBR       PIC 9(2).                  TLC97274
+                 10 SM-TOF-DIST-CODE         PIC X(2).                  TLC97274
+                 10 SM-TOF-INS-AMT           PIC S9(15)V9(02) COMP-3.   TLC97274
+                 10 FILLER                   PIC X(3).                  TLC97274
+              05 SM-GRA-FRANCE  REDEFINES SM-FEDEX-DATA.                GZS02263
+                 10 SM-GRA-SHIP-CODE      PIC X(3).                     GZS02263
+                 10 SM-GRA-SHIP-DEST      PIC X(10).                    GZS02263
+                 10 SM-GRA-SHIP-DIST      PIC X(3).                     GZS02263
+                 10 FILLER                PIC X(2).                     GZS02263
+              05 SM-DHL-ITALY   REDEFINES SM-FEDEX-DATA.                WXE07088
+                 10 SM-DHLIT-LINE-CODE    PIC X(3).                     WXE07088
+                 10 SM-DHLIT-LINE-DESC    PIC X(3).                     WXE07088
+                 10 SM-DHLIT-AREA-CODE    PIC X(3).                     WXE07088
+              05 SM-TAT-FRANCE  REDEFINES SM-FEDEX-DATA.                TMH06065
+                 10 SM-TAT-ROUTING-CODE   PIC X(07).                    TMH06206
+                 10 SM-TAT-ROUTING-NUMBER PIC X(10).                    TMH06065
+                 10 FILLER                PIC X(02).                    TMH06206
+              05 SM-MDR-FRANCE  REDEFINES SM-FEDEX-DATA.                CMB09201
+                 10 SM-MDR-AGENCY-NBR        PIC 9(04).                 CMB09201
+                 10 SM-MDR-CIRCUIT-NBR       PIC 9(05).                 CMB09201
+                 10 SM-MDR-GROUP-NBR         PIC X(03).                 CMB09201
+                 10 SM-MDR-SHUTTLE-NBR       PIC X(06).                 CMB09201
+                 10 FILLER                PIC X(01).                    CMB09201
+              05 SM-QPC-SWISS   REDEFINES SM-FEDEX-DATA.                RAV99246
+                 15 SM-QPC-ARRIVAL-HUB    PIC X(2).                     RAV99246
+                 15 SM-QPC-TOUR-CODE      PIC X(4).                     RAV99246
+                 10 FILLER                   PIC X(11).                 RAV99246
+              05 SM-UPS-EURO REDEFINES SM-FEDEX-DATA.                   CMB98117
+                 10 SM-UPS-COUNTRY-CODE      PIC X(2).                  CMB98117
+                 10 SM-UPS-FOREIGN-FRT       PIC S9(15)V9(02) COMP-3.   CMB98117
+                 10 SM-UPS-INS-AMT           PIC S9(13)V9(02) COMP-3.   CMB98117
+              05 SM-DPD-GERMANY REDEFINES SM-FEDEX-DATA.                RDM96029
+                 10 SM-DP-COUNTRY-CODE       PIC X(2).                  RDM96029
+                 10 SM-DP-ROUTE              PIC 9(3).                  RDM96029
+                 10 SM-DP-E-SORT             PIC 9(2).                  RDM96029
+                 10 SM-DP-A-SORT             PIC X(2).                  RDM96029
+                 10 SM-DP-VERSION.                                      WXE00237
+                    15 SM-DP-V-R1            PIC X(1).                  WXE00237
+                    15 SM-DP-V-R2            PIC X(2).                  WXE00237
+                    15 SM-DP-V-R4            PIC 9(2).                  WXE00237
+                 10 FILLER                   PIC X(5).                  WXE00237
+              05 SM-SYS-GERMANY REDEFINES SM-FEDEX-DATA.                CMB00010
+                 10 FILLER                   PIC X(2).                  CMB00010
+                 10 SM-SYS-ROUTE             PIC 9(3).                  CMB00010
+                 10 SM-SYS-HUB               PIC X(4).                  CMB00010
+                 10 FILLER                   PIC X(10).                 CMB00010
+              05 SM-SEUR-SPAIN REDEFINES SM-FEDEX-DATA.                 CMB12041
+                 10 SM-SEUR-SHIP-CODE        PIC S9(3) COMP-3.          CMB12041
+                 10 SM-SEUR-SHIP-DESC        PIC X(14).                 CMB12041
+                 10 SM-SEUR-PLATFORM         PIC X(01).                 CMB12041
+                 10 SM-SEUR-TRANS-LINE       PIC X(01).                 CMB12041
+                 10 FILLER                   PIC X(01).                 CMB12041
+              05 SM-SEUR-PORTUGAL REDEFINES SM-FEDEX-DATA               APX19193
+                                             PIC X(19).                 APX19193
+              05 SM-TNT-UK     REDEFINES SM-FEDEX-DATA.                 JJD97343
+                 10 SM-TNT-SERVICE-LEVEL     PIC X(04).                 JJD97343
+                 10 SM-TNT-DEPOT-CODE        PIC X(03).                 JJD97343
+                 10 FILLER                   PIC X(12).                 JJD97343
+              05 SM-KEY-BE     REDEFINES SM-FEDEX-DATA.                 ESS99208
+                 10 SM-KEY-DEPOT             PIC X(02).                 ESS99208
+                 10 SM-KEY-TOUR              PIC X(04).                 ESS99208
+                 10 SM-KEY-GATE-NBR          PIC X(01).                 ESS99208
+                 10 FILLER                   PIC X(12).                 ESS99208
+              05 SM-PAT-DK     REDEFINES SM-FEDEX-DATA.                 ESS00035
+                 10 SM-PAKKE-TRANS-ZONE      PIC X(02).                 ESS00035
+                 10 FILLER                   PIC X(17).                 ESS00035
+              05 SM-ASCOLI-LL  REDEFINES SM-FEDEX-DATA.                 ESS99280
+                 10 SM-ASCOLI-LL-PROVINCE    PIC X(02).                 ESS99280
+                 10 SM-ASCOLI-LL-HUB-INITIALS PIC X(03).                ESS99280
+                 10 SM-ASCOLI-LL-HUB-CODE    PIC 9(03).                 ESS99280
+                 10 SM-ASCOLI-LL-HUB-DESC    PIC X(09).                 ESS99280
+                 10 FILLER                   PIC X(01).                 ESS99280
+              05 SM-POS-SE  REDEFINES SM-FEDEX-DATA.                    CZS00154
+                 10 SM-POS-SERVICE-CODE      PIC X(02).                 CZS00154
+                 10 FILLER                   PIC X(17).                 CZS00154
+              05 SM-POS-DK  REDEFINES SM-FEDEX-DATA.                    SXL21135
+                 10 SM-DK-POS-SERVICE-CODE   PIC X(02).                 SXL21135
+                 10 FILLER                   PIC X(17).                 SXL21135
+              05 SM-CHR-CHR REDEFINES SM-FEDEX-DATA.                    CMB01284
+                 10 SM-CHR-DELV-SVC          PIC X(04).                 CMB01284
+                 10 FILLER                   PIC X(15).                 CZS00154
+              05 SM-CAL-FR REDEFINES SM-FEDEX-DATA.                     CMB02050
+                 10 SM-CAL-SVC-CODE          PIC X(03).                 CMB02050
+                 10 SM-CAL-HUB-CODE          PIC X(03).                 CMB02050
+                 10 FILLER                   PIC X(12).                 CMB02050
+              05 SM-DEJ-FR REDEFINES SM-FEDEX-DATA.                     TXS02241
+                 10 SM-DEJ-SHUTTLE           PIC X(02).                 TXS02241
+                 10 FILLER                   PIC X(16).                 TXS02241
+              05 SM-BRS-IT REDEFINES SM-FEDEX-DATA.                     TXS04238
+                 10 SM-BRS-HUB-CODE          PIC X(2).                  TXS04238
+                 10 SM-BRS-AREA-CODE         PIC X(2).                  TXS04238
+                 10 SM-BRS-SERVICE-TYPE      PIC X(8).                  TXS04238
+                 10 FILLER                   PIC X(06).                 TXS04238
+              05 SM-FEX-FR REDEFINES SM-FEDEX-DATA.                     TXS05186
+                 10 SM-FEX-HUB-CODE          PIC X(03).                 TXS05186
+                 10 FILLER                   PIC X(15).                 TXS05186
+              05 SM-OLL-FR REDEFINES SM-FEDEX-DATA.                     EXG03090
+                 10 SM-SHUTTLE-DESC          PIC X(02).                 EXG03090
+                 10 FILLER                   PIC X(16).                 EXG03090
+              05 SM-DANZAS-DEST REDEFINES SM-FEDEX-DATA.                WXE02002
+                 10 SM-DANZAS-DEST-COUNTRY   PIC X(02).                 WXE02002
+                 10 FILLER                   PIC X(01).                 WXE02002
+                 10 SM-DANZAS-DEST-CODE      PIC X(03).                 WXE02002
+                 10 SM-DANZAS-ORIG-CODE      PIC X(03).                 WXE02002
+              05 SM-DHLFI-DATA REDEFINES SM-FEDEX-DATA.                 CMB04287
+                 10 SM-DHLFI-ORIG-CODE       PIC X(03).                 CMB04287
+                 10 SM-DHLFI-DEST-CODE       PIC X(03).                 CMB04287
+                 10 FILLER                   PIC X(03).                 CMB04287
+              05 SM-DHLSE-DATA REDEFINES SM-FEDEX-DATA.                 CMB06236
+                 10 SM-DHLSE-LINEHAUL-CODE   PIC X(03).                 CMB06236
+                 10 SM-DHLSE-RECV-TERM       PIC X(04).                 CMB06236
+                 10 FILLER                   PIC X(02).                 CMB06236
+              05 SM-AAE-INFO    REDEFINES SM-FEDEX-DATA.                TLC02099
+                 10 SM-AAE-PORT              PIC X(03).                 TLC02099
+                 10 FILLER                   PIC X(06).                 TLC02099
+              05 SM-COPE-CONNOTE REDEFINES SM-FEDEX-DATA.               TLC03124
+                 10 SM-COPE-CONNOTE-NBR      PIC X(07).                 TLC03124
+                 10 FILLER                   PIC X(02).                 TLC03124
+              05 SM-AR-CONNOTE  REDEFINES SM-FEDEX-DATA.                TLC02157
+                 10 SM-AR-CONNOTE-NBR        PIC X(09).                 TLC02157
+                 10 SM-ST-ZONE               PIC X(03).                 TLC04270
+              05 SM-DHLCH-DATA  REDEFINES SM-FEDEX-DATA.                TXS05140
+                 10 SM-DHLCH-DEPOT           PIC X(02).                 TXS05140
+                 10 SM-DHLCH-TOUR            PIC X(04).                 TXS05140
+                 10 SM-DHLCH-TOWN            PIC X(11).                 TXS05140
+                 10 SM-DHLCH-DEL-DAY         PIC X(02).                 TXS05140
+              05 SM-SCH-EMAIL1  REDEFINES SM-FEDEX-DATA                 CMB13038
+                                             PIC X(19).                 CMB13038
+              05 SM-ORDER-STATUS             PIC X(01).                         
+                 88 SM-ORDER-BILLED          VALUE 'I' 'F' 'E'.                 
+                 88 SM-T-REC-ORDER-STATUS    VALUE ' '.                 RPM05130
+              05 SM-CALL-TAG                 PIC X(1).                          
+              05 SM-AOD-SW                   PIC X(1).                          
+                 88 SM-AOD                   VALUE 'Y' 'A'.                     
+                 88 SM-AOD-CHARGE            VALUE 'Y'.                         
+                 88 SM-AOD-NO-CHARGE         VALUE 'A'.                         
+                 88 SM-AOD-NOT-REQUIRED           VALUE 'N'.            DGH00242
+              05 SM-OPER-ID                  PIC X(04).                         
+              05 SM-TIME-BILLED              PIC S9(7) COMP-3.                  
+              05 SM-TIME-PRINTED             PIC S9(7) COMP-3.                  
+              05 SM-DATE-PRINTED             PIC S9(5) COMP-3.                  
+              05 SM-POSTAL-CODES             PIC X(06).                         
+      *       05 SM-CUST-CITY                PIC X(21).                 EDJ96363
+              05 SM-END-USER-PO-NBR          PIC X(21).                 EDJ95363
+              05 SM-UPS-GRND-SAVER-FLAG      PIC X(1).                          
+              05 SM-METHOD-OF-ENTRY          PIC X(1).                          
+                 88 SM-BILLING-ENTRY         VALUE ' '.                         
+                 88 SM-LINE-BILLING          VALUE 'L' 'R'.             JJD94264
+                 88 SM-PA-COMPLETE           VALUE 'L'.                 JJD94319
+                 88 SM-RECONCILED            VALUE 'R'.                 JJD94319
+                 88 SM-PA-COMP-LAZORBILLED   VALUE 'A'.                 JJD94319
+                 88 SM-RECOCILED-LAZORBILLED VALUE 'B'.                 JJD94319
+                 88 SM-NON-BILLING-ENTRY     VALUE 'M' 'E'.             GEH93119
+                 88 SM-MISC-ENTRY            VALUE 'M'.                         
+                 88 SM-EDP520IM-CALLTAG      VALUE 'E'.                 JJD93070
+                 88 SM-BILL-ONLY             VALUE 'I'.                 JJD95310
+                 88 SM-ORP597                VALUE 'P'.                 JJD95310
+                 88 SM-TYPE-T-INVOICED-YES   VALUE 'X'.                 RPM05130
+                 88 SM-TYPE-T-INVOICED-NO    VALUE 'C'.                 RPM05130
+              05 SM-COD-SW                   PIC X(1).                          
+                 88 SM-COD-ORDER             VALUE 'Y'.                         
+              05 SM-CM-SW                    PIC X(1).                          
+                 88 SM-CM-APPLIED            VALUE 'Y'.                         
+              05 SM-FEDEX-ROUTING-CD         PIC X(07).                         
+              05 SM-SHIP-TO-CTRY-CODE REDEFINES SM-FEDEX-ROUTING-CD.    JAV09027
+                 10 SM-SHIP-TO-COUNTRY-CODE  PIC X(02).                 JAV09027
+                 10 SM-DIM-TOTAL-OC-CHG      PIC 9(4)V99 COMP-3.        DRM18264
+                 10 FILLER                   PIC X(01).                 DRM18264
+              05 SM-UPS150-SW                PIC X(01).                         
+              05 SM-CUST-CR-CODE             PIC X(01).                         
+              05 SM-BILL-TO-NBR.                                                
+                 10 SM-BILL-TO-BR-NBR        PIC X(2).                          
+                 10 SM-BILL-TO-CUST-NBR      PIC X(6).                          
+                 10 SM-BILL-TO-SUFFIX        PIC X(3).                          
+              05 SM-SHIP-TO-SUFFIX           PIC X(3).                          
+              05 SM-TERMS                    PIC S9(3) COMP-3.                  
+                 88 SM-COD-TERMS             VALUE 000 004.             TMH92261
+                 88 SM-COD-TERMS-CASH        VALUE 000.                 CMB97300
+                 88 SM-COD-TERMS-CHECK       VALUE 004.                 CMB97300
+      ********************************************************************      
+      * ABOUT FOLLOWING THREE FLAGS:                                     *      
+      *   IF SM-CC-CHANGE-SW ='Y' THAT MEANS CC DETERMINE WHO PAYS FRT.  *      
+      *   IF SM-CC-CHANGE-SW =' ' AND SM-FO-OVERRIDE-CODE = ' '          *      
+      *                           THAT MEANS CC DETERMINE WHO PAYS FRT.  *      
+      *   IF SM-CC-CHANGE-SW =' ' AND SM-FO-OVERRIDE-CODE = 'Y'          *      
+      *                           THAT MEANS CC DOES NOT DETERMINE WHO   *      
+      *                           PAYS FRT.                              *      
+      ********************************************************************      
+              05 SM-FRT-OUT-CODE             PIC X(1).                          
+                 88 SM-CUS-PAY-FRT           VALUE 'B'.                         
+                 88 SM-WE-PAY-FRT            VALUE 'P'.                         
+              05 SM-FO-OVERRIDE-CODE         PIC X(1).                          
+      *SM-CC-CHANGE-SW IF IS 'Y' MEANS CC WAS CHANGED IN BILLING                
+      *SM-CC-CHANGE-SW IF IS ' ' MEANS CC WAS SET WHEN ORDER WAS BUILT          
+              05 SM-CC-CHANGE-SW             PIC X(1).                          
+              05 SM-DATE-BILLED              PIC 9(05)    COMP-3.               
+              05 SM-DATE-BILLED-R REDEFINES SM-DATE-BILLED PIC X(3).            
+              05 SM-FULFILLMENT-ORDER-SW     PIC  X(1).                         
+                 88 SM-FULFILLMENT-ORDER     VALUE 'Y', 'W', 'X', 'A'.  ETJ98345
+                 88 SM-END-USER-ORD-FULFILL     VALUE 'W'.              LAB96324
+                 88 SM-END-USER-ORD-NO-FULFILL  VALUE 'E'.              LAB96324
+                 88 SM-END-USER-ORDER           VALUE 'E', 'W'.         LAB96324
+                 88 SM-NEXUS-FULFILLMENT        VALUE 'X', 'A'.         ETJ98345
+              05 SM-COD-TRIGGER-SW           PIC  X(1).                         
+                 88 SM-COD-BILLING           VALUE 'B'.                         
+                 88 SM-COD-PICKTICKET        VALUE 'P'.                         
+              05 SM-MET-GRND-SAVER-FLAG      PIC X(1).                          
+              05 SM-FOREIGN-CURR-SW          PIC X(1).                          
+              05 SM-DAS-SW REDEFINES  SM-FOREIGN-CURR-SW  PIC X(1).     TFM07164
+                 88 SM-DAS-BY-ORDER          VALUE 'O'.                 TFM07164
+                 88 SM-DAS-BY-CARTON         VALUE 'C'.                 TFM07164
+              05 SM-INV-VALUE                PIC S9(13)V9(2) COMP-3.    RPM97093
+              05 SM-FRT-CUS-PAYS             PIC S9(13)V9(2) COMP-3.    RPM97093
+              05 SM-AMT-APPLIED              PIC S9(13)V9(2) COMP-3.    RPM97093
+              05 SM-COD-COLL-AMT             PIC S9(13)V9(2) COMP-3.    RPM97093
+              05 SM-COD-COLL-AMT-FOREIGN     PIC S9(13)V9(2) COMP-3.    RPM97093
+              05 SM-INGRAM-CHOICE-FRT REDEFINES                         JRA03265
+                    SM-COD-COLL-AMT-FOREIGN  PIC S9(13)V9(2) COMP-3.    JRA03265
+              05 SM-INV-VALUE-FOREIGN        PIC S9(13)V9(2) COMP-3.    RPM97093
+              05  SM-DAS-FIELDS REDEFINES SM-INV-VALUE-FOREIGN.         TFM07164
+                  10  SM-DAS-CUST-CHRG       PIC S9(5)V99 COMP-3.       TFM07164
+                  10  SM-DAS-CARRIER-CHRG    PIC S9(5)V99 COMP-3.       TFM07164
+              05 SM-FRT-TAX                  PIC S9(13)V9(2) COMP-3.    RPM97093
+              05 SM-ORDER-TYPE               PIC X(1).                  JJD97141
+              05 SM-BIN-COMIT-SW             PIC X(1).                  JJD97141
+              05 SM-BR-COMIT-SW              PIC X(1).                  JJD97141
+              05 SM-CUS-CUA-SF               PIC X(2).                  JJD97343
+              05 SM-TOTAL-WEIGHT             PIC S9(09)V9(2) COMP-3.            
+              05 SM-TOTAL-CHARGES            PIC S9(15)V9(2) COMP-3.            
+              05 SM-CURRENCY-CODE            PIC X(3).                          
+              05 SM-EDI-CO                   PIC X(2).                  KMB92293
+              05 SM-FEDEX-DATA-2.                                       RDM96029
+                 10 SM-FEDEX-PREFIX-ENCODED-VALUE                       RDM96029
+                                             PIC X(3).                  JJD92297
+                 10 SM-FEDEX-LOCATION-IDENTIFIER                        RDM96029
+                                             PIC X(6).                  JJD92297
+      *** USED FOR EUROPE RESELLER FOR FRT OUT COST IN USD              RDM96029
+              05 SM-TOT-CHG-FOREIGN REDEFINES SM-FEDEX-DATA-2           RDM96029
+                                             PIC S9(15)V9(2) COMP-3.    RDM96029
+              05 SM-FEDEX-ROUTING-INDEX      PIC X(4).                  JJD92297
+              05 SM-FEDEX-30-REGION-CODE-SA  PIC X(2).                  JJD92297
+              05 SM-IM-NBR-OF-PALLETS      REDEFINES                    KAC94171
+                 SM-FEDEX-30-REGION-CODE-SA  PIC S9(03) COMP-3.         KAC94171
+              05 SM-FEDEX-FRT-CALC-METHOD    PIC X(1).                  JJD92297
+                 88 SM-FEDEX-OLD-METHOD      VALUE 'O'.                 JRA00304
+                 88 SM-FEDEX-NEW-METHOD      VALUE 'N'.                         
+                 88 SM-FEDEX-EXPRESS-SAVER   VALUE 'N'.                 JJD95310
+                 88 SM-FEDEX-1POUND-MIN      VALUE '1'.                 JJD95310
+              05 SM-BOL-ASSIGN-SW REDEFINES SM-FEDEX-FRT-CALC-METHOD    NPH00109
+                                             PIC X(1).                  NPH00109
+              05 SM-CARRIER-ACCOUNT-NBR-1    PIC X(15).                 JJD92310
+              05 SM-CARRIER-ACCOUNT-NBR-2    PIC X(15).                 JJD92310
+              05 SM-PICKUP-NBR-INDICATOR     PIC X(1).                          
+              05 SM-FEDEX-SERVICE-CODE       PIC X(2).                          
+              05 SM-FEDEX-HEAD-SERVICE-CODE  PIC X(2).                          
+              05 SM-COD-CHARGE               PIC S9(03)V99 COMP-3.              
+              05 SM-COD-METHOD-OF-PAYMENT    PIC X(1).                          
+              05 SM-FEDEX-30-RATE-SCALE-CODE PIC X(3).                  JJD92297
+              05 SM-NON-FEDEX-AREA   REDEFINES                          BXK08178
+                      SM-FEDEX-30-RATE-SCALE-CODE.                      BXK08178
+                10  SM-SCHED-DEL-DAY         PIC X(02).                 BXK08178
+                10  FILLER                   PIC X(01).                 BXK08178
+              05 SM-SHIPPERS-ZIP             PIC X(3).                  JJD92297
+              05 SM-REPORT-FORMAT            PIC X(4).                  JJD92297
+                 88 SM-UPS-FORMAT            VALUE 'MDR ' 'MDLC'.       GEH94003
+                 88 SM-FED-FORMAT            VALUE 'MDB '.              JJD92297
+              05 SM-CUS-ACCOUNT-NBR          PIC X(12).                 JJD92297
+              05 SM-PRT-CTN-SLIP-SW          PIC X(01).                 GEH92344
+              05 SM-UPS-SERVICE-LEVEL        PIC X(02).                 GEH92344
+              05 SM-SER-REQ-SW               PIC X(01).                 GEH92344
+              05 SM-UPS-100W-LINE-BILL-SW    PIC X(1).                          
+              05 SM-FEDEX-MANIFEST-IND-SW REDEFINES                     JAV08228
+                 SM-UPS-100W-LINE-BILL-SW    PIC X(1).                  JAV08228
+              05 SM-MASTER-TRACK-NBR         PIC X(8).                          
+              05 SM-SAC-AREA REDEFINES SM-MASTER-TRACK-NBR.             BXK08178
+                 10 SM-SERV-AREA-CD-ORIGIN   PIC X(03).                 BXK08178
+                 10 SM-SERV-AREA-CD-DEST     PIC X(03).                 BXK08178
+                 10 SM-DIM-SW                PIC X(01).                 TND16160
+                 10 FILLER                   PIC X(01).                 TND16160
+              05 SM-FULFILLMENT-NAME         PIC X(35).                         
+              05 SM-CUST-ATTENTION           PIC X(35).                 GEH92344
+              05 SM-CUST-REF-NBR             PIC X(20).                 GEH92344
+              05 SM-SCH-EMAIL3 REDEFINES SM-CUST-REF-NBR                CMB13038
+                                             PIC X(20).                 CMB13038
+              05 SM-RECONCILE-BILL-SW        PIC X(01).                 GEH92344
+                 88 SM-ORDER-RECONCILED      VALUE 'R'.                 GEH92344
+              05 SM-ALLIANCE-ORDER-SW        REDEFINES                  CCL95293
+                 SM-RECONCILE-BILL-SW        PIC X(01).                 CCL95293
+                 88 SM-ALLIANCE-ORDER        VALUE 'Y'.                 CCL95293
+              05 SM-LAST-PKG-ID              PIC X(25).                 GEH93032
+              05 SM-FEDEX-COD-TRK-NBR        PIC X(25).                 GEH93032
+              05 SM-DIM-AREA REDEFINES SM-FEDEX-COD-TRK-NBR.            TND16160
+                 10  SM-DIM-TOTAL-VOLUMN     PIC 9(11)V99  COMP-3.      TND16160
+                 10  SM-DIM-TOTAL-CHARGE-WGT PIC 9(6) COMP-3.           TND16160
+                 10  SM-DIM-TOTAL-CARTON-OS  PIC 9(2) COMP-3.           TND16160
+                 10  SM-DIM-TOTAL-FSAP-CHG   PIC 9(2)V99 COMP-3.        TND16160
+                 10  SM-DIM-TOTAL-FSAR-CHG   PIC 9(2)V99 COMP-3.        TND16160
+                 10  SM-DIM-TOTAL-OS-CHG     PIC 9(4)V99 COMP-3.        DRM18264
+      *          10  SM-DIM-TOTAL-OC-CHG     PIC 9(2)V99 COMP-3.        DRM18264
+                 10  FILLER                  PIC X(2).                  DRM18264
+              05 SM-DANZAS-DEST-CITY    REDEFINES SM-FEDEX-COD-TRK-NBR  WXE02002
+                                             PIC X(25).                 WXE02002
+              05 SM-DHL-SE-SHP-NBRX     REDEFINES SM-FEDEX-COD-TRK-NBR. CMB04287
+                 10 SM-DHL-SE-SHP-NBR        PIC X(10).                 CMB04287
+                 10 FILLER                   PIC X(15).                 CMB04287
+              05 SM-NOP-SE-SHP-NBRX     REDEFINES SM-FEDEX-COD-TRK-NBR. ESS04291
+                 10 SM-NOP-SE-SHP-NBR        PIC X(20).                 ESS04291
+                 10 FILLER                   PIC X(05).                 ESS04291
+              05 SM-MDR-HUB-DETAILS     REDEFINES SM-FEDEX-COD-TRK-NBR. CMB09201
+                 10 SM-MDR-DISP-NBR          PIC 9(08).                 CMB09201
+                 10 SM-MDR-PICKUP-PT         PIC 9(05).                 CMB09201
+                 10 SM-MDR-SVC-NBR           PIC 9(01).                 CMB09201
+                 10 SM-MDR-DELV-MODE         PIC X(03).                 CMB09201
+                 10 FILLER                   PIC X(08).                 CMB09201
+              05 SM-SEUR-HUB-DETAILS    REDEFINES SM-FEDEX-COD-TRK-NBR. CMB12041
+                 10 SM-SEUR-LOAD-LINE        PIC X(03).                 CMB12041
+                 10 FILLER                   PIC X(22).                 CMB12041
+              05 SM-SCH-EMAIL2          REDEFINES SM-FEDEX-COD-TRK-NBR  CMB13038
+                                             PIC X(25).                 CMB13038
+              05 SM-PKG-IN-PROCESS-SW        PIC X(01).                 JJD94327
+                 88 SM-PKG-IN-PROCESS        VALUE 'Y'.                 JJD94327
+              05 SM-TL-CTN-PA                PIC S9(5) COMP-3.          RPM97093
+              05 SM-RATE-INDEX               PIC X(01).                 GEH93032
+              05 SM-INVOICE-TO-BE            PIC S9(7) COMP-3.          JJD93068
+              05 SM-MAIF-CO                  PIC X(2).                  JJD93068
+                 88 SM-BELGIUM               VALUE 'BE'.                GEH93113
+                 88 SM-CANADA                VALUE 'FT'.                GEH93113
+                 88 SM-FRANCE                VALUE 'FR'.                GEH93113
+                 88 SM-GERMANY               VALUE 'DE' 'DC'.           KMP13282
+                 88 SM-ITALY                 VALUE 'IT' 'Z3'.           JH121309
+                 88 SM-MEXICO                VALUE 'MX'.                GEH94271
+                 88 SM-NETHERLANDS           VALUE 'NL'.                GEH93113
+                 88 SM-SPAIN                 VALUE 'ES'.                GEH94271
+                 88 SM-PORTUGAL              VALUE 'PT'.                APX19193
+                 88 SM-UK                    VALUE 'UK'.                GEH93113
+                 88 SM-US                    VALUE 'MD'.                GEH93113
+                 88 SM-US-COMPANIES          VALUE                      DAC96264
+                    'CQ' 'MS' 'CU' 'MD'.                                RMR99161
+                 88 SM-BILLED-MDP650         VALUE                      DAC96264
+                    'CQ' 'MS' 'CU' 'FT' 'MD' 'MX'.                      RMR99161
+                 88 SM-EUROPE                VALUE 'BE' 'FR' 'DE' 'IT'  GEH94271
+                                                   'NL' 'ES' 'UK' 'SE'  RDM95109
+                                                   'DK' 'NO' 'FI' 'AT'  CMB99061
+                                                   'CH' 'HU' 'DC' 'PT'  JH121309
+                                                   'Z3'.                JH121309
+                 88 SM-MAIF-US-MODEL-COMPANY  VALUE                     NCL95261
+                    'CQ' 'MS' 'CU' 'MD'.                                RMR99161
+                 88 SM-MAIF-FULFILL-COMPANY   VALUE                     NCL95261
+                    'CQ' 'MS' 'CU'.                                     RMR99161
+              05 SM-NBR-BILLED               PIC S9(3) COMP-3.          NCL95261
+              05 SM-LANE-DIVERTER-CODE       PIC X(2).                  GMM97112
+              05 SM-ASSIGN-CTN-NBR-AT-PA-SW  PIC X(1).                  MWO97190
+              05 SM-PACKSLIP-NBR.                                       JJD93090
+      ********   10 SM-PACK-BRANCH           PIC X(2).                  GMM97112
+      ********   10 SM-PACK-DASH             PIC X(1).                  GMM97112
+                 10 SM-PACK-YY               PIC X(2).                  JJD93090
+                 10 SM-PACK-CNTL-NBR         PIC 9(6).                  JJD93090
+              05 SM-MARKUP-DATA REDEFINES SM-PACKSLIP-NBR.              RXK05262
+                 10 SM-MARKUP-ID    PIC X(04).                          RXK05262
+                 10 SM-MARKUP-PERCENT   PIC 9(3)V99 COMP-3.             RXK05262
+                 10 SM-MARKUP-STGY-CD   PIC X(01).                      RXK05262
+              05 SM-INV-COST                 PIC S9(15)V9(2) COMP-3.    JJD93099
+              05 SM-PA-FIELDS REDEFINES SM-INV-COST.                    JJD95254
+                 10 SM-PA-TOTAL-BOXES        PIC S9(5) COMP-3.          RPM97093
+                 10 SM-ZONE-ERROR-SW         PIC X(01).                 NCL95261
+                 10 SM-NBR-OF-BOXES-BILLED   PIC S9(5) COMP-3.          RPM97093
+                 10 SM-LABEL-OPTIONS         PIC X(01).                 MWO97300
+                    88 SM-LABEL-EIA          VALUE 'E'.                 MWO97300
+                    88 SM-LABEL-SSCC         VALUE 'A'.                 PJD01298
+                    88 SM-PALLET-LABEL-SSCC  VALUE 'P'.                 PJD02249
+                 10 FILLER                   PIC X(01).                 MWO97300
+              05 SM-DELIVER-TYPE             PIC X(01).                 GEH93139
+                 88 SM-TERMINAL-PICKUP       VALUE 'O'.                 GEH93139
+                 88 SM-DELIVER-TO-PREMISES   VALUE 'D'.                 GEH93139
+              05 SM-END-CUST-NUM             PIC X(10).                 JJD93140
+              05 SM-LINE-HAUL-CARR REDEFINES SM-END-CUST-NUM.           TYS04098
+                 10  SM-LINE-HAUL-CARR-SW    PIC X(01).                 TYS04098
+                     88  SM-ORDER-ON-LH-CARR VALUE 'Y'.                 TYS04098
+                 10  SM-LINE-HAUL-CARR-FRT   PIC S9(7)V99 COMP-3.       TYS04098
+                 10  SM-CARR-DROP-ID         PIC X(04).                 TYS04157
+              05 SM-UPS-HUNDREDWEIGHT-SW     PIC X(01).                 JJD93188
+              05 SM-CARRIER-FN-SW            PIC X(01).                 JJD93252
+              05 SM-GPS-NORTH-SOUTH-SW       PIC X(01).                 JJD93264
+                 88 SM-GPS-SOUTH             VALUE 'Y'.                 JJD93264
+                 88 SM-GPS-NORTH             VALUE ' '.                 JJD93264
+              05 SM-ORDER-SOURCE-CO          PIC X(02).                 JWO93264
+              05 SM-OUTSIDE-SALESMAN         PIC X(04).                 JWO93264
+              05 SM-BILLING-EXCEPTION-SW     PIC X(01).                 GEH93340
+                 88 SM-BILLING-EXCEPTION     VALUE 'Y'.                 GEH93340
+              05 SM-TRAK-REQ-SW              PIC X(01).                 JJD94003
+                 88 SM-TRACK-REQ             VALUE 'Y'.                 JJD94003
+              05 SM-CTN-NBR-OVERRIDE-SW REDEFINES SM-TRAK-REQ-SW        JJD98159
+                                             PIC X(1).                  JJD98128
+              05 SM-CARRIER-CF-SW            PIC X(01).                 JJD94012
+      *       05 SM-DSI-ERROR-CODE           PIC X(01).                 RXK00272
+      *          88 SM-DSI-ERROR-PRICE       VALUE 'P'.                 RXK00272
+      *          88 SM-DSI-ERROR-COST        VALUE 'C'.                 RXK00272
+      *          88 SM-DSI-ERROR-BOTH        VALUE 'B'.                 RXK00272
+              05 SM-RESIDENTIAL-SW           PIC X(1).                  RXK00272
+                 88 SM-RESIDENTIAL           VALUE 'R'.                 RXK00272
+                 88 SM-FIRM                  VALUE 'F'.                 RXK00272
+              05 SM-TBL-CNT                  PIC S9(03) COMP-3.         GEH92226
+                                                                                
+           02 SM-SMRMST-VARIABLE.                                       GEH93109
+              05 SMU-DATA-USA  OCCURS  1 TO 80 TIMES                    GEH92226
+                                DEPENDING ON SM-TBL-CNT                 GEH92226
+                                INDEXED BY SMU-INX.                     GEH92226
+                 10 SMU-PACKAGE-ID-NBR       PIC X(25).                         
+                 10 SMU-OPID-QA              PIC X(04).                 JJD95067
+                    10 SMU-AOD-NBR REDEFINES SMU-OPID-QA PIC X(4).      JJD95067
+                    10 SMU-PALLET-INFO REDEFINES SMU-OPID-QA.           RDM95109
+                       15 SMU-PALLET-TYPE    PIC X(2).                  RDM95109
+                       15 SMU-CTN-PER-PALLET PIC 9(2).                  RDM95109
+                 10 SMU-OPID-BILLED          PIC X(04).                 JJD95067
+                 10 SMU-DATE-BILLED          PIC S9(5) COMP-3.          JJD95067
+                 10 SMU-OPID-PICKED          PIC X(4).                  JJD95139
+                 10 SMU-WEIGHT               PIC S9(9)V99  COMP-3.              
+                 10 SMU-COD-ZONE-DATA.                                  ESS10140
+                    15 SMU-ZONE-CHRG         PIC S9(15)V99 COMP-3.      ESS10140
+                    15 SMU-COD-CHRG          PIC S9(01)V99 COMP-3.      ESS10140
+                    15 SMU-COD-AMOUNT        PIC S9(15)V99 COMP-3.      ESS10140
+                 10 SMU-SSCC-NBR REDEFINES SMU-COD-ZONE-DATA.           ESS10140
+                    15 SMU-SSCC-NUMBER       PIC X(20).                 ESS10140
+                 10 SMU-WGT-ENTRY            PIC X(1).                          
+                     88 SM-MANUAL-ENTRY      VALUE ' '.                         
+                     88 SM-DATABASE-ENTRY    VALUE 'D'.                         
+                     88 SM-SCAN-ENTRY        VALUE 'S'.                         
+                 10 SMU-CTRL-NBR             PIC X(12).                 JJD94161
+                 10 SMU-DELL-DATE REDEFINES SMU-CTRL-NBR.               TLC04250
+                    15 SMU-DATA-TYPE         PIC X(01).                 TLC04250
+                     88 SMU-BOX              VALUE 'B'.                 TLC04250
+                     88 SMU-LINE             VALUE 'L'.                 TLC04250
+                     88 SMU-DIMS             VALUE 'D'.                 TLC04250
+                    15 SMU-LENGTH            PIC X(03).                 TLC04250
+                    15 SMU-BOX-NUMBER REDEFINES SMU-LENGTH.             TLC04250
+                       20 SMU-BOX-NO         PIC X(02).                 TLC04250
+                       20 FILLER             PIC X(01).                 TLC04250
+                    15 SMU-WIDTH             PIC X(03).                 TLC04250
+                    15 SMU-HEIGHT            PIC X(03).                 TLC04250
+                 10 SMU-CTRL-TYPE            PIC X(1).                  JJD94161
+                 10 SMU-STATUS               PIC X(1).                  JJD94161
+                     88 SM-OPEN              VALUE ' '.                 JJD94161
+                     88 SM-BILLED            VALUE 'I' 'M'.             DWR99054
+                     88 SM-VOID              VALUE 'V'.                 JJD94161
+                     88 SM-MANIFESTED        VALUE 'M'.                 DWR99054
+                 10 SMU-CM-APPLIED           PIC S9(13)V99 COMP-3.      RPM97093
+                 10 SMU-CTN-NBR              PIC S9(5) COMP-3.          RPM97093
+                 10 SMU-FC-OVERRIDE-SW       PIC X(1).                  JJD94161

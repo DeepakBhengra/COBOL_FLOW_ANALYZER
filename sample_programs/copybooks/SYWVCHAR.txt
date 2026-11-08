@@ -1,0 +1,627 @@
+      * ****************************************************************MCS97261
+      *                       REVISIONS                                *MCS97261
+      *                                                                *MCS97261
+      * 12/23/97 BCD CHANGE TRANSLATION FOR Ý AND ¨ TO SPACES.  HEX    *BCD97357
+      *              RESULTS ARE NOT CONSISTENT ON 3270 AND RUMBA      *BCD97357
+      *              BASED TERMINALS.                                  *BCD97357
+      * 09/18/97 MCS CHANGE BINARY SEARCH TO INSPECT TO SPEED RUN      *MCS97261
+      *              ADD SET OF VALID AND INVALID CHARACTERS           *MCS97261
+      *              ALSO ADD X'9E' WHICH IS A VALID CHARACTER         *MCS97261
+      *              SWEDEN.  ALSO ADD '  Ý' AND '¨'.   IF ADDING      *MCS97261
+      *              NEW CHARACTER MUST ADD TO VALID TABLE AND ALSO    *MCS97261
+      *              CHANGE VC-NEW-SET ENTRY                           *MCS97261
+      ******************************************************************MCS97261
+      * ****************************************************************MCS97261
+       01  VC-WORK-AREA.                                                        
+           05  VC-SUB                  PIC S9(04) VALUE ZEROS COMP.             
+           05  VC-SUB-MAX              PIC S9(04) VALUE +2048 COMP.             
+           05  VC-TXT-OFFSET-COUNT     PIC S9(05) VALUE ZEROS COMP-3.           
+           05  VC-TXT-CHANGE-COUNT     PIC S9(09) VALUE ZEROS COMP-3.           
+           05  VC-VALID-CHAR-COUNT     PIC S9(15) VALUE ZEROS COMP-3.           
+           05  VC-INVLD-CHAR-COUNT     PIC S9(15) VALUE ZEROS COMP-3.           
+           05  VC-TXT-CHANGED-SW       PIC X     VALUE 'N'.                     
+               88  VC-TXT-CHANGED                VALUE 'Y'.                     
+           05  VC-MOV-SW               PIC X     VALUE 'N'.             MCS97261
+               88  VC-TXT-MOVED                  VALUE 'Y'.             MCS97261
+                                                                                
+       01  VC-TEXT-AREA.                                                        
+           05  VC-TXT-CHAR             PIC X(01) OCCURS 2048 TIMES.             
+                                                                                
+       01  VALID-CHARACTERS.                                                    
+           05  VALID-CHAR-01           PIC X(01) VALUE ' '.                     
+           05  VALID-CHAR-02           PIC X(01) VALUE '¢'.                     
+           05  VALID-CHAR-03           PIC X(01) VALUE '.'.                     
+           05  VALID-CHAR-04           PIC X(01) VALUE '<'.                     
+           05  VALID-CHAR-05           PIC X(01) VALUE '('.                     
+           05  VALID-CHAR-06           PIC X(01) VALUE '+'.                     
+           05  VALID-CHAR-07           PIC X(01) VALUE '|'.                     
+           05  VALID-CHAR-08           PIC X(01) VALUE '&'.                     
+           05  VALID-CHAR-09           PIC X(01) VALUE '!'.                     
+           05  VALID-CHAR-10           PIC X(01) VALUE '$'.                     
+           05  VALID-CHAR-11           PIC X(01) VALUE '*'.                     
+           05  VALID-CHAR-12           PIC X(01) VALUE ')'.                     
+           05  VALID-CHAR-13           PIC X(01) VALUE ';'.                     
+           05  VALID-CHAR-14           PIC X(01) VALUE '^'.                     
+           05  VALID-CHAR-15           PIC X(01) VALUE '-'.                     
+           05  VALID-CHAR-16           PIC X(01) VALUE '/'.                     
+           05  VALID-CHAR-17           PIC X(01) VALUE '¦'.                     
+           05  VALID-CHAR-18           PIC X(01) VALUE ','.                     
+           05  VALID-CHAR-19           PIC X(01) VALUE '%'.                     
+           05  VALID-CHAR-20           PIC X(01) VALUE '_'.                     
+           05  VALID-CHAR-21           PIC X(01) VALUE '>'.                     
+           05  VALID-CHAR-22           PIC X(01) VALUE '?'.                     
+           05  VALID-CHAR-23           PIC X(01) VALUE '`'.                     
+           05  VALID-CHAR-24           PIC X(01) VALUE ':'.                     
+           05  VALID-CHAR-25           PIC X(01) VALUE '#'.                     
+           05  VALID-CHAR-26           PIC X(01) VALUE '@'.                     
+           05  VALID-CHAR-27           PIC X(01) VALUE ''''.                    
+           05  VALID-CHAR-28           PIC X(01) VALUE '='.                     
+           05  VALID-CHAR-29           PIC X(01) VALUE '"'.                     
+           05  VALID-CHAR-70           PIC X(01) VALUE 'Æ'.             MCS97261
+           05  VALID-CHAR-30           PIC X(01) VALUE '~'.                     
+           05  VALID-CHAR-71           PIC X(01) VALUE 'Ý'.             MCS97261
+           05  VALID-CHAR-72           PIC X(01) VALUE '¨'.             MCS97261
+           05  VALID-CHAR-31           PIC X(01) VALUE '{'.                     
+           05  VALID-CHAR-32           PIC X(01) VALUE 'A'.                     
+           05  VALID-CHAR-33           PIC X(01) VALUE 'B'.                     
+           05  VALID-CHAR-34           PIC X(01) VALUE 'C'.                     
+           05  VALID-CHAR-35           PIC X(01) VALUE 'D'.                     
+           05  VALID-CHAR-36           PIC X(01) VALUE 'E'.                     
+           05  VALID-CHAR-37           PIC X(01) VALUE 'F'.                     
+           05  VALID-CHAR-38           PIC X(01) VALUE 'G'.                     
+           05  VALID-CHAR-39           PIC X(01) VALUE 'H'.                     
+           05  VALID-CHAR-40           PIC X(01) VALUE 'I'.                     
+           05  VALID-CHAR-41           PIC X(01) VALUE '}'.                     
+           05  VALID-CHAR-42           PIC X(01) VALUE 'J'.                     
+           05  VALID-CHAR-43           PIC X(01) VALUE 'K'.                     
+           05  VALID-CHAR-44           PIC X(01) VALUE 'L'.                     
+           05  VALID-CHAR-45           PIC X(01) VALUE 'M'.                     
+           05  VALID-CHAR-46           PIC X(01) VALUE 'N'.                     
+           05  VALID-CHAR-47           PIC X(01) VALUE 'O'.                     
+           05  VALID-CHAR-48           PIC X(01) VALUE 'P'.                     
+           05  VALID-CHAR-49           PIC X(01) VALUE 'Q'.                     
+           05  VALID-CHAR-50           PIC X(01) VALUE 'R'.                     
+           05  VALID-CHAR-51           PIC X(01) VALUE '\'.                     
+           05  VALID-CHAR-52           PIC X(01) VALUE 'S'.                     
+           05  VALID-CHAR-53           PIC X(01) VALUE 'T'.                     
+           05  VALID-CHAR-54           PIC X(01) VALUE 'U'.                     
+           05  VALID-CHAR-55           PIC X(01) VALUE 'V'.                     
+           05  VALID-CHAR-56           PIC X(01) VALUE 'W'.                     
+           05  VALID-CHAR-57           PIC X(01) VALUE 'X'.                     
+           05  VALID-CHAR-58           PIC X(01) VALUE 'Y'.                     
+           05  VALID-CHAR-59           PIC X(01) VALUE 'Z'.                     
+           05  VALID-CHAR-60           PIC X(01) VALUE '0'.                     
+           05  VALID-CHAR-61           PIC X(01) VALUE '1'.                     
+           05  VALID-CHAR-62           PIC X(01) VALUE '2'.                     
+           05  VALID-CHAR-63           PIC X(01) VALUE '3'.                     
+           05  VALID-CHAR-64           PIC X(01) VALUE '4'.                     
+           05  VALID-CHAR-65           PIC X(01) VALUE '5'.                     
+           05  VALID-CHAR-66           PIC X(01) VALUE '6'.                     
+           05  VALID-CHAR-67           PIC X(01) VALUE '7'.                     
+           05  VALID-CHAR-68           PIC X(01) VALUE '8'.                     
+           05  VALID-CHAR-69           PIC X(01) VALUE '9'.                     
+                                                                                
+       01  VALID-CHAR-TABLE            REDEFINES VALID-CHARACTERS.              
+           05  VALID-CHARS                       OCCURS 72 TIMES        MCS97261
+                                                 ASCENDING                      
+                                                 KEY IS VALID-CHAR              
+                                                 INDEXED BY VCHAR-INDX.         
+               10  VALID-CHAR          PIC X(01).                               
+                                                                                
+       01  VC-OLD-TEST                 PIC X(256).                      MCS97261
+       01  VC-NEW-TEST                 PIC X(256).                      MCS97261
+       01  VC-OLD-SET.                                                  MCS97261
+           05  FILLER                  PIC X(01) VALUE X'00'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'01'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'02'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'03'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'04'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'05'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'06'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'07'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'08'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'09'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'0A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'0B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'0C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'0D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'0E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'0F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'10'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'11'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'12'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'13'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'14'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'15'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'16'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'17'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'18'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'19'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'1A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'1B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'1C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'1D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'1E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'1F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'20'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'21'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'22'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'23'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'24'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'25'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'26'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'27'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'28'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'29'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'2A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'2B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'2C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'2D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'2E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'2F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'30'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'31'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'32'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'33'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'34'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'35'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'36'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'37'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'38'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'39'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'3A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'3B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'3C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'3D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'3E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'3F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'41'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'42'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'43'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'44'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'45'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'46'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'47'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'48'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'49'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'50'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'51'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'52'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'53'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'54'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'55'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'56'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'57'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'58'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'59'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'60'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'61'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'62'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'63'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'64'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'65'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'66'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'67'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'68'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'69'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'70'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'71'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'72'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'73'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'74'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'75'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'76'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'77'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'78'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'79'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'80'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'81'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'82'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'83'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'84'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'85'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'86'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'87'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'88'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'89'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'8A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'8B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'8C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'8D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'8E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'8F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'90'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'91'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'92'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'93'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'94'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'95'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'96'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'97'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'98'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'99'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'9A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'9B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'9C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'9D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'9E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'9F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'AA'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'AB'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'AC'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'AD'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'AE'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'AF'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'B9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'BA'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'BB'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'BC'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'BD'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'BE'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'BF'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'CA'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'CB'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'CC'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'CD'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'CE'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'CF'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'DA'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'DB'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'DC'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'DD'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'DE'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'DF'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'EA'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'EB'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'EC'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'ED'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'EE'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'EF'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'FA'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'FB'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'FC'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'FD'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'FE'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'FF'.           MCS97261
+                                                                        MCS97261
+       01  VC-NEW-SET.                                                  MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'4F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'50'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'5F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'60'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'61'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'6F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'79'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7A'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7B'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7C'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7D'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'7F'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'9E'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'A1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           BCD97357
+           05  FILLER                  PIC X(01) VALUE X'40'.           BCD97357
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'C9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'D9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'E9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F0'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F1'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F2'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F3'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F4'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F5'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F6'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F7'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F8'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'F9'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261
+           05  FILLER                  PIC X(01) VALUE X'40'.           MCS97261

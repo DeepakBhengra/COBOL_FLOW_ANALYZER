@@ -1,0 +1,104 @@
+      ******************************************************************        
+      **                                                                        
+      **  DESCRIPTION -  THIS COPYBOOK IS USED TO KEEP DETEMINE                 
+      **                 THE TAXING AUTHORITY TO IMPLEMENT SHIP TO              
+      **                 TAXING FOR CANADA                                      
+      ******************************************************************        
+      **    DATE   INIT  DESCRIPTION OF CHANGES                                 
+      **  10/05/18  MYG  FIX CANADA SHIP TO TAXING ISSUE                MYG18278
+      **  08/17/18  MYG  CHANGED PROVINCE CODE FROM 'PQ' TO 'QC'.       MYG18229
+      **  05/10/12  WTL  FIX FOR POSTAL CODES BEGINNING WITH K1A        WTL12131
+      **                 WHICH CAN BE USED INTERCHANGABLY IN ON OR PQ   WTL12131
+      **  03/22/02  BAM  ADD STATE AND COUNTY CODE OF 'QC' FOR QUEBEC.  BAM02081
+      **  03/29/00  GFD  INITIALIZE WS-PSTL-FND-SW                      GFD00080
+      **  03/29/00  FXE  FIX COMMENT LINE                               GFD00080
+      **  11/30/99  GFD  COPYBOOK CREATED.                              GFD99336
+      ******************************************************************        
+                                                                                
+       SA311-CHECK-SHIP-TO-TAX.                                                 
+           IF WS-PSTL-PCODE (1:3) = 'K1A'                               WTL12131
+             IF WS-STATE-CODE1 = 'PQ' OR 'QC'                           WTL12131
+                MOVE 'T' TO CUA-TAX-CODE                                WTL12131
+                            ORH-TAX-CODE                                WTL12131
+                            OET-TAX-CODE                                WTL12131
+                MOVE 'QC'       TO  ORH-STATE-CODE                      MYG18229
+                                    ORH-COUNTY-CODE                     WTL12131
+                                    WS-STATE-CODE1                      WTL12131
+                                    WS-COUNTY-CODE1                     WTL12131
+                GO TO SA311-EXIT                                        WTL12131
+             ELSE                                                       WTL12131
+                MOVE 'S' TO CUA-TAX-CODE                                WTL12131
+                            ORH-TAX-CODE                                WTL12131
+                            OET-TAX-CODE                                WTL12131
+                MOVE 'ON'       TO  ORH-STATE-CODE                      WTL12131
+                                    WS-STATE-CODE1                      WTL12131
+                MOVE SPACES     TO  ORH-COUNTY-CODE                     WTL12131
+                                    WS-COUNTY-CODE1                     WTL12131
+                GO TO SA311-EXIT.                                       WTL12131
+                                                                        MYG18229
+           IF WS-STATE-CODE1 = 'QC'                                     MYG18229
+              MOVE 'T' TO CUA-TAX-CODE                                  MYG18229
+                          ORH-TAX-CODE                                  MYG18229
+                          OET-TAX-CODE                                  MYG18229
+              MOVE 'QC'       TO  ORH-STATE-CODE                        MYG18229
+                                  ORH-COUNTY-CODE                       MYG18229
+                                  WS-STATE-CODE1                        MYG18229
+                                  WS-COUNTY-CODE1                       MYG18229
+              GO TO SA311-EXIT.                                         MYG18229
+                                                                        MYG18229
+           MOVE SPACES          TO  WS-STATE-CODE1.                     WTL12131
+      *                                                                 WTL12131
+           MOVE 'N' TO WS-PSTL-FND-SW.                                  GFD00080
+           PERFORM SA312-READ-POSTAL-FILE THRU SA312-EXIT                       
+             VARYING WS-CNT FROM 6 BY -1                                        
+             UNTIL WS-CNT = 0  OR WS-PSTL-FND.                                  
+                                                                                
+           IF (SYPS-STATE = 'PQ' OR SYPS-STATE = 'QC') AND              MYG18229
+              (WS-PSTL-FND-SW NOT = 'N')                                MYG18229
+                MOVE 'T' TO CUA-TAX-CODE                                MYG18229
+                            ORH-TAX-CODE                                MYG18229
+                            OET-TAX-CODE                                MYG18229
+                MOVE 'QC'       TO  ORH-STATE-CODE                      MYG18229
+                                    ORH-COUNTY-CODE                     MYG18229
+                                    WS-STATE-CODE1                      MYG18229
+                                    WS-COUNTY-CODE1                     MYG18229
+                GO TO SA311-EXIT.                                       MYG18229
+                                                                                
+           IF CUA-TAX-CODE = 'T' AND                                    MYG18278
+              CUA-STATE-CODE = 'PQ'  AND                                MYG18278
+              CUA-COUNTY-CODE = 'PQ' AND                                MYG18278
+              SYPS-STATE NOT = 'PQ' AND                                 MYG18278
+              (WS-PSTL-FND-SW NOT = 'N')                                MYG18278
+                MOVE 'S' TO CUA-TAX-CODE                                MYG18278
+                            ORH-TAX-CODE                                MYG18278
+                            OET-TAX-CODE                                MYG18278
+                MOVE SPACE TO ORH-COUNTY-CODE.                          MYG18278
+                                                                                
+           IF CUA-TAX-CODE = 'T' AND                                    MYG18278
+              CUA-STATE-CODE = 'QC'  AND                                MYG18278
+              CUA-COUNTY-CODE = 'QC' AND                                MYG18278
+              SYPS-STATE NOT = 'QC' AND                                 MYG18278
+              (WS-PSTL-FND-SW NOT = 'N')                                MYG18278
+                MOVE 'S' TO CUA-TAX-CODE                                MYG18278
+                            ORH-TAX-CODE                                MYG18278
+                            OET-TAX-CODE                                MYG18278
+                MOVE SPACE TO ORH-COUNTY-CODE.                          MYG18278
+                                                                                
+           IF NOT WS-EIB-NORESP                                                 
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+           IF CUA-TAX-CODE EQUAL 'T'                                            
+                MOVE SYPS-STATE                                                 
+                                TO  ORH-STATE-CODE                              
+                                    ORH-COUNTY-CODE                             
+                                    WS-STATE-CODE1                              
+                                    WS-COUNTY-CODE1                             
+            ELSE                                                                
+            IF CUA-TAX-CODE EQUAL 'S'                                           
+                MOVE SYPS-STATE                                                 
+                                TO  ORH-STATE-CODE                              
+                                    WS-STATE-CODE1.                             
+                                                                                
+       SA311-EXIT.                                                              
+           EXIT.                                                                
+                                                                                

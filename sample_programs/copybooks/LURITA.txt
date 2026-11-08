@@ -1,0 +1,125 @@
+      ***************************************************************           
+      *     LU6.2 ORDER ACTION                                                  
+      *                                                                         
+      *  PURPOSE:  ALLOWS USER  TO SEND REQUEST TO EITHER                       
+      *            CANCEL ORDER, FINALIZE ORDER (END ORDER), OR                 
+      *            ORDER RELEASE (PRINT ORDER).                                 
+      *                                                                         
+      *  08/31/99 ROR ADDED NEW-FIELD LURITA-R-ERROR-TYPE-NEW REDEFINE  ROR99250
+      *                FROM LURITA-R-RECORD-RESPONSE.                   ROR99250
+      *  05/01/98 BLJ ADDED SPLIT INVOICING SWITCH.  ALSO ADDED         BLJ98222
+      *               LINE AND BILL-TO SUFFIX INFO IN WAREHOUSE TABLE   BLJ98222
+      *  01/16/98 ROK  ADDED TIME SENT2                             *   ROK98016
+      *  06/02/97 SXK  ADDED SHIP TO   COUNTRY CODE                 *   SXK97153
+      *  03/18/97 SXK  ADDED INTERNET HOLD                          *   SXK97077
+      *  10/15/96 SXK  CREATED                                      *   SXK96332
+      ***************************************************************           
+       01  LURITA-LU62-ORDER-ACTION.                                            
+         02  LURITA-OA-PRINT-CANCEL-AREA.                                       
+      ***************************************************************           
+          03  LURITA-INTERNAL-AREA.                                             
+           05  LURITA-FILLER-AREA              PIC X(12).                       
+           05  LURITA-DATE-RECEIVED            PIC X(10).                       
+           05  LURITA-TIME-RECEIVED            PIC X(08).                       
+           05  LURITA-TIME-SENT                PIC X(08).                       
+           05  LURITA-TIME-SENT2               PIC X(08).               ROK98016
+          03  LURITA-RECEIPT-AREA.                                              
+             05  LURITA-TCH-AREA.                                               
+               10  LURITA-SYSTEM-ID            PIC X(02).                       
+                   88  LURITA-INTERNET         VALUE 'I '.                      
+               10  LURITA-ING-PGM-NAME         PIC X(08).                       
+               10  LURITA-COMM-RET-CODE        PIC X(04).                       
+               10  LURITA-CUSTOMER-BR          PIC X(02).                       
+               10  LURITA-CUSTOMER-NBR         PIC X(06).                       
+               10  LURITA-CUSTOMER-PSWD        PIC X(10).                       
+               10  LURITA-VERSION-NBR          PIC X(01).                       
+               10  LURITA-REQUEST-FUNCTION     PIC X(04).                       
+               10  LURITA-COUNTRY-CODE         PIC X(02).                       
+               10  LURITA-REGION-SELECT        PIC X(01).                       
+               10  LURITA-TCH-ERROR-TYPE       PIC X(01).                       
+               10  LURITA-TCH-FILLER           PIC X(18).               SXK97153
+          03  LURITA-INPUT-DATA-AREA.                                           
+           05  LURITA-RECORD-ID                PIC X(03).                       
+                   88  LURITA-REC-ID          VALUE 'ORA'.                      
+           05  LURITA-INGRAM-ORDER.                                             
+               10  LURITA-INGRAM-ORDER-BR          PIC X(02).                   
+               10  LURITA-INGRAM-ORDER-NBR         PIC X(05).                   
+               10  LURITA-INGRAM-ORDER-SUFFIX.                                  
+                   88  LURITA-ORDER-IN-PROGRESS       VALUE SPACES.             
+                   15  LURITA-INGRAM-ORDER-DIST    PIC X(01).                   
+                   15  LURITA-INGRAM-ORDER-SHIP    PIC X(01).                   
+           05  LURITA-ACTION-CODE              PIC X(02).                       
+               88 LURITA-ACTION-CANCEL             VALUE 'CC'.                  
+               88 LURITA-ACTION-RELEASE            VALUE 'OR'.                  
+               88 LURITA-ACTION-FINALIZE           VALUE 'FO'.                  
+           05  LURITA-SHIP-VIA-CODE            PIC X(02).                       
+           05  LURITA-BCK-BACKORDER-FLAG       PIC X(01).                       
+               88  LURITA-BCK-ALLOW-BACKORDERS     VALUE 'Y'.                   
+               88  LURITA-BCK-NO-BACKORDERS        VALUE 'N'.                   
+               88  LURITA-BCK-SHIP-COMPLETE        VALUE 'C'.                   
+           05  LURITA-SHIP-TO-ADDRESS-1        PIC X(35).                       
+           05  LURITA-SHIP-TO-ADDRESS-2        PIC X(35).                       
+           05  LURITA-SHIP-TO-ADDRESS-3        PIC X(35).                       
+           05  LURITA-SHIP-TO-CITY             PIC X(21).                       
+           05  LURITA-SHIP-TO-STATE            PIC X(02).                       
+           05  LURITA-SHIP-TO-ZIP              PIC X(09).                       
+           05  LURITA-SHIP-TO-ATTN             PIC X(35).                       
+           05  LURITA-CUST-TO-ING-PO-NBR       PIC X(18).                       
+           05  LURITA-CUST-TO-CUST-PO-NBR      PIC X(18).                       
+           05  LURITA-BILL-TO-SUFFIX           PIC X(03).                       
+           05  LURITA-SHIP-TO-SUFFIX           PIC X(03).                       
+           05  LURITA-THIRD-PARTY-FRT-ACCOUNT  PIC X(12).                       
+           05  LURITA-INTERNET-HOLD            PIC X(01).               SXK97077
+           05  LURITA-SHIP-TO-CNTRY-CODE       PIC X(02).               SXK97153
+           05  LURITA-SPLIT-INV-SW             PIC X(01).               BLJ98222
+               88  LURITA-SPLIT-INV-NO             VALUE ' '.           BLJ98222
+               88  LURITA-SPLIT-INV-YES            VALUE 'Y'.           BLJ98222
+           05  LURITA-END-CUST-NUM             PIC X(10).               BLJ98222
+           05  LURITA-END-CUST-ID              PIC X(25).               BLJ98222
+      ***************************************************************           
+      *    RESPONSE AREA.  THIS AREA IS ADDED ON TO DATA RECEIVED               
+      * BY ELCOM TO BE SENT BACK TO ELCOM FOR RESPONSE.                         
+      ***************************************************************           
+          03  LURITA-RESPONSE-AREA.                                             
+           05  LURITA-R-RECORD-RESPONSE.                                ROR99250
+           10  LURITA-R-RECORD-RESPONSE-FLAG   PIC X(01).               ROR99250
+               88  LURITA-R-RECORD-NO-ERRORS       VALUE ' '.                   
+               88  LURITA-R-RECORD-ERRORS-FOUND    VALUE 'E'.                   
+           10  LURITA-R-ERROR-TYPE             PIC X(01).               ROR99250
+               88  LURITA-R-ERROR-NO-ERROR         VALUE ' '.                   
+               88  LURITA-R-ERROR-ACTION-CODE      VALUE 'A'.                   
+               88  LURITA-R-ERROR-BACKORDER-FLAG   VALUE 'B'.                   
+               88  LURITA-R-ERROR-SHIP-COMPLETE    VALUE 'C'.                   
+               88  LURITA-R-ERROR-ORDER-NOT-FOUND  VALUE 'O'.                   
+               88  LURITA-R-ERROR-INVALID-ZIP      VALUE 'P'.                   
+               88  LURITA-R-ERROR-INVALID-CITY     VALUE 'Q'.                   
+               88  LURITA-R-ERROR-ORDER-RELEASED   VALUE 'R'.                   
+               88  LURITA-R-ERROR-ORDER-STATUS     VALUE 'S'.                   
+               88  LURITA-R-ERROR-SHIP-VIA         VALUE 'V'.                   
+               88  LURITA-R-ERROR-COMPANY-CODE     VALUE 'Z'.                   
+               88  LURITA-R-ERROR-CUST-SPLITINV    VALUE '6'.           BLJ98222
+               88  LURITA-R-ERROR-FLOOR-SPLITINV   VALUE '7'.           BLJ98222
+           05  LURITA-R-ERROR-TYPE-NEW    REDEFINES                     ROR99250
+               LURITA-R-RECORD-RESPONSE.                                ROR99250
+               10  LURITA-R-ERROR-TYPE-NEW     PIC X(02).               ROR99250
+                 88 LURITA-R-ERROR-DENIED-NAME     VALUE 'B1'.          ROR99250
+                 88 LURITA-R-ERROR-DENIED-ADD1     VALUE 'B2'.          ROR99250
+                 88 LURITA-R-ERROR-DENIED-ADD2     VALUE 'B3'.          ROR99250
+                 88 LURITA-R-ERROR-DENIED-ADD3     VALUE 'B4'.          ROR99250
+                 88 LURITA-R-ERROR-DEN-BILL-ADD1   VALUE 'B5'.          ROR99250
+                 88 LURITA-R-ERROR-DEN-BILL-ADD2   VALUE 'B6'.          ROR99250
+                 88 LURITA-R-ERROR-DEN-BILL-ADD3   VALUE 'B7'.          ROR99250
+      ***************************************************************           
+      * THIS 02 AREA REPRESENTS THE 'EXTRA' DATA PORTION WHICH WILL             
+      * BE REUTURNED TO ELCOM FOR A ACTION REQUEST FO 'FO' (FINALIZE).          
+      ***************************************************************           
+         02  LURITA-OA-FINALIZE-EXTRA-AREA.                                     
+           05  LURITA-NBR-WHSE-TABLE-OCCURS    PIC 9(01).                       
+           05  LURITA-WHSE-TABLE        OCCURS 0 TO 9 TIMES                     
+                             DEPENDING ON LURITA-NBR-WHSE-TABLE-OCCURS.         
+               10  LURITA-ORDER-SUFFIX         PIC X(02).                       
+               10  LURITA-WHSE-ASSIGNED-NBR    PIC X(02).                       
+               10  LURITA-NBR-LINE-TABLE-OCCURS    PIC 9(03).           BLJ98222
+               10  LURITA-NBR-LINE-SUFFIX OCCURS 50 TIMES.              BLJ98222
+                   15  LURITA-ING-LINE-NBR     PIC X(03).               BLJ98222
+                   15  LURITA-ING-BILL-TO-SUFFIX PIC X(03).             BLJ98222

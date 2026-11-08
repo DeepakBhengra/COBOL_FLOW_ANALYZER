@@ -1,0 +1,129 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT414                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINE  EDV414.  EDV414 DETERMINES WHAT THE    *          
+      *  CUSTOMER ACCOUNT #, BILL-TO SUFFIX, AND SHIP-TO SUFFIX      *          
+      *  SHOULD BE FOR A SPECIFIC PARTNER.                           *          
+      *                                                              *          
+      *     INPUT: EDV414-INPUT-DATA                                 *          
+      *            - EDV414-CO-CD (REQUIRED)                         *          
+      *            - EDV414-PARTNER-ID (REQUIRED)                    *          
+      *            - EDV414-IN-CUST-NBR (REQUIRED)                   *          
+      *            - EDV414-IN-BILL-TO-SFX (OPTIONAL)                *          
+      *            - EDV414-IN-SHIP-TO-SFX (OPTIONAL)                *          
+      *            - EDV414-STORE-NBR (OPTIONAL)                     *          
+      *                                                              *          
+      *    OUTPUT: EDV414-OUTPUT-DATA                                *          
+      *          - EDV414-OUT-CUST-NBR                               *          
+      *          - EDV414-OUT-BILL-TO-SFX                            *          
+      *          - EDV414-OUT-SHIP-TO-SFX                            *          
+      *          - EDV414-NEW-STOR-FLG                               *          
+      *          - EDV414-SALES-HOLD-FLG                             *          
+      *          - EDV414-MODULE-RESULT-CD                           *          
+      *          - EDV414-MODULE-MESSAGE                             *          
+      *          - EDV414-DATABASE-RESULT-CODES:                     *          
+      *              - EDV414-SQLCODE                                *          
+      *              - EDV414-SQLSTATE                               *          
+      *              - EDV414-SQL-MESSAGE                            *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV414 EXAMPLE:                                            *          
+      *     INITIALIZE EDV414-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-CO-CD TO EDV414-CO-CD.                          *          
+      *     MOVE PGM-PARTNER-ID TO EDV414-PARTNER-ID.                *          
+      *     MOVE WS-CUST-NBR TO EDV414-IN-CUST-ACCT-NBR.             *          
+      *     CALL 'EDV414' USING EDV414-COMMUNICATIONS-AREA.          *          
+      *     IF EDV414-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          MOVE EDV414-OUT-CUST-NBR TO EDV407-CUST-NBR         *          
+      *          MOVE EDV414-OUT-BILL-TO-SFX TO EDV407-CUST-SFX      *          
+      *          MOVE EDV414-OUT-SHIP-TO-SFX TO EDV407-ST-IMI-ST-SUF *          
+      *          MOVE EDV414-NEW-STOR-FLG TO WS-NEW-STORE-FLG        *          
+      *          MOVE EDV414-SALES-HOLD-FLG TO WS-SALES-HOLD-FLG     *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV414 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT414 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      DATE      INITIALS  COMMENT                             *          
+      *      ---------------------------------                       *          
+      *      02/01/02  WWZ       ORIGINAL                            *  SXP02032
+      ****************************************************************          
+                                                                                
+       01  EDV414-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV414-INPUT-DATA.                                               
+               10 EDV414-CO-CD                      PIC  X(002).                
+               10 EDV414-PARTNER-ID                 PIC  X(015).                
+               10 EDV414-IN-CUST-ACCT-NBR.                                      
+                   15 EDV414-IN-CUST-BR             PIC  X(002).                
+                   15 EDV414-IN-CUST-NBR            PIC  X(006).                
+                   15 EDV414-IN-CUST-SFX            PIC  X(003).                
+               10 EDV414-IN-BILL-TO-SFX             PIC  X(003).                
+               10 EDV414-IN-SHIP-TO-SFX             PIC  X(003).                
+               10 EDV414-STOR-NBR                   PIC  X(030).                
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV414-INPUT-OUTPUT-DATA.                                        
+               10  EDV414-OUT-CUST-ACCT-NBR.                                    
+                   15 EDV414-OUT-CUST-BR            PIC  X(002).                
+                   15 EDV414-OUT-CUST-NBR           PIC  X(006).                
+                   15 EDV414-OUT-BILL-TO-SFX        PIC  X(003).                
+               10  EDV414-OUT-SHIP-TO-SFX           PIC  X(003).                
+               10  EDV414-NEW-STOR-FLG              PIC  X(001).                
+               10  EDV414-SALES-HOLD-FLG            PIC  X(001).                
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV414-OUTPUT-DATA.                                              
+               10  EDV414-FILLER                    PIC S9(009).                
+               10  EDV414-MODULE-RESULT-CD          PIC  X(002).                
+                   88  EDV414-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV414-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV414-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV414-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV414-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV414-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV414-EXCEPTION-MESSAGE.                                    
+                   15  EDV414-MSG-OBJECT            PIC  X(030).                
+                   15  EDV414-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV414-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV414-SQLCA.                                            
+                       20  EDV414-SQLCAID           PIC  X(008).                
+                       20  EDV414-SQLCABC           PIC  S9(009).               
+                       20  EDV414-SQLCODE           PIC  S9(009).               
+                       20  EDV414-SQLERRM.                                      
+                           25  EDV414-SQLERRML      PIC  S9(004).               
+                           25  EDV414-SQLERRMC      PIC  X(070).                
+                       20  EDV414-SQLERRP           PIC  X(008).                
+                       20  EDV414-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV414-SQLWARN.                                      
+                           25  EDV414-SQLWARN0      PIC  X(001).                
+                           25  EDV414-SQLWARN1      PIC  X(001).                
+                           25  EDV414-SQLWARN2      PIC  X(001).                
+                           25  EDV414-SQLWARN3      PIC  X(001).                
+                           25  EDV414-SQLWARN4      PIC  X(001).                
+                           25  EDV414-SQLWARN5      PIC  X(001).                
+                           25  EDV414-SQLWARN6      PIC  X(001).                
+                           25  EDV414-SQLWARN7      PIC  X(001).                
+                       20  EDV414-SQLEXT.                                       
+                           25  EDV414-SQLWARN8      PIC  X(001).                
+                           25  EDV414-SQLWARN9      PIC  X(001).                
+                           25  EDV414-SQLWARNA      PIC  X(001).                
+                           25  EDV414-SQLSTATE      PIC  X(005).                

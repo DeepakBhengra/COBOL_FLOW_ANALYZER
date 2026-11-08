@@ -1,0 +1,444 @@
+000100******************************************************************        
+000200*** YEAR 2000 READY                                              *PWLY8307
+000300******************************************************************        
+000400                                                                          
+000500******************************************************************        
+000600*         NAME: CUSTHIRD                                                  
+000700*=================================================================        
+000800*                                                                *        
+      *04/30/07 UDA TO ALLOW USER TO ENTER A 7 DIGIT FRT-ACCT NUMBER   *UDA07120
+      *             INSTEAD OF A 9 DIGIT ACCT-NUMBER AND THEN STORING  *UDA07120
+      *             THE 7 DIGIT FRT-ACCT NUMBER.                       *UDA07120
+000900*05/01/06 TND FIX CHECK DIGIT FOR DHL                            *TND06121
+000900*08/08/05 WXY ADDED LOGIC FOR DHL ACCOUNT VALIDATION.            *WXY05220
+000900*07/07/04 JJU SOMETIMES ALLOW 3RD-PARTY ACCT# FOR OT CARRIER     *JJU04201
+000900*01/26/04 TMH ADD CHECK DIGIT ROUTINE FOR PUROLATOR CANADA       *TMH04026
+001000*02/05/01 SSL CODE CHANGED FOR FEDEX HEAVY.                      *SSL01036
+001100*08/20/98 TFM ALLOW ALPHA USP ACCT.                              *TFM98232
+001200*12/09/97 JJD DO NOT ALLOW 3RD PARTY ACCOUNT FOR FG/FL           *JJD97343
+001300*10/01/97 MAM ADDED CODE TO ALLOW UPS TO INPUT 3RD PARTY CARRIERS*MAM97274
+001400*09/17/97 TSR CORRECTED EAGLE CHECK DIGIT PROCESSING.            *TSR97260
+001500*08/26/97 TSR CORRECTED AIRBORN CHECK DIGIT PROCESSING.          *TSR97238
+001600*08/08/97 TSR INITIAL VERSION                                    *TSR97220
+001700*                                                                *        
+001800*=================================================================        
+001900*  THE PURPOSE OF THIS CPYLIB MEMBER IS TO CALCULATE THE CHECK   *        
+002000*    DIGIT FOR THIRD PARTY FREIGHT BILLING.                      *        
+002100*                                                                *        
+002200*  COPYBOOKS CUSTHIRD AND CUWTHIRD ARE USED TOGETHER TO DO THE   *        
+002300*    CHECK DIGIT VALIDATION. CUSTHIRD IS THE PROCEDURE DIVISION  *        
+002400*    MEMBER AND CUWTHIRD IS THE WORKING-STORAGE MEMBER.          *        
+002500*                                                                *        
+002600*  THE THIRD PARTY ACCOUNT NUMBER NEEDS TO BE MOVED TO           *        
+002700*    "CUWTHIRD-ACCOUNT-NBR" AND THE PROGRAM PERFORM PARAGRAPH    *        
+002800*    "CUSTHIRD-CALCULATE-CHECK-DIGIT"                            *        
+002900*                                                                *        
+003000*  WHEN YOU RETURN FROM THE PERFORM CHECK FOR A VALID ACCOUNT    *        
+003100*    NUMBER. FIELD "CUWTHIRD-ERROR-REASON" SHOULD BE SPACES.     *        
+003200*    IF IT IS NOT; THEN, IT WILL CONTAIN THE REASON FOR REJECTION*        
+003300*    OF THE NUMBER.                                              *        
+003400*                                                                *        
+003500*  INITIALIZE THE FOLLOWING FIELDS.                              *        
+003600*     THIRD PARTY ACCOUNT NUMBER........ CUWTHIRD-ACCOUNT-NBR    *        
+003700*                                                                *        
+003800*================================================================*        
+003900*  EXAMPLE:                                                      *        
+004000*================================================================*        
+004100*                                                                *        
+004200*  WORKING-STORAGE SECTION                                       *        
+004300*      .                                                         *        
+004400*      .                                                         *        
+004500*      COPY CUWTHIRD.                                            *JJU04201
+004600*      COPY NCARRWS.              *** IF NOT ALLREADY BEING USED.*JJU04201
+004700*      .                                                         *        
+004800*      .                                                         *        
+004900*  PROCEDURE DIVIDION.                                           *        
+005000*      .                                                         *        
+005100*      .                                                         *        
+005200*      MOVE MOVE WS-ACCOUNT       TO  CUWTHIRD-ACCOUNT-NBR.      *        
+005300*      PERFORM CUSTHIRD-CALCULATE-CHECK-DIGIT.                   *        
+005400*      IF CUWTHIRD-VALID                                         *        
+005500*         MOVE CUWTHIRD-ACCOUNT-NBR TO ** YOUR DATA NAME **      *        
+005600*      ELSE                                                      *        
+005700*         **  YOUR ERROR PROCESSING  **                          *        
+005800*      .                                                         *        
+005900*      .                                                         *        
+006000*      COPY CUSTHIRD SUPPRESS.                                   *        
+006100******************************************************************        
+006200                                                                          
+006300 CUSTHIRD-CALCULATE-CHECK-DIGIT.                                          
+006400     MOVE SPACES               TO CUWTHIRD-ERROR-REASON.                  
+006500     MOVE CUWTHIRD-ACCOUNT-NBR TO CUWTHIRD-ACCOUNT-WRK.                   
+006600     INSPECT CUWTHIRD-ACCOUNT-WRK REPLACING ALL LOW-VALUES BY ' '.        
+006700                                                                          
+007010     IF TB-CAR3-3RD-PARTY-FEDEX                                   TMH04026
+007100        IF (CUWTHIRD-ACCOUNT-WRK = SPACES OR LOW-VALUES) AND              
+007200           WS-THIRD-PARTY-REQUIRED                                        
+007300           MOVE 'FEDEX MUST BE SHIPPED 3RD PARTY'                         
+007400                           TO CUWTHIRD-ERROR-REASON                       
+007500        ELSE                                                              
+007600           CONTINUE                                                       
+007700        END-IF                                                            
+007800        IF CUWTHIRD-ACCOUNT-WRK = SPACES OR LOW-VALUES                    
+007900           NEXT SENTENCE                                                  
+008000        END-IF                                                            
+008100        PERFORM                                                           
+008200          VARYING CUWTHIRD-SUB FROM 1 BY 1                                
+008300            UNTIL CUWTHIRD-SUB > 12  OR                                   
+008400                  NOT CUWTHIRD-VALID                                      
+008500            IF CUWTHIRD-ACCOUNT-WRK (CUWTHIRD-SUB:1) < '0' OR             
+008600                                                     > '9'                
+008700               IF CUWTHIRD-SUB < 4                             AND        
+008800                  CUWTHIRD-ACCOUNT-WRK (CUWTHIRD-SUB:1) = ' '             
+008900                  MOVE '0' TO                                             
+009000                              CUWTHIRD-ACCOUNT-WRK(CUWTHIRD-SUB:1)        
+009100               ELSE                                                       
+009200                  MOVE 'FEDEX ACCOUNT NUMBER NOT NUMERIC'                 
+009300                           TO CUWTHIRD-ERROR-REASON                       
+009400               END-IF                                                     
+009500            END-IF                                                        
+009600        END-PERFORM                                                       
+009700                                                                          
+009800        IF CUWTHIRD-VALID                                                 
+009900           PERFORM CUSTHIRD-FEDEX-CD                                      
+010000           IF CUWTHIRD-FX(9) = CUWTHIRD-CHECK-DIGIT                       
+010100              MOVE CUWTHIRD-ACCOUNT-WRK (1:12)                            
+010200                                    TO CUWTHIRD-ACCOUNT-NBR               
+010300           ELSE                                                           
+010400              MOVE 'FEDEX ACCOUNT NUMBER INVALID'                         
+010500                                    TO CUWTHIRD-ERROR-REASON              
+010600           END-IF                                                         
+010700        ELSE                                                              
+010800           NEXT SENTENCE                                                  
+010900        END-IF                                                            
+011000                                                                          
+011100     ELSE                                                                 
+011210     IF TB-CAR3-3RD-PARTY-AIRB                                    TMH04026
+011300        IF (CUWTHIRD-ACCOUNT-WRK = SPACES OR LOW-VALUES) AND              
+011400           WS-THIRD-PARTY-REQUIRED                                        
+011500           MOVE 'AIRBORNE MUST BE SHIPPED 3RD PARTY'                      
+011600                           TO CUWTHIRD-ERROR-REASON                       
+011700        ELSE                                                              
+011800            CONTINUE                                                      
+011900        END-IF                                                            
+012000        IF CUWTHIRD-ACCOUNT-WRK = SPACES OR LOW-VALUES                    
+012100           NEXT SENTENCE                                                  
+012200        END-IF                                                            
+012300        PERFORM                                                           
+012400          VARYING CUWTHIRD-SUB FROM 1 BY 1                                
+012500            UNTIL CUWTHIRD-SUB > 9   OR                                   
+012600                  NOT CUWTHIRD-VALID                                      
+012700            IF CUWTHIRD-ACCOUNT-WRK (CUWTHIRD-SUB:1) < '0' OR             
+012800                                                     > '9'                
+012900               MOVE 'AIRBORNE ACCOUNT NUMBER NOT NUMERIC'                 
+013000                           TO CUWTHIRD-ERROR-REASON                       
+013100            END-IF                                                        
+013200        END-PERFORM                                                       
+013300                                                                  WXY05220
+013400        IF CUWTHIRD-VALID                                                 
+013500           PERFORM CUSTHIRD-AIRBORNE-CD                                   
+013600           IF CUWTHIRD-AX(9) = CUWTHIRD-CHECK-DIGIT                       
+013700              MOVE CUWTHIRD-ACCOUNT-WRK (1:9)                             
+013800                                    TO CUWTHIRD-ACCOUNT-NBR               
+013900           ELSE                                                           
+013500              PERFORM CUSTHIRD-DHL-CD                             WXY05220
+013600              IF CUWTHIRD-AX(4) = CUWTHIRD-CHECK-DIGIT            WXY05220
+013700                 MOVE CUWTHIRD-ACCOUNT-WRK (1:9)                  WXY05220
+013800                                    TO CUWTHIRD-ACCOUNT-NBR       WXY05220
+013900              ELSE                                                WXY05220
+014000                 MOVE 'AIRBORNE ACCOUNT NUMBER INVALID'           WXY05220
+014100                                    TO CUWTHIRD-ERROR-REASON      WXY05220
+014200              END-IF                                              WXY05220
+014200           END-IF                                                         
+014300        ELSE                                                              
+014400           NEXT SENTENCE                                                  
+014500        END-IF                                                            
+014600     ELSE                                                                 
+014710     IF TB-CAR3-3RD-PARTY-EAGLE                                   TMH04026
+014800        IF (CUWTHIRD-ACCOUNT-WRK = SPACES OR LOW-VALUES) AND              
+014900           WS-THIRD-PARTY-REQUIRED                                        
+015000           MOVE 'EAGLE MUST BE SHIPPED 3RD PARTY'                         
+015100                           TO CUWTHIRD-ERROR-REASON                       
+015200        ELSE                                                              
+015300           CONTINUE                                                       
+015400        END-IF                                                            
+015500        IF CUWTHIRD-ACCOUNT-WRK = SPACES OR LOW-VALUES                    
+015600           NEXT SENTENCE                                                  
+015700        END-IF                                                            
+015800        PERFORM                                                           
+015900          VARYING CUWTHIRD-SUB FROM 5 BY 1                                
+016000            UNTIL CUWTHIRD-SUB > 9   OR                                   
+016100                  NOT CUWTHIRD-VALID                                      
+016200            IF CUWTHIRD-ACCOUNT-WRK (CUWTHIRD-SUB:1) NOT = ' ' ANDTSR97260
+016300              (CUWTHIRD-ACCOUNT-WRK (CUWTHIRD-SUB:1) IS           TSR97260
+016400               ALPHABETIC                               OR        TSR97260
+016500               CUWTHIRD-ACCOUNT-WRK (CUWTHIRD-SUB:1) IS           TSR97260
+016600               NUMERIC)                                           TSR97260
+016700               CONTINUE                                           TSR97260
+016800            ELSE                                                  TSR97260
+016900               MOVE 'EAGLE ACCOUNT NUMBER NOT VALID  '            TSR97260
+017000                           TO CUWTHIRD-ERROR-REASON                       
+017100            END-IF                                                        
+017200        END-PERFORM                                                       
+017300                                                                          
+017400        IF CUWTHIRD-VALID                                                 
+017500           IF CUWTHIRD-EAG-NM = CU-NAME (1:4)                             
+017600              MOVE CUWTHIRD-ACCOUNT-WRK (1:9)                             
+017700                                    TO CUWTHIRD-ACCOUNT-NBR               
+017800           ELSE                                                           
+017900              MOVE 'EAGLE ACCOUNT NUMBER INVALID'                         
+018000                                    TO CUWTHIRD-ERROR-REASON              
+018100           END-IF                                                         
+018200        ELSE                                                              
+018300           NEXT SENTENCE                                                  
+018400        END-IF                                                            
+018500     ELSE                                                         MAM97274
+018600                                                                          
+018700     IF TB-CAR3-3RD-PARTY-PURO                                    TMH04026
+018800        IF CUWTHIRD-ACCOUNT-WRK = SPACES OR LOW-VALUES            TMH04026
+018900           NEXT SENTENCE                                          TMH04026
+              ELSE                                                      UDA07120
+                   IF CUWTHIRD-ACCOUNT-WRK(8:1) NOT NUMERIC             UDA07120
+                      MOVE CUWTHIRD-ACCOUNT-WRK (7:1) TO                UDA07120
+                           CUWTHIRD-ACCOUNT-WRK (9:1)                   UDA07120
+                      MOVE CUWTHIRD-ACCOUNT-WRK (6:1) TO                UDA07120
+                           CUWTHIRD-ACCOUNT-WRK (8:1)                   UDA07120
+                      MOVE CUWTHIRD-ACCOUNT-WRK (5:1) TO                UDA07120
+                           CUWTHIRD-ACCOUNT-WRK (7:1)                   UDA07120
+                      MOVE CUWTHIRD-ACCOUNT-WRK (4:1) TO                UDA07120
+                           CUWTHIRD-ACCOUNT-WRK (6:1)                   UDA07120
+                      MOVE CUWTHIRD-ACCOUNT-WRK (3:1) TO                UDA07120
+                           CUWTHIRD-ACCOUNT-WRK (5:1)                   UDA07120
+                      MOVE CUWTHIRD-ACCOUNT-WRK (2:1) TO                UDA07120
+                           CUWTHIRD-ACCOUNT-WRK (4:1)                   UDA07120
+                      MOVE CUWTHIRD-ACCOUNT-WRK (1:1) TO                UDA07120
+                           CUWTHIRD-ACCOUNT-WRK (3:1)                   UDA07120
+                      MOVE '01' TO CUWTHIRD-ACCOUNT-WRK(1:2)            UDA07120
+                   END-IF                                               UDA07120
+019000        END-IF                                                    TMH04026
+019100        PERFORM                                                   TMH04026
+019200          VARYING CUWTHIRD-SUB FROM 1 BY 1                        TMH04026
+019300            UNTIL CUWTHIRD-SUB > 8   OR                           TMH04026
+019400                  NOT CUWTHIRD-VALID                              TMH04026
+019500            IF CUWTHIRD-ACCOUNT-WRK (CUWTHIRD-SUB:1) NUMERIC      TMH04026
+019600               CONTINUE                                           TMH04026
+019700            ELSE                                                  TMH04026
+019800               MOVE 'PUROLATOR ACCOUNT NUMBER NOT VALID  '        TMH04026
+019900                           TO CUWTHIRD-ERROR-REASON               TMH04026
+020000            END-IF                                                TMH04026
+020100        END-PERFORM                                               TMH04026
+020200                                                                  TMH04026
+020300        PERFORM CUSTHIRD-PUROLATOR-CD                             TMH04026
+020400                                                                  TMH04026
+020420        IF CUWTHIRD-PURO-NUMBER(9) EQUAL CUWTHIRD-PUR(9)          TMH04026
+020600              MOVE CUWTHIRD-ACCOUNT-WRK (3:7)                     UDA07120
+020700                                    TO CUWTHIRD-ACCOUNT-NBR       TMH04026
+020900        ELSE  MOVE 'PUROLATOR ACCOUNT NUMBER INVALID'             TMH04026
+021000                                    TO CUWTHIRD-ERROR-REASON      TMH04026
+021300        END-IF                                                    TMH04026
+021400                                                                  TMH04026
+021500     ELSE                                                         TMH04026
+021610     IF TB-CAR3-3RD-PARTY-UPS                                     TMH04026
+021700        IF CUWTHIRD-ACCOUNT-WRK = SPACES OR LOW-VALUES            MAM97274
+021800           NEXT SENTENCE                                          MAM97274
+021900        END-IF                                                    MAM97274
+022000        IF CUWTHIRD-ACCOUNT-NBR-07-18 > SPACES                    MAM97274
+022100           MOVE 'INVALID UPS ACCOUNT'                             MAM97274
+022200                    TO CUWTHIRD-ERROR-REASON                      MAM97274
+022300        ELSE                                                      MAM97274
+022400           CONTINUE                                               MAM97274
+022500        END-IF                                                    MAM97274
+022600        IF CUWTHIRD-ACCOUNT-NBR-07-18 > SPACES                    MAM97274
+022700           NEXT SENTENCE                                          MAM97274
+022800        END-IF                                                    MAM97274
+022900        MOVE ZEROES TO CUWTHIRD-ACCT-6-BYTES                      MAM97274
+023000        MOVE 6      TO CUWTHIRD-SUB1                              MAM97274
+023100        MOVE 'N'    TO WAS-SPACE-FOUND-BEFORE-NUM                 MAM97274
+023200        PERFORM                                                   MAM97274
+023300          VARYING CUWTHIRD-SUB FROM 6 BY -1                       MAM97274
+023400            UNTIL CUWTHIRD-SUB < 1 OR                             MAM97274
+023500                  NOT CUWTHIRD-VALID                              MAM97274
+023600               IF CUWTHIRD-ACCT-WRK-6-BYTES (CUWTHIRD-SUB:1) = ' 'TFM98232
+023700                  MOVE 'Y' TO WAS-SPACE-FOUND-BEFORE-NUM          TFM98232
+023800                  MOVE 'UPS ACCOUNT NUMBER INVALID'               TFM98232
+023900                           TO CUWTHIRD-ERROR-REASON               TFM98232
+024000               END-IF                                             TFM98232
+024100        END-PERFORM                                               MAM97274
+024200        IF CUWTHIRD-ERROR-REASON = SPACES                         MAM97274
+024300           MOVE CUWTHIRD-ACCT-WRK-6-BYTES TO CUWTHIRD-ACCOUNT-NBR TFM98232
+024400        END-IF                                                    MAM97274
+024500     ELSE                                                                 
+024600        IF CUWTHIRD-ACCOUNT-NBR = SPACES OR LOW-VALUES                    
+024700           NEXT SENTENCE                                                  
+024800        ELSE                                                              
+                 IF CUWTHIRD-CC-ELIG-FOR-3RD                            JJU04201
+                    NEXT SENTENCE                                       JJU04201
+                 ELSE                                                   JJU04201
+024900              MOVE 'CARRIER DOES NOT ACCEPT 3RD PARTY'                    
+025000                                  TO CUWTHIRD-ERROR-REASON                
+                 END-IF                                                 JJU04201
+025100        END-IF.                                                           
+025200                                                                          
+025300 CUSTHIRD-FEDEX-CD.                                                       
+025400     COMPUTE CUWTHIRD-WX(1) = CUWTHIRD-FX(1) * 3.                         
+025500     COMPUTE CUWTHIRD-WX(2) = CUWTHIRD-FX(2) * 2.                         
+025600     COMPUTE CUWTHIRD-WX(3) = CUWTHIRD-FX(3) * 7.                         
+025700     COMPUTE CUWTHIRD-WX(4) = CUWTHIRD-FX(4) * 6.                         
+025800     COMPUTE CUWTHIRD-WX(5) = CUWTHIRD-FX(5) * 5.                         
+025900     COMPUTE CUWTHIRD-WX(6) = CUWTHIRD-FX(6) * 4.                         
+026000     COMPUTE CUWTHIRD-WX(7) = CUWTHIRD-FX(7) * 3.                         
+026100     COMPUTE CUWTHIRD-WX(8) = CUWTHIRD-FX(8) * 2.                         
+026200     COMPUTE CUWTHIRD-W00   = CUWTHIRD-WX(1) + CUWTHIRD-WX(2)             
+026300                            + CUWTHIRD-WX(3) + CUWTHIRD-WX(4)             
+026400                            + CUWTHIRD-WX(5) + CUWTHIRD-WX(6)             
+026500                            + CUWTHIRD-WX(7) + CUWTHIRD-WX(8).            
+026600                                                                          
+026700     DIVIDE CUWTHIRD-W00 BY 11                                            
+026800            GIVING CUWTHIRD-W99 REMAINDER CUWTHIRD-CHECK-DIGIT.           
+026900     COMPUTE CUWTHIRD-CHECK-DIGIT = 11 - CUWTHIRD-CHECK-DIGIT.            
+027000     IF CUWTHIRD-CHECK-DIGIT = 10 OR 11                                   
+027100        MOVE ZEROES TO CUWTHIRD-CHECK-DIGIT.                              
+027200                                                                          
+027300 CUSTHIRD-AIRBORNE-CD.                                                    
+027400     COMPUTE CUWTHIRD-WX(1) = CUWTHIRD-AX(1) * 9.                         
+027500     COMPUTE CUWTHIRD-WX(2) = CUWTHIRD-AX(2) * 8.                         
+027600     COMPUTE CUWTHIRD-WX(3) = CUWTHIRD-AX(3) * 7.                         
+027700     COMPUTE CUWTHIRD-WX(4) = CUWTHIRD-AX(4) * 6.                         
+027800     COMPUTE CUWTHIRD-WX(5) = CUWTHIRD-AX(5) * 5.                         
+027900     COMPUTE CUWTHIRD-WX(6) = CUWTHIRD-AX(6) * 4.                         
+028000     COMPUTE CUWTHIRD-WX(7) = CUWTHIRD-AX(7) * 3.                         
+028100     COMPUTE CUWTHIRD-WX(8) = CUWTHIRD-AX(8) * 2.                         
+028200     COMPUTE CUWTHIRD-W00   = CUWTHIRD-WX(1) + CUWTHIRD-WX(2)             
+028300                            + CUWTHIRD-WX(3) + CUWTHIRD-WX(4)             
+028400                            + CUWTHIRD-WX(5) + CUWTHIRD-WX(6)             
+028500                            + CUWTHIRD-WX(7) + CUWTHIRD-WX(8).            
+028600                                                                          
+028700     COMPUTE CUWTHIRD-W00 = 616 - CUWTHIRD-W00.                           
+028800     DIVIDE CUWTHIRD-W00 BY 11                                            
+028900            GIVING CUWTHIRD-W99 REMAINDER CUWTHIRD-CHECK-DIGIT.           
+029000     COMPUTE CUWTHIRD-CHECK-DIGIT = CUWTHIRD-W00                          
+029100                                  - (CUWTHIRD-W99 * 11)                   
+029200     IF CUWTHIRD-CHECK-DIGIT = 10 OR 11                           TSR97238
+029300        MOVE ZEROES TO CUWTHIRD-CHECK-DIGIT.                              
+029400                                                                  WXY05220
+029400*----------------------------------------------------------------*WXY05220
+029400* PROCESS DHL ACCOUNT VALIDATION                                 *WXY05220
+029400*----------------------------------------------------------------*WXY05220
+029400 CUSTHIRD-DHL-CD.                                                 WXY05220
+029400                                                                  WXY05220
+027400     COMPUTE CUWTHIRD-WY(1) = CUWTHIRD-AX(1) * 1.                 WXY05220
+027500     COMPUTE CUWTHIRD-WY(2) = CUWTHIRD-AX(2) * 3.                 WXY05220
+027600     COMPUTE CUWTHIRD-WY(3) = CUWTHIRD-AX(3) * 1.                 WXY05220
+027700     COMPUTE CUWTHIRD-WY(5) = CUWTHIRD-AX(5) * 3.                 WXY05220
+027800     COMPUTE CUWTHIRD-WY(6) = CUWTHIRD-AX(6) * 1.                 WXY05220
+027900     COMPUTE CUWTHIRD-WY(7) = CUWTHIRD-AX(7) * 3.                 WXY05220
+028000     COMPUTE CUWTHIRD-WY(8) = CUWTHIRD-AX(8) * 1.                 WXY05220
+028100     COMPUTE CUWTHIRD-WY(9) = CUWTHIRD-AX(9) * 3.                 WXY05220
+029400                                                                  WXY05220
+028200     COMPUTE CUWTHIRD-W01   = CUWTHIRD-WY(1) + CUWTHIRD-WY(2)     WXY05220
+028300                            + CUWTHIRD-WY(3) + CUWTHIRD-WY(5)     WXY05220
+028400                            + CUWTHIRD-WY(6) + CUWTHIRD-WY(7)     WXY05220
+028500                            + CUWTHIRD-WY(8) + CUWTHIRD-WY(9).    WXY05220
+029400                                                                  WXY05220
+029400     MOVE ZEROS TO CUWTHIRD-CHECK-DIGIT.                          WXY05220
+029400     COMPUTE CUWTHIRD-CHECK-DIGIT =  10 - CUWTHIRD-W01R-3DIGIT.   TND06121
+029400                                                                  WXY05220
+029200     IF CUWTHIRD-CHECK-DIGIT > 9                                  TND06121
+               MOVE ZEROES TO CUWTHIRD-CHECK-DIGIT.                     TND06121
+029400                                                                  WXY05220
+029500* ==============================================================  TMH04026
+029600* PUROLATOR CHECK DIGIT ROUTINE FOR 3RD PARTY ACCOUNTS            TMH04026
+029700* --------------------------------------------------------------  TMH04026
+029800* EXAMPLE: THIRD PARTY ACCOUNT NUMBER 3348586.                    TMH04026
+029900* IGNORE THE LAST DIGIT, '6'(CHECK DIGIT), AND PREFIX THE ACCOUNT TMH04026
+030000* NUMBER WITH '01'.                                               TMH04026
+030100* IF A CUSTOMER SUPPLIES A 9 DIGIT NUMBER BEGINNING WITH '01',    TMH04026
+030200* THEN THERE IS NO NEED TO PREFIX THE ACCOUNT NUMBER WITH A '01'. TMH04026
+030300* ----------------------------------------------------------------TMH04026
+030400* ACCOUNT NUMBER VALIDATION                                       TMH04026
+030500* MULTIPLY EACH DIGIT WITH THE BINARY CODE BELOW IT.              TMH04026
+030600* IF THE RESULT IS 2 DIGITS, ADD THEM TOGETHER.                   TMH04026
+030700*              0  1  3  3  4   8  5   8   TIMES                   TMH04026
+030800*              1  2  1  2  1   2  1   2                           TMH04026
+030900*              =========================                          TMH04026
+031000*              0  2  3  6  4  16  5   16                          TMH04026
+031100*   RESULT     0  2  3  6  4   7  5    7                          TMH04026
+031200* ----------------------------------------------------------------TMH04026
+031300*   SUM RESULT 0 +2 +3 +6 +4 + 7 +5  + 7  =  34                   TMH04026
+031400* ----------------------------------------------------------------TMH04026
+031500*  SUBTRACT THE LAST DIGIT OF THE RESULT FROM 10                  TMH04026
+031600*   CHECK DIGIT   10 - 4 = 6                                      TMH04026
+031700* ----------------------------------------------------------------TMH04026
+031800 CUSTHIRD-PUROLATOR-CD.                                           TMH04026
+031900     COMPUTE CUWTHIRD-PURO-NUMBER(1) = CUWTHIRD-PUR(1) * 1.       TMH04026
+032000     COMPUTE CUWTHIRD-PURO-NUMBER(2) = CUWTHIRD-PUR(2) * 2.       TMH04026
+032100     COMPUTE CUWTHIRD-PURO-NUMBER(3) = CUWTHIRD-PUR(3) * 1.       TMH04026
+032200     COMPUTE CUWTHIRD-PURO-NUMBER(4) = CUWTHIRD-PUR(4) * 2.       TMH04026
+032300     COMPUTE CUWTHIRD-PURO-NUMBER(5) = CUWTHIRD-PUR(5) * 1.       TMH04026
+032400     COMPUTE CUWTHIRD-PURO-NUMBER(6) = CUWTHIRD-PUR(6) * 2.       TMH04026
+032500     COMPUTE CUWTHIRD-PURO-NUMBER(7) = CUWTHIRD-PUR(7) * 1.       TMH04026
+032600     COMPUTE CUWTHIRD-PURO-NUMBER(8) = CUWTHIRD-PUR(8) * 2.       TMH04026
+032700                                                                  TMH04026
+032800     IF CUWTHIRD-PURO-NUMBER(1) GREATER THAN 9                    TMH04026
+032900         MOVE CUWTHIRD-PURO-NUMBER(1) TO CUWTHIRD-PURO-NBR-DIGITS TMH04026
+033000         COMPUTE CUWTHIRD-PURO-NUMBER(1) =                        TMH04026
+033100                 CUWTHIRD-PURO-DIGIT-01  +                        TMH04026
+033200                 CUWTHIRD-PURO-DIGIT-02.                          TMH04026
+033300                                                                  TMH04026
+033400     IF CUWTHIRD-PURO-NUMBER(2) GREATER THAN 9                    TMH04026
+033500         MOVE CUWTHIRD-PURO-NUMBER(2) TO CUWTHIRD-PURO-NBR-DIGITS TMH04026
+033600         COMPUTE CUWTHIRD-PURO-NUMBER(2) =                        TMH04026
+033700                 CUWTHIRD-PURO-DIGIT-01  +                        TMH04026
+033800                 CUWTHIRD-PURO-DIGIT-02.                          TMH04026
+033900                                                                  TMH04026
+034000     IF CUWTHIRD-PURO-NUMBER(3) GREATER THAN 9                    TMH04026
+034100         MOVE CUWTHIRD-PURO-NUMBER(3) TO CUWTHIRD-PURO-NBR-DIGITS TMH04026
+034200         COMPUTE CUWTHIRD-PURO-NUMBER(3) =                        TMH04026
+034300                 CUWTHIRD-PURO-DIGIT-01  +                        TMH04026
+034400                 CUWTHIRD-PURO-DIGIT-02.                          TMH04026
+034500                                                                  TMH04026
+034600     IF CUWTHIRD-PURO-NUMBER(4) GREATER THAN 9                    TMH04026
+034700         MOVE CUWTHIRD-PURO-NUMBER(4) TO CUWTHIRD-PURO-NBR-DIGITS TMH04026
+034800         COMPUTE CUWTHIRD-PURO-NUMBER(4) =                        TMH04026
+034900                 CUWTHIRD-PURO-DIGIT-01  +                        TMH04026
+035000                 CUWTHIRD-PURO-DIGIT-02.                          TMH04026
+035100                                                                  TMH04026
+035200     IF CUWTHIRD-PURO-NUMBER(5) GREATER THAN 9                    TMH04026
+035300         MOVE CUWTHIRD-PURO-NUMBER(5) TO CUWTHIRD-PURO-NBR-DIGITS TMH04026
+035400         COMPUTE CUWTHIRD-PURO-NUMBER(5) =                        TMH04026
+035500                 CUWTHIRD-PURO-DIGIT-01  +                        TMH04026
+035600                 CUWTHIRD-PURO-DIGIT-02.                          TMH04026
+035700                                                                  TMH04026
+035800     IF CUWTHIRD-PURO-NUMBER(6) GREATER THAN 9                    TMH04026
+035900         MOVE CUWTHIRD-PURO-NUMBER(6) TO CUWTHIRD-PURO-NBR-DIGITS TMH04026
+036000         COMPUTE CUWTHIRD-PURO-NUMBER(6) =                        TMH04026
+036100                 CUWTHIRD-PURO-DIGIT-01  +                        TMH04026
+036200                 CUWTHIRD-PURO-DIGIT-02.                          TMH04026
+036300                                                                  TMH04026
+036400     IF CUWTHIRD-PURO-NUMBER(7) GREATER THAN 9                    TMH04026
+036500         MOVE CUWTHIRD-PURO-NUMBER(7) TO CUWTHIRD-PURO-NBR-DIGITS TMH04026
+036600         COMPUTE CUWTHIRD-PURO-NUMBER(7) =                        TMH04026
+036700                 CUWTHIRD-PURO-DIGIT-01  +                        TMH04026
+036800                 CUWTHIRD-PURO-DIGIT-02.                          TMH04026
+036900                                                                  TMH04026
+037000     IF CUWTHIRD-PURO-NUMBER(8) GREATER THAN 9                    TMH04026
+037100         MOVE CUWTHIRD-PURO-NUMBER(8) TO CUWTHIRD-PURO-NBR-DIGITS TMH04026
+037200         COMPUTE CUWTHIRD-PURO-NUMBER(8) =                        TMH04026
+037300                 CUWTHIRD-PURO-DIGIT-01  +                        TMH04026
+037400                 CUWTHIRD-PURO-DIGIT-02.                          TMH04026
+037500                                                                  TMH04026
+037600     COMPUTE CUWTHIRD-W00   = CUWTHIRD-PURO-NUMBER(1)             TMH04026
+037700                            + CUWTHIRD-PURO-NUMBER(2)             TMH04026
+037800                            + CUWTHIRD-PURO-NUMBER(3)             TMH04026
+037900                            + CUWTHIRD-PURO-NUMBER(4)             TMH04026
+038000                            + CUWTHIRD-PURO-NUMBER(5)             TMH04026
+038100                            + CUWTHIRD-PURO-NUMBER(6)             TMH04026
+038200                            + CUWTHIRD-PURO-NUMBER(7)             TMH04026
+038300                            + CUWTHIRD-PURO-NUMBER(8).            TMH04026
+038400                                                                  TMH04026
+038500     MOVE CUWTHIRD-W00       TO CUWTHIRD-PURO-NBR-DIGITS.         TMH04026
+038610     COMPUTE CUWTHIRD-CHECK-DIGIT = 10 - CUWTHIRD-PURO-DIGIT-02.  TMH04026
+038620     IF CUWTHIRD-CHECK-DIGIT EQUAL 10                             TMH04026
+038630          MOVE 0 TO CUWTHIRD-CHECK-DIGIT.                         TMH02XXX
+038700     MOVE CUWTHIRD-CHECK-DIGIT TO CUWTHIRD-PURO-NUMBER(9).        TMH04026
+038900                                                                  TMH04026

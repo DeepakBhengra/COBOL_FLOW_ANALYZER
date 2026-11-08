@@ -1,0 +1,80 @@
+      *================================================================*        
+      *  COPYBOOK:  ICSCOP4                                            *        
+      *  THIS COPYBOOK IS USED TO MOVE ACOP INFO TO ORL INFO.          *        
+      *                                                                *        
+      * REVISION INFO:                                                 *        
+      * 11/01/24 AXL EVEREST- GP HOLD CHANGES                          *AXL24306
+      * 08/11/23 AP3 REMOVE GP HOLD CHECK. GP HOLD TO BE EA HOLD       *AP323223
+      * 07/07/23 AP3 EVEREST: GP HOLD CHANGES                          *AP323188
+      * 01/16/08 GAE SSEU ENHANCED ACOP PROJECT: EU, CA, TP            *GAE08016
+      *          GAE DO NOT POPULATE REVERSE ACOP INDICTOR FOR THE LINE*GAE08016
+      * 04/01/03 GEM MAKE ALL ACOP ON 'EA' HOLD IF ICWCOP-ORDER-HOLD   *GEM03091
+      * 08/19/99 GEM REVISED LOGIC TO RELEASE ORDER IF NO ACOP         *GEM99255
+      * 08/17/99 GEM CHANGE ACOP HOLD TO USA REGION ONLY               *GEM99250
+      * 07/16/99 GEM ADDED ACOP HOLD LOGIC (GSS HOLD)                  *GEM99190
+      * 06/16/98 GAE NEW COPYBOOK.                                     *GAE99169
+      *================================================================*        
+           MOVE SPACES                     TO ORL-REVERSE-ACOP-IND.             
+      *                                                                 GAE08016
+      *--- THIS INDICATOR IS NO LONGER NEEDED SINCE REVERSE ACOP CAN    GAE08016
+      *--- BE COMBINE WITH OTHER TYPES OF ACOP                          GAE08016
+      *    IF ICWCOP-COST-OVERRIDE                                      GAE08016
+      *       MOVE ICWCOP-REVERSE-ACOP-IND TO ORL-REVERSE-ACOP-IND.     GAE08016
+      *                                                                 GEM99190
+      *--- DETERMINE IF ORDER BE PUT ON HOLD  (PROGRAM TYPE)            GEM99190
+           IF OET-COMPANY = 'MD'                                        GEM99255
+            IF OET-PROGRAM-TYPE1 > SPACES                               GEM99255
+              IF NOT ICWCOP-COST-OVERRIDE                               GEM99255
+                IF OET-ACOP-HOLD                                        GEM99255
+                   NEXT SENTENCE                                        GEM99255
+                 ELSE                                                   GEM99255
+                    SET OET-ACOP-RLSE-PART-AMERICA TO TRUE.             GEM99255
+      *                                                                 GEM99190
+           IF ICWCOP-COST-OVERRIDE                                      GEM99190
+              IF ICWCOP-PRG-PART-OVERRIDE                               GEM99190
+              OR ICWCOP-PRG-VEND-OVERRIDE                               GEM99190
+                 IF COP-ORDER-HOLD                                      GEM99190
+                    SET OET-ACOP-HOLD-PART-AMERICA TO TRUE              GEM99190
+                 ELSE                                                   GEM99190
+                    IF OET-ACOP-HOLD                                    GEM99190
+                       NEXT SENTENCE                                    GEM99190
+                    ELSE                                                GEM99190
+                       SET OET-ACOP-RLSE-PART-AMERICA TO TRUE.          GEM99190
+      *                                                                 GEM99190
+      *--- DETERMINE IF ORDER BE PUT ON HOLD (END-USER)                 GEM99190
+           IF ICWCOP-COST-OVERRIDE                                      GEM99190
+              IF ICWCOP-CUS-EUS-PART-OVERRIDE                           GEM99190
+              OR ICWCOP-CUS-EUS-VEND-OVERRIDE                           GEM99190
+#IMP! *NOTE: DO NOT CHANGE THE FORMATTING OF...                         AP323188
+#IMP! *      "SET OET-END-USER-ACOP-HOLD  TO TRUE"                      AP323188
+#IMP! * THIS IS BECAUSE IT IS BEING REPLACED IN ORP380MD.               AP323188
+                    IF COP-ORDER-HOLD                                   AP323188
+                       SET OET-END-USER-ACOP-HOLD  TO TRUE              AP323188
+                    END-IF                                              AP323188
+              END-IF                                                    AP323223
+           END-IF.                                                      AP323223
+      *                                                                 GEM03091
+      *---------------------------------------------------------------* GEM03091
+      * MAKE ALL ACOP 'EA' HOLD IF ICWCOP-COST-OVERRIDE  AND ONLY     * GEM03091
+      * IF TB-CPO4-SSEU-ENABLED-SW = AND TB-CPO4-SSEU-ACOP-FEATURES   * GEM03091
+      * IS ON TOO. THIS LOGIC APPLIES TO ALL THE ACOP TYPES  AVAILABLE* GEM03091
+      * AT THIS MOMENT. THIS WILL OVERRIDE PREVIOUS LOGIC IF EXECUTED * GEM03091
+      * IN SSEUDB REGION AND ACOP HOLD ORDER SWITCH =  'Y'.           * GEM03091
+      *---------------------------------------------------------------* GEM03091
+      *                                                                 GEM03091
+           IF TB-CPO4-SSEU-ENABLED          AND                         GEM03091
+              TB-CPO4-SSEU-ACOP-FEATURES                                GEM03091
+              IF ICWCOP-COST-OVERRIDE                                   GEM03091
+                    IF ICWCOP-ORDER-HOLD                                AXL24306
+                       IF ICWCOP-ORDER-HOLD-GPE                         AXL24306
+                          SET OET-ACOP-HOLD-GPE                         AXL24306
+                                       TO TRUE                          AXL24306
+                       ELSE                                             AXL24306
+                          SET OET-END-USER-ACOP-HOLD                    AXL24306
+                                       TO  TRUE                         AXL24306
+                       END-IF                                           AXL24306
+                    END-IF                                              AP323188
+              END-IF                                                    AP323188
+           END-IF.                                                      AP323188
+      *                                                                 GEM03091
+      *---------------------------------------------------------------* GEM03091

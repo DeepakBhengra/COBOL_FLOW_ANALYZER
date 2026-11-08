@@ -1,0 +1,124 @@
+      * ------------------------------------------------------------- *         
+      * 08/18/97 TRR AUTOMATED FLOORING AND RESHED COMMAREA           * TRR97230
+      * ------------------------------------------------------------- *         
+                                                                                
+       01  WS-FLOORING-COMMAREA.                                                
+        05     WS-SPLIT-INVOICING-WORK.                                         
+         10    WS-FV-COMMAREA-LENGTH   PIC S9(4) COMP.                          
+         10    WS-FV-ORDER-KEY.                                                 
+          15   WS-FV-COMPANY           PIC  XX.                                 
+          15   WS-FV-BR-NBR            PIC  XX.                                 
+          15   WS-FV-ORDER-NBR         PIC  X(5).                               
+         10    WS-FV-SHIPMENT-KEY.                                              
+          15   WS-FV-DIST-NBR          PIC  X.                                  
+          15   WS-FV-SHIP-NBR          PIC  X.                                  
+         10    WS-FV-PCB-PTRS.                                                  
+          15   WS-FV-CUPCB-PTR              USAGE POINTER VALUE NULL.           
+          15   WS-FV-ORPCB-UPDATE-PTR       USAGE POINTER VALUE NULL.           
+          15   WS-FV-ORPCB-INQUIRY-PTR      USAGE POINTER VALUE NULL.           
+          15   WS-FV-REPCB-PTR              USAGE POINTER VALUE NULL.           
+          15   WS-FV-REPCB-SALESMAN-PTR     USAGE POINTER VALUE NULL.           
+         10    WS-FV-PROCESS-SW        PIC  X         VALUE 'S'.                
+            88 WS-FV-ORDER-LEVEL                      VALUE 'O'.                
+            88 WS-FV-SHIPMENT-LEVEL                   VALUE 'S'.                
+         10    WS-FV-RESHED-SW         PIC  X         VALUE 'Y'.                
+            88 WS-FV-PROCESS-RESHED                   VALUE 'Y'.                
+            88 WS-FV-DELETE-RESHED                    VALUE 'D'.                
+            88 WS-FV-SKIP-RESHED                      VALUE 'N'.                
+         10    WS-FV-TASK-CONTROL-SW   PIC  X         VALUE 'S'.                
+            88 WS-FV-LINK                             VALUE 'L'.                
+            88 WS-FV-LINK-SYNCONRETURN                VALUE 'D'.                
+            88 WS-FV-START                            VALUE 'S'.                
+         10    WS-FV-PREVIOUS-SHIP-STATUS             VALUE SPACES.             
+          15   FILLER                  OCCURS 9.                                
+           20  WS-FV-STATUS-CODE       PIC  X.                                  
+           20  WS-FV-STATUS-SHIP-NBR   PIC  9.                                  
+           20  WS-FV-STATUS-SUFFIX     PIC  XXX.                                
+                                                                                
+         10    WS-FV-ORSSTO-SW         PIC  X         VALUE 'N'.                
+            88 WS-FV-CREATE-ORSSTO                    VALUE 'C'.                
+            88 WS-FV-SKIP-ORSSTO                      VALUE 'N'.                
+         10    WS-FV-FLOORING-SW       PIC  X         VALUE 'Y'.                
+            88 WS-FV-SEND-FLOORING                    VALUE 'Y'.                
+            88 WS-FV-SKIP-FLOORING                    VALUE 'N'.                
+         10    WS-FV-FLOORING-SEND-SUFFIX   PIC  XXX  VALUE 'ALL'.              
+            88 WS-FV-SEND-ALL-FLOORING                VALUE 'ALL'.              
+            88 WS-FV-SEND-BILL-TO-SUFFIX              VALUE '111'               
+                                                       THRU '139'.              
+         10    WS-FV-PREVIOUS-PROCESS-SW    PIC  X    VALUE 'E'.                
+            88 WS-FV-FROM-END-ORDER                   VALUE 'E'.                
+            88 WS-FV-FROM-CREDIT-RELEASE              VALUE 'C'.                
+            88 WS-FV-FROM-SALES-RELEASE               VALUE 'S'.                
+            88 WS-FV-FROM-BATCH                       VALUE 'B'.                
+            88 WS-FV-FROM-PRINT-REQUEST               VALUE 'P'.                
+            88 WS-FV-FROM-OTHER-PROCESS               VALUE 'O'.                
+         10    WS-FV-CUST-VECTOR.                                               
+          15   WS-FV-CUST-KEY                         VALUE HIGH-VALUE.         
+           20  WS-FV-CUST-CO           PIC  XX.                                 
+           20  WS-FV-CUST-BR           PIC  XX.                                 
+           20  WS-FV-CUST-NBR          PIC  X(6).                               
+          15   WS-FV-CUST-PARENT.                                               
+           20  WS-FV-PARENT-BR         PIC  XX.                                 
+           20  WS-FV-PARENT-NBR        PIC  X(6).                               
+          15   WS-FV-DEFAULT-CR-MGR    PIC  XX.                                 
+          15   WS-FV-CUST-CNT          PIC S9(4)      COMP.                     
+            88 WS-FV-CUST-FULL                        VALUE +20.                
+          15   WS-FV-CUST-ENTRY        OCCURS 20.                               
+           20  WS-FV-CUST-SUFFIX       PIC  XXX.                                
+           20  WS-FV-CUST-CR-MGR       PIC  XX.                                 
+           20  WS-FV-CUST-PROVIDER     PIC  X.                                  
+           20  WS-FV-CUST-LAYOUT-TYPE  PIC  X.                                  
+           20  WS-FV-CUST-ACRONYM      PIC  XXX.                                
+           20  WS-FV-CUST-CORP-ACRONYM PIC  XXX.                                
+         10    WS-FV-OLD-BILL-TO-SUFFIX     PIC  XXX  VALUE LOW-VALUE.          
+         10    WS-FV-OLD-IS-SALESMAN        PIC  X(4) VALUE LOW-VALUE.          
+      * ------------------------------------------------------------ *          
+      *   COMMAREA LENGTH  - SET BY THE SYXFLR COPYBOOK.                        
+      *   ORDER-KEY        - MUST BE SET !                                      
+      *   SHIPMENT-KEY     - REQUIRED TO PROCESS A SINGLE SHIPMENT.             
+      *   DATABASE POINTER - SET IF YOU WANT TO LINK WITH PSB ALREADY           
+      *                    - SCHEDULED BY INVOKING PROGRAM.                     
+      *                    - RESHED BY SALESMAN NEEDED TO FIND OLD RESHE        
+      *                    - ENTRIES.  DUPLICATES ON INSERTION ARE ALREA        
+      *                    - HANDLED BY THE UPDATE PCB.                         
+      *   PROCESS SWITCH:                                                       
+      *        ORDER-LEVEL: USED DURING TRANSITION FROM ORDER LEVEL TO          
+      *            SHIPMENT LEVEL PROCESSING.  ONE FLOORING APPLYS TO           
+      *            ENTIRE SALES ORDER.   REFERENCED ONLY WHEN RECEIVING         
+      *            FLOORING AUTHORIZATIONS BACK FROM THE PROVIDERS.             
+      *                                                                         
+      *        SHIPMENT-LEVEL: MULTIPLE FLOORING COMPANIES ARE                  
+      *            APPLIED TO THE ORDER.  EACH TRANSMISSION APPLIES             
+      *            TO A SINGLE SHIPMENT.                                        
+      *                                                                         
+      *   RESHED : PROCESS - BUILD ENTRIES FOR SALES,CAPS, & CREDIT HOLD        
+      *          : DELETE  - DELETE ENTRIES ONLY !                              
+      *          : SKIP    - NO PROCESSING.                                     
+      *                                                                         
+      *   PREVIOUS SHIP STATUS:  STATUS HAS ALREADY BEEN SUPPLIED BY            
+      *      THE TIME ORP400 IS STARTED.  THIS IS USED                          
+      *      WHEN DELETING PREVIOUS RESHED RECORD WHEN CHANGING STATUS          
+      *      FROM ONE HOLD TO THE NEXT.  THE VECTOR INDEX IS THE DIST #.        
+      *      THE SUFFIX MUST BE SUPPLIED FOR DELETING A SPECIFIC                
+      *      BILL-TO SUFFIX ENTRY WHEN SPLIT-BILLING IS USED, OTHERWISE         
+      *      ALL ENTRIES FOR THAT DIST/SHIP ARE DELETED.                        
+      *                                                                         
+      *   ORSSTO : PROCESS - BUILD ENTRIES AS NEEDED.                           
+      *          : SKIP    - NO PROCESSING.                                     
+      *                                                                         
+      *   FLOORING: SEND   - SEND THE FLOORING TRANSACTION                      
+      *           : SKIP   - NO PROCESSING.                                     
+      *   FLOORING SEND SUFFIX:  ALLOWS A SPECIFIC BILL-TO SUFFIX               
+      *           TO BE SENT.  THIS IS USED IN CREDIT RELEASE.                  
+      *           THE DEFAULT IS TO SEND ALL FLOORING ENTRIES.                  
+      *   OLD INSIDE-SALESMAN :  ALLOWS FOR I/S SALESMAN CHANGES.               
+      *   OLD BILL-TO SUFFIX  :  ALLOWS FOR BILL-TO SUFFIX CHANGES.             
+      *                                                                         
+      *   PREVIOUS PROCESS:  WHAT TYPE OF FUNCTION INITIATED THE PROCESS        
+      *                                                                         
+      *   CUSTOMER VECTOR: IF THE PROGRAM IS REPEATEDLY LINKED-TO               
+      *           FOR DIFFERENT SHIPMENTS OF THE SAME ORDER, THEN               
+      *           THIS SAVE AREA WILL HOLD CUSTOMER DATA SO IT DOESN'T          
+      *           NEED TO BE REBUILT.  ?????????                                
+      *      MIGHT BE A WASTED EFFORT AS THE TASK IS LIKELY 'STARTED'           
+      * ------------------------------------------------------------ *          

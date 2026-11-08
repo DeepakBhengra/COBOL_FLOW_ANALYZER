@@ -1,0 +1,50 @@
+﻿      ****************************************                                  
+      * PROCEDURE TO LOG PUSBO DELETE TO AUDIT                                  
+      ****************************************                                  
+      *  11/05/21 EXQ LOG PUSBO DELETE TO AUDIT                         EXQ21309
+      ****************************************                                  
+       250-FORMAT-INVALID-BO.                                                   
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE SYA-HEADER-DATA        TO WSA-HEADER-DATA.                      
+           MOVE PUB-COMPANY            TO WSA-COMPANY.                          
+      *----------------  PART OF SUNRISE LOGIC -------------------              
+           IF TB-CPO3-COMPONENT-IH-PO                                           
+              MOVE PUH-COMPANY         TO  WSA-COMPANY                          
+              MOVE PUB-COMPANY         TO  WSA-REP-SO-CO.                       
+      *----------------  END  OF SUNRISE LOGIC -------------------              
+           MOVE PUB-SHIP-BR-NBR        TO WSA-BR-NBR.                           
+           MOVE 'INV BO'               TO WSA-SEGMENT-NAME.                     
+           IF WS-INV-BO-B2B-YES                                                 
+              MOVE 'INVB2B'            TO WSA-SEGMENT-NAME                      
+              SET  WS-INV-BO-B2B-NO    TO TRUE                                  
+           END-IF.                                                              
+           MOVE PUB-SHIP-BR-NBR        TO WSA-REP-SO-BR-NBR.                    
+           MOVE PUB-SHIP-ORDER-NBR     TO WSA-REP-SO-NBR.                       
+           MOVE ZEROS                  TO WSA-REP-DIST-NBR                      
+                                          WSA-REP-SHIP-NBR.                     
+           MOVE PUB-LINE-NBR           TO WSA-REP-SO-LINE-NBR.                  
+           MOVE ORL-LINE-STATUS        TO WSA-REP-SO-LINE-STATUS.               
+           MOVE PUT2-BR-NBR            TO WSA-REP-PO-BR-NBR.                    
+           MOVE PUT2-PO-NBR            TO WSA-REP-PO-NBR.                       
+           MOVE PUL-LINE-NBR           TO WSA-REP-PO-LINE-NBR.                  
+           MOVE PUL-STATUS-LINE        TO WSA-REP-PO-LINE-STATUS.               
+           PERFORM 845-WRITE-AUDIT-RECORD THRU 845-EXIT.                        
+                                                                                
+           MOVE  WSA-HEADER-DATA       TO SYA-HEADER-DATA.                      
+                                                                                
+      *----------------------------------------------------------------*        
+       845-WRITE-AUDIT-RECORD.                                                  
+      *----------------------------------------------------------------*        
+                                                                                
+           EXEC CICS WRITE                                                      
+               FILE   (WS-SYA-FILE-NAME)                                        
+               FROM(WSA-REPORT-DATA)                                            
+               LENGTH(WS-SYA-REPORT-RECLEN)                                     
+               RIDFLD(WS-AD-KEY)                                                
+               RBA                                                              
+               END-EXEC.                                                        
+                                                                                
+       845-EXIT.                                                                
+           EXIT.                                                                
+                                                                                

@@ -1,0 +1,572 @@
+      * ************************************************************* *         
+      *   CUSTOMER FREIGHT OPTIONS PROCEDURE - ONLINE COPY            *         
+      *   REQUIRES SYRCFO WORKING STORAGE COPYBOOK                    *         
+      *                                                               *         
+      *   THIS COPYBOOK WILL DETERMINE A CUSTOMER'S FREIGHT OPTIONS   *         
+      *   LOOKING FOR FIELD VALUES IN THE FOLLOWING ORDER:            *         
+      *      1. SHIP TO SUFFIX                                        *         
+      *      2. BILL TO SUFFIX (GREATER THAN 000)                     *         
+      *      3. PARENT SUFFIX (000)                                   *         
+      *      4. PARENT OR MASTER CUSTOMER NUMBER (000 SUFFIX ONLY)    *         
+      *      5. DEFAULT VALUES                                        *         
+      *   POPULATING THE FOLLOWING FIELDS:                            *         
+      *      WS-CC-CHOICE-ALLOWED-CD.                                 *         
+      *      WS-STND-SPLIT-CD.                                        *         
+      *      WS-NSTND-SPLIT-CD.                                       *         
+      *      WS-TRANSIT-DAY-FLG.                                      *         
+      *      WS-ROUTING-CD.                                           *         
+      *      WS-CUST-PGM-CARR-BYPASS.                                 *         
+      *      WS-POSTAL-DIST-LIMIT.                                    *         
+      *      WS-CARTONIZE-EXEMPT-SW                                   * LMH04042
+      *      WS-CUST-RATING-GRP-CDE                                   * LMH04042
+      *      WS-SML-CARR-IND                                          * LMH04042
+      *                                                               *         
+      * REVISION INFO:                                                *         
+      * 10/19/18 GXE  FRT MARKUP DERIVATION                             GXE18296
+      * 05/15/09 MCV  HEAVYWEIGHT                                       MCV09135
+      * 04/10/09 MCV  TRANSPORTATION POSTAL PROJECT                     MCV09100
+      * 11/03/03 LMH  ADD LOGIC FOR PICK ASSIGNMENT LITE PROJECT      * LMH04042
+      * 02/11/04 JAK  ADDED LOGIC FOR NEW UPS MI SMALL CARRIER SWITCH * LMH04042
+      * 10/01/03 JJU  CHECK FOR TBXTABLE TBXFRM DEFAULT VALUES        * JJU03274
+      * 09/28/03 MEP  NEW COPY BOOK FOR WE PAY WE PICK PROJECT        * MEP03271
+      * ************************************************************* *         
+                                                                                
+      *----------------------------------------------------------------*        
+       900-CUST-FREIGHT-OPTIONS.                                                
+      *----------------------------------------------------------------*        
+                                                                                
+           PERFORM 905-PROCESS-DEFAULT-OPT.                                     
+                                                                                
+           IF (CU-PARENT-NBR > SPACES) AND                                      
+              (CU-PARENT-NBR NOT EQUAL WS-CFO-CUST-NBR)                         
+               PERFORM 910-PROCESS-PARENT-CUST                                  
+               PERFORM 935-RESET-PARENTAGE                                      
+           END-IF.                                                              
+                                                                                
+           IF WS-VALID-SHIP-TO-SFX                                              
+              MOVE WS-SHIP-TO-SFX TO WS-CFO-SFX                                 
+              IF WS-000-BILL-TO-SFX                                             
+                 PERFORM 915-PROCESS-000-CUST                                   
+              ELSE                                                              
+                 MOVE WS-BILL-TO-SFX TO WS-BIL-SFX                              
+                 PERFORM 915-PROCESS-000-CUST                                   
+                 PERFORM 920-PROCESS-BIL-CUST                                   
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE WS-BILL-TO-SFX TO WS-CFO-SFX                                 
+              IF NOT WS-000-BILL-TO-SFX                                         
+                 PERFORM 915-PROCESS-000-CUST                                   
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           PERFORM 930-PROCESS-CUST.                                            
+                                                                                
+      *----------------------------------------------------------------*        
+       905-PROCESS-DEFAULT-OPT.                                                 
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE WS-D-CC-CHOICE-ALLOWED-CD TO WS-CC-CHOICE-ALLOWED-CD.   JJU03274
+           MOVE WS-D-STND-SPLIT-CD        TO WS-STND-SPLIT-CD.          JJU03274
+           MOVE WS-D-NSTND-SPLIT-CD       TO WS-NSTND-SPLIT-CD.         JJU03274
+           MOVE WS-D-TRANSIT-DAY-FLG      TO WS-TRANSIT-DAY-FLG.        JJU03274
+                                                                        JJU03274
+      * USE TBXTABLE TBXFRM CUSTOMER DEFAULT VALUES IF AVAILABLE.       JJU03274
+                                                                        JJU03274
+           IF TB-FRM-NORESP                                             JJU03274
+               IF TB-FRM-CC-CHOICE-ALLOWED-CD > SPACES                  JJU03274
+                   MOVE TB-FRM-CC-CHOICE-ALLOWED-CD  TO                 JJU03274
+                                             WS-CC-CHOICE-ALLOWED-CD    JJU03274
+               END-IF                                                   JJU03274
+               IF TB-FRM-STND-SPLIT-CD        > SPACES                  JJU03274
+                   MOVE TB-FRM-STND-SPLIT-CD         TO                 JJU03274
+                                             WS-STND-SPLIT-CD           JJU03274
+               END-IF                                                   JJU03274
+               IF TB-FRM-NSTND-SPLIT-CD       > SPACES                  JJU03274
+                   MOVE TB-FRM-NSTND-SPLIT-CD        TO                 JJU03274
+                                             WS-NSTND-SPLIT-CD          JJU03274
+               END-IF                                                   JJU03274
+               IF TB-FRM-TRANSIT-DAY-FLG      > SPACES                  JJU03274
+                   MOVE TB-FRM-TRANSIT-DAY-FLG       TO                 JJU03274
+                                             WS-TRANSIT-DAY-FLG         JJU03274
+               END-IF                                                   JJU03274
+           END-IF.                                                      JJU03274
+                                                                        JJU03274
+           MOVE WS-D-ROUTING-CD           TO WS-ROUTING-CD.                     
+           MOVE WS-D-CUST-PGM-CARR-BYPASS TO WS-CUST-PGM-CARR-BYPASS.           
+                                                                        JJU03274
+      *----------------------------------------------------------------*        
+      *    EXPIRATION DATE FORMAT IS ALWAYS MMDDYY                              
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE WS-D-POSTAL-DIST-LIMIT    TO WS-POSTAL-DIST-LIMIT       MCV09100
+                                                                        MCV09100
+           IF TB-FRM-LIMIT-1-EXPIRATION-DATE > SPACES AND               MCV09100
+              TB-FRM-POSTAL-DIST-LIMIT-1 NUMERIC      AND               MCV09100
+              TB-FRM-POSTAL-DIST-LIMIT-2 NUMERIC                        MCV09100
+                 INITIALIZE                   SY777-PARM-DATA           MCV09100
+                 MOVE 'MD'                TO  SY777-IN-COMPANY-CODE     MCV09100
+                 MOVE TB-FRM-LIMIT-1-EXPIRATION-DATE                    MCV09100
+                                          TO  SY777-IN-GREG-8           MCV09100
+                 CALL 'SYU777'         USING  TC-CUP537-MODULE-DATA     MCV09100
+                                              TC-SYXCOM                 MCV09100
+                                              SY777-PARM-DATA           MCV09100
+                 MOVE EIBDATE             TO  SY777-IN-JUL-YYDDD        MCV09100
+                 IF SY777-IN-JUL-YYDDD <= SY777-OUT-JUL-YYDDD           MCV09100
+                    MOVE TB-FRM-POSTAL-DIST-LIMIT-1                     MCV09100
+                                          TO  WS-POSTAL-DIST-LIMIT      MCV09100
+                 ELSE                                                   MCV09100
+                    MOVE TB-FRM-POSTAL-DIST-LIMIT-2                     MCV09100
+                                          TO  WS-POSTAL-DIST-LIMIT.     MCV09100
+                                                                        MCV09100
+           MOVE WS-D-CARTONIZE-EXEMPT-SW  TO WS-CARTONIZE-EXEMPT-SW.    LMH04042
+           MOVE WS-D-CUST-RATING-GRP-CDE  TO WS-CUST-RATING-GRP-CDE.    LMH04042
+           MOVE WS-D-SML-CARR-IND         TO WS-SML-CARR-IND.           LMH04042
+           MOVE 'IM01'                    TO WS-D-FRT-MARKUP            GXE18296
+                                             WS-FRT-MARKUP              GXE18296
+                                                                                
+           MOVE LOW-VALUES                TO  WS-PARENT-CUST-NBR        MCV09100
+                                              WS-PARENT-OPT             MCV09100
+                                              WS-000-CUST-OPT           MCV09100
+                                              WS-BIL-CUST-OPT.          MCV09100
+                                                                                
+      *----------------------------------------------------------------*        
+       910-PROCESS-PARENT-CUST.                                                 
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE CU-PARENT-NBR    TO WS-PARENT-CUST-NBR                          
+           MOVE WS-CFO-CO        TO WS-CUSHED-CO                                
+           MOVE WS-PARENT-BR     TO WS-CUSHED-BR                                
+           MOVE WS-PARENT-NBR    TO WS-CUSHED-CUST                              
+           MOVE '*P'             TO WS-CUSHED-COMMAND-CODE                      
+           MOVE ' ='             TO WS-CUSHED-SEARCH                            
+           PERFORM 1000-GU-CUSHED                                               
+           IF WS-CUSHED-NORESP                                                  
+              MOVE WS-PARENT-SFX    TO WS-CUSADR-SUFFIX                         
+              MOVE ' ='             TO WS-CUSADR-SEARCH                         
+              PERFORM 1058-GNP-CUSADR                                           
+              IF WS-CUSADR-NORESP                                               
+                 PERFORM 910-PROCESS-PARENT-CUSADR                              
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+      *----------------------------------------------------------------*        
+       910-PROCESS-PARENT-CUSADR.                                               
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE CUA-CC-CHOICE-ALLOWED-CD TO                                     
+                 WS-P-CC-CHOICE-ALLOWED-CD.                                     
+           MOVE CUA-STND-SPLIT-CD        TO                                     
+                 WS-P-STND-SPLIT-CD.                                            
+           MOVE CUA-NSTND-SPLIT-CD       TO                                     
+                 WS-P-NSTND-SPLIT-CD.                                           
+           MOVE CUA-TRANSIT-DAY-FLG      TO                                     
+                 WS-P-TRANSIT-DAY-FLG.                                          
+           MOVE CUA-ROUTING-CD           TO                                     
+                 WS-P-ROUTING-CD.                                               
+           MOVE CUA-CUST-PGM-CARR-BYPASS-SW TO                                  
+                 WS-P-CUST-PGM-CARR-BYPASS.                                     
+           IF CUA-POSTAL-DIST-LIMIT IS NUMERIC                                  
+              MOVE CUA-POSTAL-DIST-LIMIT TO                                     
+                    WS-P-POSTAL-DIST-LIMIT                                      
+           ELSE                                                                 
+              MOVE ZEROS                  TO                                    
+                    WS-P-POSTAL-DIST-LIMIT                                      
+           END-IF.                                                              
+           MOVE CUA-CARTONIZE-EXEMPT-SW    TO                           LMH04042
+                 WS-P-CARTONIZE-EXEMPT-SW.                              LMH04042
+           MOVE CUA-CUST-RATING-GROUP-CODE TO                           LMH04042
+                 WS-P-CUST-RATING-GRP-CDE.                              LMH04042
+           IF CUA-SML-CARR-SW = 'Y' OR 'N'                              MCV09100
+              MOVE CUA-SML-CARR-SW TO                                   LMH04042
+                    WS-P-SML-CARR-IND                                   LMH04042
+           ELSE                                                         LMH04042
+              MOVE SPACE                  TO                            LMH04042
+                    WS-P-SML-CARR-IND                                   LMH04042
+           END-IF.                                                      LMH04042
+                                                                                
+           IF CUA-HEAVYWEIGHT-FEE-SW = 'E' OR SPACES                    MCV09135
+              MOVE CUA-HEAVYWEIGHT-FEE-SW                               MCV09135
+                                          TO  WS-P-HEAVYWEIGHT-FEE      MCV09135
+           ELSE                                                         MCV09135
+              MOVE LOW-VALUES             TO  WS-P-HEAVYWEIGHT-FEE.     MCV09135
+                                                                        GXE18296
+           MOVE CUA-FRT-MARKUP            TO  WS-P-FRT-MARKUP.          GXE18296
+                                                                                
+      *----------------------------------------------------------------*        
+       915-PROCESS-000-CUST.                                                    
+      *----------------------------------------------------------------*        
+                                                                                
+           IF WS-CUSHED-NORESP                                                  
+              MOVE WS-000-SFX       TO WS-CUSADR-SUFFIX                         
+              MOVE ' ='             TO WS-CUSADR-SEARCH                         
+              PERFORM 1058-GNP-CUSADR                                           
+              IF WS-CUSADR-NORESP                                               
+                 PERFORM 915-PROCESS-000-CUSADR                                 
+              ELSE                                                              
+                 MOVE LOW-VALUES          TO  WS-000-CUST-OPT           MCV09100
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE LOW-VALUES             TO  WS-000-CUST-OPT.          MCV09100
+                                                                                
+      *----------------------------------------------------------------*        
+       915-PROCESS-000-CUSADR.                                                  
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE CUA-CC-CHOICE-ALLOWED-CD TO                                     
+                 WS-0-CC-CHOICE-ALLOWED-CD.                                     
+           MOVE CUA-STND-SPLIT-CD        TO                                     
+                 WS-0-STND-SPLIT-CD.                                            
+           MOVE CUA-NSTND-SPLIT-CD       TO                                     
+                 WS-0-NSTND-SPLIT-CD.                                           
+           MOVE CUA-TRANSIT-DAY-FLG      TO                                     
+                 WS-0-TRANSIT-DAY-FLG.                                          
+           MOVE CUA-ROUTING-CD           TO                                     
+                 WS-0-ROUTING-CD.                                               
+           MOVE CUA-CUST-PGM-CARR-BYPASS-SW TO                                  
+                 WS-0-CUST-PGM-CARR-BYPASS.                                     
+           IF CUA-POSTAL-DIST-LIMIT IS NUMERIC                                  
+              MOVE CUA-POSTAL-DIST-LIMIT TO                                     
+                    WS-0-POSTAL-DIST-LIMIT                                      
+           ELSE                                                                 
+              MOVE ZEROS                  TO                                    
+                    WS-0-POSTAL-DIST-LIMIT                                      
+           END-IF.                                                              
+           MOVE CUA-CARTONIZE-EXEMPT-SW    TO                           LMH04042
+                 WS-0-CARTONIZE-EXEMPT-SW.                              LMH04042
+           MOVE CUA-CUST-RATING-GROUP-CODE TO                           LMH04042
+                 WS-0-CUST-RATING-GRP-CDE.                              LMH04042
+           IF CUA-SML-CARR-SW = 'Y' OR 'N'                              MCV09100
+              MOVE CUA-SML-CARR-SW TO                                   LMH04042
+                    WS-0-SML-CARR-IND                                   LMH04042
+           ELSE                                                         LMH04042
+              MOVE SPACE                 TO                             LMH04042
+                    WS-0-SML-CARR-IND                                   LMH04042
+           END-IF.                                                      LMH04042
+                                                                                
+           IF CUA-HEAVYWEIGHT-FEE-SW = 'E' OR SPACES                    MCV09135
+              MOVE CUA-HEAVYWEIGHT-FEE-SW                               MCV09135
+                                          TO  WS-0-HEAVYWEIGHT-FEE      MCV09135
+           ELSE                                                         MCV09135
+              MOVE LOW-VALUES             TO  WS-0-HEAVYWEIGHT-FEE.     MCV09135
+                                                                        GXE18296
+           MOVE CUA-FRT-MARKUP            TO  WS-0-FRT-MARKUP.          GXE18296
+                                                                                
+      *----------------------------------------------------------------*        
+       920-PROCESS-BIL-CUST.                                                    
+      *----------------------------------------------------------------*        
+                                                                                
+           IF WS-CUSHED-NORESP                                                  
+              MOVE WS-BIL-SFX       TO WS-CUSADR-SUFFIX                         
+              MOVE ' ='             TO WS-CUSADR-SEARCH                         
+              PERFORM 1058-GNP-CUSADR                                           
+              IF WS-CUSADR-NORESP                                               
+                 PERFORM 920-PROCESS-BIL-CUSADR                                 
+              ELSE                                                              
+                 MOVE LOW-VALUES          TO  WS-BIL-CUST-OPT           MCV09100
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE LOW-VALUES             TO  WS-BIL-CUST-OPT           MCV09100
+           END-IF.                                                              
+                                                                                
+      *----------------------------------------------------------------*        
+       920-PROCESS-BIL-CUSADR.                                                  
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE CUA-CC-CHOICE-ALLOWED-CD TO                                     
+                 WS-B-CC-CHOICE-ALLOWED-CD.                                     
+           MOVE CUA-STND-SPLIT-CD        TO                                     
+                 WS-B-STND-SPLIT-CD.                                            
+           MOVE CUA-NSTND-SPLIT-CD       TO                                     
+                 WS-B-NSTND-SPLIT-CD.                                           
+           MOVE CUA-TRANSIT-DAY-FLG      TO                                     
+                 WS-B-TRANSIT-DAY-FLG.                                          
+           MOVE CUA-ROUTING-CD           TO                                     
+                 WS-B-ROUTING-CD.                                               
+           MOVE CUA-CUST-PGM-CARR-BYPASS-SW TO                                  
+                 WS-B-CUST-PGM-CARR-BYPASS.                                     
+           IF CUA-POSTAL-DIST-LIMIT IS NUMERIC                                  
+              MOVE CUA-POSTAL-DIST-LIMIT TO                                     
+                    WS-B-POSTAL-DIST-LIMIT                                      
+           ELSE                                                                 
+              MOVE ZEROS                  TO                                    
+                    WS-B-POSTAL-DIST-LIMIT                                      
+           END-IF.                                                              
+           MOVE CUA-CARTONIZE-EXEMPT-SW    TO                           LMH04042
+                 WS-B-CARTONIZE-EXEMPT-SW.                              LMH04042
+           MOVE CUA-CUST-RATING-GROUP-CODE TO                           LMH04042
+                 WS-B-CUST-RATING-GRP-CDE.                              LMH04042
+           IF CUA-SML-CARR-SW = 'Y' OR 'N'                              MCV09100
+              MOVE CUA-SML-CARR-SW TO                                   LMH04042
+                    WS-B-SML-CARR-IND                                   LMH04042
+           ELSE                                                         LMH04042
+              MOVE SPACE                  TO                            LMH04042
+                    WS-B-SML-CARR-IND                                   LMH04042
+           END-IF.                                                      LMH04042
+                                                                                
+           IF CUA-HEAVYWEIGHT-FEE-SW = 'E' OR SPACES                    MCV09135
+              MOVE CUA-HEAVYWEIGHT-FEE-SW                               MCV09135
+                                          TO  WS-B-HEAVYWEIGHT-FEE      MCV09135
+           ELSE                                                         MCV09135
+              MOVE LOW-VALUES             TO  WS-B-HEAVYWEIGHT-FEE.     MCV09135
+                                                                        GXE18296
+           MOVE CUA-FRT-MARKUP            TO  WS-B-FRT-MARKUP.          GXE18296
+                                                                                
+      *----------------------------------------------------------------*        
+       930-PROCESS-CUST.                                                        
+      *----------------------------------------------------------------*        
+                                                                                
+           IF WS-CUSHED-NORESP                                                  
+              MOVE WS-CFO-SFX       TO WS-CUSADR-SUFFIX                         
+              MOVE ' ='             TO WS-CUSADR-SEARCH                         
+              PERFORM 1058-GNP-CUSADR                                           
+              IF WS-CUSADR-NORESP                                               
+                 PERFORM 930-PROCESS-CUST-CUSADR                                
+           END-IF.                                                              
+                                                                                
+      *----------------------------------------------------------------*        
+       930-PROCESS-CUST-CUSADR.                                                 
+      *----------------------------------------------------------------*        
+                                                                                
+           IF CUA-CC-CHOICE-ALLOWED-CD > SPACES                                 
+              MOVE CUA-CC-CHOICE-ALLOWED-CD                                     
+                   TO WS-CC-CHOICE-ALLOWED-CD                                   
+           ELSE                                                                 
+            IF WS-B-CC-CHOICE-ALLOWED-CD > SPACES                               
+               MOVE WS-B-CC-CHOICE-ALLOWED-CD                                   
+                    TO WS-CC-CHOICE-ALLOWED-CD                                  
+            ELSE                                                                
+             IF WS-0-CC-CHOICE-ALLOWED-CD > SPACES                              
+                MOVE WS-0-CC-CHOICE-ALLOWED-CD                                  
+                     TO WS-CC-CHOICE-ALLOWED-CD                                 
+             ELSE                                                               
+              IF WS-P-CC-CHOICE-ALLOWED-CD > SPACES                             
+                 MOVE WS-P-CC-CHOICE-ALLOWED-CD                                 
+                      TO WS-CC-CHOICE-ALLOWED-CD                                
+              END-IF                                                            
+             END-IF                                                             
+            END-IF                                                              
+           END-IF.                                                              
+           IF CUA-STND-SPLIT-CD > SPACES                                        
+              MOVE CUA-STND-SPLIT-CD                                            
+                    TO WS-STND-SPLIT-CD                                         
+           ELSE                                                                 
+            IF WS-B-STND-SPLIT-CD > SPACES                                      
+               MOVE WS-B-STND-SPLIT-CD                                          
+                    TO WS-STND-SPLIT-CD                                         
+            ELSE                                                                
+             IF WS-0-STND-SPLIT-CD > SPACES                                     
+                MOVE WS-0-STND-SPLIT-CD                                         
+                     TO WS-STND-SPLIT-CD                                        
+             ELSE                                                               
+              IF WS-P-STND-SPLIT-CD > SPACES                                    
+                 MOVE WS-P-STND-SPLIT-CD                                        
+                      TO WS-STND-SPLIT-CD                                       
+              END-IF                                                            
+             END-IF                                                             
+            END-IF                                                              
+           END-IF.                                                              
+           IF CUA-NSTND-SPLIT-CD > SPACES                                       
+              MOVE CUA-NSTND-SPLIT-CD                                           
+                    TO WS-NSTND-SPLIT-CD                                        
+           ELSE                                                                 
+            IF WS-B-NSTND-SPLIT-CD > SPACES                                     
+               MOVE WS-B-NSTND-SPLIT-CD                                         
+                    TO WS-NSTND-SPLIT-CD                                        
+            ELSE                                                                
+             IF WS-0-NSTND-SPLIT-CD > SPACES                                    
+                MOVE WS-0-NSTND-SPLIT-CD                                        
+                     TO WS-NSTND-SPLIT-CD                                       
+             ELSE                                                               
+              IF WS-P-NSTND-SPLIT-CD > SPACES                                   
+                 MOVE WS-P-NSTND-SPLIT-CD                                       
+                      TO WS-NSTND-SPLIT-CD                                      
+              END-IF                                                            
+             END-IF                                                             
+            END-IF                                                              
+           END-IF.                                                              
+           IF CUA-TRANSIT-DAY-FLG > SPACES                                      
+              MOVE CUA-TRANSIT-DAY-FLG                                          
+                    TO WS-TRANSIT-DAY-FLG                                       
+           ELSE                                                                 
+            IF WS-B-TRANSIT-DAY-FLG > SPACES                                    
+               MOVE WS-B-TRANSIT-DAY-FLG                                        
+                    TO WS-TRANSIT-DAY-FLG                                       
+            ELSE                                                                
+             IF WS-0-TRANSIT-DAY-FLG > SPACES                                   
+                MOVE WS-0-TRANSIT-DAY-FLG                                       
+                     TO WS-TRANSIT-DAY-FLG                                      
+             ELSE                                                               
+              IF WS-P-TRANSIT-DAY-FLG > SPACES                                  
+                 MOVE WS-P-TRANSIT-DAY-FLG                                      
+                      TO WS-TRANSIT-DAY-FLG                                     
+              END-IF                                                            
+             END-IF                                                             
+            END-IF                                                              
+           END-IF.                                                              
+           IF CUA-ROUTING-CD > SPACES                                           
+              MOVE CUA-ROUTING-CD                                               
+                    TO WS-ROUTING-CD                                            
+           ELSE                                                                 
+            IF WS-B-ROUTING-CD > SPACES                                         
+               MOVE WS-B-ROUTING-CD                                             
+                    TO WS-ROUTING-CD                                            
+            ELSE                                                                
+             IF WS-0-ROUTING-CD > SPACES                                        
+                MOVE WS-0-ROUTING-CD                                            
+                     TO WS-ROUTING-CD                                           
+             ELSE                                                               
+              IF WS-P-ROUTING-CD > SPACES                                       
+                 MOVE WS-P-ROUTING-CD                                           
+                      TO WS-ROUTING-CD                                          
+              END-IF                                                            
+             END-IF                                                             
+            END-IF                                                              
+           END-IF.                                                              
+           IF CUA-CUST-PGM-CARR-BYPASS-SW > SPACES                              
+              MOVE CUA-CUST-PGM-CARR-BYPASS-SW                                  
+                    TO WS-CUST-PGM-CARR-BYPASS                                  
+           ELSE                                                                 
+            IF WS-B-CUST-PGM-CARR-BYPASS > SPACES                               
+               MOVE WS-B-CUST-PGM-CARR-BYPASS                                   
+                    TO WS-CUST-PGM-CARR-BYPASS                                  
+            ELSE                                                                
+             IF WS-0-CUST-PGM-CARR-BYPASS > SPACES                              
+                MOVE WS-0-CUST-PGM-CARR-BYPASS                                  
+                     TO WS-CUST-PGM-CARR-BYPASS                                 
+             ELSE                                                               
+              IF WS-P-CUST-PGM-CARR-BYPASS > SPACES                             
+                 MOVE WS-P-CUST-PGM-CARR-BYPASS                                 
+                      TO WS-CUST-PGM-CARR-BYPASS                                
+              END-IF                                                            
+             END-IF                                                             
+            END-IF                                                              
+           END-IF.                                                              
+                                                                                
+           IF CUA-CARTONIZE-EXEMPT-SW > SPACES                          LMH04042
+              MOVE CUA-CARTONIZE-EXEMPT-SW                              LMH04042
+                                         TO WS-CARTONIZE-EXEMPT-SW      LMH04042
+           ELSE                                                         LMH04042
+              IF WS-B-CARTONIZE-EXEMPT-SW > SPACES                      LMH04042
+                 MOVE WS-B-CARTONIZE-EXEMPT-SW                          LMH04042
+                                         TO WS-CARTONIZE-EXEMPT-SW      LMH04042
+              ELSE                                                      LMH04042
+                 IF WS-0-CARTONIZE-EXEMPT-SW > SPACES                   LMH04042
+                    MOVE WS-0-CARTONIZE-EXEMPT-SW                       LMH04042
+                                         TO WS-CARTONIZE-EXEMPT-SW      LMH04042
+                 ELSE                                                   LMH04042
+                    IF WS-P-CARTONIZE-EXEMPT-SW > SPACES                LMH04042
+                       MOVE WS-P-CARTONIZE-EXEMPT-SW                    LMH04042
+                                         TO WS-CARTONIZE-EXEMPT-SW      LMH04042
+                    END-IF                                              LMH04042
+                END-IF                                                  LMH04042
+              END-IF                                                    LMH04042
+           END-IF.                                                      LMH04042
+           IF CUA-CUST-RATING-GROUP-CODE > SPACES                       LMH04042
+              MOVE CUA-CUST-RATING-GROUP-CODE                           LMH04042
+                                         TO WS-CUST-RATING-GRP-CDE      LMH04042
+           ELSE                                                         LMH04042
+              IF WS-B-CUST-RATING-GRP-CDE > SPACES                      LMH04042
+                 MOVE WS-B-CUST-RATING-GRP-CDE                          LMH04042
+                                         TO WS-CUST-RATING-GRP-CDE      LMH04042
+              ELSE                                                      LMH04042
+                 IF WS-0-CUST-RATING-GRP-CDE > SPACES                   LMH04042
+                    MOVE WS-0-CUST-RATING-GRP-CDE                       LMH04042
+                                         TO WS-CUST-RATING-GRP-CDE      LMH04042
+                 ELSE                                                   LMH04042
+                    IF WS-P-CUST-RATING-GRP-CDE > SPACES                LMH04042
+                       MOVE WS-P-CUST-RATING-GRP-CDE                    LMH04042
+                                         TO WS-CUST-RATING-GRP-CDE      LMH04042
+                    END-IF                                              LMH04042
+                END-IF                                                  LMH04042
+              END-IF                                                    LMH04042
+           END-IF.                                                      LMH04042
+                                                                                
+           IF CUA-SML-CARR-SW = 'Y' OR 'N'                              MCV09100
+                 MOVE CUA-SML-CARR-SW                                   LMH04042
+                       TO WS-SML-CARR-IND                               LMH04042
+           ELSE                                                         LMH04042
+            IF WS-B-SML-CARR-IND > SPACES                               LMH04042
+               MOVE WS-B-SML-CARR-IND                                   LMH04042
+                    TO WS-SML-CARR-IND                                  LMH04042
+            ELSE                                                        LMH04042
+             IF WS-0-SML-CARR-IND > SPACES                              LMH04042
+                MOVE WS-0-SML-CARR-IND                                  LMH04042
+                     TO WS-SML-CARR-IND                                 LMH04042
+             ELSE                                                       LMH04042
+              IF WS-P-SML-CARR-IND > SPACES                             LMH04042
+                 MOVE WS-P-SML-CARR-IND                                 LMH04042
+                      TO WS-SML-CARR-IND.                               MCV09100
+                                                                                
+      *----------------------------------------------------------------*MCV09100
+      *    CUSTOMER LIMIT IS USED ONLY WHEN WS-SM-CARR-IND = 'Y'.       MCV09100
+      *    CORPORATE LIMIT IS USED OTHERWISE.                           MCV09100
+      *----------------------------------------------------------------*MCV09100
+                                                                        MCV09100
+           IF WS-SML-CARR-IND = 'Y'                                     MCV09100
+              IF CUA-POSTAL-DIST-LIMIT IS NUMERIC                       MCV09100
+                AND CUA-POSTAL-DIST-LIMIT > ZEROS                       MCV09100
+                    MOVE CUA-POSTAL-DIST-LIMIT                          MCV09100
+                          TO WS-POSTAL-DIST-LIMIT                       MCV09100
+              ELSE                                                      MCV09100
+               IF WS-B-POSTAL-DIST-LIMIT IS NUMERIC                     MCV09100
+                 AND WS-B-POSTAL-DIST-LIMIT > ZEROS                     MCV09100
+                  MOVE WS-B-POSTAL-DIST-LIMIT                           MCV09100
+                       TO WS-POSTAL-DIST-LIMIT                          MCV09100
+               ELSE                                                     MCV09100
+                IF WS-0-POSTAL-DIST-LIMIT IS NUMERIC                    MCV09100
+                  AND WS-0-POSTAL-DIST-LIMIT > ZEROS                    MCV09100
+                   MOVE WS-0-POSTAL-DIST-LIMIT                          MCV09100
+                        TO WS-POSTAL-DIST-LIMIT                         MCV09100
+                ELSE                                                    MCV09100
+                 IF WS-P-POSTAL-DIST-LIMIT IS NUMERIC                   MCV09100
+                   AND WS-P-POSTAL-DIST-LIMIT > ZEROS                   MCV09100
+                    MOVE WS-P-POSTAL-DIST-LIMIT                         MCV09100
+                         TO WS-POSTAL-DIST-LIMIT.                       MCV09100
+                                                                                
+           EVALUATE TRUE                                                MCV09135
+              WHEN CUA-HEAVYWEIGHT-FEE-SW = 'E'                         MCV09135
+              WHEN CUA-HEAVYWEIGHT-FEE-SW = SPACES                      MCV09135
+                   MOVE CUA-HEAVYWEIGHT-FEE-SW                          MCV09135
+                                          TO  WS-HEAVYWEIGHT-FEE        MCV09135
+                                                                        MCV09135
+              WHEN WS-B-HEAVYWEIGHT-FEE   >= SPACES                     MCV09135
+                   MOVE WS-B-HEAVYWEIGHT-FEE                            MCV09135
+                                          TO  WS-HEAVYWEIGHT-FEE        MCV09135
+                                                                        MCV09135
+              WHEN WS-0-HEAVYWEIGHT-FEE   >= SPACES                     MCV09135
+                   MOVE WS-0-HEAVYWEIGHT-FEE                            MCV09135
+                                          TO  WS-HEAVYWEIGHT-FEE        MCV09135
+                                                                        MCV09135
+              WHEN WS-P-HEAVYWEIGHT-FEE   >= SPACES                     MCV09135
+                   MOVE WS-P-HEAVYWEIGHT-FEE                            MCV09135
+                                          TO  WS-HEAVYWEIGHT-FEE        MCV09135
+                                                                        MCV09135
+              WHEN OTHER                                                MCV09135
+                   MOVE WS-D-HEAVYWEIGHT-FEE                            MCV09135
+                                          TO  WS-HEAVYWEIGHT-FEE        MCV09135
+           END-EVALUATE.                                                MCV09135
+                                                                        GXE18296
+           EVALUATE TRUE                                                GXE18296
+               WHEN CUA-FRT-MARKUP > SPACES                             GXE18296
+                    MOVE CUA-FRT-MARKUP   TO WS-FRT-MARKUP              GXE18296
+               WHEN WS-B-FRT-MARKUP > SPACES                            GXE18296
+                    MOVE WS-B-FRT-MARKUP  TO WS-FRT-MARKUP              GXE18296
+               WHEN WS-0-FRT-MARKUP > SPACES                            GXE18296
+                    MOVE WS-0-FRT-MARKUP  TO WS-FRT-MARKUP              GXE18296
+               WHEN WS-P-FRT-MARKUP > SPACES                            GXE18296
+                    MOVE WS-P-FRT-MARKUP  TO WS-FRT-MARKUP              GXE18296
+               WHEN OTHER                                               GXE18296
+                    MOVE WS-D-FRT-MARKUP  TO WS-FRT-MARKUP              GXE18296
+           END-EVALUATE.                                                GXE18296
+                                                                                
+      *----------------------------------------------------------------*        
+       935-RESET-PARENTAGE.                                                     
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE WS-CFO-BR        TO WS-CUSHED-BR.                               
+           MOVE WS-CFO-NBR       TO WS-CUSHED-CUST.                             
+           MOVE '*P'             TO WS-CUSHED-COMMAND-CODE.                     
+           MOVE ' ='             TO WS-CUSHED-SEARCH.                           
+           PERFORM 1000-GU-CUSHED.                                              
+           MOVE '*-'             TO WS-CUSHED-COMMAND-CODE.                     
+                                                                                

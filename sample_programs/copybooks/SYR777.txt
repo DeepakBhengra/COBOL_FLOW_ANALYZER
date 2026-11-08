@@ -1,0 +1,422 @@
+      ***************************************************************** GXN00087
+      *  COPYBOOK: SYR777 - REPLACES SYR777B, SYR777C, AND SYR777L    * GXN00087
+      ***************************************************************** GXN00087
+      * PROGRAMS:  SYU777 - MULTI-PURPOSE DATE ROUTINE (CICS)         * GXN00087
+      *            SYV777 - MULTI-PURPOSE DATE ROUTINE (BATCH)        * GXN00087
+      * LANGUAGE:  OS/390 COBOL                                       * GXN00087
+      * COPYBOOKS: SYR777                                             * GXN00087
+      * PURPOSE:   1) EDIT AND CONVERT A DATE TO DIFFERENT FORMATS    * GXN00087
+      *            AND RETURN DAY OF THE WEEK, DAY OF THE WEEK NAME   * GXN00087
+      *            AND THE MONTH NAME.                                * GXN00087
+      *            2) RETURN THE CURRENT SYSTEM DATE (DAY OF THE WEEK,* GXN00087
+      *            ETC. IS ALSO RETURNED)                             * GXN00087
+      *            3) RETURN CENTURY OF A TWO-POSITION YEAR           * GXN00087
+      *                                                               * GXN00087
+      * DESC:      1) SY777-IN-COMPANY-CODE DETERMINES THE FORMAT OF  * GXN00087
+      *            THE INPUT AND OUTPUT GREGORIAN DATES WHEN EDITING  * GXN00087
+      *            A DATE AND WHEN THE GREGORIAN SYSTEM DATE IS       * GXN00087
+      *            RETURNED.  IF IT IS SPACE OR AN INVALID COMPANY    * GXN00087
+      *            CODE THEN THE FORMAT IS DEFAULTED TO UNITED STATES.* GXN00087
+      *            SOME COMPANY CODES THAT MAY BE USED ARE 'US' FOR   * GXN00087
+      *            UNITED STATES (MM DD YY) FORMAT, 'UK' FOR UNITED   * GXN00087
+      *            KINGDOM (DD MM YY) FORMAT, AND 'SE' FOR ASIAN &    * GXN00087
+      *            SWEDISH (YY MM DD) FORMAT.                         * GXN00087
+      *            2) IF SY777-IN-CURRENT-DATE-SW IS SET TO Y (I.E.   * GXN00087
+      *            SY777-GET-CURRENT-DATE IS TRUE) THEN THE CURRENT   * GXN00087
+      *            SYSTEM DATE IS RETURNED.                           * GXN00087
+      *            3) WHEN A DATE IS CONVERTED OR THE SYSTEM DATE IS  * GXN00087
+      *            RETURNED THEN A NUMERIC VALUE FOR THE DAY OF THE   * GXN00087
+      *            WEEK IS RETURNED IN SY777-OUT-DAY-OF-WEEK-NUMBER   * GXN00087
+      *            (WHERE 1=SUNDAY, 2=MONDAY, ETC.), THE NAME OF THE  * GXN00087
+      *            DAY OF THE WEEK IS RETURNED IN                     * GXN00087
+      *            SY777-OUT-DAY-OF-WEEK-NAME, AND THE NAME OF THE    * GXN00087
+      *            MONTH IS RETURNED IN SY777-OUT-MONTH-NAME.         * GXN00087
+      *            4) IF SY777-IN-Y2K-TEST-YY IS GREATER THAN SPACES  * GXN00087
+      *            THEN THE FULL YEAR IS RETURNED IN                  * GXN00087
+      *            SY777-OUT-Y2K-CCYY AND NO OTHER OUTPUT FIELDS ARE  * GXN00087
+      *            RETURNED.                                          * GXN00087
+      *            5) MULTIPLE FUNCTIONS ARE NOT PERFORMED (I.E. IF   * GXN00087
+      *            SY777-IN-Y2K-TEST-YY IS GREATER THAN SPACE AND     * GXN00087
+      *            SY777-IN-CURRENT-DATE-SW IS SET TO Y), ONLY THE    * GXN00087
+      *            CENTURY TEST IS PERFORMED.                         * GXN00087
+      *            6) ERROR CONDITIONS RETURN A 'Y' IN SY777-OUT-ERR-SW GXN00087
+      *            AND THE REASON FOR THE ERROR (E.G. A NON-NUMERIC   * GXN00087
+      *            YEAR IN SY777-IN-Y2K-TEST-YY, AN INVALID DATE, ETC.) GXN00087
+      *            IS RETURNED IN SY777-OUT-ERR-MESSAGE.              * GXN00087
+      *            7) INPUT FIELDS ARE TESTED AND PROCESSED IF GREATER* GXN00087
+      *            THAN SPACE (AND GREATER THAN ZERO FOR JULIAN DATES)* GXN00087
+      *            IN THE FOLLOWING ORDER:                            * GXN00087
+      *                 A) SY777-IN-Y2K-TEST-YY                       * GXN00087
+      *                 B) SY777-IN-CURRENT-DATE-SW                   * GXN00087
+      *                 C) SY777-IN-JUL-YYDDD                         * GXN00087
+      *                 D) SY777-IN-JUL-CCYYDDD                       * GXN00087
+      *                 E) SY777-IN-GREG-6                            * GXN00087
+      *                 F) SY777-IN-GREG-8                            * GXN00087
+      *                 G) SY777-IN-GREG-CENT-8                       * GXN00087
+      *                 H) SY777-IN-GREG-CENT-10                      * GXN00087
+      *                 I) SY777-IN-ISO-8                             * GXN00087
+      *                 J) SY777-IN-ISO-10                            * GXN00087
+      *                                                               * GXN00087
+      * CALL FORMAT(S): BATCH - CALL 'SYV777' USING SY777-PARM-DATA   * GXN00087
+      *                 CICS  - CALL 'SYU777' USING DFHEIBLK          * GXN00087
+      *                                             DFHCOMMAREA       * GXN00087
+      *                                             SY777-PARM-DATA   * GXN00087
+      *                                                               * GXN00087
+      * EXAMPLE 1: EDIT A 5-POSITION JULIAN DATE AND CONVERT IT TO US * GXN00087
+      *            FORMAT IN A CICS PROGRAM.                          * GXN00087
+      *                                                               * GXN00087
+      * WORKING-STORAGE SECTION.                                      * GXN00087
+      * 01  WS-JULIAN-5-DATE           PIC  9(05) COMP-3 VALUE 99365. * GXN00087
+      * 01  WS-JULIAN-7-DATE           PIC  9(07) COMP-3.             * GXN00087
+      * 01  WS-MMDDYY-DATE             PIC  X(06).                    * GXN00087
+      *                                                               * GXN00087
+      * COPY SYR777.                                                  * GXN00087
+      *                                                               * GXN00087
+      *  PROCEDURE DIVISION.                                          * GXN00087
+      *      INITIALIZE SY777-PARM-DATA                               * GXN00087
+      *      MOVE WS-JULIAN-5-DATE TO SY777-IN-JUL-YYDDD              * GXN00087
+      *      CALL 'SYV777 USING DFHEIBLK                              * GXN00087
+      *                   DFHCOMMAREA                                 * GXN00087
+      *                   SY777-PARM-DATA                             * GXN00087
+      *      IF SY777-OUT-ERR-SW = SPACE                              * GXN00087
+      *         MOVE SY777-OUT-JUL-CCYYDDD TO WS-JULIAN-7-DATE        * GXN00087
+      *         MOVE SY777-OUT-GREG-6 TO WS-MMDDYY-DATE               * GXN00087
+      *      ELSE                                                     * GXN00087
+      *         MOVE 'AN INVALID DATE WAS INPUT' TO WS-ERROR-REASON.  * GXN00087
+      *                                                               * GXN00087
+      *                                                               * GXN00087
+      * EXAMPLE 2: EDIT A 7-POSITION JULIAN DATE AND CONVERT IT TO UK * GXN00087
+      *            FORMAT IN A BATCH PROGRAM.                         * GXN00087
+      *                                                               * GXN00087
+      * WORKING-STORAGE SECTION.                                      * GXN00087
+      * 01  WS-JULIAN-7-DATE           PIC  9(07) COMP-3 VALUE 2000031. GXN00087
+      * 01  WS-DDMMYY-DATE             PIC  X(06).                    * GXN00087
+      *                                                               * GXN00087
+      * COPY SYR777.                                                  * GXN00087
+      *                                                               * GXN00087
+      * PROCEDURE DIVISION.                                           * GXN00087
+      *     INITIALIZE SY777-PARM-DATA                                * GXN00087
+      *     MOVE WS-JULIAN-7-DATE TO SY777-IN-JUL-CCYYDDD             * GXN00087
+      *     MOVE 'AD' TO SY777-IN-COMPANY-CODE                        * GXN00087
+      *     CALL 'SYV777 USING SY777-PARM-DATA                        * GXN00087
+      *     IF SY777-OUT-ERR-SW = SPACE                               * GXN00087
+      *        MOVE SY777-OUT-GREG-6 TO WS-DDMMYY-DATE                * GXN00087
+      *     ELSE                                                      * GXN00087
+      *        MOVE 'AN INVALID DATE WAS INPUT' TO WS-ERROR-REASON.   * GXN00087
+      *                                                               * GXN00087
+      *                                                               * GXN00087
+      * EXAMPLE 3: GET THE CURRENT SYSTEM DATE IN SE FORMAT IN A BATCH*PGXN00087
+      *            PROGRAM.                                           * GXN00087
+      *                                                               * GXN00087
+      * WORKING-STORAGE SECTION.                                      * GXN00087
+      * 01  WS-CCYYMMDD-DATE           PIC  X(08).                    * GXN00087
+      * 01  WS-DAY-NUMBER              PIC  9(01).                    * GXN00087
+      * 01  WS-DAY-NAME                PIC  X(09).                    * GXN00087
+      * 01  WS-MONTH-NAME              PIC  X(09).                    * GXN00087
+      *                                                               * GXN00087
+      * COPY SYR777.                                                  * GXN00087
+      *                                                               * GXN00087
+      * PROCEDURE DIVISION.                                           * GXN00087
+      *     INITIALIZE SY777-PARM-DATA                                * GXN00087
+      *     SET SY777-GET-CURRENT-DATE TO TRUE                        * GXN00087
+      *     MOVE 'AE' TO SY777-IN-COMPANY-CODE                        * GXN00087
+      *     CALL 'SYV777 USING SY777-PARM-DATA                        * GXN00087
+      *     IF SY777-OUT-ERR-SW = SPACE                               * GXN00087
+      *        MOVE SY777-OUT-GREG-8 TO WS-CCYYMMDD-DATE              * GXN00087
+      *        MOVE SY777-OUT-DAY-OF-WEEK-NUMBER TO WS-DAY-NUMBER     * GXN00087
+      *        MOVE SY777-OUT-DAY-OF-WEEK-NAME TO WS-DAY-NAME         * GXN00087
+      *        MOVE SY777-OUT-MONTH-NAME TO WS-MONTH-NAME             * GXN00087
+      *     ELSE                                                      * GXN00087
+      *        MOVE 'A LOGIC ERROR HAS OCCURED' TO WS-ERROR-REASON.   * GXN00087
+      *                                                               * GXN00087
+      *                                                               * GXN00087
+      * EXAMPLE 4: EXPAND A 2-POSITION YEAR IN A BATCH PROGRAM.       * GXN00087
+      *                                                               * GXN00087
+      * WORKING-STORAGE SECTION.                                      * GXN00087
+      * 01  WS-YEAR                    PIC  9(02) VALUE 99.           * GXN00087
+      * 01  WS-CCYY.                                                  * GXN00087
+      *     05  WS-CC                  PIC   9(02).                   * GXN00087
+      *     05  WS-YY                  PIC   9(02).                   * GXN00087
+      *                                                               * GXN00087
+      * COPY SYR777.                                                  * GXN00087
+      *                                                               * GXN00087
+      * PROCEDURE DIVISION.                                           * GXN00087
+      *  INITIALIZE SY777-PARM-DATA                                   * GXN00087
+      *  MOVE WS-YEAR TO SY777-IN-Y2K-TEST-YY                         * GXN00087
+      *  CALL 'SYV777 USING SY777-PARM-DATA                           * GXN00087
+      *  IF SY777-OUT-ERR-SW = SPACE                                  * GXN00087
+      *     MOVE SY777-OUT-Y2K-CCYY TO WS-CCYY                        * GXN00087
+      *  ELSE                                                         * GXN00087
+      *     MOVE 'A NON-NUMERIC YEAR WAS INPUT' TO WS-ERROR-REASON.   * GXN00087
+      *                                                               * GXN00087
+      *                                                               * GXN00087
+      * EXAMPLE 5: EDIT AND CONVERT A 6-POSITION US FORMAT GREGORIAN  * GXN00087
+      *            DATE IN A CICS PROGRAM.                            * GXN00087
+      *                                                               * GXN00087
+      * WORKING-STORAGE SECTION.                                      * GXN00087
+      * 01  WS-MMDDYY-DATE             PIC  9(06) VALUE 010100.       * GXN00087
+      * 01  WS-JULIAN-7-DATE           PIC  9(07) COMP-3.             * GXN00087
+      * 01  WS-DDMMYY-DATE             PIC  X(06).                    * GXN00087
+      *                                                               * GXN00087
+      * COPY SYR777.                                                  * GXN00087
+      *                                                               * GXN00087
+      * PROCEDURE DIVISION.                                           * GXN00087
+      *     INITIALIZE SY777-PARM-DATA                                * GXN00087
+      *     MOVE WS-MMDDYY-DATE TO SY777-IN-GREG-6                    * GXN00087
+      *     MOVE 'CA' TO SY777-IN-COMPANY-CODE                        * GXN00087
+      *     CALL 'SYV777 USING DFHEIBLK                               * GXN00087
+      *                     DFHCOMMAREA                               * GXN00087
+      *                   SY777-PARM-DATA                             * GXN00087
+      *       IF SY777-OUT-ERR-SW = SPACE                             * GXN00087
+      *          MOVE SY777-OUT-JULIAN-7 TO WS-JULIAN-7-DATE          * GXN00087
+      *       ELSE                                                    * GXN00087
+      *          MOVE 'AN INVALID DATE WAS INPUT' TO WS-ERROR-REASON. * GXN00087
+      *                                                               * GXN00087
+      *                                                               * GXN00087
+      * EXAMPLE 6: COMPARE TWO 5-POSITION JULIAN DATES IN A BATCH     * GXN00087
+      *            PROGRAM.                                           * GXN00087
+      *                                                               * GXN00087
+      * WORKING-STORAGE SECTION.                                      * GXN00087
+      * 01  WS-JULIAN-5-DATE-1         PIC  9(05) COMP-3 VALUE 00001. * GXN00087
+      * 01  WS-JULIAN-5-DATE-2         PIC  9(05) COMP-3 VALUE 99365. * GXN00087
+      * 01  WS-JULIAN-7-DATE-1         PIC  9(07) COMP-3.             * GXN00087
+      * 01  WS-JULIAN-7-DATE-2         PIC  9(07) COMP-3.             * GXN00087
+      *                                                               * GXN00087
+      * COPY SYR777.                                                  * GXN00087
+      *                                                               * GXN00087
+      * PROCEDURE DIVISION.                                           * GXN00087
+      *     INITIALIZE SY777-PARM-DATA                                * GXN00087
+      *     MOVE WS-JULIAN-5-DATE-1 TO SY777-IN-JUL-YYDDD             * GXN00087
+      *     CALL 'SYV777 USING SY777-PARM-DATA                        * GXN00087
+      *     IF SY777-OUT-ERR-SW NOT = SPACE                           * GXN00087
+      *        MOVE 'WS-JULIAN-5-DATE-1 IS INVALID' TO WS-ERROR-REASON* GXN00087
+      *     ELSE                                                      * GXN00087
+      *        MOVE SY777-OUT-JULIAN-7 TO WS-JULIAN-7-DATE-1          * GXN00087
+      *        INITIALIZE SY777-PARM-DATA                             * GXN00087
+      *        MOVE WS-JULIAN-5-DATE-2 TO SY777-IN-JULYYDDD           * GXN00087
+      *        CALL 'SYV777' USING SY777-PARM-DATA                    * GXN00087
+      *        IF SY777-OUT-ERR-SW NOT = SPACE                        * GXN00087
+      *           MOVE 'WS-JULIAN-5-DATE-1 IS INVALID'                * GXN00087
+      *             TO WS-ERROR-REASON                                * GXN00087
+      *        ELSE                                                   * GXN00087
+      *           MOVE SY777-OUT-JULIAN-7 TO WS-JULIAN-7-DATE-2       * GXN00087
+      *           IF WS-JULIAN-7-DATE-1 > WS-JULIAN-7-DATE-2          * GXN00087
+      *              MOVE '>' TO WS-COMPARE-SW (THIS MOVE WOULD BE MADE GXN00087
+      *              MADE IN THIS EXAMPLE BECAUSE 2000001 IS GREATER  * GXN00087
+      *              THAN 1999365)                                    * GXN00087
+      *           ELSE                                                * GXN00087
+      *              IF WS-JULIAN-7-DATE-1 < WS-JULIAN-7-DATE-2       * GXN00087
+      *                 MOVE '<' TO WS-COMPARE-SW                     * GXN00087
+      *              ELSE                                             * GXN00087
+      *                 MOVE '=' TO WS-COMPARE-SW.                    * GXN00087
+      *                                                               * GXN00087
+      *                                                               * GXN00087
+      * EXAMPLE 7: CONVERT EIBDATE TO US FORMAT IN A CICS PROGRAM     * GXN00087
+      *                                                               * GXN00087
+      * WORKING-STORAGE SECTION.                                      * GXN00087
+      * 01  WS-JULIAN-7-DATE           PIC  9(07) COMP-3.             * GXN00087
+      * 01  WS-MMDDYY-DATE             PIC  X(06).                    * GXN00087
+      *                                                               * GXN00087
+      * COPY SYR777.                                                  * GXN00087
+      *                                                               * GXN00087
+      * PROCEDURE DIVISION.                                           * GXN00087
+      *     INITIALIZE SY777-PARM-DATA                                * GXN00087
+      *     MOVE EIBDATE TO SY777-IN-JUL-YYDDD                        * GXN00087
+      *     CALL 'SYV777 USING DFHEIBLK                               * GXN00087
+      *                   DFHCOMMAREA                                 * GXN00087
+      *                   SY777-PARM-DATA                             * GXN00087
+      *     IF SY777-OUT-ERR-SW = SPACE                               * GXN00087
+      *          MOVE SY777-OUT-GREG-6 TO WS-MMDDYY-DATE              * GXN00087
+      *     ELSE                                                      * GXN00087
+      *          MOVE 'THIS SHOULD NEVER HAPPEN' TO WS-ERROR-REASON.  * GXN00087
+      *                                                               * GXN00087
+      *                                                               * GXN00087
+      * SPECIAL FIELDS AND PROCESSING TO SUPPORT THE USE OF THIS      * GXN00087
+      * ROUTINE FOR DATE REMEDIATION.                                 * GXN00087
+      *                                                               * GXN00087
+      * SY777-OUT-Y2K-JUL-CCYYDDD AND SY777-OUT-Y2K-JUL-CONVERT-SW    * GXN00087
+      *                                                               * GXN00087
+      * SY777-OUT-Y2K-JUL-CCYYDDD WILL NORMALLY CONTAIN THE SAME VALUE* GXN00087
+      * AS SY777-OUT-JUL-CCYYDDD AND SY777-OUT-Y2K-JUL-CONVERT-SW     * GXN00087
+      * NORMALLY CONTAINS A VALUE OF SPACE.  HOWEVER, UNDER CERTAIN   * GXN00087
+      * CONDITIONS THEY WILL CONTAIN OTHER VALUES.                    * GXN00087
+      *                                                               * GXN00087
+      * 1) SY777-IN-JUL-YYDDD IS INPUT WITH A VALUE OF ZERO OR NO DATE* GXN00087
+      * FIELDS HAVE BEEN INPUT AND SY777-IN-CURRENT-DATE-SW IS NOT >  * GXN00087
+      * THAN SPACE.  THEN SY777-OUT-Y2K-JUL-CCYYDDD WILL BE ZERO,     * GXN00087
+      * SY777-OUT-Y2K-JUL-CONVERT-SW WILL BE ZERO                     * GXN00087
+      * (SY777-OUT-JUL-ZEROS-CONVERTED IS TRUE), SY777-OUT-ERR-SW     * GXN00087
+      * WILL BE SPACE, AND ALL OTHER OUTPUT DATE FIELDS WILL CONTAIN  * GXN00087
+      * THE CONTAIN THE CURRENT SYSTEM DATE.                          * GXN00087
+      * 2) SY777-IN-JUL-YYDDD HAS BEEN INPUT WITH A VALUE OF ALL NINES. GXN00087
+      * THEN SY777-OUT-Y2K-JUL-CCYYDDD WILL BE ALL NINES,             * GXN00087
+      * SY777-OUT-Y2K-JUL-CCYYDDD WILL BE ALL NINES,                  * GXN00087
+      * SY777-OUT-Y2K-CONVERT-SW WILL BE A NINE (SY777-OUT-JUL-NINES- * GXN00087
+      * CONVERTED IS TRUE), SY777-OUT-ERR-SW WILL BE A Y, AND NO OTHER* GXN00087
+      * DATE FIELDS ARE RETURNED.                                     * GXN00087
+      *                                                               * GXN00087
+      * EXAMPLE OF USING SPECIAL FIELDS.                              * GXN00087
+      *                                                               * GXN00087
+      * WORKING-STORAGE SECTION.                                      * GXN00087
+      * 01  WS-JULIAN-5-DATE           PIC  9(05) COMP-3 VALUE 99999. * GXN00087
+      * 01  WS-JULIAN-7-DATE           PIC  9(07) COMP-3              * GXN00087
+      *                                                               * GXN00087
+      * COPY SYR777.                                                  * GXN00087
+      *                                                               * GXN00087
+      * PROCEDURE DIVISION.                                           * GXN00087
+      *     INITIALIZE SY777-PARM-DATA                                * GXN00087
+      *     MOVE WS-JULIAN-5-DATE TO SY777-IN-JUL-YYDDD               * GXN00087
+      *     CALL 'SYV777 USING SY777-PARM-DATA                        * GXN00087
+      *     IF SY777-OUT-JUL-ZEROS-CONVERTED                          * GXN00087
+      *     OR SY777-OUT-JUL-NINES-CONVERTED                          * GXN00087
+      *     OR SY777-OUT-ERR-SW = SPACE                               * GXN00087
+      *        MOVE SY777-OUT-JUL-CCYYDDD TO WS-JULIAN-7-DATE         * GXN00087
+      *     ELSE                                                      * GXN00087
+      *        MOVE 'AN INVALID DATE WAS INPUT' TO WS-ERROR-MESSAGE.  * GXN00087
+      *                                                               * GXN00087
+      ***************************************************************** GXN00087
+      * REVISION INFO:                                                          
+      *   DATE     PROG  DESCRIPTION                                            
+      *   06/16/98  GXN  INITIAL IMPLEMENTATION                       * GXN00087
+      *   07/14/98  GXN  MODIFICATIONS TO COMMENTS TO MAKE THEM       * GXN00087
+      *                  EASIER TO UNDERSTAND AND TO REMOVE SPELLING  * GXN00087
+      *                  AND SYNTAX ERRORS.  NO CHANGES WERE MADE TO  * GXN00087
+      *                  THE DATA PORTION.                            * GXN00087
+      *   02/28/99  GXN  CHANGED SY777-IN-COMPANY-INDICATOR TO        * GXN00087
+      *                  SY777-IN-COMPANY-CODE IN COMMENTS            * GXN00087
+      *   03/27/00  GXN  ADDED THE FUNCTIONALITY OF RETURNING THE     * GXN00087
+      *                  DAY OF THE WEEK, THE DAY OF THE WEEK NAME    * GXN00087
+      *                  AND THE MONTH NAME.                          * GXN00087
+      ***************************************************************** GXN00087
+                                                                                
+       01  SY777-PARM-DATA.                                                     
+           05  FILLER                          PIC  X(13).                      
+                                                                                
+      ***************************************************************** GXN00087
+      *            INPUT FIELDS                                       * GXN00087
+      ***************************************************************** GXN00087
+                                                                                
+           05  SY777-IN-COMPANY-CODE           PIC  X(02).                      
+      *        FORMAT IS COMPANY CODE                                           
+                                                                                
+           05  SY777-IN-JUL-YYDDD-X.                                            
+               10  SY777-IN-JUL-YYDDD          PIC  9(05) COMP-3.               
+      *            FORMAT IS YYDDD                                              
+                                                                                
+           05  SY777-IN-JUL-CCYYDDD-X.                                          
+               10  SY777-IN-JUL-CCYYDDD        PIC  9(07) COMP-3.               
+      *            FORMAT IS CCYYDDD                                            
+                                                                                
+           05  SY777-IN-GREG-6-X               PIC  X(06).                      
+           05  SY777-IN-GREG-6 REDEFINES                                        
+               SY777-IN-GREG-6-X               PIC  9(06).                      
+      *            US FORMAT - MMDDYY                                           
+      *            UK FORMAT - DDMMYY                                           
+      *            SE FORMAT - YYMMDD                                           
+                                                                                
+           05  SY777-IN-GREG-8                 PIC  X(08).                      
+      *        US FORMAT - MM/DD/YY                                             
+      *        UK FORMAT - DD/MM/YY                                             
+      *        SE FORMAT - YY/MM/DD                                             
+                                                                                
+           05  SY777-IN-GREG-CENT-8-X          PIC  X(08).                      
+           05  SY777-IN-GREG-CENT-8 REDEFINES                                   
+               SY777-IN-GREG-CENT-8-X          PIC  9(08).                      
+      *            US FORMAT - MMDDCCYY                                         
+      *            UK FORMAT - DDMMCCYY                                         
+      *            SE FORMAT - CCYYMMDD                                         
+                                                                                
+           05  SY777-IN-GREG-CENT-10           PIC  X(10).                      
+      *        US FORMAT - MM/DD/CCYY                                           
+      *        UK FORMAT - DD/MM/CCYY                                           
+      *        SE FORMAT - CCYY/MM/DD                                           
+                                                                                
+           05  SY777-IN-ISO-8-X                PIC  X(08).                      
+           05  SY777-IN-ISO-8 REDEFINES                                         
+               SY777-IN-ISO-8-X                PIC  9(08).                      
+      *            FORMAT IS CCYYMMDD                                           
+                                                                                
+           05  SY777-IN-ISO-10                 PIC  X(10).                      
+      *        FORMAT IS CCYY-MM-DD                                             
+                                                                                
+           05  SY777-IN-CURRENT-DATE-SW        PIC  X(01) VALUE SPACE.          
+               88  SY777-GET-CURRENT-DATE                 VALUE 'Y'.            
+                                                                                
+           05  SY777-IN-Y2K-TEST-YY            PIC  X(02) VALUE SPACE.          
+      *        FORMAT IS YY                                                     
+                                                                                
+      * CURRENTLY NOT USED                                                      
+           05  SY777-IN-BUSINESS-ORG           PIC  X(03).                      
+                                                                                
+      * CURRENTLY NOT USED                                                      
+           05  SY777-IN-FUTURE-USE             PIC  X(61).                      
+                                                                                
+      ***************************************************************** GXN00087
+      *           OUTPUT FIELDS                                       * GXN00087
+      ***************************************************************** GXN00087
+                                                                                
+           05  SY777-OUT-JUL-YYDDD             PIC  9(05) COMP-3.               
+      *        FORMAT IS YYDDD                                                  
+                                                                                
+           05  SY777-OUT-JUL-CCYYDDD           PIC  9(07) COMP-3.               
+      *        FORMAT CCYYDDD                                                   
+                                                                                
+           05  SY777-OUT-GREG-6                PIC  X(06).                      
+      *        US FORMAT - MMDDYY                                               
+      *        UK FORMAT - DDMMYY                                               
+      *        SE FORMAT - YYMMDD                                               
+                                                                                
+           05  SY777-OUT-GREG-8                PIC  X(08).                      
+      *        US FORMAT - MM/DD/YY                                             
+      *        UK FORMAT - DD/MM/YY                                             
+      *        SE FORMAT - YY/MM/DD                                             
+                                                                                
+           05  SY777-OUT-GREG-CENT-8           PIC  X(08).                      
+      *        US FORMAT - MMDDCCYY                                             
+      *        UK FORMAT - DDMMCCYY                                             
+      *        SE FORMAT - CCYYMMDD                                             
+                                                                                
+           05  SY777-OUT-GREG-CENT-10          PIC  X(10).                      
+      *        US FORMAT - MM/DD/CCYY                                           
+      *        UK FORMAT - DD/MM/CCYY                                           
+      *        SE FORMAT - CCYY/MM/DD                                           
+                                                                                
+           05  SY777-OUT-ISO-10                PIC  X(10).                      
+      *        FORMAT IS CCYY-MM-DD                                             
+                                                                                
+           05  SY777-OUT-ISO-8                 PIC  X(08) VALUE SPACE.          
+      *        FORMAT IS CCYYMMDD                                               
+                                                                                
+           05  SY777-OUT-ERR-FIELDS.                                            
+               10  SY777-OUT-ERR-SW            PIC  X(01).                      
+                   88  SY777-OUT-NORESP                   VALUE SPACE.  GXN00087
+               10  SY777-OUT-ERR-MESSAGE       PIC  X(90).                      
+                                                                                
+           05  SY777-OUT-Y2K-CCYY-X.                                            
+               10  SY777-OUT-Y2K-CCYY-CC      PIC  X(02).                       
+               10  SY777-OUT-Y2K-CCYY-YY      PIC  X(02).                       
+           05  SY777-OUT-CCYY REDEFINES SY777-OUT-Y2K-CCYY-X                    
+                                              PIC  9(04).                       
+      *        FORMAT IS CCYY                                                   
+                                                                                
+           05  SY777-OUT-Y2K-JUL-CCYYDDD-X     PIC  X(04).                      
+           05  SY777-OUT-Y2K-JUL-CCYYDDD REDEFINES                              
+               SY777-OUT-Y2K-JUL-CCYYDDD-X     PIC  9(07) COMP-3.               
+      *        FORMAT IS CCYYDDD                                                
+                                                                                
+           05  SY777-OUT-Y2K-JUL-CONVERT-SW    PIC  X(01).                      
+               88  SY777-OUT-JUL-ZEROS-CONVERTED          VALUE '0'.            
+               88  SY777-OUT-JUL-NINES-CONVERTED          VALUE '9'.            
+                                                                                
+           05  SY777-OUT-DAY-OF-WEEK-NAME      PIC  X(09).              GXN00087
+                                                                                
+           05  SY777-OUT-DAY-OF-WEEK-NUMBER    PIC  9(01).              GXN00087
+                                                                                
+           05  SY777-OUT-MONTH-NAME            PIC  X(09).              GXN00087
+                                                                        GXN00087
+      * CURRENTLY NOT USED                                              GXN00087
+           05  SY777-OUT-FUTURE-USE            PIC  X(17).              GXN00087
+                                                                        GXN00087
+      ***************************************************************** GXN00087
+      *                    END COPYBOOK SYR777                        * GXN00087
+      ***************************************************************** GXN00087

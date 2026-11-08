@@ -1,0 +1,350 @@
+      ***************************************************************** XXXXXXXX
+      * REVISIONS                                                       XXXXXXXX
+      * XX/XX/XX KAS APPLIED V2R1M0 CHANGES TO V20300 SOURCE            XXXXXXXX
+      *              ADDED FIELDS FOR 7777-EXPAND-DATE ROUTINE                  
+      ***************************************************************** XXXXXXXX
+      /*****************************************************************        
+      *                     DATE CALL LIST AREA                        *        
+      ******************************************************************        
+       01  DATE-HEADER-AREA.                                                    
+           05  TIME-OF-DAY-X.                                           BJS98014
+               10  HOUR-OF-DAY          PIC 9(02)     VALUE ZEROES.             
+               10  MIN-OF-DAY           PIC 9(02)     VALUE ZEROES.             
+               10  SEC-OF-DAY           PIC 9(02)     VALUE ZEROES.             
+               10  HUN-SEC-OF-DAY       PIC 9(02)     VALUE ZEROES.             
+           05  HOLD-HOUR                PIC 9(02)     VALUE ZEROES.             
+           05  TERMINAL-DAYOFWEEK       PIC 9(01)     VALUE ZEROES.             
+           05  DATE-MSG                 PIC X(45)     VALUE SPACES.             
+           05  WS-DATE-MSG.                                                     
+               10  WS-DOW-MSG           PIC X(09)     VALUE SPACES.             
+               10  FILLER               PIC X(01)     VALUE SPACES.             
+               10  WS-MONTH-MSG         PIC X(09)     VALUE SPACES.             
+               10  FILLER               PIC X(01)     VALUE SPACES.             
+               10  WS-DAYS-MSG          PIC Z9        VALUE ZEROES.             
+               10  WS-DAYS-MSG-SEP      PIC X(02)     VALUE SPACES.             
+               10  WS-YEAR-MSG          PIC 9(04)     VALUE ZEROES.             
+               10  WS-YEAR-MSG1 REDEFINES WS-YEAR-MSG.                          
+                 15  YEAR-PREFIX-HDR    PIC 9(02).                              
+                 15  YEAR-HDR           PIC 9(02).                              
+               10  FILLER               PIC X(09)     VALUE SPACES.             
+               10  WS-TIME-MSG.                                                 
+                   15  HOUR-HDR         PIC X(02)     VALUE ZEROES.             
+                   15  FILLER           PIC X(01)     VALUE ':'.                
+                   15  MIN-HDR          PIC X(02)     VALUE ZEROES.             
+                   15  AM-PM-HDR        PIC X(02)     VALUE SPACES.             
+                   15  FILLER           PIC X(01)     VALUE SPACES.             
+                                                                                
+           05  WS-DATE-MSG2.                                                    
+               10  WS-DOW-MSG2          PIC X(09)     VALUE SPACES.             
+               10  FILLER               PIC X(01)     VALUE SPACES.             
+               10  WS-DAYS-MSG2         PIC Z9        VALUE ZEROES.             
+               10  WS-DAYS-MSG2-SEP     PIC X(02)     VALUE SPACES.             
+               10  WS-MONTH-MSG2        PIC X(09)     VALUE ZEROES.             
+               10  FILLER               PIC X(01)     VALUE SPACES.             
+               10  WS-YEAR-MSG2         PIC X(04)     VALUE SPACES.             
+               10  FILLER               PIC X(09)     VALUE SPACES.             
+               10  WS-TIME-MSG2         PIC X(08)     VALUE SPACES.             
+           05  WS-ANGLO-DATE-MSG REDEFINES WS-DATE-MSG2.                        
+               10  ANGLO-DAYOFWEEK-HDR  PIC X(09).                              
+               10  FILLER               PIC X(01).                              
+               10  ANGLO-DAY-HDR        PIC Z9.                                 
+               10  FILLER               PIC X(02).                              
+               10  ANGLO-MONTH-HDR      PIC X(09).                              
+               10  FILLER               PIC X(01).                              
+               10  ANGLO-YEAR-HDR       PIC X(04).                              
+               10  FILLER               PIC X(09).                              
+               10  ANGLO-TIME-HDR       PIC X(08).                              
+                                                                                
+       01  WS-MONTH-TABLE.                                                      
+           05  FILLER                   PIC X(09)  VALUE '  JANUARY'.           
+           05  FILLER                   PIC X(09)  VALUE ' FEBRUARY'.           
+           05  FILLER                   PIC X(09)  VALUE '    MARCH'.           
+           05  FILLER                   PIC X(09)  VALUE '    APRIL'.           
+           05  FILLER                   PIC X(09)  VALUE '      MAY'.           
+           05  FILLER                   PIC X(09)  VALUE '     JUNE'.           
+           05  FILLER                   PIC X(09)  VALUE '     JULY'.           
+           05  FILLER                   PIC X(09)  VALUE '   AUGUST'.           
+           05  FILLER                   PIC X(09)  VALUE 'SEPTEMBER'.           
+           05  FILLER                   PIC X(09)  VALUE '  OCTOBER'.           
+           05  FILLER                   PIC X(09)  VALUE ' NOVEMBER'.           
+           05  FILLER                   PIC X(09)  VALUE ' DECEMBER'.           
+           05  FILLER                   PIC X(09)  VALUE ' FEBRUARY'.           
+                                                                                
+       01  WS-MONTH-TABLE1  REDEFINES WS-MONTH-TABLE.                           
+           05  WS-MONTH-VALUE           PIC X(09) OCCURS 12 TIMES.              
+                                                                                
+       01  WS-DATE-MSG-TABLES.                                                  
+           05  WS-DOW-TABLE.                                                    
+             10  FILLER                   PIC X(09)  VALUE 'MONDAY   '.         
+             10  FILLER                   PIC X(09)  VALUE 'TUESDAY  '.         
+             10  FILLER                   PIC X(09)  VALUE 'WEDNESDAY'.         
+             10  FILLER                   PIC X(09)  VALUE 'THURSDAY '.         
+             10  FILLER                   PIC X(09)  VALUE 'FRIDAY   '.         
+             10  FILLER                   PIC X(09)  VALUE 'SATURDAY '.         
+             10  FILLER                   PIC X(09)  VALUE 'SUNDAY   '.         
+                                                                                
+           05  WS-DOW-VALUE               REDEFINES WS-DOW-TABLE                
+                                          PIC X(09) OCCURS 7 TIMES.             
+                                                                                
+       01  DATE-CODES.                                                          
+           05  DOW-FUNCTION                 PIC X(02)     VALUE 'GD'.           
+           05  DATE-HDR-FUNCTION            PIC X(02)     VALUE 'DH'.           
+           05  SUB-DAYS-FUNCTION            PIC X(02)     VALUE 'G-'.           
+           05  ADD-DAYS-FUNCTION            PIC X(02)     VALUE 'G+'.           
+           05  TERM-ADJUST-FUNCTION         PIC X(02)     VALUE 'TA'.           
+           05  SYS-ADJUST-FUNCTION          PIC X(02)     VALUE 'SA'.           
+           05  EDITYMD-FUNCTION             PIC X(02)     VALUE 'EY'.           
+           05  CVT-JULIAN-TO-GREG           PIC X(02)     VALUE 'JG'.           
+           05  CVT-GREG-TO-JULIAN           PIC X(02)     VALUE 'GJ'.           
+                                                                                
+      ****************************************************************          
+      *     WHEN LINKING TO TCSOBDTN USE DATE-AREA  97 BYTES         *          
+      ****************************************************************          
+       01  DATE-AREA.                                                           
+           05  DATE-FUNCTION                PIC X(02)     VALUE SPACES.         
+           05  START-DATE-FULL              PIC 9(08)     VALUE ZEROES.         
+           05  FILLER REDEFINES START-DATE-FULL.                                
+               10  FILLER                   PIC X.                              
+               10  JUL-DATE-YYYYDDD         PIC 9(07).                          
+           05  WS-ALTER-YYYYMMDD REDEFINES START-DATE-FULL.                     
+               10  WS-ALTER-YYYY            PIC 9(04).                          
+               10  WS-ALTER-MM              PIC 9(02).                          
+               10  WS-ALTER-DD              PIC 9(02).                          
+           05  END-DATE-FULL.                                                   
+               10  END-YYYY                 PIC 9(04)     VALUE ZEROES.         
+               10  END-MM                   PIC 9(02)     VALUE ZEROES.         
+               10  END-DD                   PIC 9(02)     VALUE ZEROES.         
+           05  DOW-DATE                     PIC 9(08)     VALUE ZEROES.         
+           05  DAY-OF-WEEK-LIT              PIC X(09)     VALUE SPACES.         
+           05  DATE-DIFF          PIC S9(9) COMP-3        VALUE ZEROES.         
+           05  SAVE-START-DATE              PIC 9(08)     VALUE ZEROES.         
+           05  SAVE-END-DATE                PIC 9(08)     VALUE ZEROES.         
+           05  INPUT-TIMER                  PIC 9(08)     VALUE ZEROES.         
+           05  INPUT-TIMER2 REDEFINES INPUT-TIMER.                              
+               10  INPUT-TIMER-HHMM         PIC 9(04).                          
+               10  INPUT-TIMER-SSHH         PIC 9(04).                          
+           05  OUTPUT-TIMER                 PIC 9(08)     VALUE ZEROES.         
+           05  OUTPUT-TIMER2 REDEFINES OUTPUT-TIMER.                            
+               10  OUTPUT-TIMER-HHMM        PIC 9(04).                          
+               10  OUTPUT-TIMER-SSHH        PIC 9(04).                          
+           05  SYS-TIMER-ADJUST             PIC S99V99    VALUE ZEROES.         
+           05  CALCULATED-MINS              PIC S9(07)    VALUE ZEROES.         
+           05  CALC-HRS                     PIC S9(02)    VALUE ZEROES.         
+           05  CALC-MINS                    PIC V99       VALUE ZEROES.         
+           05  EXT-WORK-TIME.                                                   
+               10  WORK-TIME.                                                   
+                   15  HOURS-TO-ADD     PIC 9(02)     VALUE ZEROES.             
+                   15  MINS-TO-ADD      PIC 9(02)     VALUE ZEROES.             
+               10  WORK-SS-HH           PIC 9(04)     VALUE ZEROES.             
+           05  DATE-RETURN-CODE             PIC 9(02)     VALUE ZEROES.         
+                                                                                
+       01  DATE-AREA2.                                                          
+           05  SIGN-TZ-MIN                  PIC S9(5)     VALUE ZEROES.         
+           05  ABSOLUTE-TZ                  PIC 99V99     VALUE ZEROES.         
+           05  ADJUST-ABSOLUTE-TZ           PIC 9(04)     VALUE ZEROES.         
+           05  ABSOLUTE-MIN                 PIC 9(04)     VALUE ZEROES.         
+           05  ABSOLUTE-TIME-EDIT.                                              
+               10  A-HRS                    PIC 9(02)     VALUE ZEROES.         
+               10  A-MIN                    PIC 9(02)     VALUE ZEROES.         
+           05  SYS-MIN                      PIC 9(04)     VALUE ZEROES.         
+           05  WS-JUL-DATE-FULL.                                                
+               10  WS-JUL-YYYY              PIC 9(04)     VALUE ZEROES.         
+               10  WS-JUL-DDD               PIC 9(03)     VALUE ZEROES.         
+           05  WS-JUL-DATE-2-FULL.                                              
+               10  WS-JUL-YYYY-2            PIC 9(04)     VALUE ZEROES.         
+               10  WS-JUL-DDD-2             PIC 9(03)     VALUE ZEROES.         
+           05  WS-DATE-STATUS               PIC 9(01)     VALUE ZEROES. BJS98014
+           05  WS-DDD                       PIC 9(03)     VALUE ZEROES.         
+           05  HOLD-JUL-YYYY                PIC 9(04)     VALUE ZEROES.         
+           05  DOW-VALUE                    PIC X(09)     VALUE SPACES.         
+           05  TEST-YYYY.                                                       
+               10  TEST-YY-F2               PIC 9(02)     VALUE ZEROES.         
+               10  TEST-YY-L2               PIC 9(02)     VALUE ZEROES.         
+                                                                                
+       01  WS-DATE-ACCUMULATORS         USAGE IS COMPUTATIONAL.                 
+           05  WHOLE-NUMBER               PIC 9(09)     VALUE ZEROES.           
+           05  YR-TEST                    PIC 9(09)     VALUE ZEROES.           
+           05  DIVIDEND                   PIC S9(03)    VALUE ZEROES.           
+           05  REM-BAL                    PIC 9(09)     VALUE ZEROES.           
+           05  J-ADJUST                   PIC 9(09)     VALUE ZEROES.           
+           05  HOLD-JUL-DDD               PIC S9(6)     VALUE ZEROES.           
+           05  DAYS-IN-YEAR               PIC 9(04)     VALUE ZEROES.           
+         02  WS-DIFFYMD-FIELDS.                                                 
+           05  MAX-YR-FULL                PIC 9(04)     VALUE ZEROES.           
+           05  MIN-YR-FULL                PIC 9(04)     VALUE ZEROES.           
+           05  MAX-DDDD                   PIC 9(09)     VALUE ZEROES.           
+           05  MIN-DDDD                   PIC 9(09)     VALUE ZEROES.           
+                                                                                
+       01  WS-DATE-CONVERSION-FIELDS.                                           
+           05  WS-JULIAN-TABLE.                                                 
+               10  FILLER               PIC X(36)     VALUE                     
+                   '000031059090120151181212243273304334'.                      
+           05  WS-JULIAN-VALUE REDEFINES WS-JULIAN-TABLE.                       
+               10  WS-JULIAN-MONTH OCCURS 12 TIMES PIC 9(03).                   
+                                                                                
+      /*****************************************************************        
+      *               USED FOR DATE CONVERSIONS                        *        
+      ******************************************************************        
+                                                                                
+       01  DC-MISC.                                                             
+           05  DC-JUNK             PIC 9(09)  COMP-3   VALUE ZEROES.            
+           05  DC-RESIDUE          PIC 9(09)  COMP-3   VALUE ZEROES.            
+                                                                                
+       01  DC-JUL-DATE-FULL.                                                    
+           05  DC-JUL-YYYY                   PIC 9(04) VALUE ZEROES.            
+           05  DC-JUL-DDD                    PIC 9(03) VALUE ZEROES.            
+                                                                                
+       01  DC-JUL-DATE-2-FULL.                                                  
+           05  DC-JUL-YYYY-2                 PIC 9(04) VALUE ZEROES.            
+           05  DC-JUL-DDD-2                  PIC 9(03) VALUE ZEROES.            
+                                                                                
+       01  DC-YYYYMMDD.                                                         
+           05  DC-YYYY                       PIC 9(04) VALUE ZEROES.            
+           05  DC-MM                         PIC 9(02) VALUE ZEROES.            
+           05  DC-DD                         PIC 9(02) VALUE ZEROES.            
+                                                                                
+       01  DC-YYYYMMDD-2.                                                       
+           05  DC-YYYY-2                     PIC 9(04) VALUE ZEROES.            
+           05  DC-MM-2                       PIC 9(02) VALUE ZEROES.            
+           05  DC-DD-2                       PIC 9(02) VALUE ZEROES.            
+                                                                                
+       01  GROUP-ERROR-02.                                              BJS98054
+           05  DC-STATUS                     PIC 99   VALUE ZEROES.     BJS98054
+      ****************************************************************          
+      *JUL2MDY                                                                  
+      *             CONVERT A JULIAN DATE TO YYMMDD.                            
+      * DC-STATUS - 0 MEANS NO ERROR,  1 MEANS INVALID DATE.                    
+      *UNIQUE FIELDS                                                            
+      ****************************************************************          
+       01  JUL2MDY-FIELDS.                                                      
+           05  J-2                 PIC 9(09)  COMP-3   VALUE ZEROES.            
+           05  DC1                           PIC 9(03) VALUE ZEROES.            
+                                                                                
+      ******************************************************************        
+      * WAS WSDATMSG       DATE HEADER MESSAGE AREA                    *        
+      ******************************************************************        
+       01  GROUP-ERROR-03.                                              BJS98054
+           05  RECEIVE-DOW               PIC S9(08) COMP  VALUE ZEROES. BJS98054
+           05  RECEIVE-DAY               PIC S9(08) COMP  VALUE ZEROES. BJS98054
+           05  RECEIVE-MONTH             PIC S9(08) COMP  VALUE ZEROES. BJS98054
+           05  RECEIVE-YEAR              PIC S9(08) COMP  VALUE ZEROES. BJS98054
+           05  WS-DATE-MSG-AREA.                                        BJS98054
+      *        10  ABS-TIMER             PIC S9(15) COMP-3 VALUE ZEROES.BJS98054
+      *        10  ABS-TIMER-2 REDEFINES ABS-TIMER.                     BJS98054
+      *            15  FILLER            PIC X(06).                     BJS98054
+      *            15  ABS-TIMER-SUFFIX  PIC 9(02)  COMP-3.             BJS98054
+      *        10  ABS-TIMER-3 REDEFINES ABS-TIMER.                     BJS98054
+      *            15  FILLER            PIC X(06).                     BJS98054
+      *            15  ABS-TIMER-HUNS    PIC X(01).                     BJS98054
+      *            15  FILLER            PIC X(01).                     BJS98054
+               10  RECEIVE-TIME          PIC X(08)       VALUE ZEROES.  BJS98054
+               10  RECEIVE-TIME-REDEF REDEFINES RECEIVE-TIME.           BJS98054
+                   15  RECEIVE-TIME-5.                                  BJS98054
+                       20  RECEIVE-HH    PIC 9(02).                     BJS98054
+                       20  FILLER        PIC X(01).                     BJS98054
+                       20  RECEIVE-MM    PIC 9(02).                     BJS98054
+                   15  RECEIVE-AM-PM     PIC X(03).                     BJS98054
+                                                                                
+      ***************************************************************           
+       01  GROUP-ERROR-04.                                              BJS98054
+           05  DTN-TIMER              PIC 9(08)  VALUE ZEROS.           BJS98054
+      ****************************************************************          
+      *ALTERYMD     ALTER A YYMMDD DATE BY A GIVEN # OF DAYS                    
+      *             UNIQUE FIELDS                                               
+      ****************************************************************          
+       01  ALTERYMD-FIELDS.                                                     
+           05  S9-6                  PIC S9(6) COMP-3  VALUE ZEROES.            
+       01  GROUP-ERROR-05.                                              BJS98054
+           05  DC-ALTERATION         PIC S9(9) COMP-3  VALUE ZEROES.    BJS98054
+                                                                                
+      ****************************************************************          
+      *                                                                         
+      *DIFFYMD  DETERMINE THE NUMBER OF DAYS BETWEEN 2 YYMMDD DATES.            
+      *         UNIQUE FIELDS.                                                  
+      ****************************************************************          
+       01  GROUP-ERROR-05.                                              BJS98054
+           05  DC-DIFFERANCE         PIC S9(9)  COMP-3  VALUE ZEROES.   BJS98054
+      ****************************************************************          
+       01  GROUP-ERROR-06.                                              BJS98054
+           05  DC-WEEK-DAY                   PIC 9      VALUE ZEROES.   BJS98054
+       01  GROUP-ERROR-07.                                              BJS98054
+           05  DC-DAY-DESC                   PIC X(09)  VALUE SPACES.   BJS98054
+       01  GROUP-ERROR-08.                                              BJS98054
+           05  DC-SOURCE                     PIC 9(06)  VALUE ZEROES.   BJS98054
+                                                                                
+      ****************************************************************          
+      * USED FOR YMD2DAY-RTN  COMPUTE JULIAN DAY NUMBER                         
+      *                       TO DETERMINE DAY OF WEEK.                         
+      *                                                                         
+      *     REQUIRES NUMBER OF TEMPORARY VARIABLES TO SIMULATE TAKING           
+      *     THE FLOOR OF AN EXPRESSION (CASTING TO INT)                         
+      ****************************************************************          
+                                                                                
+       01  JDN-2-DAY.                                                           
+           05  JDN2DAY-FLOOR1                PIC S9(09)  VALUE ZEROES.          
+           05  JDN2DAY-FLOOR2                PIC S9(09)  VALUE ZEROES.          
+           05  JDN2DAY-J1                    PIC S9(09)  VALUE ZEROES.          
+           05  JDN2DAY-ABSVALUE              PIC 9(09)   VALUE ZEROES.          
+           05  JDN2DAY-SIGN-MUL              PIC S9(01)  VALUE 1.               
+           05  JDN2DAY-JDN                   PIC S9(09)  VALUE ZEROES.          
+                                                                                
+      *  THESE FIELDS ARE USED IN CONJUNCTION WITH THE 7777-EXPAND-DATE         
+      *  ROUTINE IN THE EARLY CLOUD SKELETON.                                   
+       01  EXPAND-DATE-FIELDS.                                                  
+                                                                                
+      *  WS-NEWEST-VERSION-NBR APPLIES TO THE VSN TRANSLATION TABLE             
+      *  IN THE CONTROL FILE, IS USED IN THE NEW PDVERSN COPY BOOK.             
+                                                                                
+           05  WS-NEWEST-VERSION-NBR         PIC X(04) VALUE SPACES.            
+               88  WS-NEWEST-VERSION                   VALUE '2.03'.            
+                                                                                
+           05  WS-EXPAND-DATE-ERROR-SW       PIC X(01)   VALUE '0'.             
+               88  EXPAND-DATE-ERROR                     VALUE '1'.             
+                                                                                
+           05  WS-DATE-NUMERIC.                                                 
+               10  WS-DATE-NUMERIC-1-2       PIC 9(02) VALUE ZERO.              
+               10  WS-DATE-NUMERIC-3-4       PIC 9(02) VALUE ZERO.              
+               10  WS-DATE-NUMERIC-5-6       PIC 9(02) VALUE ZERO.              
+           05  WS-DATE-NUMERIC-X REDEFINES WS-DATE-NUMERIC                      
+                                             PIC X(06).                         
+           05  WS-SIX-DATE-YMD-X.                                               
+               10  WS-SIX-DATE-YMD-YY        PIC X(02)   VALUE SPACES.          
+               10  WS-SIX-DATE-YMD-MM        PIC X(02)   VALUE SPACES.          
+               10  WS-SIX-DATE-YMD-DD        PIC X(02)   VALUE SPACES.          
+           05  WS-SIX-DATE-YMD REDEFINES WS-SIX-DATE-YMD-X                      
+                                             PIC S9(6).                         
+           05  WS-SIX-DATE-MDY-X.                                               
+               10  WS-SIX-DATE-MDY-MM        PIC X(02)   VALUE SPACES.          
+               10  WS-SIX-DATE-MDY-DD        PIC X(02)   VALUE SPACES.          
+               10  WS-SIX-DATE-MDY-YY        PIC X(02)   VALUE SPACES.          
+           05  WS-SIX-DATE-MDY REDEFINES WS-SIX-DATE-MDY-X                      
+                                             PIC S9(6).                         
+           05  WS-SIX-DATE-DMY-X.                                               
+               10  WS-SIX-DATE-DMY-DD        PIC X(02)   VALUE SPACES.          
+               10  WS-SIX-DATE-DMY-MM        PIC X(02)   VALUE SPACES.          
+               10  WS-SIX-DATE-DMY-YY        PIC X(02)   VALUE SPACES.          
+           05  WS-SIX-DATE-DMY REDEFINES WS-SIX-DATE-DMY-X                      
+                                     PIC S9(6).                                 
+           05  WS-EIGHT-DATE-CYMD-X.                                            
+               10  WS-EIGHT-DATE-CYMD-CC     PIC X(02)   VALUE SPACES.          
+               10  WS-EIGHT-DATE-CYMD-YMD.                                      
+                   15 WS-EIGHT-DATE-CYMD-YY  PIC X(02)   VALUE SPACES.          
+                   15 WS-EIGHT-DATE-CYMD-MM  PIC X(02)   VALUE SPACES.          
+                   15 WS-EIGHT-DATE-CYMD-DD  PIC X(02)   VALUE SPACES.          
+           05  WS-EIGHT-DATE-CYMD REDEFINES WS-EIGHT-DATE-CYMD-X                
+                                             PIC 9(08).                         
+           05  WS-EIGHT-DATE-MDCY-X.                                            
+               10  WS-EIGHT-DATE-MDCY-MM     PIC X(02)   VALUE SPACES.          
+               10  WS-EIGHT-DATE-MDCY-DD     PIC X(02)   VALUE SPACES.          
+               10  WS-EIGHT-DATE-MDCY-CC     PIC X(02)   VALUE SPACES.          
+               10  WS-EIGHT-DATE-MDCY-YY     PIC X(02)   VALUE SPACES.          
+           05  WS-EIGHT-DATE-MDCY REDEFINES WS-EIGHT-DATE-MDCY-X                
+                                             PIC 9(08).                         
+           05  WS-EIGHT-DATE-DMCY-X.                                            
+               10  WS-EIGHT-DATE-DMCY-DD     PIC X(02)   VALUE SPACES.          
+               10  WS-EIGHT-DATE-DMCY-MM     PIC X(02)   VALUE SPACES.          
+               10  WS-EIGHT-DATE-DMCY-CC     PIC X(02)   VALUE SPACES.          
+               10  WS-EIGHT-DATE-DMCY-YY     PIC X(02)   VALUE SPACES.          
+           05  WS-EIGHT-DATE-DMCY REDEFINES WS-EIGHT-DATE-DMCY-X                
+                                             PIC 9(08).                         
+                                                                                

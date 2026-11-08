@@ -1,0 +1,354 @@
+000100***************************************************************           
+000200*     CUSTOMER SERVICE REQUEST                                            
+000300*                                                                         
+000400*  PURPOSE:  TRANSMISSION LAYOUT FROM INVENTORY INQUIRY                   
+000600*  PROGRAM : ICP022MD                                                     
+000700*                                                                         
+      *  10/13/23 SK2 ADDED NEW 88 LEVEL SWITCHES IN                    SK223286
+      *               CSICIP-VNH-ACOP-BO-RECOST-FLAG FOR DIRECT-SHIP    SK223286
+      *               RECOST/REPRICE.                                   SK223286
+      *  03/18/22 UXK CNP - ADDED FRT AND DUTY AMOUNT FIELDS.           UXK22077
+      *  04/09/21 BXK ADDED CSICIP-SHIPMENT-IND FIELD AS PART OF CNP    BXK21099
+      *  10/02/20 AZR IM360 - ADD ECCN FIELD TO PNA RESPONSE            AZR20276
+      *  09/05/20 JZW ADDED CSICIP-SPECIAL-SYSTEMS-IND                  JZW20249
+      *  05/01/20 DZB ADDED FIELD CSICIP-INV-RESTRICTED-SW              DZB20122
+      *02/28/2020 DXB ADDED CSICIP-ACOP-EOD-SW FOR MEXICO EOD PROJECT   DXB20059
+      *02/14/2020 KXE ADDED FIELDS CSICIP-ACOP-DELTA-CST2               KXE20045
+      *               FOR RIGHT CONVERSION OF THE COST                  KXE20045
+      *  07/12/19 JZA ADDED FIELDS PAN-RETAIL-PRICE, COLUMN-PRICE,      JZA19193
+      *               VEND-FLOOR-MARGIN AND VAT-TAX-CODE.               JZA19193
+      *  07/12/19 DXB ADDED CSICIP-ACOP-IS-PROMO  AND                   DXB19193
+      *               CSICIP1-EXT-VEND-PART-NBR FOR EMEA ACOPVISIBILITY DXB19193
+      *               PROJECT.THIS ACOPPNA SERVICE WILL BE USED         DXB19193
+      *               INSTEAD OF NORMAL ACOPCALULATE SERVICE            DXB19193
+002200*  05/04/18 DBN NEW COPYBOOK CLONED FROM CSWICIS FOR IM360 PROJ   DBN18124
+002300***************************************************************           
+002400   03  CSICIP-INVENTORY-INQ-REQUEST.                                      
+002600     05  CSICIP-RESP-DATA-FROM-ICP022.                                    
+002700         10  CSICIP-SUB-PART             PIC X(12).                       
+002800         10  CSICIP-SERIAL-NUMBER-FLAG   PIC X.                           
+002900         10  CSICIP-CUST-PRICE-SIGN      PIC X.                           
+003000         10  CSICIP-CUST-PRICE           PIC 9(15).99.                    
+003100         10  CSICIP-BUYER-NAME           PIC X(35).                       
+003200         10  CSICIP-BUYER-EXT            PIC X(07).                       
+003300         10  CSICIP-PART-LINE3.                                           
+003400             15  CSICIP-PART-NBR         PIC X(12).                       
+003500             15  CSICIP-CATALOG-NBR      PIC X(12).                       
+003600             15  CSICIP-DESCRIPTION      PIC X(35).                       
+003700             15  CSICIP-VENDOR-NBR       PIC X(04).                       
+003800             15  CSICIP-CPU-CODE         PIC X(06).                       
+003900             15  CSICIP-CLASS            PIC X(01).                       
+004000             15  CSICIP-ITEM-STATUS      PIC X(01).                       
+004100             15  CSICIP-ITEM-TYPE        PIC X(01).                       
+004200         10  CSICIP-PART-LINE4.                                           
+004300             15  CSICIP-KEYWORD          PIC X(12).                       
+004400             15  CSICIP-EXTRA-DESCRIPTION                                 
+004500                                         PIC X(35).                       
+004600             15  CSICIP-VEND-NAME        PIC X(17).                       
+004700         10  CSICIP-PART-LINE5.                                           
+004800             15  CSICIP-INV-SUBTYPE      PIC X(20).                       
+004900             15  CSICIP-MEDIA-CPU-DSP    PIC X(12).                       
+005000             15  CSICIP-NOTES-AVAIL      PIC X.                           
+005100             15  CSICIP-SPIF-FOCUS       PIC X.                           
+005200               88  SPIF         VALUE    'S'.                             
+005300               88  FOCUS        VALUE    'F'.                             
+005400             15  CSICIP-SPECIAL          PIC X.                           
+005500               88  SPECIAL      VALUE    'S'.                             
+005600             15  CSICIP-MXP-UNIT-PRICE-SIGN   PIC X.                      
+005700             15  CSICIP-MXP-UNIT-PRICE   PIC 9(15).99.                    
+005800             15  CSICIP-MXP-CURR-CODE    PIC X(03).                       
+005900             15  CSICIP-IMAGINE-CODE     PIC X.                           
+006000             15  CSICIP-DATE-IMAGINE     PIC X(10).                       
+006100             15  CSICIP-INGRAM-COST-SIGN PIC X.                           
+006200             15  CSICIP-INGRAM-COST      PIC 9(15).99.                    
+006300             15  CSICIP-INGRAM-COST1-SIGN PIC X.                          
+006400             15  CSICIP-INGRAM-COST1     PIC 9(15).99.                    
+006500             15  CSICIP-PRICE-SWITCH     PIC X.                           
+006600             15  CSICIP-CUSTOMER1        PIC X(9).                        
+006700             15  CSICIP-CUSTOMER2        PIC X(9).                        
+006800             15  CSICIP-COLUMN-IND       PIC X.                           
+006900             15  CSICIP-MXP-CURR-CODE1   PIC X(03).                       
+007000         10  CSICIP-PART-LINE7.                                           
+007100             15  CSICIP-SUBTYPE          PIC X(08).                       
+007200             15  CSICIP-BASE-SIGN        PIC X.                           
+007300             15  CSICIP-BASE             PIC 9(15).99.                    
+007400             15  CSICIP-RETAIL-SIGN      PIC X.                           
+007500             15  CSICIP-RETAIL           PIC 9(15).99.                    
+007600             15  CSICIP-RETAIL-CURR      PIC X(03).                       
+007700             15  CSICIP-PRCL-COST-SIGN   PIC X.                           
+007800             15  CSICIP-PO-UNIT-COST-SIGN                                 
+007900                 REDEFINES CSICIP-PRCL-COST-SIGN  PIC X.                  
+008000             15  CSICIP-PRCL-COST        PIC 9(15).99.                    
+008100             15  CSICIP-PO-UNIT-COST                                      
+008200                 REDEFINES CSICIP-PRCL-COST PIC 9(15).99.                 
+008300             15  CSICIP-VEND-PART-NBR    PIC X(16).                       
+008400         10  CSICIP-ADDITIONAL-INFO.                                      
+008500             15  CSICIP-SINGLE-RMA-VENDOR PIC X(01).                      
+008600             15  CSICIP-PART-ALLIANCE     PIC X(01).                      
+008700             15  CSICIP-NEW-MEDIA         PIC X(04).                      
+008800             15  CSICIP-NO-RTN-DATE       PIC 9(07).                      
+008900             15  CSICIP-ITEM-CONSIGNED-SW PIC X(01).                      
+009000         10  CSICIP-MISCELLANEOUS-INFO.                                   
+009100             15  CSICIP-WARRANTY-REPAIR-FLG PIC X(01).                    
+009200             15  CSICIP-TEST-SW           PIC X(01).                      
+009300             15  CSICIP-VNH-RMA-REQ-SLS-ORD-SW                            
+009400                                          PIC X(01).                      
+009500                 88  CSICIP-VNH-RMA-REQ-SLS-ORD                           
+009600                                          VALUE 'Y'.                      
+009800             15  CSICIP-DIF-SW            PIC X.                          
+009900                 88  CSICIP-DIF                      VALUE 'Y'.           
+010100             15  CSICIP-AUDIT-SW          PIC X.                          
+010200                 88  CSICIP-AUDIT                    VALUE 'Y'.           
+010400             15  CSICIP-PRICE-DISCOUNT-SW PIC X.                          
+010500                 88  CSICIP-PRICE-DISCOUNT           VALUE 'Y'.           
+010700             15  CSICIP-NO-RETURNS-FLAG   PIC X.                          
+010800                 88  CSICIP-VENDOR-IN-LEGAL          VALUE 'L'.           
+010900                 88  CSICIP-NO-RTN-AFTER-DATE        VALUE 'Y'.           
+010700             15  CSICIP-VNH-ACOP-BO-RECOST-FLAG PIC X.                    
+010800                 88  CSICIP-VNH-ACOP-BO-RECOST       VALUE 'Y'.           
+                       88  CSICIP-VNH-ACOP-STK-DRT-RC-RP                SK223286
+                                                           VALUE 'A'.   SK223286
+                       88  CSICIP-VNH-ACOP-DRT-RC-RP       VALUE 'D'.   SK223286
+                       88  CSICIP-VNH-ACOP-STK-DRT-RC-ONY               SK223286
+                                                           VALUE 'S'.   SK223286
+                       88  CSICIP-VNH-ACOP-DRT-RC-ONY      VALUE 'V'.   SK223286
+010900                 88  CSICIP-VNH-ACOP-BO-NO-RECOST    VALUE 'N'.           
+011100             15  CSICIP-TASK-NBR          PIC S9(7) COMP-3.               
+010700             15  CSICIP-SPECIAL-SYSTEMS-IND     PIC X.            JZW20249
+010800                 88  CSICIP-SPECIAL-SYSTEMS          VALUE 'Y'.   JZW20249
+010800                 88  CSICIP-NP-HARD-BUNDLE           VALUE 'H'.   JZW20249
+011200                                                                          
+011300         10  CSICIP-BR-LINE OCCURS 10.                                    
+011400             15  CSICIP-BR               PIC X(02).                       
+011500             15  CSICIP-BR-AVAIL-SIGN    PIC X.                           
+011600             15  CSICIP-BR-AVAIL         PIC 9(07).                       
+011700             15  CSICIP-BR-COMMIT-SIGN   PIC X.                           
+011800             15  CSICIP-BR-COMMIT        PIC 9(07).                       
+011900             15  CSICIP-BR-ON-ORD-SIGN   PIC X.                           
+012000             15  CSICIP-BR-ON-ORD        PIC 9(07).                       
+012100             15  CSICIP-BR-IN-TRANS-SIGN PIC X.                           
+012200             15  CSICIP-BR-IN-TRANS      PIC 9(07).                       
+012300             15  CSICIP-BR-ON-HOL-SIGN   PIC X.                           
+012400             15  CSICIP-BR-ON-HOL        PIC 9(07).                       
+012500             15  CSICIP-BR-AVG-COST-SIGN PIC X.                           
+012600             15  CSICIP-BR-AVG-COST      PIC 9(15).99.                    
+012700             15  CSICIP-BR-FUTURE-SIGN   PIC X.                           
+012800             15  CSICIP-BR-FUTURE        PIC 9(07).                       
+012900             15  CSICIP-BR-STS           PIC X(01).                       
+013000             15  CSICIP-BR-ON-HAND-SIGN  PIC X.                           
+013100             15  CSICIP-BR-ON-HAND       PIC 9(07).                       
+013200             15  CSICIP-WH-LOC           PIC X(07).                       
+013300             15  CSICIP-ETA              PIC X(10).                       
+013400         10  CSICIP-COMPLIANCE-INFO.                                      
+013600             15 CSICIP-COMPANY           PIC X(02).                       
+013700             15 CSICIP-BRANCH            PIC X(02).                       
+013800             15 CSICIP-CUSTOMER          PIC X(06).                       
+013900             15 CSICIP-VENDOR            PIC X(04).                       
+014100             15 CSICIP-PRODUCT           PIC X(12).                       
+014200             15 CSICIP-REASON-CODE       PIC X(02).                       
+014300                 88 CSICIP-VC-COMPLIANCE-REASONS VALUE 'SB' 'DF'          
+014400                                                  'WS' 'TE' 'DM'.         
+014500             15 CSICIP-INPUT-PLATFORM-FLAG PIC X(01).                     
+014600                 88 CSICIP-INPUT-PLATFORM-IS-EDI VALUE 'E'.               
+014700                 88 CSICIP-INPUT-PLATFORM-IS-IMPLS   VALUE 'I'.           
+014800                 88 CSICIP-INPUT-PLATFORM-IS-POWER VALUE 'P'.             
+014900                 88 CSICIP-INPUT-PLATFORM-IS-WEB VALUE 'W'.               
+015000                 88 CSICIP-INPUT-PLATFORM-IS-ORION   VALUE 'O'.           
+015100* RDO = REFER DIRECT OVERRIDE                                             
+015200             15 CSICIP-RDO-CODE-FLAG     PIC X(01).                       
+015300                 88 CSICIP-RDO-CODE-IS-PRESENT VALUE 'Y'.                 
+015400             15 CSICIP-RDO-TEXT-FLAG     PIC X(01).                       
+015500                 88 CSICIP-RDO-TEXT-IS-PRESENT VALUE 'Y'.                 
+015700             15 CSICIP-LOOK-BACK-DATE-ISO-10 PIC X(10).                   
+015800             15 CSICIP-VEND-AUTH-OVLY                                     
+015900                REDEFINES CSICIP-LOOK-BACK-DATE-ISO-10.                   
+016000                20 CSICIP-VEND-AUTH-FLAG     PIC X(01).                   
+016100                   88 CSICIP-VEND-AUTH           VALUE 'Y'.               
+016300                20 FILLER                    PIC X(09).                   
+016400                                                                          
+016500             15 CSICIP-SC-DAYS               PIC X(03).                   
+016600             15 CSICIP-SC-PCT                PIC 9(03).                   
+016900             15 CSICIP-PROCESS-SW            PIC X(01).                   
+017000                88 CSICIP-CHECK-COMPL            VALUE SPACE.             
+017100                88 CSICIP-BYPASS-COMPL           VALUE 'Y'.               
+017400             15  FILLER                      PIC X(08).                   
+017700             15 CSICIP-SYSTEM-ITEM-SW    PIC X(01).                       
+017800                 88 CSICIP-SYSTEM-ITEM       VALUE 'Y'.                   
+017900             15 CSICIP-COMPLIANCE-FLAG   PIC X(01).                       
+018000                 88 CSICIP-WITHIN-COMPLIANCE VALUE 'Y'.                   
+018100                 88 CSICIP-OUTSIDE-COMPLIANCE VALUE 'N'.                  
+018200             15 CSICIP-NON-COMPLIANCE-REASON PIC X(03).                   
+018300                 88 CSICIP-EXCEEDS-PURCHASE-HISTRY  VALUE 'EPH'.          
+018400                 88 CSICIP-NO-PURCHASE-HISTORY VALUE 'NPH'.               
+018500                 88 CSICIP-EXCEEDS-VENDOR-POLICY VALUE 'EP'.              
+018600                 88 CSICIP-EXCEEDS-CUSTOMER-POLICY VALUE 'CP'.            
+018700                 88 CSICIP-REFER-DIRECT      VALUE 'RD'.                  
+018800             15 CSICIP-DEFAULT-USED      PIC X(01).                       
+018900                 88 CSICIP-DEFAULT           VALUE 'Y'.                   
+019000                 88 CSICIP-SPECIFIC          VALUE 'N'.                   
+019100             15 CSICIP-VENDOR-PHONE-NBR  PIC X(15).                       
+019200             15 CSICIP-USED-CUST-VEND    PIC X(01).                       
+019300                 88 CSICIP-USED-CUST         VALUE 'C'.                   
+019400                 88 CSICIP-USED-VEND         VALUE 'V'.                   
+019500             15 CSICIP-SB-DAYS           PIC X(03).                       
+019600             15 CSICIP-SB-PCT            PIC 9(03).                       
+019700             15 CSICIP-DF-DAYS           PIC X(03).                       
+019800             15 CSICIP-DF-PCT            PIC 9(03).                       
+019900             15 CSICIP-WS-DAYS           PIC X(03).                       
+020000             15 CSICIP-WS-PCT            PIC 9(03).                       
+020100             15 CSICIP-TE-DAYS           PIC X(03).                       
+020200             15 CSICIP-TE-PCT            PIC 9(03).                       
+020300             15 CSICIP-DM-DAYS           PIC X(03).                       
+020400             15 CSICIP-DM-PCT            PIC 9(03).                       
+020600             15 CSICIP-ERROR-SW          PIC X(01).                       
+020700                 88 CSICIP-ERROR-OCCURRED    VALUE 'Y'.                   
+020800                 88 CSICIP-NO-ERROR          VALUE 'N' ' '.               
+020900             15 CSICIP-ERROR-CODE        PIC X(04).                       
+021000             15 CSICIP-ERROR-MESSAGE     PIC X(45).                       
+021300             15 CSICIP-PACKED-DATA-REQUEST PIC X(01).                     
+021400             15 CSICIP-DOLLAR-AMOUNTS.                                    
+021500                20 CSICIP-RETURN-AMT     PIC S9(15)V99 COMP-3.            
+021600                20 CSICIP-SALES-AMT      PIC S9(15)V99 COMP-3.            
+021700             15 CSICIP-PCT-RATIO         PIC X(03).                       
+021710** FOLLOWING ARE ADDITIONAL REQUEST AND RESPONSE FIELDS USED              
+021720** IN PRICE AND AVAILABILITY PLUS WEB SERVICE.                            
+021800      07 CSICIP-PNAPLUS-FIELDS.                                           
+021900         10  CSICIP-PLUS-REQUEST.                                         
+022000             15  CSICIP-SEL-SRC-EU-BR    PIC X(02).                       
+022010             15  CSICIP-SEL-SRC-EU-NBR   PIC X(06).                       
+022020             15  CSICIP-SEL-SRC-EU-SUF   PIC X(03).                       
+022100             15  CSICIP-REQ-PMT-TERMS    PIC 9(03).                       
+022210             15  CSICIP-BRZ-SHIP-TO-STATE  PIC X(02).                     
+022220             15  CSICIP-GOVT-TYPE        PIC X(04).                       
+022220             15  CSICIP-BR-TAX-DISC-SW   PIC X(01).                       
+022220             15  CSICIP-TIER-ACOP-MIN-QTY PIC 9(05).                      
+022220             15  CSICIP-TIER-ACOP-TRACK  PIC 9(09).                       
+022220             15  CSICIP-AUTH-ACOP-TRACK  PIC 9(09).                       
+022220             15  FILLER                  PIC X(56).                       
+022300         10  CSICIP-PLUS-RESPONSE.                                        
+022400             15  CSICIP-RSV-EXISTS-SW           PIC X(01).                
+022500             15  CSICIP-BRAZIL-FIELDS.                                    
+022600                 20  CSICIP-BRZ-ICMS-TAX        PIC 9(15)V99.             
+022700                 20  CSICIP-BRZ-IPI-TAX         PIC 9(15)V99.             
+022710                 20  CSICIP-BRZ-ISS-TAX         PIC 9(15)V99.             
+022800                 20  CSICIP-BRZ-PIS-COFINS-TAX  PIC 9(15)V99.             
+022900                 20  CSICIP-BRZ-ESTIMATED-TAX   PIC 9(15)V99.             
+022910                 20  CSICIP-AP-ESTIMATED-TAX    REDEFINES                 
+022920                     CSICIP-BRZ-ESTIMATED-TAX   PIC 9(13)V9(4).           
+022930                 20  CSICIP-R-BRZ-SHIP-TO-ST    PIC X(02).                
+022940                 20  CSICIP-AP-STATE-TAX-CODE   REDEFINES                 
+022950                     CSICIP-R-BRZ-SHIP-TO-ST    PIC X(02).                
+023000                 20  CSICIP-BRZ-EST-TAX-BR      PIC X(02).                
+023010                 20  CSICIP-BRZ-ICMS-CODE       PIC X(04).                
+023020                 20  CSICIP-BRZ-TES-CODE-SALES  PIC X(03).                
+023030                 20  CSICIP-BRZ-TES-CODE-REC    PIC X(03).                
+023100             15  CSICIP-EXCHANGE-RATE           PIC 9(11)V9(6).           
+023200             15  CSICIP-END-USER-REQD           PIC X(01).                
+023300             15  CSICIP-NO-RETURN-SKU           PIC X(01).                
+023400             15  CSICIP-NO-CANCEL-SKU           PIC X(01).                
+023500             15  CSICIP-GOVT-PRICE-FLAG         PIC X(01).                
+023600             15  CSICIP-BACKORDER-FLAG          PIC X(01).                
+023700             15  CSICIP-ITEM-INVISIBLE-SW       PIC X(01).                
+023800             15  CSICIP-CONV-CURR-TBL-CODE      PIC X(03).                
+023900             15  CSICIP-CONV-CURR-CALC-CODE     PIC X(03).                
+023910             15  CSICIP-R-PMT-TERMS             PIC X(03).                
+024000             15  CSICIP-ADD-ON-SKUS-AVAIL       PIC X(01).                
+024010             15  CSICIP-REPL-SKUS-AVAIL         PIC X(01).                
+024011             15  CSICIP-SPECPROMO-FLAG          PIC X(01).                
+024012             15  CSICIP-SPECPROMO-EFF-DT        PIC X(10).                
+024013             15  CSICIP-SPECPROMO-EXP-DT        PIC X(10).                
+024014             15  CSICIP-SPECPROMO-PRICE         PIC S9(15)V99.            
+024016             15  CSICIP-SPECPROMO-COL-PCT       PIC SV9(3).               
+024020             15  CSICIP-PROMO-MINIMUM-QTY       PIC 9(07).                
+024030             15  CSICIP-PROMO-FREE-QTY          PIC 9(07).                
+024040             15  CSICIP-PROMO-FREE-SKU          PIC X(12).                
+024300             15  CSICIP-AVAIL-REBATE-QTY        PIC 9(03).                
+024400             15  CSICIP-REB-EXP-DT              PIC X(10).                
+024500             15  CSICIP-REBATE-AMT              PIC 9(15)V99.             
+024600             15  CSICIP-REBATE-CUST-MAQ         PIC 9(07).                
+024700             15  CSICIP-REBATE-IM-MAX           PIC 9(07).                
+024710             15  CSICIP-DISCOUNTS-APPLIED       PIC X(09).                
+024720             15  CSICIP-QUANTITY-BRK-TABLE  OCCURS 8 TIMES.               
+024730                 20  CSICIP-QB-QTY              PIC 9(07).                
+024731                 20  CSICIP-QB-PRICE-SIGN       PIC X(01).                
+024740                 20  CSICIP-QB-PRICE            PIC 9(15)V99.             
+                   15  CSICIP-AVAIL-REBATE-QTY1       PIC 9(07).                
+                   15  CSICIP-SKU-AUTH-FLAG           PIC X(01).                
+018000                 88 CSICIP-AUTHORIZE-YES      VALUE 'Y'.                  
+018100                 88 CSICIP-AUTHORIZE-NO       VALUE 'N'.                  
+                   15  CSICIP-HPF-SIGN                PIC X(01).                
+                   15  CSICIP-HARD-PRICE-FLOOR        PIC 9(15)V99.             
+                   15  CSICIP-HPF-ELIGIBLE-SW         PIC X(01).                
+                       88 CSICIP-HPF-ELIGIBLE       VALUE 'Y'.                  
+                   15  CSICIP-VEND-PART-NBR-X20       PIC X(20).                
+                   15  CSICIP-VEND-BOH                PIC X(06).                
+                   15  CSICIP-EXT-VEND-PART-NBR       PIC X(40).                
+                   15  CSICIP-AVG-COST                PIC 9(15).99.             
+                   15  CSICIP-PAN-RETAIL-PRICE        PIC S9(15)V9(2)   JZA19193
+                                                          COMP-3.       JZA19193
+                   15  CSICIP-COL-1-PRICE             PIC S9(15)V9(2)   JZA19193
+                                                          COMP-3.       JZA19193
+                   15  CSICIP-COL-2-PRICE             PIC S9(15)V9(2)   JZA19193
+                                                          COMP-3.       JZA19193
+                   15  CSICIP-COL-3-PRICE             PIC S9(15)V9(2)   JZA19193
+                                                          COMP-3.       JZA19193
+                   15  CSICIP-COL-4-PRICE             PIC S9(15)V9(2)   JZA19193
+                                                          COMP-3.       JZA19193
+                   15  CSICIP-COL-5-PRICE             PIC S9(15)V9(2)   JZA19193
+                                                          COMP-3.       JZA19193
+                   15  CSICIP-COL-6-PRICE             PIC S9(15)V9(2)   JZA19193
+                                                          COMP-3.       JZA19193
+                   15  CSICIP-COL-7-PRICE             PIC S9(15)V9(2)   JZA19193
+                                                          COMP-3.       JZA19193
+                   15  CSICIP-VEND-FLOOR-MARGIN       PIC S9(02)V9(2)   JZA19193
+                                                          COMP-3.       JZA19193
+                   15  CSICIP-VAT-TAX-CODE            PIC X(02).        JZA19193
+                   15  CSICIP-INV-RESTRICTED-SW       PIC X(01).        DZB20122
+                   15  CSICIP-INV-ECCN-CODE           PIC X(07).        AZR20276
+                   15  CSICIP-INV-ENC-ELIGIBLE        PIC X(01).        AZR20276
+            07  PNA-PLUS-FILLER                       PIC X(19).        BXK21099
+            07  ADDITIONAL-FIELDS-INV-DETAIL.                           BXK21099
+               10  CSICIP-SHIPMENT-IND                PIC X(01).        BXK21099
+            07  FILLER                                PIC X(70).        BXK21099
+      *  ACOP DATA FROM ORP545                                                  
+         03  CSICIP-ACOP-DATA-FROM-ORP545.                                      
+           05  CSICIP-ACOP-HEADER.                                              
+             10  CSICIP-PROGRAM-TYPE.                                           
+               15  CSICIP-PROGRAM-TYPE1         PIC X(02).                      
+               15  CSICIP-PROGRAM-TYPE2         PIC X(02).                      
+             10  CSICIP-MRKT-SGMT-TYP           PIC X(01).                      
+             10  CSICIP-TOT-ACOP-DELTA-PRC      PIC S9(15)V9(2) COMP-3.         
+             10  CSICIP-APPLY-ACOP-DELTA-IND    PIC X(01).                      
+             10  CSICIP-APLY-ACOP-DELTA-IND-SRC PIC X(01).                      
+             10  CSICIP-DELTA-APPLIED-MSG       PIC X(28).                      
+             10  CSICIP-END-USER-DATA.                                          
+               15  CSICIP-EU-NBR                PIC 9(09).                      
+               15  CSICIP-EU-NAME               PIC X(21).                      
+             10  CSICIP-ACOP-SPEC-PRC-DISC-SW   PIC X(01).              DXB19193
+             10  FILLER                         PIC X(125).             DXB19193
+           05  CSICIP-LINE-NBR                  PIC X(03).                      
+           05  CSICIP-ACOP-LINE-AREA.                                           
+             10  CSICIP-ACOP-LINE        OCCURS 14 TIMES.                       
+               15  CSICIP-ACOP-SEQ              PIC 9(02).                      
+               15  CSICIP-ACOP-DESC             PIC X(22).                      
+               15  CSICIP-ACOP-PRG-TYP1         PIC X(02).                      
+               15  CSICIP-ACOP-PRG-TYP2         PIC X(02).                      
+               15  CSICIP-ACOP-TRK              PIC 9(09).                      
+               15  CSICIP-ACOP-DELTA-CST        PIC S9(15)V9(2) COMP-3.         
+               15  CSICIP-ACOP-EFF-DATE         PIC X(08).                      
+               15  CSICIP-ACOP-EXP-DATE         PIC X(08).                      
+               15  CSICIP-ACOP-AVAIL-QTY        PIC S9(07) COMP-3.              
+               15  CSICIP-ACOP-TIER-TYPE        PIC X(01).                      
+               15  CSICIP-ACOP-MIN-QTY          PIC 9(05).                      
+               15  CSICIP-BID-AUTH-NBR          PIC X(20).                      
+               15  CSICIP-BID-VERSION-NBR       PIC X(20).                      
+               15  CSICIP-RETAIN-AMT            PIC S9(15)V9(2) COMP-3.         
+               15  CSICIP-ACOP-TYPE             PIC X(09).                      
+               15  CSICIP-ACOP-IS-PROMO         PIC X(01).              DXB19193
+               15  CSICIP-ACOP-DELTA-CST2       PIC 9(15)V9(2).         KXE20045
+               15  CSICIP-ACOP-DELTA-SIGN       PIC X.                  KXE20045
+               15  CSICIP-ACOP-EOD-SW           PIC X(01).              DXB20059
+             10  CSICIP-ACOP-FRT-DUTY.                                  UXK22077
+               15  CSICIP-ACOP-IA-FRT-AMT       PIC S9(13)V9(2) COMP-3. UXK22077
+               15  CSICIP-ACOP-IA-DUTY-AMT      PIC S9(13)V9(2) COMP-3. UXK22077
+           05  FILLER                           PIC X(101).             UXK22077

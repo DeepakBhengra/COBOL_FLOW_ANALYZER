@@ -1,0 +1,104 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      ******************************************************************        
+      * BASERATE INIT  ----------------->  COPY DSIINIT.               *        
+      *                                                                *        
+      * THIS COPYBOOK CONTAINS THE CODE TO INITIALIZE THE              *        
+      * TEMP STORAGE (TSBR) AREA USED IN THE BASERATE LINK.            *        
+      ******************************************************************        
+      * REVISIONS:                                                              
+      * 01-15-98 TFM  CHANGE CA-ALLOCATION FROM '/' TO ' ' TO WORK WITH TFM99032
+      *               REL 9.01.                                         TFM98288
+      * 10-01-96 TFM  FIX FN LOGIC                                      TFM96275
+      * 03-14-96 TFM  SET UP COMMAREA FOR DSILINK.                      TFM96074
+      * 08-07-95 GEH  INITIALIZE 'FN' SWITCH                            GEH95219
+      * 05-18-95 GEH  INITIALIZE GROUND FREIGT OUT AMOUNT FIELD         GEH95136
+      * 05-01-95 GEH  TEMP CHG TO GET BASE RATE TO WORK....             GEH95121
+      *               INITIALIZE WS-DSI-ERRMSG TO SPACES.               GEH95121
+      ******************************************************************        
+                                                                                
+      *   NOTE: IF USING THIS IN BATCH COBOL, YOU WILL NEED TO ADD:             
+      *   77  TC-OPER-ID                PIC X(04).                              
+                                                                                
+        D1000-DSI-INIT.                                                         
+                                                                                
+      * TEMP STORAGE FIELDS NEEDED IN THE LINK COMMAND:                         
+           MOVE 'DSBR'               TO TSAR-TS-BASE-ID.                        
+           MOVE TC-OPER-ID           TO TSAR-TS-OPERID.                 TFM96074
+           MOVE ZERO                 TO TSAR-TS-ITEM.                           
+                                                                                
+      * INITIALIZE ALL FIELDS IN TSBR THAT ARE CONSTANT FOR IMI:                
+           INITIALIZE                   TSBR-DATA-AREA.                         
+           MOVE TSAR-TEMP-STORAGE-ID TO TSBR-ID.                                
+           MOVE SPACES               TO TSBR-CLIENT-ID.                         
+           MOVE SPACES               TO TSBR-SHIPMENT-NUMBER                    
+                                        TSBR-FROM-ZIP-CODE                      
+                                        TSBR-TO-ZIP-CODE.                       
+           MOVE 'S'                  TO TSBR-SYSTEM.                            
+           MOVE 'CC'                 TO TSBR-FROM-CUST-CODE-TYPE.               
+           MOVE 'CC'                 TO TSBR-TO-CUST-CODE-TYPE.                 
+           MOVE 'P'                  TO TSBR-PREPAID-COLLECT-FLAG.              
+           MOVE ZEROS                TO TSBR-FROM-ACTUAL-DSI-NUMBER             
+                                        TSBR-FROM-PARENT-DSI-NUMBER             
+                                        TSBR-FROM-SPLC.                         
+           MOVE ZEROS                TO TSBR-TO-ACTUAL-DSI-NUMBER               
+                                        TSBR-TO-PARENT-DSI-NUMBER               
+                                        TSBR-TO-SPLC.                           
+           MOVE ZEROS                TO TSBR-MILEAGE.                           
+           MOVE 'L'                  TO TSBR-MOVE-FLAG.                         
+           MOVE '1'                  TO TSBR-TYPE-HAUL.                         
+           MOVE 'Y'                  TO TSBR-COD-DISCOUNT.                      
+           MOVE 'N'                  TO TSBR-COD-BILL.                          
+           MOVE 'Y'                  TO TSBR-APPLY-ARBS.                        
+           MOVE ZERO                 TO TSBR-RATE-EFF-DATE                      
+                                        TSBR-SHIPMENT-DATE-JUL                  
+                                        TSBR-UPS-ZONE                           
+                                        TSBR-KEYED-DISCOUNT                     
+                                        TSBR-KEYED-ADD-ON-CHARGE                
+                                        TSBR-KEYED-DECREASE                     
+                                        TSBR-KEYED-INCREASE.                    
+           MOVE ZEROS                TO TSBR-RATES-TYPE.                        
+                                                                                
+      * FOR CARRIER SELECT ONLY:                                                
+           MOVE '/'                  TO TSBR-CA-CARR-TYPE.                      
+           MOVE '2'                  TO TSBR-CA-PREFERENCE.                     
+           MOVE '/'                  TO TSBR-CA-TRANSIT.                        
+           MOVE '/'                  TO TSBR-CA-SERVICE.                        
+           MOVE '1'                  TO TSBR-CA-COST.                           
+           MOVE ' '                  TO TSBR-CA-ALLOCATION.             TFM99032
+           MOVE 'D'                  TO TSBR-CA-TRANSIT-TYPE.                   
+           MOVE 001                  TO TSBR-CA-TRANSIT-LOW.            GEH95121
+           MOVE 999                  TO TSBR-CA-TRANSIT-HIGH.                   
+      * IF TSBR-CA-TRANSIT IS BLANK, CARRIER-SELECT WILL NOT USE                
+      *   TRANSIT AS A SELECTION CRITERIA...AND...IT WILL NOT RETURN            
+      *   TRANSIT DAYS.                                                         
+                                                                                
+      * INITIALIZE PRODUCT TABLE:                                               
+           SET TSBR-PRD-INDEX TO +1.                                            
+           MOVE 1      TO TSBR-NUMBER-OF-PRODUCTS.                              
+           MOVE SPACES TO TSBR-PROD-ENTRY (TSBR-PRD-INDEX).                     
+           MOVE ZEROS  TO TSBR-PROD-NUMBER (TSBR-PRD-INDEX)                     
+                          TSBR-PROD-NUMBER-SUFFIX (TSBR-PRD-INDEX)              
+                          TSBR-PROD-RATED-CLASS-NUMBER (TSBR-PRD-INDEX).        
+           MOVE '92.5' TO TSBR-PROD-CODE (TSBR-PRD-INDEX).                      
+           MOVE ZEROS  TO TSBR-PROD-WEIGHT (TSBR-PRD-INDEX).                    
+      * WEIGHT NEEDS TO BE FILLED IN AS PART OF CALLING PROGRAM LOGIC.          
+      * IF MORE THAN 1 PRODUCT IS BEING RATED AT ONE TIME (LIKE                 
+      *       FOR UPS PARCEL PRICING), THEN TSBR-PRD-INDEX AND                  
+      *       TSBR-NUMBER-OF-PRODUCTS MUST BE INCREASED TO THE TOTAL.           
+      *       AND TSBR-PROD-WEIGHT MUST BE FILLED IN FOR EACH PROD.             
+                                                                                
+      * DATE ONLY NEEDED IN CASE OF CHANGE IN TARIFF EFFEC DATE:                
+           CALL 'SYU002' USING        WS-JUL-DATE.                              
+           CALL 'SYU001' USING        WS-JUL-DATE                               
+                                      WS-DSI-TODAYS-DATE.                       
+           MOVE WS-DSI-MM TO TSBR-SHIPMENT-MONTH.                               
+           MOVE WS-DSI-DD TO TSBR-SHIPMENT-DAY.                                 
+           MOVE WS-DSI-YY TO TSBR-SHIPMENT-YEAR.                                
+           MOVE SPACES                 TO WS-DSI-ERRMSG.                TFM96275
+      *                                   WS-DSI-FN-CC-SW.              TFM96275
+           MOVE ZEROES                 TO WS-DSI-GROUND-FRT-OUT-AMT.    GEH95138
+                                                                                
+        D1000-EXIT.                                                             
+              EXIT.                                                             

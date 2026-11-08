@@ -1,0 +1,454 @@
+﻿      ******************************************************************        
+      * --   CONFIG ORDER PROMISE DATE PROCEDURE DIVISION COPYBOOK  -- *        
+      * THIS COPYBOOK CONTAINS THE PROCEDURE DIVISION LOGIC TO DERIVE  *        
+      * THE PROMISE DATE FOR A CONFIGURATION ORDER.                    *        
+      *       (((MAY BE USED IN EITHER BATCH OR ONLINE PROGRAMS)))     *        
+      * -------------------------------------------------------------- *        
+      *                                                                *        
+      * INPUT:                                                         *        
+      *  1. CUTOFF TIME FROM OR_SLA_CODE DB2 TABLE.                    *        
+      *  2. ORDER ENTRY OFFSET DAYS AND ORDER PRINT OFFSET DAYS FROM   *        
+      *     OR_PROMISE_DATE DB2 TABLE.                                 *        
+      *  3. CFWPDT-PARM-FIELDS FROM CFWPDT COPYBOOK:                   *        
+      *     (1) CFWPDT-PROGRAM-NAME                                    *        
+      *         - USED IN ERROR MESSAGE                                *        
+      *     (2) CFWPDT-MODE-SW                                         *        
+      *         - USED TO CONTROL ACCESS TO TBX TABLES                 *        
+      *         - ONLINE OR BATCH                                      *        
+      *     (3) CFWPDT-ORDER-STATUS-SW                                 *        
+      *         - USED TO RETRIEVE PROPER # OF OFFSET DAYS FROM        *        
+      *           PROMISE DATE TABLE                                   *        
+      *         - INDICATES WHETHER THE ORDER BEING PROCESSED IS IN    *        
+      *           ORDER ENTRY OR PRINT STATUS                          *        
+      *     (4) CFWPDT-CO-CD                                           *        
+      *     (5) CFWPDT-CUST-BR-NBR                                     *        
+      *     (6) CFWPDT-CUST-NBR                                        *        
+      *     (7) CFWPDT-SHIP-FR-BR-NBR                                  *        
+      *     (8) CFWPDT-FMLY-CD                                         *        
+      *         - USED IN ACCESS TO OR_PROMISE_DATE TABLE              *        
+      *     (9) CFWPDT-SLA-CD                                          *        
+      *         - USED IN ACCESS TO OR_SLA_CODE TABLE                  *        
+      *         - USED IN ACCESS TO OR_PROMISE_DATE TABLE              *        
+      *                                                                *        
+      * OUTPUT:                                                        *        
+      *  1. CFWPDT-PARM-FIELDS FROM CFWPDT COPYBOOK:                   *        
+      *     (1) CFWPDT-PROMISE-DATE                                    *        
+      *         - IN JULIAN DATE FORMAT (YYDDD)                        *        
+      *     (2) CFWPDT-RETURN-CODE                                     *        
+      *         - INDICATES PROCESSING ERRORS & PROVIDES WARNINGS      *        
+      *         - OPTIONALLY MAY BE USED IN THE PROGRAM PERFORMING     *        
+      *           THIS ROUTINE TO CONTROL USAGE OF THE RETURNED        *        
+      *           PROMISE DATE                                         *        
+      *                                                                *        
+      * PROCESSING:                                                    *        
+      *  1. PROVIDES SOME DEFAULT PARAMETERS.                          *        
+      *  2. IF THERE IS A PROBLEM DERIVING THE PROMISE DATE, THEN      *        
+      *     THE RETURNED DATE IS SET TO A DATE FAR OUT INTO THE FUTURE *        
+      *     ENOUGH TO CATCH THE USER'S EYE.                            *        
+      *  3. IF THERE ARE NO PROBLEMS DERIVING THE PROMISE DATE, THEN A *        
+      *     NORMAL SEQUENCE OF EVENTS OCCURRED TO GET THIS DATE:       *        
+      *     A. COMPUTE THE PROCESSING DATE, WHICH IS THE BASE DATE WE  *        
+      *        ADD THE OFFSET DAYS TO IN ORDER TO FIND THE PROMISE DATE*        
+      *     B. DETERMINE THE OFFSET DAYS, WHICH IS THE NUMBER OF DAYS  *        
+      *        WE WILL ALLOW FOR BUILDING THE CONFIGURATION            *        
+      *     C. CALCULATE THE PROMISE DATE BY ADDING THE OFFSET DAYS TO *        
+      *        THE PROCESSING DATE.                                    *        
+      *                                                                *        
+      * USAGE:                                                         *        
+      *  1. IF NOT PRESENT, ADD THE FOLLOWING COPYBOOKS:               *        
+      *     COPY    CFWPDT   - COBOL W/S COPYBOOK FOR THIS P/D CODE    *        
+      *     INCLUDE CFSPDT   - THIS PROCEDURE DIVISION COPYBOOK        *        
+      *     INCLUDE SQLCA    - DB2 COMMUNICATION AREA WORKING STORAGE  *        
+      *     INCLUDE ORTPDT   - DB2 OR_PROMISE_DATE DCLGEN W/S          *        
+      *     INCLUDE ORTSLA   - DB2 OR_SLA_CODE DCLGEN W/S              *        
+      *     COPY    DB2STAT  - DB2 STATUS CODES WORKING STORAGE        *        
+      *     COPY    SYWDB2ER - DB2 ERROR MESSAGE WORKING STORAGE       *        
+      *     COPY    SYXDB2EC - DB2 ERROR MESSAGE P/D CODE (CICS ONLY)  *        
+      *     COPY    SYXDB2EB - DB2 ERROR MESSAGE P/D CODE (BATCH ONLY) *        
+      *     COPY    TBIBRAN  - TBX BRANCH TABLE WORKING STORAGE        *        
+      *     COPY    TBIHDAY  - TBX HOLIDAY TABLE W/S (FOR SYSBUSDA)    *        
+      *     COPY    TBICFGBR - TBX CONFIG BRANCH TABLE WORKING STORAGE *        
+      *     COPY    SYRDATE  - DATE W/S FIELDS       (FOR SYSBUSDA)    *        
+      *     COPY    SYWBUSDA - BUSINESS DATE CALC WORKING STORAGE      *        
+      *     COPY    SYSBUSDA - BUSINESS DATE CALC PROCEDURE DIV CODE   *        
+      *  2. AT POINT IN INVOKING PROGRAM WHERE PROMISE DATE NEEDS TO   *        
+      *     BE DERIVED:                                                *        
+      *       A. INITIALIZE PARAMETER AREA                             *        
+      *       B. POPULATE ALL INPUT PARAMETER FIELDS                   *        
+      *          - IT IS CRITICAL THAT THE MODE SWITCH IS SET          *        
+      *          - IT IS CRITICAL THAT THE ORDER STATUS SWITCH IS SET  *        
+      *       C. PERFORM CFSPDT-GET-CFG-PROMISE-DATE                   *        
+      *       D. OPTIONALLY EVALUATE RETURN CODE AND FAROUT PROMISE DT *        
+      *          SWITCH (IF CFWPDT-SET-PROM-DT-FAROUT IS TRUE, THEN    *        
+      *          THIS MEANS THE PROMISE DATE ROUTINE HAD A PROBLEM AND *        
+      *          SET THE DATE 'FAR OUT').                              *        
+      *       E. USE RETURNED PROMISE DATE PARAMETER AS NECESSARY      *        
+      *                                                                *        
+      ******************************************************************        
+      *                                                                         
+      *  PROCEDURE DIVISION EXAMPLE:                                            
+      *                                                                         
+      *    INITIALIZE CFWPDT-PARM-FIELDS                                        
+      *    SET CFWPDT-ONLINE-MODE TO TRUE                                       
+      *    SET CFWPDT-ORDER-PRINT TO TRUE                                       
+      *    MOVE WRK-PROGRAM-NAME      TO CFWPDT-PROGRAM-NAME                    
+      *    MOVE ORH-COMPANY           TO CFWPDT-CO-CD                           
+      *    MOVE ORH-BILL-TO-BR-NBR    TO CFWPDT-CUST-BR-NBR                     
+      *    MOVE ORH-BILL-TO-CUST-NBR  TO CFWPDT-CUST-NBR                        
+      *    MOVE ORSH-BR-NBR-SHIP-FROM TO CFWPDT-SHIP-FR-BR-NBR                  
+      *    MOVE ORL-FAMILY            TO CFWPDT-FMLY-CD                         
+      *    MOVE ORSH-SLA              TO CFWPDT-SLA-CD                          
+      *    PERFORM CFSPDT-GET-CFG-PROMISE-DATE                                  
+      *    MOVE CFWPDT-PROMISE-DATE TO WS-NEW-PROMISE-DATE                      
+      *                                                                         
+      *****************************************************************         
+      * REVISION INFO:                                                          
+      *****************************************************************         
+      * 11/01/01  DBC  NEW COPYBOOK ADDED                               DBC01305
+      *****************************************************************         
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> MAIN ROUTINE TO GET THE PROMISE DATE FOR CONFIG ORDER <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       CFSPDT-GET-CFG-PROMISE-DATE.                                             
+                                                                                
+           PERFORM CFSPDT-INITIALIZATION                                        
+           IF CFWPDT-SET-PROM-DT-NORMAL                                         
+             PERFORM CFSPDT-SET-PROCESSING-DATE                                 
+             PERFORM CFSPDT-SET-OFFSET-DAYS                                     
+             PERFORM CFSPDT-CALC-PROMISE-DATE                                   
+           END-IF                                                               
+           IF CFWPDT-SET-PROM-DT-FAROUT                                         
+             PERFORM CFSPDT-SET-PROMISE-DATE-FAROUT                             
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> INITIALIZE FIELDS IN WORKING STORAGE.                 <<<**         
+      **>>> OBTAIN CURRENT SYSTEM DATE & TIME.                    <<<**         
+      **>>> INITIALIZE PROCESSING DATE TO CURRENT DATE (JULIAN).  <<<**         
+      **>>> CALCULATE LOCAL BRANCH TIME FOR THE SHIP FROM BRANCH. <<<**         
+      **>>> VERIFY PROCESSING MODE (ONLINE VS. BATCH) HAS BEEN    <<<**         
+      **>>> SET; OTHERWISE, TRAP THIS CONDITION AS AN ANOMALY.    <<<**         
+      **>>> VERIFY ORDER STATUS HAS BEEN SET CORRECTLY;           <<<**         
+      **>>> OTHERWISE, TRAP THIS CONDITION AS AN ANOMALY.         <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       CFSPDT-INITIALIZATION.                                                   
+           INITIALIZE CFWPDT-WORK-FIELDS                                        
+                      CFWPDT-CURRENT-DATE-FIELDS                                
+                      DCLOR-PROMISE-DATE                                        
+           SET CFWPDT-NO-WARNINGS TO TRUE                                       
+           SET CFWPDT-SET-PROM-DT-NORMAL TO TRUE                                
+           SET CFWPDT-MISSING-OFFSET-DAYS TO TRUE                               
+                                                                                
+           MOVE FUNCTION CURRENT-DATE(1:12) TO                                  
+                CFWPDT-CURRENT-DATE-FIELDS                                      
+           COMPUTE CFWPDT-CURRENT-JULIAN-DATE =                                 
+                FUNCTION DAY-OF-INTEGER                                         
+               (FUNCTION INTEGER-OF-DATE(CFWPDT-CURRENT-DATE))                  
+                                                                                
+           MOVE CFWPDT-CUR-JULDT-YYDDD TO CFWPDT-PROCESSING-DATE                
+                                                                                
+           IF CFWPDT-VALID-MODE                                                 
+             MOVE CFWPDT-CO-CD          TO TB-BRN-COMPANY-CODE                  
+             MOVE CFWPDT-SHIP-FR-BR-NBR TO TB-BRN-BRANCH                        
+             IF CFWPDT-ONLINE-MODE                                              
+               CALL 'SYU510' USING TB-BRAN-PROC-IA                              
+             ELSE                                                               
+               CALL 'SYU500' USING TB-BRAN-PROC-IA                              
+             END-IF                                                             
+             IF TB-BRN-NORESP  AND  TB-BRN-TIME-DIFF IS NUMERIC                 
+               COMPUTE CFWPDT-LOCAL-BRANCH-TIME =                               
+                       CFWPDT-CURRENT-TIME + (TB-BRN-TIME-DIFF * 100)           
+             ELSE                                                               
+               COMPUTE CFWPDT-LOCAL-BRANCH-TIME =                               
+                       CFWPDT-CURRENT-TIME                                      
+             END-IF                                                             
+           ELSE                                                                 
+             SET CFWPDT-INVALID-MODE TO TRUE                                    
+             SET CFWPDT-SET-PROM-DT-FAROUT TO TRUE                              
+           END-IF                                                               
+                                                                                
+           IF CFWPDT-NO-WARNINGS                                                
+             IF NOT CFWPDT-VALID-ORDER-STATUS                                   
+               SET CFWPDT-INVALID-ORDER-STATUS TO TRUE                          
+               SET CFWPDT-SET-PROM-DT-FAROUT TO TRUE                            
+             END-IF                                                             
+           END-IF.                                                              
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> DETERMINE THE PROCESSING DATE FOR THE ORDER.          <<<**         
+      **>>> TO DO THIS:                                           <<<**         
+      **>>>   1. ATTEMPT TO RETRIEVE THE SLA-BASED CUTOFF TIME    <<<**         
+      **>>>      (IF NO SLA CODE IS PASSED, THEN USE THE DEFAULT  <<<**         
+      **>>>       CUTOFF BASED ON EITHER ONLINE OR BATCH MODE)    <<<**         
+      **>>>   2. IF NO SLA-BASED CUTOFF TIME CAN BE FOUND IN THE  <<<**         
+      **>>>      OR_SLA_CODE TABLE, THEN USE FINAL DEFAULT CUTOFF <<<**         
+      **>>>      TIMES (STORED AS CONSTANTS).                     <<<**         
+      **>>>   3. IF THE CUTOFF TIME HAS PASSED, THEN SET THE NEXT <<<**         
+      **>>>      BUSINESS DATE AS THE PROCESSING DATE.            <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       CFSPDT-SET-PROCESSING-DATE.                                              
+           INITIALIZE DCLOR-SLA-CODE                                            
+           MOVE CFWPDT-CO-CD TO ORSLA-CO-CD                                     
+           IF CFWPDT-SLA-CD = SPACES OR LOW-VALUES OR HIGH-VALUES               
+             PERFORM CFSPDT-FIND-SLA-DFLT-CUTOFF                                
+           ELSE                                                                 
+             MOVE CFWPDT-SLA-CD TO ORSLA-SLA-CD                                 
+             PERFORM CFSPDT-FIND-SLA-CUTOFF                                     
+             IF CFWPDT-CUTOFF-NOT-FOUND                                         
+               PERFORM CFSPDT-FIND-SLA-DFLT-CUTOFF                              
+             END-IF                                                             
+           END-IF                                                               
+                                                                                
+           IF CFWPDT-CUTOFF-FOUND                                               
+             IF CFWPDT-LOCAL-BRANCH-TIME > CFWPDT-SLA-CUTOFF-TIME               
+               INITIALIZE SYWBUSDA-CICS-SW                                      
+               IF CFWPDT-ONLINE-MODE                                            
+                 SET SYWBUSDA-CICS TO TRUE                                      
+               END-IF                                                           
+               MOVE CFWPDT-CO-CD           TO SYWBUSDA-COMPANY                  
+               MOVE CFWPDT-PROCESSING-DATE TO SYWBUSDA-COMP-DATE                
+               MOVE +1                     TO SYWBUSDA-DAYS                     
+               PERFORM 6200-SYSBUSDA-DATE THRU 6200-SYSBUSDA-EXIT               
+               IF SYWBUSDA-NORESP  AND  SYWBUSDA-COMP-DATE > 0                  
+                 MOVE SYWBUSDA-COMP-DATE TO CFWPDT-PROCESSING-DATE              
+               ELSE                                                             
+                 SET CFWPDT-SYSBUSDA-ERROR-1 TO TRUE                            
+                 SET CFWPDT-SET-PROM-DT-FAROUT TO TRUE                          
+               END-IF                                                           
+             END-IF                                                             
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> RETRIEVES THE CUTOFF TIME FROM OR_SLA_CODE TABLE,     <<<**         
+      **>>> FOR A GIVEN COMPANY CODE & SLA CODE.                  <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       CFSPDT-FIND-SLA-CUTOFF.                                                  
+           MOVE +0 TO SQLCODE                                                   
+           SET CFWPDT-CUTOFF-NOT-FOUND TO TRUE                                  
+                                                                                
+           EXEC SQL                                                             
+              SELECT CUTOFF_TM                                                  
+               INTO :ORSLA-CUTOFF-TM                                            
+              FROM OR_SLA_CODE                                                  
+              WHERE CO_CD  = :ORSLA-CO-CD                                       
+                AND SLA_CD = :ORSLA-SLA-CD                                      
+           END-EXEC                                                             
+                                                                                
+           MOVE SQLCODE TO SQLCODE-STATUS                                       
+           IF SQLCODE-NORESP                                                    
+             IF ORSLA-CUTOFF-TM > 0                                             
+               SET CFWPDT-CUTOFF-FOUND TO TRUE                                  
+               MOVE ORSLA-CUTOFF-TM TO CFWPDT-SLA-CUTOFF-TIME                   
+             END-IF                                                             
+           ELSE                                                                 
+             IF NOT SQLCODE-NOT-FOUND                                           
+               STRING CFWPDT-PROGRAM-NAME                                       
+                      ' - PARA CFSPDT-FIND-SLA-CUTOFF     '                     
+                 DELIMITED BY SIZE INTO SYWDB2-EXTRA-MESSAGE-1                  
+               END-STRING                                                       
+               PERFORM 990-SQL-MESSAGE                                          
+             END-IF                                                             
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> RETRIEVES THE DEFAULT CUTOFF TIME FROM OR_SLA_CODE    <<<**         
+      **>>> TABLE USING EITHER THE DEFAULT ONLINE SLA CODE OR THE <<<**         
+      **>>> DEFAULT BATCH SLA CODE.  IF THE DEFAULT VALUE CANNOT  <<<**         
+      **>>> BE FOUND FROM THE TABLE, THEN WE USE FINAL DEFAULT    <<<**         
+      **>>> CONSTANTS.                                            <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       CFSPDT-FIND-SLA-DFLT-CUTOFF.                                             
+           IF CFWPDT-ONLINE-MODE                                                
+             MOVE CFWPDT-SLA-CD-ONLINE TO ORSLA-SLA-CD                          
+           ELSE                                                                 
+             MOVE CFWPDT-SLA-CD-BATCH  TO ORSLA-SLA-CD                          
+           END-IF                                                               
+           PERFORM CFSPDT-FIND-SLA-CUTOFF                                       
+           IF CFWPDT-CUTOFF-NOT-FOUND                                           
+             IF CFWPDT-ONLINE-MODE                                              
+               MOVE CFWPDT-DFLT-ONLINE-CUTOFF TO CFWPDT-SLA-CUTOFF-TIME         
+             ELSE                                                               
+               MOVE CFWPDT-DFLT-BATCH-CUTOFF  TO CFWPDT-SLA-CUTOFF-TIME         
+             END-IF                                                             
+             SET CFWPDT-CUTOFF-FOUND TO TRUE                                    
+             IF CFWPDT-NO-WARNINGS                                              
+               SET CFWPDT-USING-DEFAULT-CUTOFF TO TRUE                          
+             END-IF                                                             
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> DETERMINE # OF DAYS TO ADD TO PROCESSING DATE (OFFSET)<<<**         
+      **>>> IN ORDER TO ARRIVE AT THE PROMISE DATE.  THIS IS THE  <<<**         
+      **>>> NUMBER OF DAYS NEEDED TO BUILD THE CONFIGURATION.     <<<**         
+      **>>>                                                       <<<**         
+      **>>> TO DERIVE THIS OFFSET AMOUNT, WE ATTEMPT EACH OF      <<<**         
+      **>>> THESE METHODS UNTIL AN OFFSET IS SUCCESSFULLY FOUND:  <<<**         
+      **>>> (1) RETRIEVE FROM PROMISE DATE TABLE USING SLA CODE   <<<**         
+      **>>> (2) RETRIEVE FROM PROMISE DATE TABLE USING CUSTOMER   <<<**         
+      **>>>     NUMBER AND NO SLA CODE                            <<<**         
+      **>>> (3) RETRIEVE FROM PROMISE DATE TABLE USING DEFAULT    <<<**         
+      **>>>     CUSTOMER NUMBER AND NO SLA CODE                   <<<**         
+      **>>> (4) RETRIEVE FROM TBX CONFIG BRANCH TABLE USING       <<<**         
+      **>>>     COMPANY CODE & SHIP-FROM BRANCH                   <<<**         
+      **>>> (5) SET TO A DEFAULT CONSTANT VALUE.                  <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       CFSPDT-SET-OFFSET-DAYS.                                                  
+           MOVE CFWPDT-CO-CD          TO ORPDT-CO-CD                            
+           MOVE CFWPDT-CUST-BR-NBR    TO ORPDT-CUST-BR-NBR                      
+           MOVE CFWPDT-CUST-NBR       TO ORPDT-CUST-NBR                         
+           MOVE CFWPDT-SHIP-FR-BR-NBR TO ORPDT-SHIP-FR-BR-NBR                   
+           MOVE CFWPDT-FMLY-CD        TO ORPDT-FMLY-CD                          
+           MOVE CFWPDT-SLA-CD         TO ORPDT-SLA-CD                           
+           IF CFWPDT-SLA-CD = SPACES OR LOW-VALUES OR HIGH-VALUES               
+             MOVE SPACES              TO ORPDT-SLA-CD                           
+           ELSE                                                                 
+             MOVE SPACES              TO ORPDT-CUST-BR-NBR                      
+                                         ORPDT-CUST-NBR                         
+           END-IF                                                               
+           PERFORM CFSPDT-READ-PROM-DT-TABLE                                    
+           IF CFWPDT-DAYS-FOUND                                                 
+             SET CFWPDT-GOT-OFFSET-DAYS TO TRUE                                 
+           ELSE                                                                 
+             MOVE CFWPDT-CO-CD            TO ORPDT-CO-CD                        
+             MOVE CFWPDT-DEFAULT-CUST-BR  TO ORPDT-CUST-BR-NBR                  
+             MOVE CFWPDT-DEFAULT-CUST-NBR TO ORPDT-CUST-NBR                     
+             MOVE CFWPDT-SHIP-FR-BR-NBR   TO ORPDT-SHIP-FR-BR-NBR               
+             MOVE CFWPDT-FMLY-CD          TO ORPDT-FMLY-CD                      
+             MOVE SPACES                  TO ORPDT-SLA-CD                       
+             PERFORM CFSPDT-READ-PROM-DT-TABLE                                  
+             IF CFWPDT-DAYS-FOUND                                               
+               SET CFWPDT-GOT-OFFSET-DAYS TO TRUE                               
+             END-IF                                                             
+           END-IF                                                               
+                                                                                
+           IF CFWPDT-MISSING-OFFSET-DAYS                                        
+             MOVE CFWPDT-CO-CD          TO TB-CFGBR-COMPANY-CODE                
+             MOVE CFWPDT-SHIP-FR-BR-NBR TO TB-CFGBR-BRANCH                      
+             SET TB-CFGBR-KEY TO TRUE                                           
+             IF CFWPDT-ONLINE-MODE                                              
+               CALL 'SYU510' USING TB-CFGBR-TABLE-IA                            
+             ELSE                                                               
+               CALL 'SYU500' USING TB-CFGBR-TABLE-IA                            
+             END-IF                                                             
+             IF TB-CFGBR-NORESP                    AND                          
+                TB-CFGBR-DAYS-TO-BUILD IS NUMERIC  AND                          
+                TB-CFGBR-DAYS-TO-BUILD > 0                                      
+               SET CFWPDT-GOT-OFFSET-DAYS TO TRUE                               
+               MOVE TB-CFGBR-DAYS-TO-BUILD TO ORPDT-ORDR-ENTY-DAY-NBR           
+                                              ORPDT-ORDR-PRT-DAY-NBR            
+             END-IF                                                             
+           END-IF                                                               
+                                                                                
+           IF CFWPDT-MISSING-OFFSET-DAYS                                        
+             SET CFWPDT-GOT-OFFSET-DAYS TO TRUE                                 
+             MOVE CFWPDT-DEFAULT-DAYS TO ORPDT-ORDR-ENTY-DAY-NBR                
+                                         ORPDT-ORDR-PRT-DAY-NBR                 
+             IF CFWPDT-NO-WARNINGS                                              
+               SET CFWPDT-USING-DEFAULT-OFFSET TO TRUE                          
+             END-IF                                                             
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> RETRIEVES THE OFFSET DAYS FROM OR_PROMISE_DATE TABLE. <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       CFSPDT-READ-PROM-DT-TABLE.                                               
+           MOVE +0 TO SQLCODE                                                   
+                                                                                
+           EXEC SQL                                                             
+                SELECT ORDR_ENTY_DAY_NBR                                        
+                     , ORDR_PRT_DAY_NBR                                         
+                 INTO :ORPDT-ORDR-ENTY-DAY-NBR                                  
+                     ,:ORPDT-ORDR-PRT-DAY-NBR                                   
+                  FROM OR_PROMISE_DATE                                          
+                 WHERE CO_CD          = :ORPDT-CO-CD                            
+                   AND CUST_BR_NBR    = :ORPDT-CUST-BR-NBR                      
+                   AND CUST_NBR       = :ORPDT-CUST-NBR                         
+                   AND SLA_CD         = :ORPDT-SLA-CD                           
+                   AND SHIP_FR_BR_NBR = :ORPDT-SHIP-FR-BR-NBR                   
+                   AND FMLY_CD        = :ORPDT-FMLY-CD                          
+           END-EXEC                                                             
+                                                                                
+           MOVE SQLCODE TO SQLCODE-STATUS                                       
+           EVALUATE TRUE                                                        
+             WHEN SQLCODE-NORESP                                                
+               SET CFWPDT-DAYS-FOUND TO TRUE                                    
+             WHEN SQLCODE-NOT-FOUND                                             
+               SET CFWPDT-DAYS-NOT-FOUND TO TRUE                                
+             WHEN OTHER                                                         
+               SET CFWPDT-DAYS-NOT-FOUND TO TRUE                                
+               STRING CFWPDT-PROGRAM-NAME                                       
+                      ' - PARA CFSPDT-READ-PROM-DT-TABLE  '                     
+                 DELIMITED BY SIZE INTO SYWDB2-EXTRA-MESSAGE-1                  
+               END-STRING                                                       
+               PERFORM 990-SQL-MESSAGE                                          
+           END-EVALUATE.                                                        
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS PARAGRAPH SETS THE PROMISE DATE.                 <<<**         
+      **>>>                                                       <<<**         
+      **>>> IF WE WERE ABLE TO FIND A NON-ZERO VALUE FOR OFFSET   <<<**         
+      **>>> DAYS, THEN FIND THE NEXT BUSINESS DATE USING THIS     <<<**         
+      **>>> OFFSET & THE PROCESSING DATE.  THE OFFSET DAYS WILL   <<<**         
+      **>>> BE BASED ON ORDER ENTRY OR ORDER PRINT STATUS.        <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       CFSPDT-CALC-PROMISE-DATE.                                                
+           MOVE CFWPDT-PROCESSING-DATE TO CFWPDT-PROMISE-DATE                   
+           IF CFWPDT-GOT-OFFSET-DAYS                                            
+             INITIALIZE SYWBUSDA-CICS-SW                                        
+                        SYWBUSDA-DAYS                                           
+             IF CFWPDT-ONLINE-MODE                                              
+               SET SYWBUSDA-CICS TO TRUE                                        
+             END-IF                                                             
+             MOVE CFWPDT-CO-CD           TO SYWBUSDA-COMPANY                    
+             MOVE CFWPDT-PROCESSING-DATE TO SYWBUSDA-COMP-DATE                  
+             IF CFWPDT-ORDER-ENTRY                                              
+               MOVE ORPDT-ORDR-ENTY-DAY-NBR  TO SYWBUSDA-DAYS                   
+             ELSE                                                               
+               IF CFWPDT-ORDER-PRINT                                            
+                 MOVE ORPDT-ORDR-PRT-DAY-NBR TO SYWBUSDA-DAYS                   
+               END-IF                                                           
+             END-IF                                                             
+             IF SYWBUSDA-DAYS > +0                                              
+               PERFORM 6200-SYSBUSDA-DATE THRU 6200-SYSBUSDA-EXIT               
+               IF SYWBUSDA-NORESP  AND  SYWBUSDA-COMP-DATE > 0                  
+                 MOVE SYWBUSDA-COMP-DATE TO CFWPDT-PROMISE-DATE                 
+               ELSE                                                             
+                 INITIALIZE CFWPDT-PROMISE-DATE                                 
+                 SET CFWPDT-SYSBUSDA-ERROR-2 TO TRUE                            
+                 SET CFWPDT-SET-PROM-DT-FAROUT TO TRUE                          
+               END-IF                                                           
+             END-IF                                                             
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> HERE WE SET THE PROMISE DATE TO AN 'EYE CATCHING'     <<<**         
+      **>>> DATE THAT IS FAR OUT ENOUGH INTO THE FUTURE TO        <<<**         
+      **>>> SIGNIFY SOME SIGNIFICANT ERROR HAS OCCURRED IN THE    <<<**         
+      **>>> ATTEMPT TO DERIVE A PROMISE DATE.  A CONSTANT NUMBER  <<<**         
+      **>>> OF DAYS IS ADDED TO THE CURRENT DATE TO PRODUCE THIS  <<<**         
+      **>>> FUNKY PROMISE DATE.                                   <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       CFSPDT-SET-PROMISE-DATE-FAROUT.                                          
+           COMPUTE CFWPDT-INTEGER-DATE = CFWPDT-FAROUT-DAYS +                   
+                   FUNCTION INTEGER-OF-DAY(CFWPDT-CURRENT-JULIAN-DATE)          
+           COMPUTE CFWPDT-FAROUT-JULIAN-DATE =                                  
+                   FUNCTION DAY-OF-INTEGER(CFWPDT-INTEGER-DATE)                 
+           MOVE CFWPDT-FAR-JULDT-YYDDD TO CFWPDT-PROMISE-DATE.                  
+                                                                                

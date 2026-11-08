@@ -1,0 +1,310 @@
+﻿      *****************************************************************         
+      *  ORSPRCVR :                                                   *         
+      *          1.TO PERFORM PRICE VARIANCE LOGIC WHEN NEEDED.       *         
+      *-----                                                          *         
+      *  IN ORDER TO USE THIS IN OTHER PROGRAMS,HAVE TO LOOK AT THE   *         
+      *   BASE DESIGN IN ORP673IM FOR MORE DETAILS.                   *         
+      *  HAVE TO MAKE SURE THAT BEFORE COMING HERE                    *         
+      *  1. WE READ INSHED.                                           *         
+      *  2. WE PERFORMED PRICING CALL TO GET INGRAM PRICE.            *         
+      *  3. WE READ REDI & ABLE DB2 TABLES TO GET ALL THE DIFF FLAGS  *         
+      *      AND FIELDS THAT ARE USED HERE.                           *         
+      *  4. WE POPULATE ALL THE NECESSARY FIELDS IN ORWPRCVR.         *         
+      *-----                                                          *         
+      * THIS LOGIC IS MIMICED FROM EDI PRICE VARIANCE LOGIC IN EDP740 *         
+      * THIS MODULE SETS THE PRICE VARIANCE SW AND ERROR/WARNING FLAGS*         
+      *  NECESSARY ACTIONS SHOULD BE TAKEN IN CALLED PROGRAM,         *         
+      *   BASED ON THE O/P FROM THIS MODULE PER THEIR PROCESS.        *         
+      *-----                                                          *         
+      * O/P FIELDS FROM THIS MODULE.                                  *         
+      *    WS-ORWPRCVR-PRC-VARIANCE-SW VALUE OF 'Y' / 'N'.            *         
+      *    WS-ORWPRCVR-ERROR-WARN-FLAG VALUE OF 'E' / 'W' / 'N'       *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 07/13/06   ROR NEW COPYBOOK TO PERFORM "PRICE VARIANCE LOGIC" * ROR06194
+      *****************************************************************         
+      *                                                                         
+      *                                                                         
+       P050-CHECK-PRICE-VARIANCE.                                               
+      *                                                                         
+      *   MAKE SURE WE COME IN TO THIS PARA FROM CALLING PROGRAM                
+      *   ONLY FOR VALID PRODUCT LINES.                                         
+      *   ONLY WHEN CUSTOMER ENTERED PRICE IS GREATER THAN ZEROES.              
+      *   ASSUMPTION IS CUSTOMERS KNOW ON WHAT TYPE OF ORDERS THEY ARE          
+      *   TRYING TO OVERRIDE THE PRICE.                                         
+      *                                                                         
+           IF (WS-ORWPRCVR-OVER-FLG     = 'D' OR                                
+               WS-ORWPRCVR-OVER-FLG     = 'P' OR                                
+               WS-ORWPRCVR-OVER-FLG     = 'M' OR                                
+               WS-ORWPRCVR-UNDER-FLG    = 'D' OR                                
+               WS-ORWPRCVR-UNDER-FLG    = 'P' OR                                
+               WS-ORWPRCVR-UNDER-FLG    = 'M')                                  
+               IF WS-ORWPRCVR-FREE-ITEM-LINE                                    
+                  NEXT SENTENCE                                                 
+               ELSE                                                             
+                  PERFORM P051-PROCESS-PRICE-VARIANCE THRU P051-EXIT            
+               END-IF                                                           
+           ELSE                                                                 
+               GO TO P050-EXIT                                                  
+           END-IF.                                                              
+      *                                                                         
+      *  ANY ERROR FROM P051- PARA , WE SHOULD SKIP THE REST OF                 
+      *  THE PROCESS AND GO OUT FROM HERE.                                      
+      *                                                                         
+           IF WS-ORWPRCVR-ERROR-ON                                              
+              GO TO P050-EXIT                                                   
+           END-IF.                                                              
+      *                                                                         
+      ***************************************************************           
+      * OVERRIDE PRICE VARIANCE SWITCH IF NO VARIANCE IS SPECIFIED  *           
+      ***************************************************************           
+      *                                                                         
+           IF (WS-ORWPRCVR-CHK-CUST-PRC-FLG = 'U' OR                            
+               WS-ORWPRCVR-CHK-CUST-PRC-FLG = 'W' OR                            
+               WS-ORWPRCVR-CHK-CUST-PRC-FLG = 'Y' OR                            
+               WS-ORWPRCVR-CHK-CUST-PRC-FLG = 'C')                              
+               IF WS-ORWPRCVR-OVER-FLG   = 'N'                                  
+                  IF WS-ORWPRCVR-CUST-PRC > WS-ORWPRCVR-INGRAM-PRC              
+                     MOVE 'Y'            TO WS-ORWPRCVR-PRC-VARIANCE-SW         
+                  END-IF                                                        
+               END-IF                                                           
+               IF WS-ORWPRCVR-UNDER-FLG   = 'N'                                 
+                  IF WS-ORWPRCVR-CUST-PRC < WS-ORWPRCVR-INGRAM-PRC              
+                     MOVE 'Y'            TO WS-ORWPRCVR-PRC-VARIANCE-SW         
+                  END-IF                                                        
+               END-IF                                                           
+           END-IF.                                                              
+      *                                                                         
+           IF WS-ORWPRCVR-FREE-ITEM-LINE                                        
+              MOVE 'Y'                   TO WS-ORWPRCVR-PRC-VARIANCE-SW.        
+      *                                                                         
+      *   IN THIS PARA WE SET APPROPRIATE ERROR / WARNING SWITCHES              
+      *   WHEN NEEDED , SO THAT THEY CAN BE USED IN CALLING PROGRAM             
+      *   TO HANDLE PER EACH CALLING PROGRAM'S NEEDS.                           
+      *                                                                         
+           PERFORM P052-CHECK-VARIANCE-ERR-WARN THRU P052-EXIT.                 
+      *                                                                         
+       P050-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       P051-PROCESS-PRICE-VARIANCE.                                             
+      *                                                                         
+      * HAVE TO MAKE SOME MODIFICATIONS HERE.                                   
+      *  LIKE REPLACING IF STATEMENTS WITH EVALUATE STATEMENTS,                 
+      *   WHEN DOING OVER / UNDER COMPARASIONS.                                 
+      *                                                                         
+                                                                                
+           IF WS-ORWPRCVR-INGRAM-PRC = WS-ORWPRCVR-CUST-PRC                     
+               GO TO P051-EXIT.                                                 
+      *                                                                         
+           IF WS-ORWPRCVR-INGRAM-PRC = ZEROES                                   
+              MOVE 'Y'            TO WS-ORWPRCVR-PRC-VARIANCE-SW                
+              SET WS-ORWPRCVR-ERROR-ON TO TRUE                                  
+              GO TO P051-EXIT.                                                  
+      *                                                                         
+           IF WS-ORWPRCVR-CHK-CUST-PRC-FLG = 'N'                                
+              GO TO P051-EXIT.                                                  
+      *                                                                         
+269001     COMPUTE WS-ORWPRCVR-PRICE-DIFF = WS-ORWPRCVR-INGRAM-PRC -            
+269002                                  WS-ORWPRCVR-CUST-PRC.                   
+269003     COMPUTE WS-ORWPRCVR-PCT = (WS-ORWPRCVR-PRICE-DIFF /                  
+269004                            WS-ORWPRCVR-INGRAM-PRC).                      
+269005                                                                          
+269006     IF WS-ORWPRCVR-CUST-PRC > 0                                          
+269007                                                                          
+269008        COMPUTE WS-ORWPRCVR-IMI-MAR = ((WS-ORWPRCVR-INGRAM-PRC -          
+269009                                  WS-ORWPRCVR-ADJUSTED-COST) /            
+269010                                  WS-ORWPRCVR-INGRAM-PRC)                 
+269011        COMPUTE WS-ORWPRCVR-CUST-MAR = ((WS-ORWPRCVR-CUST-PRC -           
+269012                                   WS-ORWPRCVR-ADJUSTED-COST) /           
+269013                                   WS-ORWPRCVR-CUST-PRC)                  
+269014        COMPUTE WS-ORWPRCVR-MARGIN-DIFF = WS-ORWPRCVR-IMI-MAR -           
+269015                                      WS-ORWPRCVR-CUST-MAR                
+269016                                                                          
+269017        IF WS-ORWPRCVR-MARGIN-DIFF < 0                                    
+269018           COMPUTE WS-ORWPRCVR-ABS-MGN-DIFF =                             
+269019                               WS-ORWPRCVR-MARGIN-DIFF * -1               
+269020        ELSE                                                              
+269021           MOVE WS-ORWPRCVR-MARGIN-DIFF TO                                
+269021                WS-ORWPRCVR-ABS-MGN-DIFF                                  
+269022     END-IF.                                                              
+269023                                                                          
+269024     IF WS-ORWPRCVR-CUST-PRC < WS-ORWPRCVR-INGRAM-PRC AND                 
+269025        WS-ORWPRCVR-UNDER-FLG = 'P'                                       
+269026       IF WS-ORWPRCVR-UNDER-AMT NUMERIC                                   
+269027         IF WS-ORWPRCVR-PCT < WS-ORWPRCVR-UNDER-AMT                       
+269028             MOVE 'Y'            TO WS-ORWPRCVR-PRC-VARIANCE-SW           
+269029         ELSE                                                             
+269030             MOVE 'N'            TO WS-ORWPRCVR-PRC-VARIANCE-SW           
+269031         END-IF                                                           
+269032       END-IF                                                             
+269033     END-IF.                                                              
+269034                                                                          
+269035     IF WS-ORWPRCVR-CUST-PRC < WS-ORWPRCVR-INGRAM-PRC AND                 
+269036        WS-ORWPRCVR-UNDER-FLG = 'M' AND                                   
+269037        WS-ORWPRCVR-CUST-PRC > 0                                          
+269038       IF WS-ORWPRCVR-UNDER-AMT NUMERIC                                   
+269039         IF WS-ORWPRCVR-ABS-MGN-DIFF < WS-ORWPRCVR-UNDER-AMT              
+269040             MOVE 'Y'            TO WS-ORWPRCVR-PRC-VARIANCE-SW           
+269041         ELSE                                                             
+269042             MOVE 'N'            TO WS-ORWPRCVR-PRC-VARIANCE-SW           
+269043         END-IF                                                           
+269044       END-IF                                                             
+269045     END-IF.                                                              
+269046                                                                          
+269047     IF WS-ORWPRCVR-CUST-PRC < WS-ORWPRCVR-INGRAM-PRC AND                 
+269048        WS-ORWPRCVR-UNDER-FLG = 'D'                                       
+269049       IF WS-ORWPRCVR-UNDER-AMT NUMERIC                                   
+269050         IF WS-ORWPRCVR-PRICE-DIFF < WS-ORWPRCVR-UNDER-AMT                
+269051             MOVE 'Y'            TO WS-ORWPRCVR-PRC-VARIANCE-SW           
+269052         ELSE                                                             
+269053             MOVE 'N'            TO WS-ORWPRCVR-PRC-VARIANCE-SW           
+269054         END-IF                                                           
+269055       END-IF                                                             
+269056     END-IF.                                                              
+269057                                                                          
+269058     COMPUTE WS-ORWPRCVR-ABS-PRC-DIFF =                                   
+269059                               WS-ORWPRCVR-PRICE-DIFF * -1.               
+269060                                                                          
+269061     COMPUTE WS-ORWPRCVR-ABS-PCT =                                        
+269062                               WS-ORWPRCVR-PCT * -1.                      
+269063                                                                          
+269064     IF WS-ORWPRCVR-CUST-PRC > WS-ORWPRCVR-INGRAM-PRC AND                 
+269065        WS-ORWPRCVR-OVER-FLG = 'P'                                        
+269066       IF WS-ORWPRCVR-OVER-AMT NUMERIC                                    
+269067         IF WS-ORWPRCVR-ABS-PCT > WS-ORWPRCVR-OVER-AMT                    
+269068           MOVE 'N'            TO WS-ORWPRCVR-PRC-VARIANCE-SW             
+269069         ELSE                                                             
+269070           MOVE 'Y'            TO WS-ORWPRCVR-PRC-VARIANCE-SW             
+269071         END-IF                                                           
+269072       END-IF                                                             
+269073     END-IF.                                                              
+269074                                                                          
+269075     IF WS-ORWPRCVR-CUST-PRC > WS-ORWPRCVR-INGRAM-PRC AND                 
+269076        WS-ORWPRCVR-OVER-FLG = 'M'                                        
+269077       IF WS-ORWPRCVR-OVER-AMT NUMERIC                                    
+269078         IF WS-ORWPRCVR-ABS-MGN-DIFF > WS-ORWPRCVR-OVER-AMT               
+269079             MOVE 'N'            TO WS-ORWPRCVR-PRC-VARIANCE-SW           
+269080         ELSE                                                             
+269081            MOVE 'Y'            TO WS-ORWPRCVR-PRC-VARIANCE-SW            
+269082         END-IF                                                           
+269083       END-IF                                                             
+269084     END-IF.                                                              
+269085                                                                          
+269086     IF WS-ORWPRCVR-CUST-PRC > WS-ORWPRCVR-INGRAM-PRC AND                 
+269087        WS-ORWPRCVR-OVER-FLG = 'D'                                        
+269088       IF WS-ORWPRCVR-OVER-AMT NUMERIC                                    
+269089         IF WS-ORWPRCVR-ABS-PRC-DIFF > WS-ORWPRCVR-OVER-AMT               
+269090             MOVE 'N'            TO WS-ORWPRCVR-PRC-VARIANCE-SW           
+269091         ELSE                                                             
+269092             MOVE 'Y'            TO WS-ORWPRCVR-PRC-VARIANCE-SW           
+269093         END-IF                                                           
+269094       END-IF                                                             
+269095     END-IF.                                                              
+      *                                                                         
+       P051-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+      *                                                                         
+       P052-CHECK-VARIANCE-ERR-WARN.                                            
+      *                                                                         
+      ***************************************************************           
+      ** CHECK PRICE VARIANCE LOGIC:                               **           
+      ** 5 OPTIONS:                                                **           
+      ** 'N' - DEFAULT / NO PRICE LOGIC. ACCEPT INGRAM PRICE       **           
+      **                                                           **           
+      ** +NOTE+ IF VARIANCE SETTINGS ARE BLANK,PRICE VARIANCE FLAG **           
+      **        WILL BE SET TO ACCEPT VARIANCE.                    **           
+      **                                                           **           
+      ** 'Y' - CHECK-CUST-PRICE / USE IM PRICE. ACCEPT IF WITHIN   **           
+      **       VARIANCE OTHERWISE REJECT.                          **           
+      ** 'C' - CHECK-PRICE-ACCEPT / USE IM PRICE. ACCEPT PRICE IF  **           
+      **       WITHIN VARIANCE OTHERWISE ACCEPT WITH WARNING.      **           
+      ** 'U' - USE-CUST-PRICE / USE CUSTOMER PRICE. ACCEPT IF      **           
+      **       WITHIN VARIANCE OTHERWISE REJECT                    **           
+      ** 'W' - USE-CUST-PRICE-ACCEPT / USE CUSTOMER PRICE. ACCEPT  **           
+      **       PRICE WITHIN VARIANCE OTHERWISE ACCEPT WITH WARNING **           
+      ***************************************************************           
+      *                                                                         
+      ***************************************************************           
+      **  'Y'  CHECK CUST PRICE, IF OUTSIDE OF VARIANCE REJECT.    **           
+      ***************************************************************           
+           IF WS-ORWPRCVR-CHK-CUST-PRC-FLG = 'Y'                                
+              IF WS-ORWPRCVR-INGRAM-PRC = WS-ORWPRCVR-CUST-PRC                  
+                 NEXT SENTENCE                                                  
+              ELSE                                                              
+                 IF WS-ORWPRCVR-INGRAM-PRC > WS-ORWPRCVR-CUST-PRC               
+                    IF WS-ORWPRCVR-ACCEPT-VARIANCE                              
+                       NEXT SENTENCE                                            
+                    ELSE                                                        
+                       SET WS-ORWPRCVR-ERROR-ON TO TRUE                         
+                 ELSE                                                           
+                    IF WS-ORWPRCVR-INGRAM-PRC < WS-ORWPRCVR-CUST-PRC            
+                       IF WS-ORWPRCVR-ACCEPT-VARIANCE                           
+                          NEXT SENTENCE                                         
+                       ELSE                                                     
+                          SET WS-ORWPRCVR-ERROR-ON TO TRUE.                     
+      *                                                                         
+      ***************************************************************           
+      **  'C' CHECK CUST PRICE ACCEPT, WARN IF OUT OF VARIANCE     **           
+      ***************************************************************           
+      *                                                                         
+           IF WS-ORWPRCVR-CHK-CUST-PRC-FLG = 'C'                                
+              IF WS-ORWPRCVR-INGRAM-PRC = WS-ORWPRCVR-CUST-PRC                  
+                  NEXT SENTENCE                                                 
+              ELSE                                                              
+                 IF WS-ORWPRCVR-INGRAM-PRC > WS-ORWPRCVR-CUST-PRC               
+                    IF WS-ORWPRCVR-ACCEPT-VARIANCE                              
+                       NEXT SENTENCE                                            
+                    ELSE                                                        
+                        SET WS-ORWPRCVR-WARNING-ON TO TRUE                      
+               ELSE                                                             
+                  IF WS-ORWPRCVR-INGRAM-PRC < WS-ORWPRCVR-CUST-PRC              
+                     IF WS-ORWPRCVR-ACCEPT-VARIANCE                             
+                        NEXT SENTENCE                                           
+                     ELSE                                                       
+                        SET WS-ORWPRCVR-WARNING-ON TO TRUE.                     
+      *                                                                         
+      ***************************************************************           
+      **  'U'   USE CUST PRICE IF OUTSIDE OF VARIANCE REJECT       **           
+      ***************************************************************           
+      *                                                                         
+           IF WS-ORWPRCVR-CHK-CUST-PRC-FLG = 'U'                                
+              IF WS-ORWPRCVR-INGRAM-PRC = WS-ORWPRCVR-CUST-PRC                  
+                   NEXT SENTENCE                                                
+               ELSE                                                             
+                  IF WS-ORWPRCVR-INGRAM-PRC > WS-ORWPRCVR-CUST-PRC              
+                     IF WS-ORWPRCVR-ACCEPT-VARIANCE                             
+                         NEXT SENTENCE                                          
+                     ELSE                                                       
+                        SET WS-ORWPRCVR-ERROR-ON TO TRUE                        
+                  ELSE                                                          
+                     IF WS-ORWPRCVR-INGRAM-PRC < WS-ORWPRCVR-CUST-PRC           
+                        IF WS-ORWPRCVR-ACCEPT-VARIANCE                          
+                           NEXT SENTENCE                                        
+                        ELSE                                                    
+                           SET WS-ORWPRCVR-ERROR-ON TO TRUE.                    
+      *                                                                         
+      ***************************************************************           
+      **   'W' USE CUST PRICE ACCEPT, IF OUT OF VARIANCE WARN      **           
+      ***************************************************************           
+      *                                                                         
+           IF WS-ORWPRCVR-CHK-CUST-PRC-FLG = 'W'                                
+              IF WS-ORWPRCVR-INGRAM-PRC = WS-ORWPRCVR-CUST-PRC                  
+                 NEXT SENTENCE                                                  
+               ELSE                                                             
+                  IF WS-ORWPRCVR-INGRAM-PRC > WS-ORWPRCVR-CUST-PRC              
+                     IF WS-ORWPRCVR-ACCEPT-VARIANCE                             
+                        NEXT SENTENCE                                           
+                     ELSE                                                       
+                        SET WS-ORWPRCVR-WARNING-ON TO TRUE                      
+                   ELSE                                                         
+                      IF WS-ORWPRCVR-INGRAM-PRC < WS-ORWPRCVR-CUST-PRC          
+                         IF WS-ORWPRCVR-ACCEPT-VARIANCE                         
+                            NEXT SENTENCE                                       
+                         ELSE                                                   
+                            SET WS-ORWPRCVR-WARNING-ON TO TRUE.                 
+      *                                                                         
+       P052-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         

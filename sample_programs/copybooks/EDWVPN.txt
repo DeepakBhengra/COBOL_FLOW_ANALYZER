@@ -1,0 +1,89 @@
+      *================================================================*        
+      *  COPYBOOK: EDWVPN                                              *        
+      *  WORKING STORAGE FOR EDSVPN                                    *        
+      *================================================================*        
+      * REVISION INFO:                                                 *        
+      * 04/07/18 KZC ADDDED VARIABLES FOR SCRUBBING THE EXTENDED       *KZC18097
+      *              VENDOR PART NUMBER.                               *KZC18097
+      * 08/05/17 SXR NEW COPYBOOK                                      *        
+      *================================================================*        
+       01 EDWVPN-WORKING-STORAGE.                                               
+                                                                                
+      * VARIABLES FOR SCRUBBING                                         KZC18097
+           05  EDWVPN-PARTIAL-SKU1          PIC X(20).                  KZC18097
+           05  EDWVPN-PARTIAL-SKU2          PIC X(20).                  KZC18097
+           05  WS-PART-SCRUBD               PIC X(40).                  KZC18097
+           05  EDWVPN-PART-ALIGNMENT1.                                  KZC18097
+               10  EDWVPN-PART-ALIGN1       PIC X(20)  VALUE SPACES.    KZC18097
+               10  EDWVPN-PART-STOP1        PIC X(01)  VALUE HIGH-VALUE.KZC18097
+           05  EDWVPN-PART-ALIGNMENT2.                                  KZC18097
+               10  EDWVPN-PART-ALIGN2       PIC X(20)  VALUE SPACES.    KZC18097
+               10  EDWVPN-PART-STOP2        PIC X(01)  VALUE HIGH-VALUE.KZC18097
+           05  EDWVPN-CNTR.                                             KZC18097
+               10  EDWVPN-CNTR00            PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR0             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR1             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR2             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR3             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR4             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR5             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR6             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR7             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR8             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR9             PIC 9(2) VALUE ZEROES.      KZC18097
+               10  EDWVPN-CNTR10            PIC 9(2) VALUE ZEROES.      KZC18097
+      *                                                                 KZC18097
+      * SWITCHES & COUNTERS                                                     
+           05  EDWVPN-DATA-FOUND-SW          PIC X(01)   VALUE ' '.             
+               88 EDWVPN-DATA-FOUND                      VALUE 'Y'.             
+               88 EDWVPN-DATA-NOT-FND                    VALUE 'N'.             
+           05  EDWVPN-AUTH-DATA-FOUND-SW     PIC X(01)   VALUE ' '.             
+               88 EDWVPN-AUTH-DATA-FOUND                 VALUE 'Y'.             
+               88 EDWVPN-AUTH-DATA-NOT-FND               VALUE 'N'.             
+           05  EDWVPN-DUPLICATE-FOUND-SW     PIC X(01)   VALUE ' '.             
+               88 EDWVPN-DUPLICATE-FOUND                 VALUE 'Y'.             
+               88 EDWVPN-DUPLICATE-NOT-FND               VALUE 'N'.             
+           05  EDWVPN-ENDOF-IMPART-FETCH-SW  PIC X(01)   VALUE ' '.             
+               88 EDWVPN-ENDOF-IMPART-FETCH              VALUE 'Y'.             
+               88 EDWVPN-NOT-END-IMPART-FETCH            VALUE 'N'.             
+           05  EDWVPN-IMPART-FETCH-COUNT     PIC 9(04)   VALUE ZEROS.           
+      * PROCESS/EVENT SWITCHES                                                  
+           05  EDWVPN-EVENT-SW               PIC X(04)   VALUE SPACES.          
+               88 EDWVPN-FETCH-EXVPN                     VALUE 'FVPN'.          
+               88 EDWVPN-FETCH-IMPART                    VALUE 'FIMP'.          
+      * WORKING VALUES - INPUT & OUTPUT                                         
+           05  EDWVPN-IP-CO-CD         PIC X(02) VALUE SPACES.                  
+           05  EDWVPN-IP-IM-PART-NBR   PIC X(12) VALUE SPACES.                  
+           05  EDWVPN-IP-EXT-VPN       PIC X(40) VALUE SPACES.                  
+           05  EDWVPN-IP-SCR-EXT-VPN   PIC X(40) VALUE SPACES.          KZC18097
+           05  EDWVPN-OP-IM-PART-NBR   PIC X(12) VALUE SPACES.                  
+           05  EDWVPN-OP-EXT-VPN       PIC X(40) VALUE SPACES.                  
+                                                                                
+      * DB2 PROCESSING                                                          
+           05 EDWVPN-DB2-ERROR-AREA.                                            
+              10  EDWVPN-EXTRA-MESSAGE-1.                                       
+                  15 EDWVPN-DB2-ERROR-PARA PIC X(50)    VALUE SPACES.           
+                  15 FILLER                  PIC X(14)  VALUE                   
+                     'SQLCODE ERROR '.                                          
+                  15 EDWVPN-SQLCODE-STATUS PIC -ZZZZZ.                          
+                  15 FILLER                  PIC X(02)  VALUE SPACES.           
+                  15 EDWVPN-DB2-PGM-ERROR    PIC X(08)  VALUE SPACES.           
+                                                                                
+      * CURSOR FOR FETCHING IM PART NBR FROM PL_PARTS_LOCATOR                   
+           EXEC SQL                                                             
+                DECLARE PARTS_CSR CURSOR FOR                                    
+                SELECT  PART_NBR                                                
+                  FROM  PL_PARTS_LOCATOR                                        
+                 WHERE CO_CD                  = :EDWVPN-IP-CO-CD        KZC18097
+                   AND SCR_EXT_VEND_PART_NBR  = :EDWVPN-IP-SCR-EXT-VPN  KZC18097
+           END-EXEC.                                                            
+                                                                                
+      * CURSOR FOR FETCHING EXTENDED VPN FROM PL_PARTS_LOCATOR                  
+           EXEC SQL                                                             
+                DECLARE EXVPN_CSR CURSOR FOR                                    
+                SELECT  EXT_VEND_PART_NBR                                       
+                  FROM  PL_PARTS_LOCATOR                                        
+                 WHERE CO_CD    = :EDWVPN-IP-CO-CD                              
+                   AND PART_NBR = :EDWVPN-IP-IM-PART-NBR                        
+           END-EXEC.                                                            
+                                                                        KZC18097

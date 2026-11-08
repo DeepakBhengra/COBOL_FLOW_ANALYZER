@@ -1,0 +1,281 @@
+﻿000100******************************************************************        
+000110*                                                                *        
+000120*    APPLY ACOP TO THE PRICE COPYBOOK                            *        
+000130*                                                                *        
+000140*        THIS COPYBOOK APPLIES ACOP DISCOUNT TO THE PRICE        *        
+000150*    BASED ON THE PART/CUSTOMER OR VENDOR/CUSTOMER ACOP INCLUDE  *        
+000160*    INDICATORS                                                  *        
+000170*                                                                *        
+000192******************************************************************        
+      * 07/03/22 MP4 BRLINK PROJECT- ADDED NEW COMPANY 'BL'            *MP422184
+      * 03/18/22 EXU MEXICO ACOP FIX                                   *EXU22077
+      * 08/07/20 MXV ADD TERM SKU LOGIC                                *MXV20220
+      *          SYJ REMOVED DELTA COMPUTATION AND MOVED THE LOGIC TO  *SYJ20220
+      *              ICSCOP AS A PART OF CISCO NET PRICING PROJECT.    *SYJ20220
+      * 07/17/20 SYJ BRAZIL ENHANCE ACOP PROJECT - COMPUTE DELTA PRICE *SYJ20199
+      *              WITH PROPER CONVERSION FOR FOREIGN CURRENCY       *SYJ20199
+      * 03/16/18 EXU MEXICO ACOP PROJECT                               *EXU18075
+000193* 06/19/09 NXJ FIX TO CHECK UNIT-PRICE TO AVOID DIVISION BY ZERO  INF09170
+000193*              AND AVOID SOC7 (ISB040)                            INF09170
+000193* 05/06/08 MXK ADD SPECIAL PRICING LOGIC                          MXK08127
+000194*               REMOVED WS-GROSS-MARGIN-COL-PRICING CONDITION     MXK08127
+000195*               FOR ACOP BTL PRICING                              MXK08127
+000196* 03/06/08 MXK USE WS-REQ-PCT (4 DECIMALS) INSTEAD OF             MXK08066
+000197*              WS-MIN-MARGIN (2 DECIMALS) IN 'P' CALCULATION      MXK08066
+000198* 02/26/08 MXK CHANGED CALCULATION FOR ADJ COST BTL PRICING       MXK08057
+000199* 01/31/08 MXK CHANGED COST PLUS LOGIC CALCULATION                MXK08031
+000200* 01/28/08 MXK FIXED G/J CALCULATION FOR SYSTEM ITEMS             MXK08028
+000201*              USE ICWCOP-AVG-COST FOR ACOP-PRICE-CALC-MARGIN &   MXK08028
+000202*              FOR G/J CALCULATION                                MXK08028
+000203*          GLS CHG STMP FR MXK08031 TO MXK08028                   MXK08028
+000204* 01/14/08 MXK SSEU ENHANCED ACOP PROJECT:                        MXK08014
+000205*              INITIAL IMPLEMENTATION                             MXK08014
+000206******************************************************************        
+000207*                                                                         
+000208 CP901-COST-PLUS-LOGIC.                                                   
+000209*                                                                         
+000210     SET WS-PRC-ACOP-COST-PLUS    TO TRUE                                 
+000211*                                                                         
+000212*    CHECK TO SEE IF CUSTOMER HAS ITEM LEVEL PRICING                      
+000213*                                                                         
+000214     IF WS-PRC-ACOP-COST-PLUS                                             
+000215        IF  WS-PRC-ITEM-PRICING-AVAIL                                     
+000216        AND WS-CUST-PXLMST-PRICING                                        
+000217** BASED ON CU-PRICE-CODE                                                 
+000218            PERFORM 910-PXMAST-PRICING                                    
+000219            IF  WS-HAVE-PRICING-SEG                                       
+000220            AND PX-ACOP-PRICE-OVERRIDE                                    
+000221                PERFORM 970-GENERATE-PRICE                                
+000222                SET WS-PRC-ACOP-COST-PLUS-FOUND  TO TRUE                  
+000223                GO TO CP901-COST-PLUS-LOGIC-EXIT                          
+000224            ELSE                                                          
+000225                SET WS-PRC-ACOP-COST-PLUS-PXMAST TO TRUE.                 
+000226                                                                          
+000227     IF WS-PRC-ACOP-COST-PLUS                                             
+000228     OR WS-PRC-ACOP-COST-PLUS-PXMAST                                      
+000229        IF WS-CUST-VENDOR-LEVEL-PRICING                                   
+000230        AND WS-PRC-VENDOR-PRICING-AVAIL                                   
+000231            SET WS-CUSPRC-ACOP-PRICE-OVERRIDE TO TRUE                     
+000232            PERFORM M974-VENDOR-PRICING THRU M974-EXIT                    
+000233            IF WS-PRICE-VENDOR-PRICING                                    
+000234               PERFORM 970-GENERATE-PRICE                                 
+000235               SET WS-PRC-ACOP-COST-PLUS-FOUND  TO TRUE                   
+000236               GO TO CP901-COST-PLUS-LOGIC-EXIT                           
+000237            ELSE                                                          
+000238               MOVE SPACE         TO WS-CUSPRC-KEY-TYPE                   
+000239               IF NOT WS-PRC-ACOP-COST-PLUS-PXMAST                        
+000240                  MOVE SPACE      TO WS-PRC-ACOP-COST-PLUS-IND.           
+000241                                                                          
+000242*                                                                         
+000243 CP901-COST-PLUS-LOGIC-EXIT.                                              
+000244     EXIT.                                                                
+000245*                                                                         
+000246 CP902-APPLY-ACOP.                                                        
+000247*                                                                         
+000248     IF TB-ACOP-BTL-PRICING                                               
+000249     AND COP-BTL-OVERRIDE                                                 
+000251     AND (   WS-GROSS-MARGIN-COL-PRICING                                  
+000252          OR WS-ADJ-COST-COL-PRICING )                                    
+000253         SET ICWCOP-ACOP-BTL-PRICING     TO TRUE                          
+000254     ELSE                                                                 
+000255         MOVE SPACE          TO ICWCOP-ACOP-BTL-PRICING-IND               
+000260     END-IF                                                               
+000270                                                                          
+000300     IF WS-CU-DO-NOT-REPRICE                                              
+000301        SET ICWCOP-ACOP-APLY-IND-FR-CUSHED    TO TRUE.                    
+000302                                                                          
+000304     IF TB-ACOP-PASS-TO-PRICE-NO                                          
+000305     OR WS-CU-DO-NOT-REPRICE                                              
+000306     OR ICWCOP-TOT-ACOP-DELTA-PRC = ZERO                                  
+000307        MOVE ZERO           TO ICWCOP-ACOP-DELTA-TO-PRICE                 
+000308        SET ICWCOP-APPLY-NO-ACOP              TO TRUE                     
+000310        IF ICWCOP-ACOP-BTL-PRICING                                        
+000320           PERFORM CP903-ACOP-BTL-PRICING                                 
+000330        ELSE                                                              
+000500           MOVE WS-UNIT-PRICE  TO WS-PROGRAM-CONTRACT-PRICE               
+000800        END-IF                                                            
+000810        GO TO CP902-EXIT.                                                 
+000920                                                                          
+000950                                                                          
+000960*==> DETERMINE HOLD BACK PERCENT                                          
+000961     MOVE ZERO                           TO ICWCOP-HB-PERCENT             
+000970     IF  TB-ACOP-APPLY-HB                                                 
+000971     AND ICWCOP-TOT-ACOP-DELTA-PRC > ZERO                                 
+000980         IF WS-PRICE-PART-XREF                                            
+000990         AND PX-HB-FILLER NOT = SPACE                                     
+000991         AND NOT PX-INCL-NO-DISCOUNT                                      
+000992             MOVE PX-HB-PERCENT          TO ICWCOP-HB-PERCENT             
+000993             SET ICWCOP-HB-FR-PXLMST     TO TRUE                          
+000994         ELSE                                                             
+000995           IF  WS-PRICE-VENDOR-PRICING                                    
+000996           AND NOT CUV-INCL-NO-DISCOUNT                                   
+000997           AND CUV-HB-PERCENT IS NUMERIC                                  
+000998               MOVE CUV-HB-PERCENT       TO ICWCOP-HB-PERCENT             
+000999               SET ICWCOP-HB-FR-CUSPRC   TO TRUE                          
+001000           ELSE                                                           
+001001             IF VNH-HB-PERCENT IS NUMERIC                                 
+001002                MOVE VNH-HB-PERCENT      TO ICWCOP-HB-PERCENT             
+001003                SET ICWCOP-HB-FR-VNSHED  TO TRUE                          
+001004             ELSE                                                         
+001005             IF TB-ACOP-HB-PERCENT IS NUMERIC                             
+001006                MOVE TB-ACOP-HB-PERCENT  TO ICWCOP-HB-PERCENT             
+001007                SET ICWCOP-HB-FR-TBXACOP TO TRUE                          
+001008             END-IF                                                       
+001009           END-IF                                                         
+001010         END-IF                                                           
+001013     END-IF.                                                              
+001014                                                                          
+001196                                                                          
+001200     EVALUATE TRUE                                                        
+001300      WHEN WS-PRICE-PART-XREF                                             
+001500       MOVE PX-INCL-DISCOUNT-IND    TO WS-PRC-INCL-DISCOUNT-IND           
+001501       IF INI-SYSTEMS-ITEM                                                
+001502          CONTINUE                                                        
+001503       ELSE                                                               
+001504          MOVE ICWCOP-PART-CUST-ACOP-DELTA                                
+001505                                    TO WS-PRC-CUST-ACOP-DELTA             
+001506       END-IF                                                             
+001510       SET  ICWCOP-ACOP-APLY-IND-FR-PXLMST  TO TRUE                       
+001600      WHEN WS-PRICE-VENDOR-PRICING                                        
+001800       MOVE CUV-INCL-DISCOUNT-IND   TO WS-PRC-INCL-DISCOUNT-IND           
+001801       IF INI-SYSTEMS-ITEM                                                
+001802          CONTINUE                                                        
+001803       ELSE                                                               
+001804          MOVE ICWCOP-VEND-CUST-ACOP-DELTA                                
+001805                                    TO WS-PRC-CUST-ACOP-DELTA             
+001806       END-IF                                                             
+001810       SET  ICWCOP-ACOP-APLY-IND-FR-CUSPRC  TO TRUE                       
+001811      WHEN WS-PRICE-PROMOTIONAL                                   MXK08127
+001812      WHEN WS-PRICE-ECOM-PROMOTIONAL                              MXK08127
+001823       MOVE TB-ACOP-SPEC-PRC-DISC-DFT-SW                          MXK08127
+001824                                    TO WS-PRC-INCL-DISCOUNT-IND   MXK08127
+001825       MOVE ZERO                    TO WS-PRC-CUST-ACOP-DELTA     MXK08127
+001826       SET  ICWCOP-ACOP-APLY-IND-FR-TBXACP                        MXK08127
+001827                                    TO TRUE                       MXK08127
+001841      WHEN OTHER                                                          
+001842       MOVE TB-ACOP-PRICE-DISC-DFLT-IND                                   
+001850                                    TO WS-PRC-INCL-DISCOUNT-IND           
+001860       MOVE ZERO                 TO WS-PRC-CUST-ACOP-DELTA                
+001891       SET  ICWCOP-ACOP-APLY-IND-FR-TBXACP                                
+001892                                    TO TRUE                               
+001900     END-EVALUATE                                                         
+002000                                                                          
+002601     IF INI-SYSTEMS-ITEM                                                  
+002602        IF WS-PRC-INCL-VALID-SI-DISCOUNT                                  
+002603           CONTINUE                                                       
+002604        ELSE                                                              
+002605           SET WS-PRC-INCL-NO-DISCOUNT  TO TRUE                           
+002606        END-IF                                                            
+002607     ELSE                                                                 
+002608        IF WS-PRC-INCL-VALID-DISCOUNT                                     
+002609           CONTINUE                                                       
+002610        ELSE                                                              
+002611           SET WS-PRC-INCL-NO-DISCOUNT  TO TRUE                           
+002612        END-IF                                                            
+002613     END-IF                                                               
+002620                                                                          
+002700     MOVE WS-UNIT-PRICE           TO WS-PROGRAM-CONTRACT-PRICE            
+002701     MOVE ZERO                    TO ICWCOP-ACOP-DELTA-TO-PRICE           
+002702                                                                          
+002703     EVALUATE TRUE                                                        
+002710      WHEN WS-PRC-INCL-PGM-DISCOUNTS                                      
+002711         SET ICWCOP-APPLY-PGM-ACOP  TO TRUE                               
+002720         MOVE ICWCOP-PRG-ACOP-DELTA-PRC                                   
+002721                                    TO ICWCOP-ACOP-DELTA-TO-PRICE         
+002760         IF ICWCOP-ACOP-BTL-PRICING                                       
+002770            PERFORM CP903-ACOP-BTL-PRICING                                
+002780         END-IF                                                           
+002795      WHEN WS-PRC-INCL-INCREMENTAL                                        
+002796         SET ICWCOP-APPLY-INCREMENT-ACOP    TO TRUE                       
+002797         COMPUTE ICWCOP-ACOP-DELTA-TO-PRICE ROUNDED =                     
+002798           ICWCOP-TOT-ACOP-DELTA-PRC - WS-PRC-CUST-ACOP-DELTA             
+002804         IF ICWCOP-ACOP-BTL-PRICING                                       
+002805            PERFORM CP903-ACOP-BTL-PRICING                                
+002806         END-IF                                                           
+002820      WHEN WS-PRC-INCL-ALL-DISCOUNTS                                      
+002830         SET ICWCOP-APPLY-TOT-ACOP  TO TRUE                               
+002840         MOVE ICWCOP-TOT-ACOP-DELTA-PRC                                   
+002900                                 TO ICWCOP-ACOP-DELTA-TO-PRICE            
+003300         IF ICWCOP-ACOP-BTL-PRICING                                       
+003400            PERFORM CP903-ACOP-BTL-PRICING                                
+003500         END-IF                                                           
+004100      WHEN WS-PRC-INCL-NO-DISCOUNT                                        
+004110         SET ICWCOP-APPLY-NO-ACOP   TO TRUE                               
+004140         IF ICWCOP-ACOP-BTL-PRICING                                       
+004150            PERFORM CP903-ACOP-BTL-PRICING                                
+004160         END-IF                                                           
+004200      WHEN WS-PRC-ACOP-PRICE-COSTPLUS                                     
+004201         SET ICWCOP-APPLY-PRICE-COSTPLUS       TO TRUE                    
+004210      WHEN WS-PRC-ACOP-PRICE-MARGIN                                       
+004220         SET  ICWCOP-APPLY-PRICE-MARGIN        TO TRUE                    
+004410      WHEN WS-PRC-ACOP-PRICE-CALC-MARGIN                                  
+004420         SET ICWCOP-APPLY-PRICE-CALC-MARGIN    TO TRUE                    
+               IF WS-UNIT-PRICE = ZERO                                  INF09170
+004431            MOVE ZERO          TO WS-PROGRAM-CONTRACT-PRICE       INF09170
+004432         ELSE                                                     INF09170
+004430            COMPUTE WS-REQ-PCT ROUNDED =                          INF09170
+004431               (WS-UNIT-PRICE  -  SYRPWSA-INSBRN-AVG-COST)        INF09170
+004432                               /  WS-UNIT-PRICE                   INF09170
+004440            COMPUTE WS-PROGRAM-CONTRACT-PRICE ROUNDED =           INF09170
+004441            (SYRPWSA-INSBRN-AVG-COST - ICWCOP-TOT-ACOP-DELTA-PRC) MXK08031
+004442                              / (1 - WS-REQ-PCT)                  INF09170
+004443            IF WS-PROGRAM-CONTRACT-PRICE < ZERO                   INF09170
+004444               MOVE ZERO         TO WS-PROGRAM-CONTRACT-PRICE     INF09170
+004445            END-IF                                                INF09170
+               END-IF                                                   INF09170
+004450     END-EVALUATE                                                         
+004460                                                                          
+004461     COMPUTE ICWCOP-ACOP-DELTA-TO-PRICE ROUNDED =                         
+004470             ICWCOP-ACOP-DELTA-TO-PRICE -                                 
+004471            (ICWCOP-ACOP-DELTA-TO-PRICE *                                 
+004472                       ICWCOP-HB-PERCENT ).                       EXU18075
+                                                                        EXU18075
+      * IF CALL IS MADE FROM BATCH ROUTINE, TBXCONR TABLE IS READ       EXU18075
+      * FROM CALLING MODULE ITSELF. THIS IS TO AVOID BELOW READ.        EXU18075
+      * SO THAT ONLINE ROUTINE SYU510 WILL NOT BE CALLED.               EXU18075
+                                                                        EXU18075
+           IF INI-COMPANY = 'MX'                                        EXU18075
+           AND VNH-EXCHG-RATE-CURR IS NUMERIC                           EXU18075
+           AND VNH-EXCHG-RATE-CURR IS GREATER THAN ZERO                 EXU18075
+              MOVE INI-COMPANY    TO TB-CURR-CO                         EXU18075
+              MOVE 'USD'          TO TB-CURR-FROM-CURR-CODE             EXU18075
+              MOVE 'MXP'          TO TB-CURR-TO-CURR-CODE               EXU18075
+              IF ICWCOP-PGM-BATCH                                       EXU18075
+                 CALL 'SYU500' USING TB-CURR-TABLE-IA                   EXU18075
+              ELSE                                                      EXU18075
+                 CALL 'SYU510' USING TB-CURR-TABLE-IA                   EXU18075
+              END-IF                                                    EXU18075
+           END-IF.                                                      EXU18075
+      *COMPUTE DELTA WITH PROPER CURRENCY RATE                          SYJ20199
+      *IF FOREIGN THE CURRENCY CODE WILL BE FROM VENDOR AND THE RATE    SYJ20199
+      *WILL BE FROM CONR TABLE.                                         SYJ20199
+      *ICPCOP WILL CALCULATE THE ICWCOP-VEND-CURR-RATE                  SYJ20199
+004480                                                                          
+           IF ICWCOP-TERM-SKU-PRICING                                   MXV20220
+           OR ((INI-COMPANY = 'BR' OR 'BL' OR 'BP') AND                 MP422184
+               (WS-PRC-EU-USE-END-USER)       AND                       SYJ20220
+               (ICWCOP-ACOP-DELTA-TO-PRICE IS NEGATIVE))                SYJ20220
+              CONTINUE                                                  MXV20220
+           ELSE                                                         MXV20220
+004494     IF WS-PRC-INCL-PGM-DISCOUNTS                                         
+004495     OR WS-PRC-INCL-INCREMENTAL                                           
+004496     OR WS-PRC-INCL-ALL-DISCOUNTS                                         
+004497         SUBTRACT ICWCOP-ACOP-DELTA-TO-PRICE                              
+004500                          FROM WS-PROGRAM-CONTRACT-PRICE.                 
+004610*                                                                         
+004620 CP902-EXIT.                                                              
+004630       EXIT.                                                              
+004700*                                                                         
+004701*                                                                         
+004710 CP903-ACOP-BTL-PRICING.                                                  
+004800*                                                                         
+      *--- FOR TERM SKU ICWCOP-ADJUSTED COST INCLUDES THE REVERSE       MXV20220
+      *--- ACOP                                                         MXV20220
+           IF ICWCOP-TERM-SKU-PRICING                                   MXV20220
+              COMPUTE WS-PROGRAM-CONTRACT-PRICE ROUNDED                 MXV20220
+                    = ICWCOP-ADJUSTED-COST                              MXV20220
+                    / (1 - WS-REQ-PCT)                                  MXV20220
+           ELSE                                                         MXV20220
+005700     COMPUTE WS-PROGRAM-CONTRACT-PRICE ROUNDED =                  MXK08057
+005800             (ICWCOP-ADJUSTED-COST + ICWCOP-TOT-ACOP-DELTA-PRC)   MXK08057
+005901                                   /  (1 - WS-REQ-PCT).           MXK08057

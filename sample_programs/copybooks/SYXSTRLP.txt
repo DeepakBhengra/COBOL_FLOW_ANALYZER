@@ -1,0 +1,233 @@
+﻿         MACRO                                                          00000010
+         DO                                                             00000020
+         GBLA  &LVLA,&CNTA(100)                                         00000030
+         GBLC  &LVLC,&CNTC,&TYPC(100)                                   00000040
+         AIF   (&LVLA NE 0).ARND                                        00000050
+         $INCRLV                                                        00000060
+.ARND    ANOP                                                           00000070
+&TYPC(&LVLA) SETC 'D'                                                   00000080
+         $INCRLV                                                        00000090
+         MEND                                                           00000100
+         EJECT                                                          00000110
+         MACRO                                                          00000120
+         DOEND                                                          00000130
+         GBLA  &LVLA,&CNTA(100)                                         00000140
+         GBLC  &LVLC,&CNTC,&TYPC(100),&SGEN                             00000150
+         AIF   (&LVLA EQ 1).NOTOK                                       00000160
+         $DECRLV                                                        00000170
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'D').OK                          00000180
+.NOTOK   ANOP                                                           00000190
+         MNOTE 0,'NESTING ERROR - STATEMENT IGNORED'                    00000200
+         $INCRLV                                                        00000210
+         MEXIT                                                          00000220
+.OK      AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00000230
+.ANEXT   ANOP                                                           00000240
+&TYPC(&LVLA) SETC ' '                                                   00000250
+.*                                     GENERATE DOEND LABEL             00000260
+L&LVLC.C&CNTC DS 0H                                                     00000270
+         $INCRCT                                                        00000280
+         AIF   ('&SYSPARM' NE 'LIST').EXIT                              00000290
+.EXIT    ANOP                                                           00000300
+         MEND                                                           00000310
+         EJECT                                                          00000320
+         MACRO                                                          00000330
+         REPEAT                                                         00000340
+         GBLA  &LVLA,&CNTA(100)                                         00000350
+         GBLC  &LVLC,&CNTC,&TYPC(100),&SGEN                             00000360
+         AIF   (&LVLA NE 0).ARND                                        00000370
+         $INCRLV                                                        00000380
+.ARND    AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00000390
+.ANEXT   ANOP                                                           00000400
+&TYPC(&LVLA) SETC 'L'                                                   00000410
+.*                                     GENERATE LOOP LABEL              00000420
+L&LVLC.C&CNTC DS 0H                                                     00000430
+         $INCRCT                                                        00000440
+.ARND2   ANOP                                                           00000450
+         $INCRLV                                                        00000460
+         AIF   ('&SYSPARM' NE 'LIST').EXIT                              00000470
+.EXIT    ANOP                                                           00000480
+         MEND                                                           00000490
+         EJECT                                                          00000500
+         MACRO                                                          00000510
+         EXITIF &BOOL                                                   00000520
+         GBLA  &LVLA,&CNTA(100)                                         00000530
+         GBLC  &LVLC,&CNTC,&TYPC(100),&COND,&SGEN                       00000540
+         LCLA  &CNTR                                                    00000550
+.LOOP    ANOP                                                           00000560
+         AIF   (&LVLA EQ 1).NOTOK                                       00000570
+&CNTR    SETA  &CNTR+1                                                  00000580
+         $DECRLV                                                        00000590
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'L').OK                          00000600
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'W').OK                          00000610
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'D').OK                          00000620
+         AGO   .LOOP                                                    00000630
+.OK      AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00000640
+.ANEXT   ANOP                                                           00000650
+.*                                     GENERATE EXIT LOOP BRANCH        00000660
+         $CKCOND &BOOL                                                  00000670
+         AIF   ('&COND' NE '-').COK                                     00000680
+         MNOTE 0,'INVALID OPERAND - &BOOL'                              00000690
+.COK     ANOP                                                           00000700
+         B&COND L&LVLC.C&CNTC                                           00000710
+         AGO   .UNLOOP                                                  00000720
+.NOTOK   ANOP                                                           00000730
+         MNOTE 0,'NESTING ERROR - STATEMENT IGNORED'                    00000740
+.*                                                                      00000750
+.UNLOOP  ANOP                                                           00000760
+         AIF   (&CNTR EQ 0).MEND                                        00000770
+&CNTR    SETA  &CNTR-1                                                  00000780
+         $INCRLV                                                        00000790
+         AGO   .UNLOOP                                                  00000800
+.MEND    AIF   ('&SYSPARM' NE 'LIST').EXIT                              00000810
+.EXIT    ANOP                                                           00000820
+         MEND                                                           00000830
+         EJECT                                                          00000840
+         MACRO                                                          00000850
+         $EXIT                                                          00000860
+         GBLA  &LVLA,&CNTA(100)                                         00000870
+         GBLC  &LVLC,&CNTC,&TYPC(100),&SGEN                             00000880
+         LCLA  &CNTR                                                    00000890
+.LOOP    ANOP                                                           00000900
+         AIF   (&LVLA EQ 1).NOTOK                                       00000910
+&CNTR    SETA  &CNTR+1                                                  00000920
+         $DECRLV                                                        00000930
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'L').OK                          00000940
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'W').OK                          00000950
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'D').OK                          00000960
+         AGO   .LOOP                                                    00000970
+.OK      AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00000980
+.ANEXT   ANOP                                                           00000990
+.*                                     GENERATE EXIT LOOP BRANCH        00001000
+         B     L&LVLC.C&CNTC                                            00001010
+         AGO   .UNLOOP                                                  00001020
+.NOTOK   ANOP                                                           00001030
+         MNOTE 0,'NESTING ERROR - STATEMENT IGNORED'                    00001040
+.*                                                                      00001050
+.UNLOOP  ANOP                                                           00001060
+         AIF   (&CNTR EQ 0).MEND                                        00001070
+&CNTR    SETA  &CNTR-1                                                  00001080
+         $INCRLV                                                        00001090
+         AGO   .UNLOOP                                                  00001100
+.MEND    AIF   ('&SYSPARM' NE 'LIST').EXIT                              00001110
+.EXIT    ANOP                                                           00001120
+         MEND                                                           00001130
+         EJECT                                                          00001140
+         MACRO                                                          00001150
+         UNTIL &PARM                                                    00001160
+         GBLA  &LVLA,&CNTA(100)                                         00001170
+         GBLC  &COND,&NCOND,&LVLC,&CNTC,&TYPC(100),&RREG,&SGEN          00001180
+         AIF   (&LVLA EQ 1).NOTOK                                       00001190
+         $DECRLV                                                        00001200
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'L').OK                          00001210
+.NOTOK   ANOP                                                           00001220
+         MNOTE 0,'NESTING ERROR - STATEMENT IGNORED'                    00001230
+         $INCRLV                                                        00001240
+         MEXIT                                                          00001250
+.OK      AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00001260
+.ANEXT   ANOP                                                           00001270
+&TYPC(&LVLA) SETC ' '                                                   00001280
+         $DECRCT                                                        00001290
+.*                                     GENERATE LOOP BRANCH             00001300
+         AIF   ('&SYSLIST(1,1)' EQ 'EXIT').FOREVER                      00001310
+         AIF   ('&SYSLIST(1,1)' NE 'FOREVER').NOTFOR                    00001320
+.FOREVER ANOP                                                           00001330
+         B     L&LVLC.C&CNTC                                            00001340
+         AGO   .OUT                                                     00001350
+.NOTFOR  ANOP                                                           00001360
+         AIF   ('&SYSLIST(1)'(1,1) NE '(').NOTREG                       00001370
+         AIF   (N'&SYSLIST(1) GT 1).BXTYP                               00001380
+         BCT   &SYSLIST(1,1),L&LVLC.C&CNTC                              00001390
+         AGO   .OUT                                                     00001400
+.BXTYP   ANOP                                                           00001410
+         MNOTE 0,'BXLE/BXH NOT IMPLEMENTED'                             00001420
+         AGO   .OUT                                                     00001430
+.NOTREG  ANOP                                                           00001440
+         $CKCOND &PARM                                                  00001450
+         AIF   ('&COND' NE '-').COND                                    00001460
+         SP    &SYSLIST(1,1),=P'1'                                      00001470
+         BNZ   L&LVLC.C&CNTC                                            00001480
+         AGO   .OUT                                                     00001490
+.COND    ANOP                                                           00001500
+         B&NCOND  L&LVLC.C&CNTC                                         00001510
+.OUT     ANOP                                                           00001520
+         $INCRCT                                                        00001530
+.*                                     GENERATE LOOPEND LABEL           00001540
+L&LVLC.C&CNTC DS 0H                                                     00001550
+         $INCRCT                                                        00001560
+         AIF   ('&SYSPARM' NE 'LIST').EXIT                              00001570
+.EXIT    ANOP                                                           00001580
+         MEND                                                           00001590
+         EJECT                                                          00001600
+         MACRO                                                          00001610
+         WHILE &PARM                                                    00001620
+         GBLA  &LVLA,&CNTA(100)                                         00001630
+         GBLC  &COND,&LVLC,&CNTC,&TYPC(100),&LOP(100),&RREG,&SGEN       00001640
+         LCLC  &TP                                                      00001650
+         AIF   (&LVLA NE 0).ARND                                        00001660
+         $INCRLV                                                        00001670
+.ARND    AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00001680
+.ANEXT   ANOP                                                           00001690
+&TYPC(&LVLA) SETC 'W'                                                   00001700
+&LOP(&LVLA) SETC '&SYSLIST(1,1)'                                        00001710
+.*                                     GENERATE LOOP LABEL              00001720
+         $CKCOND &PARM                                                  00001730
+         AIF   ('&COND' EQ '-').OK                                      00001740
+         MNOTE 0,'INVALID USE OF KEYWORD - &PARM'                       00001750
+.OK      ANOP                                                           00001760
+         AIF   ('&SYSLIST(1)'(1,1) EQ '(').REG                          00001770
+&TP      SETC  'P'                                                      00001780
+         ZAP   &SYSLIST(1,1),&SYSLIST(1,1)                              00001790
+         AGO   .GENB                                                    00001800
+.REG     ANOP                                                           00001810
+&TP      SETC  'U'                                                      00001820
+         LA    &SYSLIST(1,1),1(&SYSLIST(1,1).)                          00001830
+.GENB    ANOP                                                           00001840
+&TYPC(&LVLA) SETC '&TYPC(&LVLA)&TP'                                     00001850
+         $INCRCT                                                        00001860
+         B     L&LVLC.C&CNTC.-4                                         00001870
+         $DECRCT                                                        00001880
+L&LVLC.C&CNTC DS 0H                                                     00001890
+         $INCRCT                                                        00001900
+.OUT     AIF   ('&SYSPARM' NE 'LIST').EXIT                              00001910
+.EXIT    $INCRLV                                                        00001920
+         MEND                                                           00001930
+         EJECT                                                          00001940
+         MACRO                                                          00001950
+         WHILEND                                                        00001960
+         GBLA  &LVLA,&CNTA(100)                                         00001970
+         GBLC  &LVLC,&CNTC,&TYPC(100),&LOP(100),&RREG,&SGEN             00001980
+         LCLC  &TP                                                      00001990
+         AIF   (&LVLA EQ 1).NOTOK                                       00002000
+         $DECRLV                                                        00002010
+&TP      SETC  '&TYPC(&LVLA)'(2,1)                                      00002020
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'W').OK                          00002030
+.NOTOK   ANOP                                                           00002040
+         MNOTE 0,'NESTING ERROR - STATEMENT IGNORED'                    00002050
+         $INCRLV                                                        00002060
+         MEXIT                                                          00002070
+.OK      AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00002080
+.ANEXT   ANOP                                                           00002090
+&TYPC(&LVLA) SETC ' '                                                   00002100
+         $DECRCT                                                        00002110
+.*                                     GENERATE LOOP BRANCH             00002120
+         AIF   ('&TP' NE 'U').NOTREG                                    00002130
+         BCT   &LOP(&LVLA).,L&LVLC.C&CNTC                               00002140
+         AGO   .OUT                                                     00002150
+.NOTREG  ANOP                                                           00002160
+         SP    &LOP(&LVLA).,=P'1'                                       00002170
+         BNZ   L&LVLC.C&CNTC                                            00002180
+.OUT     ANOP                                                           00002190
+&LOP(&LVLA) SETC ' '                                                    00002200
+         $INCRCT                                                        00002210
+.*                                     GENERATE LOOPEND LABEL           00002220
+L&LVLC.C&CNTC DS 0H                                                     00002230
+         $INCRCT                                                        00002240
+         AIF   ('&SYSPARM' NE 'LIST').EXIT                              00002250
+.EXIT    ANOP                                                           00002260
+         MEND                                                           00002270
+         MACRO                                                          00002280
+         EXIT                                                           00002290
+.*       EXIT MACRO TO MAKE STRUCTURED MACROS UPWARD COMPATIBLE         00002300
+.*       WITH MACROS IN E. FORM WITHOUT CONFLICTING WITH DOS 'EXIT'     00002310
+         $EXIT                                                          00002320
+         MEND                                                           00002330

@@ -1,0 +1,998 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8350
+      ******************************************************************        
+000100/                                                                 00010000
+000200**====================  S Y H C A L C A  =======================**00020001
+000300**              COPYBOOK MEMBER NAME : SYHCALCA                 **00030001
+000400**                PRICE  RECALCULATION  MODULE                  **00040000
+000500**            CREATED  ON  07-28-95  BY  AKTAR HUDA             **00050011
+000600**--------------------------------------------------------------**00060000
+000700**                        FUNCTION                                00070003
+000800**                        ********                                00080003
+000900**                                                                00090000
+001100**  THIS MODULE ( ROUTINE ) RECALCULATES THE PRICES OF PRODUCTS   00110002
+001200**  ON THE BASIS OF THE CURRENT 'ACTUAL' CURRENCY EXCHANGE RATE AT00120002
+001300**  DIFFERENT PHASES OF THE FINANCIAL LIFE CYCLE.                 00130002
+001400**--------------------------------------------------------------**00140000
+001500**        RULES AND REQUIREMENTS FOR USING THIS ROUTINE           00150000
+001600**        *********************************************           00160000
+001700**                                                                00170000
+001800**  A.  IN WORKING STORAGE SECTION :  COPY  SYRCALC               00180003
+001900**      COPY  SYREXTSC  PREFERABLY IMMEDIATELY FOLLOWING  SYRCALC 00190003
+002000**                                                                00200003
+002100**  B.  IN PROCEDURE DIVISION OF THE INVOKING PROGRAM, ADD THE    00210003
+002200**      FOLLOWING :                                               00220003
+002300**                                                                00230003
+002400**  (1)  COPY  SYHCALCA  IN THE PROCEDURE DIVISION                00240013
+002500**       AT AN APPROPRIATE PLACE WHERE  8000-  MAY FIT IN.        00250013
+002600**                                                                00260003
+002700**  (2) IF  TC-MEXICO                                             00270003
+002800**                                                                00280003
+002900**    (I)  SET  PRICE-RECALCULATION-REQD       TO  TRUE    OR     00290003
+003000**         SET  PRICE-RECALCULATION-NOT-REQD   TO  TRUE           00300003
+003100**                                                                00310003
+003200**   (II)  SET  DB-UPDT-FOR-EXCHG-RATE-REQD    TO  TRUE    OR     00320003
+003300**         SET  DB-UPDT-FOR-EXCHGRATE-NOT-REQD TO  TRUE           00330003
+003400**                                                                00340003
+003500**  (III)  THEN  IF  PRICE-RECALCULATION-REQD                     00350003
+003600**      PERFORM  8000-RECALCULATE-PRODUCT-PRICE  THRU  9000-EXIT. 00360013
+003700**                                                                00370000
+003800**  (3)  TO ACCESS THE ORSLINE-TABLE,  USE THE LINE NUMBER AS THE 00380013
+003900**       SUBSCRIPT OR SET WS-LINE-IDX TO THE LINE NUMBER.         00390013
+004000**                                                                00400003
+004010**  C.  THE FOLLOWING COPYBOOK MEMBERS MUST BE COPIED IN WORKING  00401003
+004020**      STORAGE SECTION FOR PROGRAMS USING THIS COPY BOOK MEMBER :00402013
+004030**      SYRCALC, SYREXTSC IMMEDIATELY FOLLOWING SYRCALC,          00403013
+004040**      ORSHED, ORSSHH, ORSLNE, VNSHED, ORKHED, ORKSHH, ORKLNE,   00404003
+004050**      VNKHED, ORIO1200, ORIO1202, ORIO1210, ORIO1258, ORIO1276, 00405003
+004060**      ORIO1312, ORIO1314, ORIO1316, VNIO1750.                   00406003
+004100**                                                                00410000
+004200**==============================================================**00420000
+      * 01/17/25  RZS  : ROUNDING OFF ISSUE OF UNIT PRICE AND TOTAL     RZS25017
+      *                : PRICE WHEN CONVERTED FROM USC TO BRR ON ORP540 RZS25017
+      *                  SCREEN FOR BRAZIL REGION.                      RZS25017
+      * 09/22/23  SZD  : CR2714 - ROUNDING OFF ISSUE FOR BRAZIL API     SZD23265
+      * 11/09/22  SZD  : CR2505 - FIX FOR HARDBUNDLE SKU                SZD22313
+      * 07/03/22  MP4  : BRLINK PROJECT- ADDED NEW COMPANY 'BL'         MP422184
+      * 05/10/22  TGF  : FIX LINE NUMBER LOST UNDER 5/09 CHANGE         TGF22130
+      * 05/09/22  TGF  : FIX CALL FOR LINE OVERFLOW - WHEN UPDATE       TGF22129
+      *                  PATH NEEDS TO SKIP LINE OVERFLOW CALL          TGF22129
+      * 05/06/22  TGF  : CR2505 - PRICE RECALCULATION FOR BRAZIL        TGF22126
+      *                  HANDLE HARDBUNDLE                              TGF22126
+      * 07/09/21  SZD  : CR2505 - PRICE RECALCULATION FOR BRAZIL        SZD21190
+      *                  DURING BILLING                                 SZD21190
+      * 08/07/20  AP3  : CISCO NET PRICING PROJECT.                     APX20220
+      *                  ADDED LOGIC TO DISPLAY CORRECT TOTAL SALES     APX20220
+      *                  FOR ORDER WITH HARD-BUNDLE LINE                APX20220
+      * 10/31/12  DAK  : MEXICO - MIMIC VENDOR EXCHG RATE LOGIC BY      DAK12305
+      *                  USING ORDER HEADER CHANGE RATE.                DAK12305
+      * 09/09/10  TGF  : BRAZIL - PASS PRICE WITH TAX IF POPULATED.     TGF10252
+      * 01/22/09  TGF  : FIX TO NOT HAVE MXP LINES RECALCUATED.         TGF09022
+      * 10/16/08  INF  : CHANGES TO FIX THE DIRECT ORDERS NOT TAKING    ISB08311
+      *                  THE ACTUAL EXCHANGE RATE AT THE TIME OF BILLINGISB08311
+      *                  FIX TO THE TICKET --> ACSP6147904.             ISB08311
+      * 03/30/08  KLM  : BRAZIL TAC IV - ADD TAX LOGIC FOR RETURN TO    KLM08090
+      *                : TO VENDOR ORDERS IN PARA 8500-GET-TAXES.       KLM08090
+      * 01/25/07: KLM  : THE LINE CALL TO REESTABLISH PARENTAGE, LISTED KLM07025
+      *                : IN THE PREVIOUS CHANGE, WAS OVERRIDING THE NEW KLM07025
+      *                : EXCHG RATE BEFORE THE LINE WAS UPDATED. THE NEWKLM07025
+      *                : RATE WILL BE SAVED AND MOVED BACK TO THE LINE  KLM07025
+      *                : AFTER PARENTAGE IS REESTABLISHED.              KLM07025
+      * 10/27/06: TGF  : ADDED CALL TO LONE OVERFLOW SEG FOR MP255 TAX  TGF06300
+      *                : DISCOUNT FLAG. ADDED CALL TO REESTAB PARENTAGE TGF06300
+      *                : IN CASE OF UPDATE.                             TGF06300
+      * 07/11/06: MSI  : INSURE THAT LINE RATE IS USED FOR RECALC IF    MSI06192
+      *                  RECALC SWITCH IS SET TO N.  BRAZIL STILL NEEDS MSI06192
+      *                  TO EXECUTE RECALC COPYBOOK EVEN IF RECALC SW   MSI06192
+      *                  IS SET TO N BECAUSE TAX MODULE MUST BE         MSI06192
+      *                  EXECUTED.                                      MSI06192
+      * 06/27/06: MSI  : CORRECT RATE USED FOR TABLE RATE RECALC        MSI06177
+      * 03/27/06: MSI  : CORRECT RECALC CODE FOR BRAZIL. RECALC SHOULD  MSI06107
+      *                  BE BASED ON SELL CURRENCY, NOT PURCHASE CURR   MSI06107
+      * 06/22/04: KLM  : ADDED BRAZIL NEW COMPANY CODE (BP).            KLM04174
+      *                : PASS NEW FLAG TO BRAZIL TAX ROUTINE.           KLM04174
+      * 10/05/01: KLM  : IF TB-CPO3-SELECT-SOURCE-INTL-SW IS 'Y',       KLM01278
+      *                  RECALCULATE THE RESELLER PRICE. IF THE HEADER  KLM01278
+      *                  EXCHG RATE HAS BEEN CHANGED, CALL ORSHED TO    KLM01278
+      *                  GET THE OLD EXCHG RATE.                        KLM01278
+      * 02/29/00: TGF  : BRAZIL - USE TB-CPO3-USE-VDR-EXCHG-RATE LOGIC. TGF00060
+      * 11/23/99: KLM  : BRAZIL - PROCESS BRANCH TRANSFER MEDIA LINES   KLM99327
+      * 10/01/99: TGF  : CHILE - NO DECIMAL CALCULATIONS                TGF99274
+      * 08/02/99: SXB  : CHILE - MOVE WS-CURRENT-EXCHG-RATE TO          SXB99214
+      *                : ORH-CURRENCY-RATE IF COMPANY NOT = 'MX'        SXB99214
+      *                : BEFORE ORSHED UPDATE.                          SXB99214
+      * 08/12/99: KLM  : BRAZIL - DYNAM CALL PGM TXP111 TO CALC TAXES   KLM99224
+      * 12/18/98: KLM  : BRAZIL CHANGES FOR PRICING AND TAXES           KLM98350
+      * 09/24/98: SXB  : THIS CHANGE IS FOR MEXICO ONLY.                SXB98267
+      *                  IF (ORL-INVOICE-BREAK-CODE  =  'MXP') AND      SXB98267
+      *                  DB-UPDT-FOR-EXCHG-RATE-REQD AND                SXB98267
+      *                  ORSLINE-TO-BE-UPDATED, UPDATE ORDER MASTER     SXB98267
+      *                  IF COMPANY = 'MX'.                             SXB98267
+004200**==============================================================**SXB98267
+004300/                                                                 00430000
+004400 8000-RECALCULATE-PRODUCT-PRICE.                                  00440000
+004500                                                                  00450000
+           IF  ORH-PRICE-RECALC-REQD OR EXCHG-RATE-CHANGED              KLM01278
+               SET  PRICE-RECALCULATION-REQD  TO TRUE                   KLM98350
+           ELSE                                                         KLM98350
+               SET  PRICE-RECALCULATION-NOT-REQD  TO TRUE               KLM98350
+               IF  TC-MEXICO                                            KLM98350
+                   GO TO  8000-EXIT.                                    KLM98350
+                                                                        KLM98350
+004600     IF  NOT  WS-DLI-SCHEDULED                                    00460000
+004700         PERFORM  980-SCHEDULE-DLI                                00470000
+004800         SET  DLI-SCHDLD-FOR-PRC-RECALC  TO  TRUE.                00480000
+004900                                                                  00490000
+005000     MOVE  WS-ORSHED-SSA          TO  WS-ORSHED-SSA-SAVE          00500000
+005100     MOVE  WS-ORSSHH-SSA          TO  WS-ORSSHH-SSA-SAVE          00510000
+005200     MOVE  WS-ORSLNE-SSA          TO  WS-ORSLNE-SSA-SAVE          00520000
+005300     MOVE  WS-VNSHED-SSA          TO  WS-VNSHED-SSA-SAVE.         00530000
+005400                                                                  00540000
+005500     MOVE  WS-RECALC-COMPANY-NBR  TO  WS-ORSHED-CO                00550000
+005600     MOVE  WS-RECALC-BRANCH-NBR   TO  WS-ORSHED-BR                00560000
+005700     MOVE  WS-RECALC-ORDER-NBR    TO  WS-ORSHED-NBR               00570000
+005800     MOVE  WS-RECALC-DIST-NBR     TO  WS-ORSSHH-DIST              00580000
+005900     MOVE  WS-RECALC-SHIP-NBR     TO  WS-ORSSHH-SHIP.             00590000
+006000     MOVE  '*-'                   TO  WS-ORSHED-COMMAND-CODE      00600000
+006100                                      WS-ORSSHH-COMMAND-CODE      00610000
+006200                                      WS-ORSLNE-COMMAND-CODE.     00620000
+006300                                                                  00630000
+006400     MOVE  '('     TO    WS-ORSHED-QUAL    WS-ORSSHH-QUAL         00640000
+006500                                           WS-VNSHED-QUAL.        00650000
+006300                                                                  KLM98350
+006400     MOVE  '='     TO    WS-ORSSHH-SEARCH.                        KLM98350
+006510                                                                  00651000
+006520     MOVE  SPACES  TO    WS-ORSLNE-QUAL    WS-ORSLINE-TABLE.      00652000
+006550                                                                  00655000
+           IF  TB-CPO3-SELECT-SOURCE-INTL AND EXCHG-RATE-CHANGED        KLM01278
+006560        PERFORM 1200-GU-ORSHED.                                   KLM01278
+006560                                                                  KLM01278
+006560     PERFORM  1202-GU-ORSSHH.                                     00656000
+006570                                                                  00657000
+006580**==============================================================**00658000
+006590**  IF  THE SHIPMENT HAS BEEN VOIDED OR PRINTED, DO NOT           00659004
+006600**  RECALCULATE THE PRODUCT PRICE.                                00660004
+006700**==============================================================**00670000
+006800                                                                  00680000
+006900     IF  WS-ORSSHH-NORESP                                         00690000
+007000       IF  ORSH-VOIDED            OR                              00700000
+007100           (ORSH-PRINT-COUNT  >  ZERO  AND                        KLM98350
+007100                NOT (TC-BRAZIL OR TC-BRAZIL-SOLUTION))            KLM04174
+007200           NEXT SENTENCE                                          00720000
+007300       ELSE                                                       00730000
+006580**==============================================================**SZD21190
+006600**  FOR BRAZIL, RECALCULATE THE PRODUCT PRICE AND UPDATE ORDER DB SZD21190
+006590**  EVEN IF PRINT COUNT > 0                                       SZD21190
+006700**==============================================================**SZD21190
+                 IF (TC-BRAZIL OR TC-BRAZIL-SOLUTION)                   SZD21190
+                    CONTINUE                                            SZD21190
+                 ELSE                                                   SZD21190
+007400              IF ORSH-PRINT-COUNT  >  ZERO                        SZD21190
+007400                 SET   PRICE-FROM-ORDER-DB                        SZD21190
+007400                                 TO  TRUE                         SZD21190
+008400                 MOVE ' '        TO WS-DB-UPDATE-FOR-EXCHG-RATE-SWSZD21190
+007400              END-IF                                              SZD21190
+007400           END-IF                                                 SZD21190
+007400           SET   ALL-SHIP-LINES-NOT-PROCESSED  TO  TRUE           00740000
+007600           PERFORM  8100-PROCESS-ALL-SHIP-LINES  THRU  8100-EXIT  00760000
+007700                    UNTIL  ALL-SHIP-LINES-PROCESSED.              00770000
+                                                                        TGF22126
+           IF (TC-BRAZIL OR TC-BRAZIL-SOLUTION) AND                     TGF22126
+              WS-HB-PROCESS-FLAG = 'Y'                                  TGF22126
+              MOVE WS-BRT-ORDER-TOTAL-NOTAX-1                           TGF22126
+                                       TO BRT-ORDER-TOTAL-NOTAX         TGF22126
+              MOVE WS-BRT-ORDER-TOTAL-NOTAX-FGN-1                       TGF22126
+                                       TO BRT-ORDER-TOTAL-NOTAX-FGN     TGF22126
+              MOVE WS-BRT-TOTAL-TAX-AMT-1                               TGF22126
+                                       TO BRT-TOTAL-TAX-AMT             TGF22126
+              MOVE WS-BRT-ORDER-TOTAL-TAX-1                             TGF22126
+                                       TO BRT-ORDER-TOTAL-TAX           TGF22126
+              MOVE WS-BRT-TOTAL-TAX-AMT-FGN-1                           TGF22126
+                                       TO BRT-TOTAL-TAX-AMT-FGN         TGF22126
+              MOVE WS-BRT-ORDER-TOTAL-TAX-FGN-1                         TGF22126
+                                       TO BRT-ORDER-TOTAL-TAX-FGN       TGF22126
+              MOVE WS-BT-ICMS-TOTAL-TAX-1                               TGF22126
+                                       TO BRT-ICMS-TOTAL-TAX            TGF22126
+              MOVE WS-BRT-IPI-TOTAL-TAX-1                               TGF22126
+                                       TO BRT-IPI-TOTAL-TAX             TGF22126
+              MOVE WS-BRT-ISS-TOTAL-TAX-1                               TGF22126
+                                       TO BRT-ISS-TOTAL-TAX             TGF22126
+              MOVE WS-BRT-PC-TOTAL-TAX-1                                TGF22126
+                                       TO BRT-PC-TOTAL-TAX              TGF22126
+           END-IF.                                                      APX20220
+007800                                                                  00780000
+007810     PERFORM  8400-UPDATE-ORDER-SHIP-HEADER  THRU  8400-EXIT.     00781000
+007820                                                                  00782000
+007890     MOVE  WS-ORSHED-SSA-SAVE     TO  WS-ORSHED-SSA               00789000
+007900     MOVE  WS-ORSSHH-SSA-SAVE     TO  WS-ORSSHH-SSA               00790000
+007910     MOVE  WS-ORSLNE-SSA-SAVE     TO  WS-ORSLNE-SSA               00791000
+007920     MOVE  WS-VNSHED-SSA-SAVE     TO  WS-VNSHED-SSA.              00792000
+007930                                                                  00793000
+007940     IF  DLI-SCHDLD-FOR-PRC-RECALC                                00794000
+007950         PERFORM  990-TERMINATE-DLI.                              00795000
+007960                                                                  00796000
+007970 8000-EXIT.                                                       00797000
+007980     EXIT.                                                        00798000
+007990/                                                                 00799000
+008000 8100-PROCESS-ALL-SHIP-LINES.                                     00800000
+008100                                                                  00810000
+008200     MOVE  WS-CURRENT-EXCHG-RATE      TO  WS-ACTUAL-EXCHG-RATE.   00820006
+008230     SET   ORSLINE-NOT-TO-BE-UPDATED  TO  TRUE.                   00823006
+008300                                                                  00830000
+008400     IF  DB-UPDT-FOR-EXCHG-RATE-REQD                              00840000
+008500         PERFORM  1276-GHNP-ORSLNE                                00850000
+008600     ELSE                                                         00860000
+008700         PERFORM  1258-GNP-ORSLNE.                                00870000
+008800                                                                  00880000
+008900     IF  WS-ORSLNE-NORESP                                         00890000
+               IF DB-UPDT-FOR-EXCHG-RATE-REQD                           TGF22129
+009000            MOVE ORL-LINE-NBR    TO WS-SAVE-LINE-NBR              TGF22130
+                  IF TC-BRAZIL OR TC-BRAZIL-SOLUTION                    SZD22313
+                     MOVE ZERO            TO WS-ORSLNEOF-NBR            SZD22313
+                     PERFORM 1267-GNP-ORSLNEOF                          SZD22313
+                     IF WS-ORSLNEOF-NORESP                              SZD22313
+                        MOVE ORLOF-ORSLNEOF TO ORLOF-ORSLNEOF-0         SZD22313
+                     END-IF                                             SZD22313
+                  END-IF                                                SZD22313
+               ELSE                                                     TGF22129
+009000            MOVE ORL-LINE-NBR    TO WS-SAVE-LINE-NBR              TGF06300
+                  MOVE ZERO            TO WS-ORSLNEOF-NBR               TGF22126
+                  PERFORM 1267-GNP-ORSLNEOF                             TGF22126
+                  IF WS-ORSLNEOF-NORESP                                 TGF22126
+                     MOVE ORLOF-ORSLNEOF TO ORLOF-ORSLNEOF-0            TGF22126
+                  END-IF                                                TGF22126
+               END-IF                                                   TGF22129
+009100     ELSE                                                         00910000
+009200         SET  ALL-SHIP-LINES-PROCESSED  TO  TRUE                  00920000
+009300         GO TO    8100-EXIT.                                      00930000
+009400                                                                  00940000
+009500**==============================================================**00950000
+009600**  IF THE LINE HAS BEEN VOIDED OR IF THE FOREIGN UNIT PRICE IS   00960000
+009700**  ZERO OR IF THE ITEM HAS BEEN ORDERED IN MEXICAN CURRENCY,     00970013
+009710**  BYPASS RECALCULATION OF PRODUCT PRICE.                        00971013
+009800**==============================================================**00980000
+009900                                                                  00990000
+           IF TC-COMPANY = 'MX'                                         DAK12305
+              IF TC-MAP-PROGRAM-ID = 'ORM570'                           DAK12305
+                 IF WS-ACTUAL-EXCHG-RATE = 1                            DAK12305
+                    PERFORM  8600-SET-LINE-RATE  THRU  8600-EXIT.       DAK12305
+                                                                        DAK12305
+010000     IF  ORL-VOIDED-LINE                                          KLM98350
+               GO TO 8100-EXIT                                          KLM98350
+           ELSE                                                         KLM98350
+010110         IF  ORL-INVOICE-BREAK-CODE  =  'MXP'                     KLM98350
+                   IF  DB-UPDT-FOR-EXCHG-RATE-REQD           AND        KLM98350
+                       ORSLINE-TO-BE-UPDATED                            SXB98267
+                         IF TC-COMPANY = 'MX'                           SXB98267
+                            PERFORM  1316-REPL-ORSLNE                   SXB98267
+                         END-IF                                         SXB98267
+                         GO TO 8100-EXIT                                KLM98350
+                   ELSE                                                 KLM98350
+                      GO TO 8100-EXIT                                   TGF09022
+                   END-IF                                               TGF09022
+               ELSE                                                     KLM98350
+                   IF  ORL-FOREIGN-UNIT-PRICE  =   ZERO                 KLM98350
+                       IF (TC-BRAZIL OR TC-BRAZIL-SOLUTION) AND         KLM04174
+                           ORSH-BR-TRANSFER-ORDER                       KLM04174
+                         AND  NOT ORL-COMMENT-TYPE                      KLM98350
+                           NEXT SENTENCE                                KLM98350
+                       ELSE                                             KLM99327
+                       IF (TC-BRAZIL OR TC-BRAZIL-SOLUTION) AND         KLM04174
+                           ORSH-BR-TRANSFER-ORDER                       KLM04174
+                         AND  (ORL-COMMOD-CODE = 'MCE' OR 'MCU')        KLM99327
+                           NEXT SENTENCE                                KLM99327
+                       ELSE                                             KLM98350
+                           GO TO 8100-EXIT.                             KLM98350
+010300                                                                  01030000
+010310     MOVE  ORL-UNIT-PRICE  TO  WS-ORL-OLD-UNIT-PRICE.             01031000
+010320                                                                  01032000
+           IF TB-CPO3-USE-VDR-EXCHG-RATE                                TGF00060
+              IF TC-BRAZIL OR                                           KLM04174
+                 TC-BRAZIL-SOLUTION                                     KLM04174
+                 PERFORM  8205-GET-LINE-RATE  THRU  8205-EXIT.          TGF00060
+                                                                        TGF00060
+           IF TB-CPO3-USE-VDR-EXCHG-RATE                                TGF00060
+010350         PERFORM  8200-GET-VENDOR-EXCHG-RATE  THRU  8200-EXIT.    01035005
+                                                                        TGF00060
+           IF TB-CPO3-USE-VDR-EXCHG-RATE                                TGF00060
+              IF TC-BRAZIL OR                                           KLM04174
+                 TC-BRAZIL-SOLUTION                                     KLM04174
+                 PERFORM  8206-BRAZIL-COST  THRU  8206-EXIT.            TGF00060
+010351                                                                  01035105
+010360     IF (TC-BRAZIL OR TC-BRAZIL-SOLUTION) AND                     KLM04174
+010360        (ORL-COMMOD-CODE  = 'MCE'  OR  'MCU')                     KLM04174
+010360         MOVE ORL-FOREIGN-UNIT-PRICE  TO  WS-FGN-UNIT-PRICE       KLM98350
+010360         COMPUTE  ORL-FOREIGN-UNIT-PRICE  ROUNDED  =              KLM98350
+010370           (  ORL-UNIT-PRICE / WS-ACTUAL-EXCHG-RATE  )            KLM98350
+010370         MOVE  ORL-UNIT-PRICE  TO  WS-ORL-NEW-UNIT-PRICE          KLM98350
+010360     ELSE                                                         KLM98350
+010110     IF (TC-BRAZIL OR TC-BRAZIL-SOLUTION) AND                     KLM04174
+010110         ORSH-BR-TRANSFER-ORDER                                   KLM04174
+010370         MOVE  ORL-UNIT-PRICE  TO  WS-ORL-NEW-UNIT-PRICE          KLM98350
+010360     ELSE                                                         KLM98350
+               IF TB-CPO-NO-DECIMAL-CURRENCY                            TGF99274
+                  COMPUTE WS-ORL-NEW-UNIT-PRICE-NO-DEC ROUNDED =        TGF99274
+                     (ORL-FOREIGN-UNIT-PRICE * WS-ACTUAL-EXCHG-RATE)    TGF99274
+                       MOVE WS-ORL-NEW-UNIT-PRICE-NO-DEC                TGF99274
+                          TO WS-ORL-NEW-UNIT-PRICE                      TGF99274
+               ELSE                                                     TGF99274
+010360            COMPUTE  WS-ORL-NEW-UNIT-PRICE  ROUNDED  =            TGF99274
+010370               (ORL-FOREIGN-UNIT-PRICE * WS-ACTUAL-EXCHG-RATE).   TGF99274
+010371                                                                  01037105
+           IF TB-CPO3-USE-VDR-EXCHG-RATE                                TGF00060
+              IF TC-BRAZIL OR                                           KLM04174
+                 TC-BRAZIL-SOLUTION                                     KLM04174
+                 IF ORL-LOCAL-SELL-FLAG = 'Y'  OR                       MSI06107
+006580**==============================================================**SZD21190
+006600**  FOR BRAZIL, RECALCULATE THE PRODUCT PRICE                     SZD21190
+006590**  EVEN IF PRINT COUNT > 0, SO REMOVED ORSH-PRINT-COUNT  > 0 LINESZD21190
+006700**==============================================================**SZD21190
+                    ORSH-BR-TRANSFER-ORDER                              TGF00060
+                     NEXT SENTENCE                                      TGF00060
+                 ELSE                                                   TGF00060
+                     MOVE WS-ACTUAL-EXCHG-RATE                          TGF00060
+                                              TO ORL-ACTUAL-EXCHG-RATE  TGF00060
+                                                WS-ACT-EXCHG-RATE-SAVE  KLM07025
+                 END-IF                                                 TGF00060
+              ELSE                                                      TGF00060
+                  MOVE WS-ACTUAL-EXCHG-RATE  TO ORL-ACTUAL-EXCHG-RATE   TGF00060
+              END-IF                                                    TGF00060
+           ELSE                                                         TGF00060
+               MOVE WS-ACTUAL-EXCHG-RATE  TO ORL-ACTUAL-EXCHG-RATE      TGF00060
+           END-IF.                                                      TGF00060
+                                                                        KLM98350
+      **==============================================================**KLM98350
+      **  CALCULATE TAXES HERE FOR BRAZIL USING THE ORSBRTAX AND        KLM98350
+      **  ORWBRTAX COPYBOOKS.                                           KLM98350
+      **==============================================================**KLM98350
+                                                                        KLM98350
+           IF  (TC-BRAZIL OR TC-BRAZIL-SOLUTION) AND                    KLM04174
+                TB-CPO2-FOREIGN-PRICE-ONLY                              KLM04174
+              IF TB-CPO2-PRICE-WITH-VAT                                 KLM98350
+                 PERFORM  8500-GET-TAXES  THRU  8500-EXIT.              KLM99224
+010385                                                                  01038500
+010386**==============================================================**01038600
+010387**  IF  THE CALCULATED UNIT PRICE IS THE SAME AS THE CURRENT UNIT 01038700
+010388**  PRICE IN ORSLINE,  NO RECALCULATION OF PRICE IS NECESSARY.    01038800
+010389**  BUT ORSLINE MAY STILL NEED TO BE UPDATED WITH VENDOR INFO.    01038900
+010390**==============================================================**01039000
+010391                                                                  01039100
+           IF  TC-MEXICO                                                KLM98350
+010392     IF  WS-ORL-NEW-UNIT-PRICE  =  WS-ORL-OLD-UNIT-PRICE    AND   01039200
+010393         ORSLINE-NOT-TO-BE-UPDATED                                01039300
+010394         GO TO  8100-EXIT.                                        01039400
+                                                                        TGF06300
+           IF  TB-CPO3-SELECT-SOURCE-INTL AND                           TGF06300
+             (TC-BRAZIL OR TC-BRAZIL-SOLUTION) AND                      KLM07025
+             ORH-EU-ORDERS-USE-END-USER AND                             TGF06300
+               ORH-RESELLER-NBR > SPACES AND                            TGF06300
+                 ORL-UNIT-PRICE-RESELLER > +0                           TGF06300
+              MOVE  '('     TO    WS-ORSHED-QUAL   WS-ORSSHH-QUAL       TGF06300
+              MOVE  '='     TO    WS-ORSSHH-SEARCH                      TGF06300
+              MOVE  'P'     TO    WS-ORSSHH-COMMAND-CD1                 TGF06300
+              MOVE  '('     TO    WS-ORSLNE-QUAL                        TGF06300
+              MOVE  WS-SAVE-LINE-NBR TO  WS-ORSLNE-NBR                  TGF06300
+              IF  DB-UPDT-FOR-EXCHG-RATE-REQD                           TGF06300
+                  PERFORM  1212-GHU-ORSLNE                              TGF06300
+              ELSE                                                      TGF06300
+                  PERFORM  1204-GU-ORSLNE                               TGF06300
+              END-IF                                                    TGF06300
+              MOVE  ' '     TO    WS-ORSLNE-QUAL                        TGF06300
+              MOVE  '-'     TO    WS-ORSSHH-COMMAND-CD1.                TGF06300
+010395                                                                  01039500
+010396     SET  ORSLINE-TO-BE-UPDATED  TO  TRUE.                        01039600
+010397                                                                  01039700
+006580**==============================================================**SZD21190
+006600**  FOR BRAZIL, RECALCULATE THE PRODUCT PRICE AND UPDATE ORDER DB SZD21190
+006590**  EVEN IF PRINT COUNT > 0                                       SZD21190
+006700**==============================================================**SZD21190
+007400     IF (ORSH-PRINT-COUNT  >  ZERO AND                            SZD21190
+007400        NOT (TC-BRAZIL OR TC-BRAZIL-SOLUTION))                    SZD21190
+007400        MOVE  ORL-UNIT-PRICE     TO  WS-ORL-NEW-UNIT-PRICE        SZD21190
+010360        IF  ORL-COMMOD-CODE  =  'MCE' OR  'MCU'                   SZD21190
+010360            MOVE  WS-FGN-UNIT-PRICE                               SZD21190
+010360                                 TO ORL-FOREIGN-UNIT-PRICE        SZD21190
+010360        ELSE                                                      SZD21190
+010360            NEXT SENTENCE                                         SZD21190
+010398        END-IF                                                    SZD21190
+007400     ELSE                                                         KLM98350
+010110        IF (TC-BRAZIL OR TC-BRAZIL-SOLUTION) AND                  SZD21190
+010110            ORSH-BR-TRANSFER-ORDER                                SZD21190
+010370            NEXT SENTENCE                                         SZD21190
+010360        ELSE                                                      SZD21190
+010398           PERFORM  8120-ACCUMULATE-ORD-SALE-TOTAL                SZD21190
+010398              THRU  8120-EXIT                                     SZD21190
+010398        END-IF                                                    SZD21190
+010398     END-IF.                                                      SZD21190
+010399                                                                  01039900
+010400     SET  WS-LINE-IDX    TO        ORL-LINE-NBR.                  01040005
+010500     IF   WS-LINE-IDX    NOT   >   WS-MAX-ORSLINE-TABLE-ENTRIES   01050005
+010600          MOVE  ORL-LINE-NBR  TO                                  01060005
+010700                              WS-ORL-LINE-NBR    (  WS-LINE-IDX ) 01070007
+010800          MOVE  WS-ORL-NEW-UNIT-PRICE  TO                         01080005
+010900                              WS-ORL-UNIT-PRICE  (  WS-LINE-IDX ) 01090008
+011000          MOVE  WS-ACTUAL-EXCHG-RATE   TO                         01100008
+011010                              WS-ORL-EXCHG-RATE  (  WS-LINE-IDX ) KLM98350
+                IF  TC-BRAZIL OR                                        KLM04174
+                    TC-BRAZIL-SOLUTION                                  KLM04174
+                    COMPUTE WS-BRT-EXT-PRICE-TAX ROUNDED =              RZS25017
+                                   BRT-EXT-PRICE-TAX * 1                RZS25017
+                    MOVE WS-BRT-EXT-PRICE-TAX    TO                     RZS25017
+                                    WS-ORL-TOTAL-PRICE (  WS-LINE-IDX ) KLM98350
+      *ADDED COMPUTE STATEMENT TO FIX THE DECIMAL ROUND OFF ISSUE       RZS25017
+      *DURING THE CURRENCY CONVERSION OF THE UNIT PRICE                 RZS25017
+                                                                        RZS25017
+                      COMPUTE WS-BRT-EXT-PRICE-TAX-FGN ROUNDED          RZS25017
+                                         = BRT-EXT-PRICE-TAX-FGN * 1    RZS25017
+                    MOVE WS-BRT-EXT-PRICE-TAX-FGN TO                    RZS25017
+                            WS-ORL-TOTAL-PRICE-FOREIGN (  WS-LINE-IDX ) KLM98350
+                    IF  BRT-UNIT-PRICE-TAX-FGN NUMERIC                  KLM98350
+      *ADDED COMPUTE STATEMENT TO FIX THE DECIMAL ROUND OFF ISSUE       RZS25017
+      *DURING THE CURRENCY CONVERSION OF THE TOTAL PRICE                RZS25017
+      *                                                                 RZS25017
+                      COMPUTE WS-BRT-UNIT-PRICE-TAX-FGN ROUNDED         RZS25017
+                                          =BRT-UNIT-PRICE-TAX-FGN* 1    RZS25017
+                      COMPUTE  WS-ORL-TAX-PRICE-FOREIGN (  WS-LINE-IDX )SZD23265
+                          ROUNDED = WS-BRT-UNIT-PRICE-TAX-FGN * 1       RZS25017
+                    END-IF                                              KLM98350
+                    IF  BRT-UNIT-PRICE-TAX  NUMERIC                     KLM98350
+                      COMPUTE       WS-ORL-TAX-PRICE (  WS-LINE-IDX )   SZD23265
+                          ROUNDED = BRT-UNIT-PRICE-TAX * 1              SZD23265
+                    END-IF                                              SZD23265
+                 END-IF.                                                SZD23265
+011100                                                                  01110000
+008900     IF  WS-ORSLNE-NORESP                                         TGF22130
+011200      IF DB-UPDT-FOR-EXCHG-RATE-REQD                              01120000
+011300       IF  ORSLINE-TO-BE-UPDATED                                  01130000
+011400           PERFORM  1316-REPL-ORSLNE.                             01140000
+011500                                                                  01150000
+011600 8100-EXIT.                                                       01160000
+011700     EXIT.                                                        01170000
+011800/                                                                 01180000
+011900 8120-ACCUMULATE-ORD-SALE-TOTAL.                                  01190000
+012000                                                                  01200000
+012100     PERFORM  8300-COMPUTE-LINE-ORD-SALE-AMT  THRU  8300-EXIT.    01210000
+012200                                                                  01220000
+012300     COMPUTE  WS-TOTAL-LINES-OLD-SALES-AMT  ROUNDED   =           01230000
+012400              WS-TOTAL-LINES-OLD-SALES-AMT  +  WS-EXT-SALES.      01240000
+012500                                                                  01250000
+012600     COMPUTE  WS-TOTAL-LINES-OLD-ORDER-AMT  ROUNDED   =           01260000
+012700              WS-TOTAL-LINES-OLD-ORDER-AMT  +                     01270000
+012800                                       WS-EXT-ORDERED-SALES.      01280000
+012900                                                                  01290000
+013000     MOVE     WS-ORL-NEW-UNIT-PRICE    TO  ORL-UNIT-PRICE.        01300000
+013100                                                                  01310000
+013200     PERFORM  8300-COMPUTE-LINE-ORD-SALE-AMT  THRU  8300-EXIT.    01320000
+013300                                                                  01330000
+013400     COMPUTE  WS-TOTAL-LINES-NEW-SALES-AMT  ROUNDED  =            01340000
+013500              WS-TOTAL-LINES-NEW-SALES-AMT  +  WS-EXT-SALES.      01350000
+013600                                                                  01360000
+013700     COMPUTE  WS-TOTAL-LINES-NEW-ORDER-AMT  ROUNDED  =            01370000
+013800              WS-TOTAL-LINES-NEW-ORDER-AMT  +                     01380000
+013900                                            WS-EXT-ORDERED-SALES. 01390000
+014000                                                                  KLM98350
+           IF  TB-CPO3-SELECT-SOURCE-INTL                               KLM01278
+165610        IF  ORL-UNIT-PRICE-RESELLER NUMERIC AND                   TGF00060
+165620            ORL-UNIT-PRICE-RESELLER > +0                          TGF00060
+                  IF  TB-CPO3-USE-VDR-EXCHG-RATE                        TGF00060
+                      IF ORL-ACTUAL-EXCHG-RATE NUMERIC AND              TGF00060
+                         ORL-ACTUAL-EXCHG-RATE > +0                     TGF00060
+165630                   COMPUTE ORL-UNIT-PRICE-RESELLER ROUNDED =      TGF00060
+165640                           ORL-UNIT-PRICE-RESELLER /              TGF00060
+                                                 ORL-ACTUAL-EXCHG-RATE  TGF00060
+165650                   COMPUTE ORL-UNIT-PRICE-RESELLER ROUNDED =      TGF00060
+165660                           ORL-UNIT-PRICE-RESELLER *              TGF00060
+165670                                           WS-ACTUAL-EXCHG-RATE   TGF00060
+                      ELSE                                              TGF00060
+165630                    COMPUTE ORL-UNIT-PRICE-RESELLER ROUNDED =     TGF00060
+165640                            ORL-UNIT-PRICE-RESELLER /             TGF00060
+165640                                           ORH-CURRENCY-RATE      TGF00060
+165650                    COMPUTE ORL-UNIT-PRICE-RESELLER ROUNDED =     TGF00060
+165660                            ORL-UNIT-PRICE-RESELLER *             TGF00060
+165670                                           WS-CURRENT-EXCHG-RATE  TGF00060
+                      END-IF                                            TGF00060
+                  ELSE                                                  TGF00060
+                      IF ORH-CURRENCY-RATE NOT NUMERIC                  KLM01278
+                         MOVE WS-CURRENT-EXCHG-RATE                     KLM01278
+                           TO ORH-CURRENCY-RATE                         KLM01278
+                      END-IF                                            KLM01278
+                      IF TB-CPO-NO-DECIMAL-CURRENCY                     KLM01278
+                         COMPUTE WS-UNIT-PRICE-RSLR-NO-DEC ROUNDED =    KLM01278
+                                 ORL-UNIT-PRICE-RESELLER /              KLM01278
+                                                 ORH-CURRENCY-RATE      KLM01278
+                         COMPUTE WS-UNIT-PRICE-RSLR-NO-DEC ROUNDED =    KLM01278
+                                 WS-UNIT-PRICE-RSLR-NO-DEC *            KLM01278
+                                             WS-CURRENT-EXCHG-RATE      KLM01278
+                         MOVE WS-UNIT-PRICE-RSLR-NO-DEC                 KLM01278
+                           TO ORL-UNIT-PRICE-RESELLER                   KLM01278
+                      ELSE                                              KLM01278
+165630                    COMPUTE ORL-UNIT-PRICE-RESELLER ROUNDED =     TGF00060
+165640                            ORL-UNIT-PRICE-RESELLER /             TGF00060
+165640                                               ORH-CURRENCY-RATE  TGF00060
+165650                    COMPUTE ORL-UNIT-PRICE-RESELLER ROUNDED =     TGF00060
+165660                            ORL-UNIT-PRICE-RESELLER *             TGF00060
+165670                                           WS-CURRENT-EXCHG-RATE  TGF00060
+                      END-IF                                            KLM01278
+                  END-IF                                                TGF00060
+              END-IF                                                    TGF00060
+           END-IF.                                                      TGF00060
+                                                                        KLM07025
+           IF  TB-CPO3-SELECT-SOURCE-INTL AND                           KLM07025
+             (TC-BRAZIL OR TC-BRAZIL-SOLUTION)                          KLM07025
+              IF  ORL-UNIT-PRICE-RESELLER NUMERIC AND                   KLM07025
+                  ORL-UNIT-PRICE-RESELLER > +0                          KLM07025
+                 IF TB-CPO3-USE-VDR-EXCHG-RATE                          KLM07025
+                    IF ORL-LOCAL-SELL-FLAG = 'Y'  OR                    KLM07025
+006580**==============================================================**SZD21190
+006600**  FOR BRAZIL, RECALCULATE THE PRODUCT PRICE                     SZD21190
+006590**  EVEN IF PRINT COUNT > 0, SO REMOVED ORSH-PRINT-COUNT  > 0 LINESZD21190
+006700**==============================================================**SZD21190
+                       ORSH-BR-TRANSFER-ORDER                           KLM07025
+                        NEXT SENTENCE                                   KLM07025
+                    ELSE                                                KLM07025
+                        MOVE WS-ACT-EXCHG-RATE-SAVE                     KLM07025
+                                       TO ORL-ACTUAL-EXCHG-RATE         SZD21190
+                    END-IF                                              SZD21190
+                 ELSE                                                   SZD21190
+                    IF WRK-PROGRAM-NAME = 'ORP562'                      SZD21190
+                       MOVE WS-ACTUAL-EXCHG-RATE                        SZD21190
+                                       TO ORL-ACTUAL-EXCHG-RATE         SZD21190
+                    END-IF                                              SZD21190
+                 END-IF                                                 SZD21190
+              ELSE                                                      SZD21190
+                 IF WRK-PROGRAM-NAME = 'ORP562'                         SZD21190
+                    MOVE WS-ACTUAL-EXCHG-RATE                           SZD21190
+                                       TO ORL-ACTUAL-EXCHG-RATE         SZD21190
+                 END-IF                                                 SZD21190
+              END-IF                                                    SZD21190
+           ELSE                                                         SZD21190
+              IF TC-BRAZIL OR TC-BRAZIL-SOLUTION                        SZD21190
+              AND WRK-PROGRAM-NAME = 'ORP562'                           SZD21190
+                 MOVE WS-ACTUAL-EXCHG-RATE                              SZD21190
+                                       TO ORL-ACTUAL-EXCHG-RATE         SZD21190
+              END-IF                                                    SZD21190
+           END-IF.                                                      SZD21190
+014000                                                                  01400000
+014100 8120-EXIT.                                                       01410000
+014200     EXIT.                                                        01420000
+014300/                                                                 01430000
+014400 8200-GET-VENDOR-EXCHG-RATE.                                      01440000
+014410                                                                  01441009
+014420**==============================================================**01442009
+014430**  IF THE VENDOR FOR THIS LINE IS SAME AS THE LAST LINE, NO NEED 01443009
+014440**  TO READ THE SAME VENDOR AGAIN. THE INFO IS ALREADY AVAILABLE. 01444009
+014450**==============================================================**01445009
+014500                                                                  01450000
+014600     IF  WS-RECALC-COMPANY-NBR     =  WS-VNSHED-CO    AND         01460010
+014700         ORL-VENDOR-NBR            =  WS-VNSHED-VEND              01470010
+014701         GO TO  8200-BYPASS-READ-SAME-VENDOR.                     01470110
+014710                                                                  01471009
+014720     MOVE  WS-RECALC-COMPANY-NBR  TO  WS-VNSHED-CO                01472009
+014730     MOVE  ORL-VENDOR-NBR         TO  WS-VNSHED-VEND.             01473009
+014800                                                                  01480000
+014900     PERFORM  1750-GU-VNSHED.                                     01490000
+015000                                                                  01500000
+015100     IF  WS-VNSHED-NORESP                                         01510000
+015200         NEXT SENTENCE                                            01520000
+015300     ELSE                                                         01530000
+015400         GO TO  8200-EXIT.                                        01540000
+015500                                                                  01550000
+015510 8200-BYPASS-READ-SAME-VENDOR.                                    01551010
+015520                                                                  01552009
+015600**==============================================================**01560000
+015700**  IF EITHER VENDOR EXCHG RATE OR TYPE HAS CHANGED OR IF EITHER  01570000
+015800**  OR BOTH ARE INVALID, ORSLINE NEEDS TO BE UPDTED WITH VNDR INFO01580000
+015900**==============================================================**01590000
+016000                                                                  01600000
+016100     IF  VNH-EXCHG-RATE-CURR  NOT  NUMERIC                        01610000
+016200         MOVE  ZERO  TO  VNH-EXCHG-RATE-CURR.                     01620000
+016300                                                                  01630000
+           IF TC-COMPANY = 'MX'                                         DAK12305
+              IF TC-MAP-PROGRAM-ID = 'ORM570'                           DAK12305
+                 IF VNH-EXCHG-RATE-CURR = 0                             DAK12305
+                    GO TO  8200-EXIT.                                   DAK12305
+                                                                        DAK12305
+016400     IF  NOT   VNH-VALID-EXCHG-RATE-TYPE                          01640000
+016500         MOVE  SPACE  TO  VNH-EXCHG-RATE-TYPE.                    01650000
+016510                                                                  01651000
+016520     IF  ORL-VDR-EXCHG-RATE  NOT  NUMERIC                         01652000
+016521         MOVE  ZERO  TO  ORL-VDR-EXCHG-RATE.                      01652100
+016522                                                                  01652200
+016523     IF  VNH-EXCHG-RATE-CURR   NOT     =  ORL-VDR-EXCHG-RATE   OR 01652300
+016524         VNH-EXCHG-RATE-TYPE   NOT     =  ORL-VDR-EXCHG-RATE-TYPE 01652400
+016525         MOVE  VNH-EXCHG-RATE-CURR    TO  ORL-VDR-EXCHG-RATE      01652500
+016526         MOVE  VNH-EXCHG-RATE-TYPE    TO  ORL-VDR-EXCHG-RATE-TYPE 01652600
+016527         SET   ORSLINE-TO-BE-UPDATED  TO  TRUE.                   01652700
+016528                                                                  01652800
+016529     IF  VNH-EXCHG-RATE-CURR  >  ZERO                             01652900
+016530       IF  VNH-FIXED-RATE                                         01653000
+016540           MOVE  VNH-EXCHG-RATE-CURR    TO  WS-ACTUAL-EXCHG-RATE  01654000
+016550       ELSE                                                       01655000
+016560       IF  VNH-MAXIMUM-RATE                                       01656000
+016570         IF  VNH-EXCHG-RATE-CURR        <   WS-CURRENT-EXCHG-RATE 01657000
+016580             MOVE  VNH-EXCHG-RATE-CURR  TO  WS-ACTUAL-EXCHG-RATE. 01658000
+016590                                                                  01659000
+016600 8200-EXIT.                                                       01660000
+016700     EXIT.                                                        01670000
+                                                                        TGF00060
+       8205-GET-LINE-RATE.                                              TGF00060
+                                                                        TGF00060
+           IF (TC-BRAZIL OR TC-BRAZIL-SOLUTION) AND                     MP422184
+               ORH-PRICE-RECALC-NOT-REQD                                MSI06192
+                   MOVE ORL-ACTUAL-EXCHG-RATE TO WS-ACTUAL-EXCHG-RATE   MSI06192
+                   GO TO 8205-EXIT.                                     MSI06192
+                                                                        MSI06192
+            MOVE ORL-INVOICE-BREAK-CODE   TO TB-CURR-FROM-CURR-CODE.    TGF00060
+            CALL 'SYU510'   USING TB-CURR-TABLE-IA.                     TGF00060
+            IF TB-CURR-NORESP                                           TGF00060
+                MOVE TB-CURR-SELL-RATE    TO WS-ACTUAL-EXCHG-RATE       TGF00060
+            ELSE                                                        TGF00060
+                IF ORH-AR-CURRENCY-CODE = TB-CPO-CURRENCY-CODE          TGF00060
+                    MOVE 'UST' TO TB-CURR-FROM-CURR-CODE                TGF00060
+                ELSE                                                    TGF00060
+                    MOVE ORH-AR-CURRENCY-CODE                           TGF00060
+                                          TO TB-CURR-FROM-CURR-CODE     TGF00060
+                END-IF                                                  TGF00060
+                CALL 'SYU510'         USING  TB-CURR-TABLE-IA           TGF00060
+                IF TB-CURR-NORESP                                       TGF00060
+                    MOVE TB-CURR-SELL-RATE                              TGF00060
+                                          TO WS-ACTUAL-EXCHG-RATE       TGF00060
+                ELSE                                                    TGF00060
+                    MOVE TB-CPO2-PRICING-CURR-CODE                      TGF00060
+                                          TO TB-CURR-FROM-CURR-CODE     TGF00060
+                    CALL 'SYU510'      USING TB-CURR-TABLE-IA           TGF00060
+                    IF  TB-CURR-NORESP                                  TGF00060
+                        MOVE TB-CURR-SELL-RATE                          TGF00060
+                                          TO WS-ACTUAL-EXCHG-RATE       TGF00060
+                    END-IF                                              TGF00060
+                END-IF                                                  TGF00060
+            END-IF.                                                     TGF00060
+                                                                        TGF00060
+       8205-EXIT.                                                       TGF00060
+            EXIT.                                                       TGF00060
+                                                                        TGF00060
+       8206-BRAZIL-COST.                                                TGF00060
+      ************************ BRAZIL ONLY ***************************  TGF00060
+      * * SINCE WE HAVE THE LINE HERE AND SINCE EACH LINE MIGHT HAVE    TGF00060
+      * * A DIFFERENT EXCHANGE RATE, THE FORIEGN COST MIGHT BE NOT BE   TGF00060
+      * * CORRECT.  NEED TO CONVERT COST TO A FORGIEN VALUE AND STORE ITTGF00060
+      * * SO WHEN ORP540 OR ORP611 TOGGLE THE AMOUNTS WILL BE CORRECT.  TGF00060
+      * * THIS IS FOR DISPLAY ONLY...                                   TGF00060
+            IF WS-HB-PROCESS-FLAG = 'Y' AND ORLOF-SYSTEM-COMPONENT      TGF22126
+               GO TO 8206-EXIT                                          TGF22126
+            END-IF.                                                     TGF22126
+                                                                        TGF22126
+            IF WS-ACTUAL-EXCHG-RATE = 0                                 TGF00060
+               MOVE ORH-CURRENCY-RATE     TO WS-ACTUAL-EXCHG-RATE.      TGF00060
+                                                                        TGF00060
+            COMPUTE WS-BRAZIL-FRGN-UNIT-COST =                          TGF00060
+                  ((ORL-UNIT-COST / WS-ACTUAL-EXCHG-RATE) *             TGF00060
+                    ORL-QTY-SHIPPED).                                   TGF00060
+            ADD WS-BRAZIL-FRGN-UNIT-COST  TO WS-BRAZIL-FRGN-TL-COST.    TGF00060
+            IF ORL-ADJUSTED-COST = 0                                    TGF00060
+                COMPUTE WS-BRAZIL-FRGN-UNIT-ADJ-COST =                  TGF00060
+                      ((ORL-UNIT-COST / WS-ACTUAL-EXCHG-RATE) *         TGF00060
+                        ORL-QTY-SHIPPED)                                TGF00060
+            ELSE                                                        TGF00060
+                COMPUTE WS-BRAZIL-FRGN-UNIT-ADJ-COST =                  TGF00060
+                      ((ORL-ADJUSTED-COST / WS-ACTUAL-EXCHG-RATE) *     TGF00060
+                        ORL-QTY-SHIPPED)                                TGF00060
+            END-IF                                                      TGF00060
+            ADD WS-BRAZIL-FRGN-UNIT-ADJ-COST                            TGF00060
+                                          TO WS-BRAZIL-FRGN-ADJ-TL-COST.TGF00060
+       8206-EXIT.                                                       TGF00060
+            EXIT.                                                       TGF00060
+016800/                                                                 01680000
+016900 8300-COMPUTE-LINE-ORD-SALE-AMT.                                  01690000
+017000                                                                  01700000
+017100 COPY    SYHEXTOL.                                                01710000
+017200                                                                  01720000
+017300 8300-EXIT.                                                       01730000
+017400     EXIT.                                                        01740000
+017500/                                                                 01750000
+017600 8400-UPDATE-ORDER-SHIP-HEADER.                                   01760000
+017800                                                                  01780000
+017900**==============================================================**01790000
+018000**   IF  THE CALCULATED TOTAL SALES IS THE SAME AS THE TOTAL    **01800000
+018100**   SALES IN SHIP-HDR, NO UPDATE OF HEADERS ARE NECESSARY.     **01810000
+018200**   OTHERWISE, UPDATE THE SHIP HEADER AND ORDER HEADER.        **01820000
+018300**==============================================================**01830000
+018400                                                                  01840000
+018500     IF  WS-TOTAL-LINES-NEW-SALES-AMT  =                          01850000
+018600                                  WS-TOTAL-LINES-OLD-SALES-AMT    01860000
+018700         GO TO  8400-EXIT.                                        01870000
+018800                                                                  01880000
+018900     IF  DB-UPDT-FOR-EXCHG-RATE-REQD                              01890000
+019000         PERFORM  1210-GHU-ORSSHH                                 01900000
+019100     ELSE                                                         01910000
+019200         PERFORM  1202-GU-ORSSHH.                                 01920000
+019300                                                                  01930000
+019400     IF  WS-ORSSHH-NORESP                  AND                    01940000
+019500         WS-TOTAL-LINES-NEW-SALES-AMT  >  ZERO                    01950000
+019600         COMPUTE  ORSH-TOTAL-SALES     ROUNDED           =        01960013
+019800                           ORSH-TOTAL-SALES              +        01980000
+019900                        (  WS-TOTAL-LINES-NEW-SALES-AMT  -        01990000
+020000                           WS-TOTAL-LINES-OLD-SALES-AMT    )      02000000
+020100         IF  DB-UPDT-FOR-EXCHG-RATE-REQD                          02010000
+020200             MOVE  SPACE  TO  WS-ORSSHH-QUAL                      02020000
+020300             PERFORM  1314-REPL-ORSSHH.                           02030000
+020400                                                                  02040000
+020500     IF  WS-ORSSHH-NORESP                                         02050000
+020600       IF  DB-UPDT-FOR-EXCHG-RATE-REQD                            02060000
+020700           PERFORM  1208-GHU-ORSHED                               02070000
+020800       ELSE                                                       02080000
+020900           PERFORM  1200-GU-ORSHED                                02090000
+020910     ELSE                                                         02091000
+020920         GO TO  8400-EXIT.                                        02092000
+020930                                                                  02093000
+020940     IF  WS-ORSHED-NORESP                                         02094000
+020950         COMPUTE  ORH-ORDER-VALUE-AT-ADD  ROUNDED  =              02095012
+020960                  ORH-ORDER-VALUE-AT-ADD           +              02096012
+020970               (  WS-TOTAL-LINES-NEW-ORDER-AMT     -              02097012
+020980                  WS-TOTAL-LINES-OLD-ORDER-AMT       )            02098012
+020980         IF  ORH-COMPANY  NOT = 'MX'                              SXB99214
+020980             MOVE  WS-CURRENT-EXCHG-RATE TO                       KLM98350
+020980                                   ORH-CURRENCY-RATE              KLM98350
+020980         END-IF                                                   KLM98350
+020990         IF  DB-UPDT-FOR-EXCHG-RATE-REQD                          02099012
+021000             MOVE  SPACE  TO  WS-ORSHED-QUAL                      02100012
+021100             PERFORM  1312-REPL-ORSHED.                           02110012
+021200                                                                  02120000
+021300 8400-EXIT.                                                       02130000
+021400     EXIT.                                                        02140000
+017500*                                                                 KLM98350
+017600 8500-GET-TAXES.                                                  KLM98350
+      *                                                                 KLM98350
+           MOVE  ORH-COMPANY          TO  BRT-COMPANY                   KLM98350
+                                          TB-BRN2-COMPANY-CODE.         KLM98350
+           MOVE  ORL-INV-BR-NBR       TO TB-BRN2-BRANCH.                KLM98350
+           CALL  'SYU510'    USING    TB-BRN2-PROC-IA.                  KLM98350
+           IF  TB-BRN2-NORESP                                           KLM98350
+               MOVE  TB-BRN2-FACTURA-PRINT-BR  TO  BRT-BR-NBR.          KLM98350
+           MOVE  ORH-STATE-CODE       TO  BRT-STATE.                    KLM98350
+           MOVE  ORL-TES-CODE         TO  BRT-TES-CODE.                 KLM98350
+           MOVE  ORL-ICMS-CODE        TO  BRT-ICMS-CODE.                KLM98350
+           IF ORSH-BR-TRANSFER-ORDER                                    MSI06107
+               MOVE ORL-ACTUAL-EXCHG-RATE TO BRT-CURRENCY-RATE          MSI06107
+           ELSE                                                         MSI06107
+               IF TB-CPO3-USE-VDR-EXCHG-RATE                            MSI06107
+                   IF ORL-VDR-EXCHG-RATE > +0                           MSI06107
+                       MOVE ORL-VDR-EXCHG-RATE TO BRT-CURRENCY-RATE     MSI06107
+                   ELSE                                                 MSI06107
+      * LOCAL SELL FLAG IS SET IN ORP320/ORP673 IF SELL CURR IS REAIS   MSI06107
+      * IF SKU SELL CURR IS REAIS USE LINE RATE OTHERWISE USE TBL RATE  MSI06107
+                       IF ORL-LOCAL-SELL-FLAG = 'Y'                     MSI06107
+                           MOVE ORL-ACTUAL-EXCHG-RATE                   MSI06107
+                                           TO BRT-CURRENCY-RATE         MSI06107
+                       ELSE                                             MSI06107
+                           MOVE WS-ACTUAL-EXCHG-RATE                    MSI06177
+                                           TO BRT-CURRENCY-RATE         MSI06107
+                       END-IF                                           MSI06107
+                   END-IF                                               MSI06107
+               ELSE                                                     MSI06107
+                   MOVE WS-ACTUAL-EXCHG-RATE TO BRT-CURRENCY-RATE       MSI06107
+               END-IF.                                                  MSI06107
+                                                                        TGF06300
+           IF  TB-CPO3-SELECT-SOURCE-INTL AND                           TGF06300
+             ORH-EU-ORDERS-USE-END-USER AND                             TGF06300
+               ORH-RESELLER-NBR > SPACES AND                            TGF06300
+                 ORL-UNIT-PRICE-RESELLER > +0                           TGF06300
+      *       MOVE ZERO                 TO WS-ORSLNEOF-NBR              TGF06300
+      *       PERFORM 1267-GNP-ORSLNEOF                                 TGF06300
+      *       IF WS-ORSLNEOF-NORESP                                     TGF06300
+      *          MOVE ORLOF-ORSLNEOF   TO ORLOF-ORSLNEOF-0              TGF06300
+                 IF ORLOF-MP255-TAX-FLAG > SPACE                        TGF06300
+                    MOVE ORLOF-MP255-TAX-FLAG  TO BRT-MP255-TAX-FLAG    TGF06300
+                    MOVE ORLOF-MP255-TAX-RATE  TO BRT-PC-RATE           TGF06300
+                 ELSE                                                   TGF06300
+                    MOVE SPACE                 TO BRT-MP255-TAX-FLAG    TGF06300
+                    MOVE ZEROS                 TO BRT-PC-RATE           TGF06300
+                 END-IF                                                 TGF10252
+                 IF ORLOF-BR-PRICE-W-TAX NUMERIC AND                    TGF10252
+                   (ORLOF-BR-PRICE-W-TAX > 0)                           TGF10252
+                    MOVE ORLOF-BR-PRICE-W-TAX                           TGF10252
+                                       TO BRT-TOTAL-PRICE-FOREIGN       TGF10252
+                    MOVE +0            TO BRT-PRICE-NOTAX-FOREIGN       TGF10252
+                 END-IF                                                 TGF10252
+      *       END-IF                                                    TGF10252
+           ELSE                                                         TGF10252
+      *       MOVE '0'                 TO WS-ORSLNEOF-NBR               TGF10252
+      *       PERFORM 1267-GNP-ORSLNEOF                                 TGF10252
+      *       IF WS-ORSLNEOF-NORESP                                     TGF10252
+      *          MOVE ORLOF-ORSLNEOF   TO ORLOF-ORSLNEOF-0              TGF10252
+                 IF ORLOF-BR-PRICE-W-TAX NUMERIC AND                    TGF10252
+                   (ORLOF-BR-PRICE-W-TAX > 0)                           TGF10252
+                    MOVE ORLOF-BR-PRICE-W-TAX                           TGF10252
+                                       TO BRT-TOTAL-PRICE-FOREIGN       TGF10252
+                    MOVE +0            TO BRT-PRICE-NOTAX-FOREIGN       TGF10252
+                 END-IF                                                 TGF10252
+                 MOVE '('              TO WS-ORSHED-QUAL                TGF10252
+                                          WS-ORSSHH-QUAL                TGF10252
+                 MOVE '='              TO WS-ORSSHH-SEARCH              TGF10252
+                 MOVE 'P'              TO WS-ORSSHH-COMMAND-CD1         TGF10252
+                 MOVE '('              TO WS-ORSLNE-QUAL                TGF10252
+                 MOVE WS-SAVE-LINE-NBR                                  TGF10252
+                                       TO WS-ORSLNE-NBR                 TGF10252
+                 IF DB-UPDT-FOR-EXCHG-RATE-REQD                         TGF10252
+                    PERFORM 1212-GHU-ORSLNE                             TGF10252
+                 ELSE                                                   TGF10252
+                    PERFORM 1204-GU-ORSLNE                              TGF10252
+                 END-IF                                                 TGF10252
+                 MOVE  ' '             TO WS-ORSLNE-QUAL                TGF10252
+                 MOVE  '-'             TO WS-ORSSHH-COMMAND-CD1         TGF10252
+              END-IF.                                                   TGF10252
+                                                                        TGF06300
+           IF  ORSH-BR-TRANSFER-ORDER           AND                     MSI06107
+              (ORH-BILL-TO-CUST-NBR NOT = '111111' AND                  KLM98350
+               ORH-BILL-TO-CUST-NBR NOT = '999999')                     KLM98350
+               MOVE  ORL-UNIT-PRICE  TO  BRT-INPUT-PRICE-NOTAX          KLM98350
+               MOVE  +0              TO  BRT-PRICE-NOTAX-FOREIGN        KLM98350
+                                         BRT-TOTAL-PRICE-FOREIGN        KLM98350
+           ELSE                                                         KLM98350
+           IF  ORSH-BR-TRANSFER-ORDER                                   KLM08090
+             IF TB-CPO6-TAC4-VENDOR-RETURNS                             KLM08090
+               IF ORL-ICMS-TAX-RATE > +0 OR                             KLM08090
+                   ORL-IPI-ISS-TAX-RATE > +0 OR                         KLM08090
+                     ORSH-COFINS-TAX-RATE > +0                          KLM08090
+                  MOVE 'Y'     TO BRT-RTV-ORDER-FLAG                    KLM08090
+                  MOVE ORL-ICMS-TAX-RATE  TO BRT-ICMS-RATE              KLM08090
+                  MOVE ORSH-COFINS-TAX-RATE  TO BRT-PC-RATE             KLM08090
+                  MOVE  +0                  TO BRT-PRICE-NOTAX-FOREIGN  KLM08090
+                                               BRT-TOTAL-PRICE-FOREIGN  KLM08090
+                                               BRT-INPUT-PRICE-NOTAX    KLM08090
+                  COMPUTE BRT-UNIT-PRICE-TAX =                          KLM08090
+                    ORL-UNIT-PRICE + ORL-ICMS-TAX-AMT +                 KLM08090
+                      ORL-IPI-ISS-TAX-AMT + ORL-PC-TAX-AMT              KLM08090
+                  IF ORL-IPI-ISS-TAX-SW  =  'P'                         KLM08090
+                     MOVE ORL-IPI-ISS-TAX-RATE TO BRT-IPI-RATE          KLM08090
+                     MOVE ZERO                 TO BRT-ISS-RATE          KLM08090
+                  ELSE                                                  KLM08090
+                     IF ORL-IPI-ISS-TAX-SW  =  'S'                      KLM08090
+                        MOVE ORL-IPI-ISS-TAX-RATE  TO BRT-ISS-RATE      KLM08090
+                        MOVE ZERO                  TO BRT-IPI-RATE      KLM08090
+                     ELSE                                               KLM08090
+                        MOVE ZERO              TO BRT-IPI-RATE          KLM08090
+                                                  BRT-ISS-RATE          KLM08090
+               ELSE                                                     KLM08090
+                  MOVE  ORL-UNIT-PRICE   TO BRT-INPUT-PRICE-NOTAX       KLM08090
+                  MOVE  +0               TO BRT-PRICE-NOTAX-FOREIGN     KLM08090
+                                            BRT-TOTAL-PRICE-FOREIGN     KLM08090
+             ELSE                                                       KLM08090
+                MOVE  ORL-UNIT-PRICE   TO BRT-INPUT-PRICE-NOTAX         KLM08090
+                MOVE  +0               TO BRT-PRICE-NOTAX-FOREIGN       KLM08090
+                                          BRT-TOTAL-PRICE-FOREIGN       KLM08090
+           ELSE                                                         KLM08090
+               MOVE  ORL-FOREIGN-UNIT-PRICE                             KLM98350
+                                   TO  BRT-PRICE-NOTAX-FOREIGN          KLM98350
+               MOVE  +0            TO  BRT-INPUT-PRICE-NOTAX            KLM98350
+                                        BRT-TOTAL-PRICE-FOREIGN.        KLM98350
+                                                                        TGF10252
+           IF WS-ORSLNEOF-NORESP                                        TGF10252
+              IF ORLOF-BR-PRICE-W-TAX NUMERIC AND                       TGF10252
+                (ORLOF-BR-PRICE-W-TAX > 0)                              TGF10252
+                 MOVE ORLOF-BR-PRICE-W-TAX                              TGF10252
+                                       TO BRT-TOTAL-PRICE-FOREIGN       TGF10252
+                 MOVE +0               TO BRT-PRICE-NOTAX-FOREIGN       TGF10252
+              END-IF                                                    TGF10252
+           END-IF.                                                      TGF10252
+                                                                        TGF10252
+           IF WS-HB-PROCESS-FLAG = 'Y'                                  APX20220
+              MOVE BRT-TOTAL-TAX-AMT   TO WS-BRT-TOTAL-TAX-AMT          APX20220
+              MOVE BRT-ORDER-TOTAL-NOTAX                                TGF22126
+                                       TO WS-BRT-ORDER-TOTAL-NOTAX      TGF22126
+              MOVE BRT-ORDER-TOTAL-TAX TO WS-BRT-ORDER-TOTAL-TAX        APX20220
+              MOVE BRT-ORDER-TOTAL-NOTAX-FGN                            TGF22126
+                                       TO WS-BRT-ORDER-TOTAL-NOTAX-FGN  TGF22126
+              MOVE BRT-TOTAL-TAX-AMT-FGN                                TGF22126
+                                       TO WS-BRT-TOTAL-TAX-AMT-FGN      TGF22126
+              MOVE BRT-ORDER-TOTAL-TAX-FGN                              TGF22126
+                                       TO WS-BRT-ORDER-TOTAL-TAX-FGN    TGF22126
+              MOVE BRT-ORDER-TOTAL-TAX TO WS-BRT-ORDER-TOTAL-TAX        TGF22126
+              MOVE BRT-ICMS-TOTAL-TAX  TO WS-BT-ICMS-TOTAL-TAX          TGF22126
+              MOVE BRT-IPI-TOTAL-TAX   TO WS-BRT-IPI-TOTAL-TAX          TGF22126
+              MOVE BRT-ISS-TOTAL-TAX   TO WS-BRT-ISS-TOTAL-TAX          TGF22126
+              MOVE BRT-PC-TOTAL-TAX    TO WS-BRT-PC-TOTAL-TAX           TGF22126
+           END-IF.                                                      APX20220
+                                                                        APX20220
+           MOVE  ORL-QTY-SHIPPED  TO  BRT-QTY.                          KLM98350
+           MOVE 'RECALC'               TO  BRT-CALLING-PROGRAM.         KLM99224
+           MOVE ORH-END-USER-ORDER-SW  TO BRT-END-USER-SW.              KLM04174
+           MOVE CUM-TAX-EXEMPT-NBR     TO  BRT-TAX-EXEMPT-NBR.          KLM99224
+           MOVE CUM-CONTRIBUINTE-SW    TO  BRT-CONTRIB-CUST-FLAG.       KLM08090
+           CALL BRT-TAXES-TXP111 USING DFHEIBLK                         KLM99224
+                                       DFHCOMMAREA                      KLM99224
+                                       BRT-TAX-CALCULATION-FIELDS.      KLM99224
+                                                                        KLM98350
+           MOVE SPACE                  TO BRT-MP255-TAX-FLAG            TGF06300
+                                          ORLOF-MP255-TAX-FLAG.         TGF06300
+           MOVE ZEROS                  TO BRT-PC-RATE.                  TGF06300
+                                                                        APX20220
+           IF WS-HB-PROCESS-FLAG = 'Y' AND ORLOF-SYSTEM-COMPONENT       APX20220
+              COMPUTE WS-BRT-ORDER-TOTAL-NOTAX-C =                      TGF22126
+                    ( BRT-ORDER-TOTAL-NOTAX  - WS-BRT-ORDER-TOTAL-NOTAX)TGF22126
+                    + WS-BRT-ORDER-TOTAL-NOTAX-C                        TGF22126
+              COMPUTE WS-BRT-ORDER-TOTAL-NOTAX-FGN-C =                  TGF22126
+                    ( BRT-ORDER-TOTAL-NOTAX-FGN -                       TGF22126
+                      WS-BRT-ORDER-TOTAL-NOTAX-FGN)                     TGF22126
+                    + WS-BRT-ORDER-TOTAL-NOTAX-FGN-C                    TGF22126
+              COMPUTE WS-BRT-TOTAL-TAX-AMT-C          =                 APX20220
+                    ( BRT-TOTAL-TAX-AMT       - WS-BRT-TOTAL-TAX-AMT)   APX20220
+                    + WS-BRT-TOTAL-TAX-AMT-C                            APX20220
+              COMPUTE WS-BRT-ORDER-TOTAL-TAX-C        =                 APX20220
+                    (BRT-ORDER-TOTAL-TAX     - WS-BRT-ORDER-TOTAL-TAX)  APX20220
+                    + WS-BRT-ORDER-TOTAL-TAX-C                          APX20220
+              COMPUTE WS-BRT-TOTAL-TAX-AMT-FGN-C      =                 APX20220
+                   (BRT-TOTAL-TAX-AMT-FGN   - WS-BRT-TOTAL-TAX-AMT-FGN) APX20220
+                    + WS-BRT-TOTAL-TAX-AMT-FGN-C                        APX20220
+              COMPUTE WS-BRT-ORDER-TOTAL-TAX-FGN-C    =                 APX20220
+                    ( BRT-ORDER-TOTAL-TAX-FGN -                         APX20220
+                      WS-BRT-ORDER-TOTAL-TAX-FGN)                       APX20220
+                    + WS-BRT-ORDER-TOTAL-TAX-FGN-C                      APX20220
+              COMPUTE WS-BT-ICMS-TOTAL-TAX-C =                          TGF22126
+                    ( BRT-ICMS-TOTAL-TAX -                              TGF22126
+                      WS-BT-ICMS-TOTAL-TAX)                             TGF22126
+                    + WS-BT-ICMS-TOTAL-TAX-C                            TGF22126
+              COMPUTE WS-BRT-IPI-TOTAL-TAX-C =                          TGF22126
+                    ( BRT-IPI-TOTAL-TAX -                               TGF22126
+                      WS-BRT-IPI-TOTAL-TAX)                             TGF22126
+                    + WS-BRT-IPI-TOTAL-TAX                              TGF22126
+              COMPUTE WS-BRT-ISS-TOTAL-TAX-C =                          TGF22126
+                    ( BRT-ISS-TOTAL-TAX -                               TGF22126
+                      WS-BRT-ISS-TOTAL-TAX)                             TGF22126
+                    + WS-BRT-ISS-TOTAL-TAX-C                            TGF22126
+              COMPUTE WS-BRT-PC-TOTAL-TAX =                             TGF22126
+                    ( BRT-PC-TOTAL-TAX -                                TGF22126
+                      WS-BRT-PC-TOTAL-TAX)                              TGF22126
+                    + WS-BRT-PC-TOTAL-TAX-C                             TGF22126
+           END-IF.                                                      APX20220
+                                                                        APX20220
+           IF WS-HB-PROCESS-FLAG = 'Y' AND (NOT ORLOF-SYSTEM-COMPONENT) APX20220
+              COMPUTE WS-BRT-ORDER-TOTAL-NOTAX-1 =                      TGF22126
+                    ( BRT-ORDER-TOTAL-NOTAX                             TGF22126
+                    - WS-BRT-ORDER-TOTAL-NOTAX-C)                       TGF22126
+              COMPUTE WS-BRT-ORDER-TOTAL-NOTAX-FGN-1 =                  TGF22126
+                    ( BRT-ORDER-TOTAL-NOTAX-FGN -                       TGF22126
+                      WS-BRT-ORDER-TOTAL-NOTAX-FGN-C)                   TGF22126
+              COMPUTE WS-BRT-TOTAL-TAX-AMT-1          =                 APX20220
+                      BRT-TOTAL-TAX-AMT       - WS-BRT-TOTAL-TAX-AMT-C  APX20220
+              COMPUTE WS-BRT-ORDER-TOTAL-TAX-1        =                 APX20220
+                      BRT-ORDER-TOTAL-TAX - WS-BRT-ORDER-TOTAL-TAX-C    APX20220
+              COMPUTE WS-BRT-TOTAL-TAX-AMT-FGN-1      =                 APX20220
+                      BRT-TOTAL-TAX-AMT-FGN -                           APX20220
+                      WS-BRT-TOTAL-TAX-AMT-FGN-C                        APX20220
+              COMPUTE WS-BRT-ORDER-TOTAL-TAX-FGN-1    =                 APX20220
+                      BRT-ORDER-TOTAL-TAX-FGN -                         APX20220
+                      WS-BRT-ORDER-TOTAL-TAX-FGN-C                      APX20220
+              COMPUTE WS-BT-ICMS-TOTAL-TAX-1 =                          TGF22126
+                      BRT-ICMS-TOTAL-TAX -                              TGF22126
+                      WS-BT-ICMS-TOTAL-TAX-C                            TGF22126
+              COMPUTE WS-BRT-IPI-TOTAL-TAX-1 =                          TGF22126
+                      BRT-IPI-TOTAL-TAX -                               TGF22126
+                      WS-BRT-IPI-TOTAL-TAX                              TGF22126
+              COMPUTE WS-BRT-ISS-TOTAL-TAX-1 =                          TGF22126
+                      BRT-ISS-TOTAL-TAX -                               TGF22126
+                      WS-BRT-ISS-TOTAL-TAX-C                            TGF22126
+              COMPUTE WS-BRT-PC-TOTAL-TAX-1 =                           TGF22126
+                      BRT-PC-TOTAL-TAX -                                TGF22126
+                      WS-BRT-PC-TOTAL-TAX-C                             TGF22126
+           END-IF.                                                      APX20220
+      *                                                                 KLM98350
+       8500-EXIT.                                                       KLM98350
+           EXIT.                                                        KLM98350
+                                                                        KLM98350
+      *                                                                 DAK12305
+       8600-SET-LINE-RATE.                                              DAK12305
+      *                                                                 DAK12305
+           MOVE WS-ACTUAL-EXCHG-RATE   TO ORL-ACTUAL-EXCHG-RATE         DAK12305
+                                          ORL-VDR-EXCHG-RATE.           DAK12305
+           MOVE 'F'                    TO ORL-VDR-EXCHG-RATE-TYPE.      DAK12305
+           SET  ORSLINE-TO-BE-UPDATED  TO  TRUE.                        DAK12305
+                                                                        DAK12305
+       8600-EXIT.                                                       DAK12305
+           EXIT.                                                        DAK12305
+                                                                        DAK12305
+      *BRT100-TAX-CALC.                                                 KLM98350
+      *    COPY  ORSBRTAX.                                              KLM99224
+                                                                        KLM98350
+021500**=======================  END  OF  SYHCALCA  ==================**02150001
+021600/                                                                 02160000

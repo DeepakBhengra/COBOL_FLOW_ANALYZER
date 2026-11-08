@@ -1,0 +1,154 @@
+      *-----------------------------------------------------------------        
+      *PROCEDURE DIVISION COPY BOOK :-                                *         
+      *       SYSCPSCC - CODE PAGE SPECIAL CHAR CONVERSION            *         
+      *       TO BE USED WITH SYTCPSCC WORKING STORAGE COPY-BOOK      *         
+      *       ORIGINAL CODE PAGE CONVERSION HAPPENS IN WWPINB PGM               
+      *---------------------------------------------------------------*         
+      *EAI CODE PAGE     IBM CODE PAGE   COPY-BOOK                              
+      * 12                273            COR273                                 
+      * 16                297            COR297                                 
+      * 18                284            COR284                                 
+      * 22                277            COR277                                 
+      * 24                278            COR278                                 
+      * 28                280            COR280                                 
+      *---------------------------------------------------------------*         
+      * SAMPLE CODE USE FOR '@' SYMBOL CONVERSION TO US CODE PAGE 37.           
+      *          SET  WS-CONVERT-TO-US TO TRUE                                  
+      *          SET  WS-CONVERT-AT-SY TO TRUE                                  
+      *          MOVE SPACES           TO WS-CPG-INPUT-FIELD                    
+      *          MOVE WS-EMAIL         TO WS-CPG-INPUT-FIELD                    
+      *          MOVE TC-COMPANY       TO WS-CPG-CO-CD                          
+      *          PERFORM 777-SPECIAL-CHAR-CONVERT                               
+      *             THRU 777-SPECIAL-CHAR-CONVERT-EXIT                          
+      *          MOVE SUB1             TO VNTSHO-VEND-DIST-EMAIL-LEN            
+      *          MOVE WS-CPG-INPUT-FIELD                                        
+      *                                TO VNTSHO-VEND-DIST-EMAIL-TEXT           
+      *-----------------------------------------------------------------        
+      *REVISION LOGS                                                  *         
+      * DATE     ID   DESCRIPTION                                     *         
+      *--------- ---- ------------------------------------------------*         
+      * 11/05/21 JH1  ADD COMPANY CODE Z3 FOR ITALY                   * JH121309
+      * 03/14/21 TXV  NEW COPY BOOK                                   * TXV21073
+      *-----------------------------------------------------------------        
+      *-----------------------------------------------------------------        
+       777-SPECIAL-CHAR-CONVERT.                                                
+      *-----------------------------------------------------------------        
+           IF WS-CONVERT-TO-US                                                  
+              PERFORM 777-CONVERT-TO-US                                         
+                 THRU 777-CONVERT-TO-US-EXIT                                    
+           ELSE                                                                 
+              IF WS-CONVERT-TO-LOCAL                                            
+                 PERFORM 777-CONVERT-TO-LOCAL                                   
+                    THRU 777-CONVERT-TO-LOCAL-EXIT                              
+              END-IF                                                            
+           END-IF.                                                              
+       777-SPECIAL-CHAR-CONVERT-EXIT.                                           
+           EXIT.                                                                
+      *-F --------------------------------------------------------------        
+       777-CONVERT-TO-US.                                                       
+      *-----------------------------------------------------------------        
+           IF WS-CONVERT-ALL                                                    
+      *  HANDLING '@'                                                           
+              IF WS-CPG-CO-CD = 'AT' OR 'CH' OR 'DE' OR 'IT' OR 'DC' OR JH121309
+                                'Z3'                                    JH121309
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'B5' BY X'7C'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'DK' OR 'NO'                                    
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'80' BY X'7C'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'SE' OR 'FI'                                    
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'EC' BY X'7C'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'FR'                                            
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'44' BY X'7C'        
+              END-IF                                                            
+      * FOR SPAIN ES, PT HOLDING X'7C' SAME VALUE                               
+      *  HANDLING '|'                                                           
+              IF WS-CPG-CO-CD = 'AT' OR 'CH' OR 'DE' OR 'DK' OR 'FI' OR         
+                                'FR' OR 'IT' OR 'NO' OR 'SE' OR 'Z3'    JH121309
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'BB' BY X'4F'        
+              END-IF                                                            
+      * FOR SPAIN ES, PT HOLDING X'4F' SAME VALUE                               
+           END-IF.                                                              
+                                                                                
+           IF WS-CONVERT-AT-SY                                                  
+      *  HANDLING '@'                                                           
+              IF WS-CPG-CO-CD = 'AT' OR 'CH' OR 'DE' OR 'IT' OR 'DC' OR JH121309
+                                'Z3'                                    JH121309
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'B5' BY X'7C'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'DK' OR 'NO'                                    
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'80' BY X'7C'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'SE' OR 'FI'                                    
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'EC' BY X'7C'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'FR'                                            
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'44' BY X'7C'        
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           IF WS-CONVERT-PIPE-SY                                                
+      *  HANDLING '|'                                                           
+              IF WS-CPG-CO-CD = 'AT' OR 'CH' OR 'DE' OR 'DK' OR 'FI' OR         
+                                'FR' OR 'IT' OR 'NO' OR 'SE' OR 'Z3'    JH121309
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'BB' BY X'4F'        
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       777-CONVERT-TO-US-EXIT.                                                  
+           EXIT.                                                                
+      *-----------------------------------------------------------------        
+       777-CONVERT-TO-LOCAL.                                                    
+      *-----------------------------------------------------------------        
+           IF WS-CONVERT-ALL                                                    
+      *  HANDLING '@'                                                           
+              IF WS-CPG-CO-CD = 'AT' OR 'CH' OR 'DE' OR 'IT' OR 'DC' OR JH121309
+                                'Z3'                                    JH121309
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'7C' BY X'B5'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'DK' OR 'NO'                                    
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'7C' BY X'80'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'SE' OR 'FI'                                    
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'7C' BY X'EC'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'FR'                                            
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'7C' BY X'44'        
+              END-IF                                                            
+      * FOR SPAIN ES, PT HOLDING X'7C' SAME VALUE                               
+      *  HANDLING '|'                                                           
+              IF WS-CPG-CO-CD = 'AT' OR 'CH' OR 'DE' OR 'DK' OR 'FI' OR         
+                                'FR' OR 'IT' OR 'NO' OR 'SE' OR 'Z3'    JH121309
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'4F' BY X'BB'        
+              END-IF                                                            
+      * FOR SPAIN ES, PT HOLDING X'4F' SAME VALUE                               
+           END-IF.                                                              
+                                                                                
+           IF WS-CONVERT-AT-SY                                                  
+      *  HANDLING '@'                                                           
+              IF WS-CPG-CO-CD = 'AT' OR 'CH' OR 'DE' OR 'IT' OR 'DC' OR JH121309
+                                'Z3'                                    JH121309
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'7C' BY X'B5'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'DK' OR 'NO'                                    
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'7C' BY X'80'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'SE' OR 'FI'                                    
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'7C' BY X'EC'        
+              END-IF                                                            
+              IF WS-CPG-CO-CD = 'FR'                                            
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'7C' BY X'44'        
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           IF WS-CONVERT-PIPE-SY                                                
+      *  HANDLING '|'                                                           
+              IF WS-CPG-CO-CD = 'AT' OR 'CH' OR 'DE' OR 'DK' OR 'FI' OR         
+                                'FR' OR 'IT' OR 'NO' OR 'SE' OR 'Z3'    JH121309
+                 INSPECT WS-CPG-INPUT-FIELD REPLACING ALL X'4F' BY X'BB'        
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       777-CONVERT-TO-LOCAL-EXIT.                                               
+           EXIT.                                                                

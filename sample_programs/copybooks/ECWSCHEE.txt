@@ -1,0 +1,67 @@
+      *****************************************************************         
+      *** CHANGES                                                     *         
+      * 03/01/06   RAL  NEW COPYBOOK                                  * RAL06030
+      *****************************************************************         
+       8888-GET-PSB-TABLES.                                                     
+      *                                                                         
+      *    GET PSB TABLES THAT TELL POSITION OF EACH PCB IN THE PSB.            
+      *                                                                         
+           MOVE TC-COMPANY TO TB-PSB-T1-COMPANY.                                
+           MOVE WS-SUPER-PSB TO TB-PSB-T1-PSBNAME.                              
+           CALL 'SYU510' USING TB-PSB-T1-IA.                                    
+           IF  TB-PSB-T1-NORESP                                                 
+              MOVE '00'          TO TB-PSB-TY-NUM-OF-TYPES                      
+              MOVE 120           TO WS-PCB-TYPE-REG-POS-LIMIT                   
+              MOVE 0             TO WS-PCB-SUB                                  
+              PERFORM VARYING WS-PCB-SUB2 FROM 1 BY 1                           
+               UNTIL (WS-PCB-SUB2 > 40)                                         
+               OR (TB-PSB-T1-TYPE-CO-POS(WS-PCB-SUB2) NOT > SPACES)             
+                 ADD 1 TO WS-PCB-SUB                                            
+                 MOVE TB-PSB-T1-TYPE-CO-POS(WS-PCB-SUB2) TO                     
+                   TB-PSB-TY-TYPE-REG-POS(WS-PCB-SUB)                           
+              END-PERFORM                                                       
+              MOVE TC-COMPANY TO TB-PSB-T2-COMPANY                              
+              MOVE WS-SUPER-PSB TO TB-PSB-T2-PSBNAME                            
+              CALL 'SYU510' USING TB-PSB-T2-IA                                  
+              IF  TB-PSB-T2-NORESP                                              
+                PERFORM VARYING WS-PCB-SUB2 FROM 1 BY 1                         
+                 UNTIL (WS-PCB-SUB2 > 40)                                       
+                 OR (TB-PSB-T2-TYPE-CO-POS(WS-PCB-SUB2) NOT > SPACES)           
+                   ADD 1 TO WS-PCB-SUB                                          
+                   MOVE TB-PSB-T2-TYPE-CO-POS(WS-PCB-SUB2) TO                   
+                     TB-PSB-TY-TYPE-REG-POS(WS-PCB-SUB)                         
+                END-PERFORM                                                     
+                IF WS-PCB-SUB > 79                                              
+                  MOVE TC-COMPANY TO TB-PSB-T3-COMPANY                          
+                  MOVE WS-SUPER-PSB TO TB-PSB-T3-PSBNAME                        
+                  CALL 'SYU510' USING TB-PSB-T3-IA                              
+                  IF  TB-PSB-T3-NORESP                                          
+                    PERFORM VARYING WS-PCB-SUB2 FROM 1 BY 1                     
+                    UNTIL (WS-PCB-SUB2 > 40)                                    
+                    OR (TB-PSB-T3-TYPE-CO-POS(WS-PCB-SUB2) NOT > SPACES)        
+                       ADD 1 TO WS-PCB-SUB                                      
+                       MOVE TB-PSB-T3-TYPE-CO-POS(WS-PCB-SUB2) TO               
+                         TB-PSB-TY-TYPE-REG-POS(WS-PCB-SUB)                     
+                    END-PERFORM                                                 
+                  END-IF                                                        
+                END-IF                                                          
+                MOVE 1             TO WS-PCB-SUB                                
+              END-IF                                                            
+           ELSE                                                                 
+             MOVE '00'          TO TB-PSB-TY-NUM-OF-TYPES                       
+             MOVE TC-COMPANY TO TB-PSB-TX-COMPANY                               
+             MOVE WS-SUPER-PSB TO TB-PSB-TX-PSBNAME                             
+             CALL 'SYU510' USING TB-PSB-TX-IA                                   
+             IF TB-PSB-TX-NORESP                                                
+                PERFORM VARYING WS-PCB-SUB2 FROM 1 BY 1                         
+                 UNTIL (WS-PCB-SUB2 > 40)                                       
+                 OR (TB-PSB-TX-TYPE-REG-POS(WS-PCB-SUB2) NOT > SPACES)          
+                   MOVE TB-PSB-TX-TYPE-REG-POS(WS-PCB-SUB2) TO                  
+                      TB-PSB-TY-TYPE-REG-POS(WS-PCB-SUB2)                       
+                END-PERFORM                                                     
+             ELSE                                                               
+                 MOVE 'PSBT' TO  WS-ABCODE                                      
+                 PERFORM 999-ABEND                                              
+             END-IF                                                             
+           END-IF.                                                              
+      *                                                                         

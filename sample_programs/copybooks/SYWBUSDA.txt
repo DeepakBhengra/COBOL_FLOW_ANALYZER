@@ -1,0 +1,131 @@
+      *Y2K**************************************************************        
+      *** YEAR 2000 REMEDIATION                                        *MYNY8329
+      *Y2K**************************************************************        
+      ******************************************************************        
+      *         NAME: SYWBUSDA                                                  
+      *=================================================================        
+      * NMBR | DATE  | PGMR | DESCRIPTION                                       
+      *------+-------+------+-------------------------------------------        
+      *      11/25/98| MYN  | ADDED FLOWER BOX ON TOP OF COPYBOOK;      MYNY8329
+      *              |      | CHANGED COMMENT FROM 'YEAR 2000' TO 'Y2K' MYNY8329
+      *              |      | IN THE FLOWER BOX BELOW.                  MYNY8329
+      *-----------------------------------------------------------------        
+      *      11/04/98| RXD  | Y2K REMEDIATION                           RXDY8308
+      *-----------------------------------------------------------------RXDY8308
+      *      |072996 | TSR  | CREATED THIS COPYBOOK TO CALCULATE A              
+      *      |       |      | FUTURE OR PREVIOUS BUSNESS DATE.                  
+      *-----------------------------------------------------------------        
+      *      |       |      |                                                   
+      *-----------------------------------------------------------------        
+      *      |       |      |                                                   
+      *-----------------------------------------------------------------        
+      *      |       |      |                                                   
+      *=================================================================        
+      *  THIS COPYBOOK IS USED WITH SYSBUSDA TO CALCULATE A FUTURE OR  *        
+      *    PREVIOUS BUSINESS DATE.                                     *        
+      *                                                                *        
+      *  COPYBOOK SYSBUSDA WILL CALCULATE THE BUSINESS DATE (+/-)      *        
+      *    FROM THE INPUTTED DATE EXCLUDING SATURDAY, SUNDAY AND       *        
+      *    DATES CONTAINED IN THE HOLIDAY TABLE.                       *        
+      *                                                                *        
+      *  WILL CALCULATE WITH BOTH CICS AND BATCH PROGRAMS.             *        
+      *                                                                *        
+      *  THE OUTPUT DATE WILL BE IN SYWBUSDA-COMP-DATE.                *        
+      *                                                                *        
+      *  FIELD "SYWBUSDA-ERROR-SW" WILL CONTAIN A CODE INDICATING      *        
+      *    THE RESULTS OF THE CONVERSION. ("N" IS A NORMAL RESPONCE).  *        
+      *                                                                *        
+      *  YOU WILL NEED TO COPY TBIHDAY AND SYSRDATE INTO THE WORKING-  *        
+      *    STORAGE SECTION IF THEY ARE NOT NOW BEING USED.             *        
+      *                                                                *        
+      *  INITIALIZE THE FOLLOWING FIELDS.                              *        
+      *     CICS SWITCH ...................... SYWBUSDA-SW             *        
+      *     COMPAY CODE ...................... SYWBUSDA-COMPANY        *        
+      *     NUMBER OF DAYS (+/-) ............. SYWBUSDA-DAYS           *        
+      *     JULIAN DATE TO BEGIN CALCULATION . SYWBUSDA-COMP-DATE      *        
+      *                                                                *        
+      *================================================================*        
+      *  EXAMPLE:                                                      *        
+      *================================================================*        
+      *                                                                *        
+      *  WORKING-STORAGE SECTION                                       *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      COPY SYRDATE  SUPPRESS.    *** IF NOT ALLREADY BEING USED.*        
+      *      .                                                         *        
+      *      COPY TBIHDAY  SUPPRESS.                                   *        
+      *      COPY SYWBUSDA SUPPRESS.                                   *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *  PROCEDURE DIVIDION.                                           *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      MOVE 'Y'                   TO  SYWBUSDA-SW. (CICS ONLY)   *        
+      *      MOVE TB-DATE-COMPANY       TO  SYWBUSDA-COMPANY.          *        
+      *      MOVE +15                   TO  SYWBUSDA-DAYS.             *        
+      *      MOVE TB-DATE-AS-OF-JULIAN  TO  SYWBUSDA-COMP-DATE.        *        
+      *                                                                *        
+      *      PERFORM 6200-SYSBUSDA-DATE THRU 6200-SYSBUSDA-EXIT.       *        
+      *      IF SYWBUSDA-NORESP                                        *        
+      *         MOVE SYWBUSDA-COMP-DATE TO  ** YOUR DATA NAME **       *        
+      *      ELSE                                                      *        
+      *         **  YOUR ERROR PROCESSING                              *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      COPY SYSBUSDA.                                            *        
+      ******************************************************************        
+                                                                                
+       01  SYWBUSDA-WORK-AREA.                                                  
+           05  SYWBUSDA-TBL-SW             PIC X    VALUE ' '.                  
+               88  END-OF-SYWBUSDA-TABLE            VALUE 'Y'.                  
+           05  SYWBUSDA-FOUND-SW           PIC X    VALUE ' '.                  
+               88  SYWBUSDA-FOUND                   VALUE 'Y'.                  
+           05  SYWBUSDA-ERROR-SW           PIC X    VALUE ' '.                  
+               88  SYWBUSDA-NORESP                  VALUE 'N'.                  
+               88  SYWBUSDA-INVALID-DATE            VALUE '1'.                  
+               88  SYWBUSDA-ZERO-DATE               VALUE '2'.                  
+               88  SYWBUSDA-INVALID-DAYS            VALUE '3'.                  
+               88  SYWBUSDA-ZERO-DAYS               VALUE '4'.                  
+               88  SYWBUSDA-JULIAN-DATE             VALUE '5'.                  
+           05  SYWBUSDA-CICS-SW            PIC X.                               
+               88  SYWBUSDA-CICS                    VALUE 'Y'.                  
+           05  SYWBUSDA-SYU500             PIC X(8) VALUE 'SYU500  '.           
+           05  SYWBUSDA-SYU510             PIC X(8) VALUE 'SYU510  '.           
+           05  SYWBUSDA-COMPANY            PIC X(2).                            
+           05  SYWBUSDA-DAYS               PIC S9(3).                           
+           05  SYWBUSDA-COUNT              PIC S9(3).                           
+           05  SYWBUSDA-COMP-DATE          PIC  9(5).                           
+           05  SYWBUSDA-COMP-DATE-R        REDEFINES SYWBUSDA-COMP-DATE.        
+               10  SYWBUSDA-COMP-YR        PIC  9(2).                           
+               10  SYWBUSDA-COMP-DAY       PIC  9(3).                           
+                                                                                
+      ***  TBXHDAY TABLE IS LOADED INTO SYSBUSDA TABLE                          
+       01  SYWBUSDA-TABLE.                                                      
+           05  SYWBUSDA-INDEX              PIC S9(4) COMP.                      
+           05  SYWBUSDA-ENTRY              OCCURS 100 TIMES.                    
+               10  SYWBUSDA-DATE           PIC S9(5).                           
+                                                                                
+      *Y2K**************************************************************RXDY8308
+      *** Y2K REMEDIATION                                              *RXDY8308
+      *Y2K**************************************************************RXDY8308
+030900                                                                  RXDY8308
+       01  SYWBUSDA-DISPLAY2-TYPE.                                      RXDY8308
+           05  FILLER             PIC 9(4) COMP VALUE 42.               RXDY8308
+           05  FILLER             PIC 9(4) COMP VALUE 2.                RXDY8308
+       01  SYWBUSDA-COMP-YR-Y2K PIC 9(3).                               RXDY8308
+       01  SYWBUSDA-DISPLAY5-TYPE.                                      RXDY8308
+           05  FILLER             PIC 9(4) COMP VALUE 45.               RXDY8308
+           05  FILLER             PIC 9(4) COMP VALUE 5.                RXDY8308
+       01  SYWBUSDA-COMP-DATE-Y2K PIC 9(6).                             RXDY8308
+       01  SYWBUSDA-THIS-YEAR-Y2K PIC 9(8) COMP VALUE 0.                RXDY8308
+       01  SYWBUSDA-DECIMAL5-TYPE.                                      RXDY8308
+           05  FILLER             PIC 9(4) COMP VALUE 25.               RXDY8308
+           05  FILLER             PIC 9(4) COMP VALUE 5.                RXDY8308
+       01  SYWBUSDA-DEFAULT-WINDOW-SPEC.                                RXDY8308
+           05  SYWBUSDA-WINDOW-METHOD PIC X VALUE 'F'.                  RXDY8308
+           05  SYWBUSDA-WINDOW-PRECISION PIC 9 VALUE 3.                 RXDY8308
+           05  SYWBUSDA-CAWINUP-VERSION PIC 9(2) VALUE 0.               RXDY8308
+           05  SYWBUSDA-WINDOW-FLOOR PIC 9(4) COMP VALUE 80.            RXDY8308

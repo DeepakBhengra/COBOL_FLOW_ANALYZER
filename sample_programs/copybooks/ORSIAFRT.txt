@@ -1,0 +1,1145 @@
+﻿      * 03/01/24 SXA  DTYPE PROJECT - ADDED CHANGES TO ENABLE FREIGHT  *SXA24061
+      *               RECALCULATION IN CASE OF PARTIAL PO RECIEVING    *SXA24061
+      *               FOR DIRECT PO IN INDIA.                          *SXA24061
+      * 04/07/23 SK2  ADDED LOGIC TO CALCUALTE FREIGHT AMOUNT          *SK223097
+      *               DISTRIBUTION FOR DIFFERENT SKU TYPES.            *SK223097
+      * 01/13/23 SK2  ADDED LOGIC TO POPULATE THE ZIP CODE FOR         *SK223013
+      *               CALCULATING THE INDIA FREIGHT COST AT ZONE LEVEL *SK223013
+      *          CYK  INCLUDED ADDITIONAL CONDITION CHECKS TO RESTRICT *CYK23013
+      *               THE HEADER FREIGHT AMOUNT INCORRECTLY SPLIT INTO *CYK23013
+      *               BUNDLE SKU'S COMPONENTS.                         *CYK23013
+      * 03/04/22 YS1  INDIA FREIGHT CALCULATION.                       *YS122063
+      *                                                                *YS122063
+      **==============================================================**YS122063
+      *                                                                *        
+      *   THIS COPYBOOK USED TO CALCULATE THE INDIA FREIGHT FOR THE    *        
+      *   SALES ORDER AND INVOKED IN ORP560MD AND RWP566IM MODULES.    *        
+      *                                                                         
+      *   TO CALCULATE THE FREIGT SYSTEM CHECKS FOLLOWING PARAMETERS            
+      *   1)CARRIER CODE                                                        
+      *   2)PINCODE IN SHIP TO ADDRESS                                          
+      *   3)BILLING BRANCH FOR REVENUE TABLE                                    
+      *   4)SHIP BRANCH FOR COST TABLE                                          
+      *   **************************************************************        
+      *   1) BASED ON CUSTOMER SHIP TO PINCODE SYSTEM WILL CHECK                
+      *      CORRESPOND ZONE USING CARRIER ZONES TABLE                          
+      *   2) WITH THE ZONE, SYSTEM WILL CHECK FOR FREIGH COST FOR THE           
+      *      CARRIER CODE AND REVENUE COST FOR THE CUSTOMER                     
+      *   3) THERE ARE 9 FREIGHT RULES OUT OF WHICH ONLY 4 ARE ACTIVE           
+      *      RULE 0 - FREIGHT COST WILL BE ZERO                                 
+      *      RULE 1 - SINGLE RATE COSTING BASED ON WEIGHT/VALUE                 
+      *      RULE 2 - AGGREGATE COSTING BASED ON ON WEIGHT/VALUE                
+      *      RULE 3 - SINGLE WITH FLAT CHARGE                                   
+      *                                                                         
+      *      IN EXAMPLE HERE THE FREIGHT TILL FIRST 10 KG WILL BE RS.250        
+      *      NEXT PER KG IT WILL BE 3 PER KG                                    
+      *                                                                         
+      *      IF THE WEIGHT IS 14KG FREIGHT WILL BE AS BELOW                     
+      *      10 KG - 250                                                        
+      *      FOR NEXT 4 KG IT WILL BE                                           
+      *      14-10 = 4KG * RS 3 = 12                                            
+      *      SO THE TOTAL FREIGHT FOR ABOVE WILL BE RS.262/-                    
+      *                                                                         
+      *      SIMILAR CALCULATION WILL APPLIES BASED ON STOCK SALES PRICE        
+      **==============================================================**        
+                                                                                
+       379IA-ADD-895-LINE-FOR-INDIA.                                            
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE ORSH-IA-GST-FRT-RATE TO WS-GST-FRT-RATE                         
+           MOVE ORSH-FRT-OUT-CODE    TO WS-FRT-OUT-CODE-SAVE                    
+                                        WS-FRT-OUT-CODE.                        
+                                                                                
+           INSPECT WS-POSTCODE REPLACING ALL  ' ' BY '0'.                       
+                                                                                
+           MOVE ZEROES               TO WS-FRTCC-COST                           
+                                        WS-FRTCC-CHARGE                         
+                                        WS-NBR-OVER-WT.                         
+           IF ORSH-CREDIT-MEMO            OR                                    
+              ORSH-BR-TRANSFER-ORDER      OR                                    
+              ( ORSH-INVOICE              AND                           SXA24061
+               NOT ORSH-DIRECT-ORDER )    OR                            SXA24061
+              ORSH-FORCE-BILLING          OR                                    
+              ORSH-BILLING-ERROR          OR                                    
+            ((ORH-ORDER-VALUE-AT-ADD = 0  OR                                    
+              ORSH-TOTAL-SALES = 0)       AND                                   
+             WS-CARR-CODE NOT = 'SGPR' AND                                      
+             WS-CARR-CODE NOT = 'SGLR' AND                                      
+             WS-CARR-CODE NOT = 'AXPR' AND                                      
+             WS-CARR-CODE NOT = 'AXLR')                                         
+              GO TO 379IA-ADD-895-LINE-EXIT                                     
+           END-IF.                                                              
+                                                                                
+           IF ORSH-SHIP-NBR = 1 OR ORSH-BKORDER-FRT-CHARGE = 'Y'                
+              CONTINUE                                                          
+           ELSE                                                                 
+              GO TO 379IA-ADD-895-LINE-EXIT                                     
+           END-IF.                                                              
+                                                                                
+      ****** ORSH-OUT-BILL ? FRT-COUT-CODE = SPACE ?                            
+                                                                                
+           IF (ORSH-OUT-BILL) OR (ORSH-FRT-OUT-CODE = SPACES)                   
+               OR (ORSH-FRT-OUT-CODE = 'P')                                     
+              CONTINUE                                                          
+           ELSE                                                                 
+              GO TO 379IA-ADD-895-LINE-EXIT                                     
+           END-IF.                                                              
+                                                                                
+           IF (WS-OTHER) AND (ORSH-PRINT-COUNT > 1)                             
+            AND WS-CARR-CODE NOT = 'AUWC'                                       
+              GO TO 379IA-ADD-895-LINE-EXIT                                     
+           END-IF.                                                              
+                                                                                
+           MOVE ORH-COMPANY          TO TB-MCHG-CO-CODE.                        
+           MOVE 'FOC'                TO TB-MCHG-CODE                            
+           PERFORM 380-MISC-TABLE-CHARGE.                                       
+           IF NOT TB-MCHG-NORESP                                                
+             GO TO 379IA-ADD-895-LINE-EXIT                                      
+           END-IF.                                                              
+                                                                                
+           MOVE '('                  TO WS-ORSLNE-QUAL.                         
+           MOVE '895'                TO WS-ORSLNE-NBR.                          
+           PERFORM 1204-GU-ORSLNE.                                              
+           IF  WS-ORSLNE-NORESP                                                 
+               MOVE 'Y'              TO WS-895-LINE-SW                          
+               IF ORL-UP-OVERRIDE-SW > SPACES                                   
+                  MOVE 'Y'           TO WS-895-MANUAL-SW                        
+               END-IF                                                           
+           ELSE                                                                 
+               MOVE 'N'              TO WS-895-LINE-SW                          
+           END-IF.                                                              
+                                                                                
+           MOVE SPACES               TO  WS-ORSLNE-QUAL                         
+                                                                                
+           IF ORSH-ACT-TOTAL-WEIGHT GREATER THAN 0                              
+              MOVE ORSH-ACT-TOTAL-WEIGHT TO WS-HOLD-WEIGHT                      
+           ELSE                                                                 
+              MOVE ORSH-TOTAL-WEIGHT TO WS-HOLD-WEIGHT                          
+           END-IF.                                                              
+           MOVE WS-HOLD-WEIGHT       TO WS-HOLD-RTE-WEIGHT-CONV.                
+                                                                                
+      ** ROUND UP TOTAL WEIGHT  EX. 10.10  10.10 > 10, HOLD = 11                
+      **    OR BY ADDING .49 ?                                                  
+                                                                                
+           IF WS-HOLD-WEIGHT > WS-HOLD-RTE-WEIGHT-CONV                          
+              ADD 1                  TO WS-HOLD-RTE-WEIGHT-CONV                 
+           END-IF.                                                              
+                                                                                
+           MOVE ORH-COMPANY              TO TB-FRTCC-CO                         
+           MOVE ORSH-BR-NBR-SHIP-FROM    TO TB-FRTCC-BR                         
+           MOVE ORSH-CARRIER-CODE        TO TB-FRTCC-CC                         
+           MOVE ZERO                     TO TB-FRTCC-REC-NBR                    
+           MOVE SPACE                    TO WS-FCIA-SW                          
+                                                                                
+           IF TB-CAR2-NORESP AND TB-CAR2-USE-FREIGHT-TABLES                     
+              MOVE 'Y'                   TO WS-FCIA-SW                          
+           ELSE                                                                 
+              PERFORM 373AP-READ-FRTCC-TABLE                                    
+                 THRU 373AP-RFT-EXIT                                            
+                 VARYING TB-FRTCC-REC-NBR FROM 1 BY 1                           
+                   UNTIL TB-FRTCC-REC-NBR > 9998                                
+                      OR WS-FCIA-FOUND                                          
+                      OR WS-FCIA-END                                            
+           END-IF.                                                              
+                                                                                
+           IF NOT WS-FCIA-FOUND                                                 
+              MOVE ORH-COMPANY           TO TB-FRTCC-CO                         
+              MOVE '**'                  TO TB-FRTCC-BR                         
+              MOVE ORSH-CARRIER-CODE     TO TB-FRTCC-CC                         
+              MOVE ZERO                  TO TB-FRTCC-REC-NBR                    
+              MOVE SPACE                 TO WS-FCIA-SW                          
+              PERFORM 373AP-READ-FRTCC-TABLE                                    
+                 THRU 373AP-RFT-EXIT                                            
+                 VARYING TB-FRTCC-REC-NBR FROM 1 BY 1                           
+                   UNTIL TB-FRTCC-REC-NBR > 9998                                
+                      OR WS-FCIA-FOUND                                          
+                      OR WS-FCIA-END                                            
+           END-IF.                                                              
+                                                                                
+           IF WS-OTHER                                                          
+              MOVE ZERO                  TO WS-TOTAL-FRT-CHRG                   
+                                            WS-FRTCC-COST                       
+                                            WS-FRTCC-CHARGE                     
+           END-IF.                                                              
+                                                                                
+           IF NOT WS-FCIA-FOUND                                                 
+            AND WS-CARR-CODE =  'AUOT'                                          
+               MOVE TB-CARR-PACKAGE-CONSTANT TO WS-FRTCC-CHARGE                 
+           END-IF.                                                              
+                                                                                
+      ****  FREE FREIGHT IF SALES > CORP FRT LIMIT                              
+      ****  CUSTOMER IS NOT CHARGED FREIGHT IF ORDER VALUE EXCEEDS              
+      ****  THE INDIVIDUAL CUSTOMER FREIGHT LIMIT AMOUNT                        
+      *** MINIMUN FREIGHT LIMIT PROCESS                                         
+           PERFORM MIN00-FRT-LIMIT-AMT                                          
+            THRU   MIN00-FRT-LIMIT-EXIT.                                        
+           IF WS-FRT-LIMIT-AMT > 0 AND                                          
+              ORH-ORDER-VALUE-AT-ADD > WS-FRT-LIMIT-AMT                         
+              MOVE ZERO                  TO TB-MCHG-FIXED-AMT                   
+                                            WS-TOTAL-FRT-CHRG                   
+                                            WS-FRTCC-CHARGE                     
+           END-IF.                                                              
+                                                                                
+           MOVE WS-FRTCC-COST            TO WS-FRT-OUT-AMT                      
+                                                                                
+           IF (TB-CAR2-NORESP                                                   
+              AND TB-CAR2-USE-FREIGHT-TABLES)                                   
+              INITIALIZE ORL-ORSLNE                                             
+              MOVE 1                     TO ORL-QTY-SHIPPED                     
+                                            ORL-QTY-ORDERED                     
+              MOVE 'C'                   TO ORL-LINE-TYPE                       
+              MOVE ORSH-BR-NBR-SHIP-FROM TO ORL-INV-BR-NBR                      
+              MOVE ORH-ENTRY-DATE        TO ORL-ENTRY-DATE                      
+              MOVE ORSH-PROMISE-DATE     TO ORL-PROMISE-DATE                    
+              PERFORM 379-TABLE-FRT-IA                                          
+                 THRU 379-TABLE-FRT-IA-EXIT                                     
+              GO TO 379IA-ADD-895-LINE-EXIT                                     
+           ELSE                                                                 
+              GO TO 379IA-ADD-895-LINE-EXIT                                     
+           END-IF.                                                              
+                                                                                
+           IF WS-895-LINE-SW = 'N' AND                                          
+            (ORSH-FRT-OUT-CODE = 'P' OR  WS-CARR-CODE =  'AUWC')                
+              MOVE 'Y'                   TO WS-UPDATE-FRT-OUT-AMT-SW            
+              GO TO 379IA-ADD-895-LINE-EXIT                                     
+           END-IF.                                                              
+                                                                                
+           MOVE 'Y'                      TO WS-UPDATE-FRT-OUT-AMT-SW            
+           MOVE 'P'                      TO WS-FRT-OUT-CODE.                    
+                                                                                
+           IF ORSH-SHIP-NBR = 1 OR ORSH-BKORDER-FRT-CHARGE = 'Y'                
+            OR WS-895-LINE-SW = 'Y'                                             
+              CONTINUE                                                          
+           ELSE                                                                 
+              GO TO 379IA-ADD-895-LINE-EXIT                                     
+           END-IF.                                                              
+                                                                                
+           IF WS-895-MANUAL-SW = 'Y'                                            
+              GO TO 379IA-ADD-895-LINE-EXIT                                     
+           END-IF.                                                              
+                                                                                
+           MOVE 'F'                      TO TB-MCHG-CHARGE-SW.                  
+           MOVE 895                      TO ORL-LINE-NBR.                       
+           PERFORM 380-MISC-CHARGE THRU 380-EXIT.                               
+           IF WS-ORSLNE-NORESP                                                  
+              MOVE 'Y'                   TO  WS-UPDATE-895-LINE-SW              
+           END-IF.                                                              
+                                                                                
+       379IA-ADD-895-LINE-EXIT.                                                 
+           EXIT.                                                                
+                                                                                
+      *----------------------------------------------------------------*        
+       373AP-READ-FRTCC-TABLE.                                                  
+      *----------------------------------------------------------------*        
+                                                                                
+           CALL 'SYU510'           USING TB-FRTCC-TABLE-IA.                     
+           IF NOT TB-FRTCC-NORESP                                               
+              MOVE 'E'                   TO WS-FCIA-SW                          
+              GO TO 373AP-RFT-EXIT                                              
+           END-IF.                                                              
+           IF WS-POSTCODE < TB-FRTCC-FROM-POSTCODE                              
+              OR WS-POSTCODE > TB-FRTCC-TO-POSTCODE                             
+                 GO TO 373AP-RFT-EXIT                                           
+           END-IF.                                                              
+                                                                                
+           MOVE 'Y' TO WS-FCIA-SW.                                              
+                                                                                
+           IF WS-HOLD-RTE-WEIGHT-CONV NOT >                                     
+              TB-FRTCC-MIN-WT                                                   
+              MOVE TB-FRTCC-MIN-COST     TO  WS-FRTCC-COST                      
+              MOVE TB-FRTCC-MIN-CHARGE   TO  WS-FRTCC-CHARGE                    
+           ELSE                                                                 
+              COMPUTE WS-NBR-OVER-WT                                            
+                    = (WS-HOLD-RTE-WEIGHT-CONV                                  
+                          - TB-FRTCC-MIN-WT) /                                  
+                         TB-FRTCC-PER-WT                                        
+              IF WS-NBR-OVER-WT-DEC > 0                                         
+                 ADD  1                  TO WS-NBR-OVER-WT-INT                  
+                 MOVE 0                  TO WS-NBR-OVER-WT-DEC                  
+              END-IF                                                            
+              COMPUTE WS-FRTCC-COST                                             
+                    = TB-FRTCC-MIN-COST                                         
+                      + WS-NBR-OVER-WT * TB-FRTCC-PER-COST                      
+              COMPUTE WS-FRTCC-CHARGE                                           
+                    = TB-FRTCC-MIN-CHARGE                                       
+                      + WS-NBR-OVER-WT * TB-FRTCC-PER-CHARGE                    
+           END-IF.                                                              
+                                                                                
+       373AP-RFT-EXIT.                                                          
+             EXIT.                                                              
+                                                                                
+      *----------------------------------------------------------------*        
+       379-TABLE-FRT-IA.                                                        
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE ORH-COMPANY              TO WS-ZNE-CO.                          
+           MOVE ORSH-CARRIER-CODE        TO WS-ZNE-CC.                          
+           MOVE ORSH-BR-NBR-SHIP-FROM    TO WS-ZNE-SF.                          
+      *----WS-ZNE-BRAZIL-ZIP IS ONE OF THE KEYS TO READ ORLZONE FILE.   SK223013
+           IF WS-POSTCODE IS NUMERIC                                    SK223013
+              MOVE WS-POSTCODE           TO WS-ZNE-BRAZIL-ZIP           SK223013
+           ELSE                                                         SK223013
+              MOVE ZEROES                TO WS-ZNE-BRAZIL-ZIP           SK223013
+           END-IF.                                                      SK223013
+                                                                                
+           PERFORM C75-READ-ORLZONE-GTEQ THRU C75-EXIT                          
+           IF WS-ZNE-NORESP AND ZNE-SF = WS-ZNE-SF AND                          
+            ZNE-CO = WS-ZNE-CO AND ZNE-CC = WS-ZNE-CC                           
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE '**' TO ZNE-ZONE                                             
+           END-IF.                                                              
+                                                                                
+           MOVE ORH-COMPANY              TO WS-FR-CO.                           
+           MOVE ORSH-CARRIER-CODE        TO WS-FR-CC.                           
+           MOVE ORH-ORDER-VALUE-AT-ADD   TO WS-FR-ORDER-VALUE.                  
+           MOVE ORSH-STOCK-LINES-SHIP-AMT TO WS-FR-SHIP-VALUE.                  
+                                                                                
+           MOVE WS-FR-SHIP-VALUE         TO WS-FR-SHIP-VALUE-PC.                
+                                                                                
+      *** MINIMUN FREIGHT LIMIT PROCESS                                         
+           PERFORM MIN00-FRT-LIMIT-AMT                                          
+            THRU   MIN00-FRT-LIMIT-EXIT.                                        
+           MOVE WS-FRT-LIMIT-AMT         TO WS-FR-CORP-LIMIT.                   
+           MOVE ORH-BILL-TO-CUST-NBR     TO WS-FR-CUSTOMER.                     
+           MOVE ORH-BR-NBR               TO WS-FR-BRANCH.                       
+           MOVE ORH-SHIP-TO-SUFFIX       TO WS-FR-CUST-SUFF.                    
+           MOVE ORH-COUNTRY-CODE         TO WS-FR-TO-CC.                        
+                                                                                
+           IF ORH-COMPANY = 'IA' AND WS-FR-TO-CC = 'IN'                         
+              MOVE 'IA'                  TO WS-FR-TO-CC                         
+           END-IF.                                                              
+                                                                                
+           IF ORH-COMPANY = 'BI' AND WS-FR-TO-CC = 'IN'                         
+              MOVE 'BI'                  TO WS-FR-TO-CC                         
+           END-IF.                                                              
+                                                                                
+           IF ORH-COMPANY = 'LK' AND WS-FR-TO-CC = 'IN'                         
+              MOVE 'LK'                  TO WS-FR-TO-CC                         
+           END-IF.                                                              
+                                                                                
+           IF ORSH-ACT-TOTAL-WEIGHT > 0                                         
+              AND ORTD-PGM-ID NOT = 'WHP819'                                    
+              MOVE ORSH-ACT-TOTAL-WEIGHT TO  WS-FR-TOTAL-WEIGHT                 
+              IF WS-UPS-EXP-EUROPE OR WS-UPS-DOMESTIC-EXPRESS                   
+                COMPUTE WS-FR-TOTAL-WEIGHT = ORSH-ACT-TOTAL-WEIGHT * 10         
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE ORSH-TOTAL-WEIGHT     TO  WS-FR-TOTAL-WEIGHT                 
+              IF WS-UPS-EXP-EUROPE OR WS-UPS-DOMESTIC-EXPRESS                   
+                COMPUTE WS-FR-TOTAL-WEIGHT = ORSH-TOTAL-WEIGHT * 10             
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           IF WS-FR-TOTAL-WEIGHT = 0                                            
+              MOVE 1 TO WS-FR-TOTAL-WEIGHT                                      
+           END-IF.                                                              
+                                                                                
+           MOVE ZEROES                   TO WS-SAVE-ORIG-SHIP-WEIGHT.           
+                                                                                
+           IF ZNE-ZONE > SPACES                                                 
+              MOVE ZNE-ZONE              TO WS-FR-ZONE                          
+           ELSE                                                                 
+              MOVE '**'                  TO WS-FR-ZONE                          
+           END-IF.                                                              
+                                                                                
+           IF ORSH-ALT-WAREHOUSE-CO > SPACES                                    
+            AND NOT TB-AINV-IH-LOCAL                                            
+              MOVE ORSH-ALT-WAREHOUSE-CO TO WS-FR-FROM-CC                       
+           ELSE                                                                 
+              MOVE ORH-COMPANY           TO WS-FR-FROM-CC                       
+           END-IF.                                                              
+                                                                                
+           IF ORSH-ALT-WAREHOUSE-CO > SPACES                                    
+              AND (TB-AINV-IH-LOCAL OR                                          
+              WS-UPS-EUR-EXPORT OR WS-DF-ALL-EXPORT)                            
+              AND TB-AINV-IH-PHYSICAL-CNTRY > SPACES                            
+              MOVE TB-AINV-IH-PHYSICAL-CNTRY TO WS-FR-FROM-CC                   
+           END-IF.                                                              
+           IF ORSH-NUM-OF-CARTONS NUMERIC                                       
+            AND ORSH-NUM-OF-CARTONS > 0                                         
+              MOVE ORSH-NUM-OF-CARTONS   TO WS-FR-PALS                          
+                                           WS-FR-BOXES                          
+           ELSE                                                                 
+              MOVE 1                     TO WS-FR-PALS                          
+                                           WS-FR-BOXES                          
+           END-IF.                                                              
+                                                                                
+           MOVE 0                        TO WS-FR-MIN-FRT-COST                  
+                                                                                
+           MOVE ORH-COMPANY              TO TB-CAR3-CO.                         
+           MOVE ORSH-CARRIER-CODE        TO TB-CAR3-CODE.                       
+           CALL 'SYU510'           USING  TB-CARRIER3-TABLE-IA.                 
+           IF TB-CAR3-NORESP                                                    
+              MOVE TB-CAR3-DP-FRT-WEIGHT-SW TO WS-WEIGHT-DP-FLAG                
+           ELSE                                                                 
+              MOVE 'N'                   TO WS-WEIGHT-DP-FLAG                   
+           END-IF.                                                              
+                                                                                
+           MOVE 0                        TO  WS-FR-INS-AMT.                     
+                                                                                
+           PERFORM F1000-CALCULATE-FREIGHT                                      
+              THRU F1000-EXIT.                                                  
+                                                                                
+           MOVE ORH-COMPANY              TO TB-CAR3-CO.                         
+           MOVE ORSH-CARRIER-CODE        TO TB-CAR3-CODE.                       
+           CALL 'SYU510'           USING  TB-CARRIER3-TABLE-IA.                 
+           IF TB-CAR3-NORESP AND TB-CAR3-ADD-TAX-TO-FRT-COST                    
+            AND TB-CAR3-FRT-COST-FAX-PCT NUMERIC                                
+              COMPUTE WS-FR-COST ROUNDED =                                      
+              (WS-FR-COST * (1 + (TB-CAR3-FRT-COST-FAX-PCT / 100)))             
+           END-IF.                                                              
+                                                                                
+           ADD WS-FRT-COD-CHARGE         TO WS-FR-COST.                         
+           ADD WS-FRT-CUST-COD           TO WS-FR-REV.                          
+                                                                                
+           IF WS-FR-COST-ERROR                                                  
+              MOVE ZEROES                TO WS-FRT-OUT-AMT                      
+           ELSE                                                                 
+              COMPUTE WS-FRT-OUT-AMT ROUNDED = WS-FR-COST * 1                   
+              IF (TB-CAR3-NORESP AND TB-CAR3-FRT-NO-OVERRIDE-COST               
+                 AND ORTD-PGM-ID = 'WHP819') OR                                 
+                 (WS-EUROLOG-FRT-OUT-CODE                                       
+                 AND ORTD-PGM-ID = 'WHP819')                                    
+                 MOVE ORSH-FRT-OUT-AMT TO WS-FRT-OUT-AMT                        
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           IF WS-FR-REV-ERROR                                                   
+              MOVE ZEROES                TO TB-MCHG-FIXED-AMT                   
+                                            WS-TOTAL-FRT-CHRG                   
+           ELSE                                                                 
+              COMPUTE WS-TOTAL-FRT-CHRG ROUNDED = WS-FR-REV * 1                 
+              IF (ORTD-PGM-ID = 'OPP100' OR 'WHP819' OR 'ORP379') AND           
+                    TB-CAR2-NORESP AND TB-CAR2-USE-FREIGHT-TABLES AND           
+                    TB-CAR3-NORESP AND TB-CAR3-FRT-NO-OVERRIDE-REV              
+                 MOVE WS-ORSLNE-QUAL     TO WS-SAVE-ORSLNE-QUAL                 
+                 MOVE '('                TO WS-ORSLNE-QUAL                      
+                 MOVE '895'              TO WS-ORSLNE-NBR                       
+                 PERFORM 1204-GU-ORSLNE                                         
+                 IF WS-ORSLNE-NORESP                                            
+                    MOVE ORL-UNIT-PRICE  TO WS-TOTAL-FRT-CHRG                   
+                 END-IF                                                         
+                 MOVE WS-SAVE-ORSLNE-QUAL TO WS-ORSLNE-QUAL                     
+              END-IF                                                            
+              MOVE WS-TOTAL-FRT-CHRG     TO TB-MCHG-FIXED-AMT                   
+           END-IF.                                                              
+           IF WS-FR-ROUND-FLAG = 'Y'                                            
+              COMPUTE WS-FRT-IM-AMT ROUNDED = WS-FR-REV * 1                     
+              MOVE TB-MCHG-FIXED-AMT     TO WS-FRT-ROUNDING                     
+              IF WS-FRT-EU-2 > 0                                                
+                 ADD 1  TO WS-FRT-EU-1                                          
+                 MOVE 0 TO WS-FRT-EU-2                                          
+              END-IF                                                            
+              MOVE WS-FRT-ROUNDING       TO TB-MCHG-FIXED-AMT                   
+              MOVE WS-FRT-CUST-AMT       TO WS-TL-FRT-CUS-PAYS                  
+                                            SM-FRT-CUS-PAYS                     
+           END-IF.                                                              
+                                                                                
+           MOVE 895                      TO  ORL-LINE-NBR                       
+           IF ORH-COMPANY = 'IA' OR 'BI' OR 'LK'                                
+      *          THIS IS FOR THE BACKORDER AFTER A -19 ORDER                    
+                 IF (ORSH-SHIP-NBR = 1 AND                                      
+                    (ORSH-FULLCASE-LINES > 0 OR                                 
+                     ORSH-REPACK-LINES > 0)) OR                                 
+                  ORSH-BKORDER-FRT-CHARGE = 'Y'                                 
+                    CONTINUE                                                    
+                 ELSE                                                           
+                    GO TO 379-TABLE-FRT-IA-EXIT                                 
+                 END-IF                                                         
+           END-IF.                                                              
+                                                                                
+           IF WS-FRT-OUT-CODE-SAVE = 'B' OR SPACES                              
+            OR (TB-CAR3-P-FULFILL-ONLY AND ORH-FULFILLMENT AND                  
+            ORH-BILL-TO-CUST-NBR NOT = 999998)                                  
+            CONTINUE                                                            
+           ELSE                                                                 
+              MOVE ZEROES                TO ORL-UNIT-PRICE                      
+                                            ORL-UNIT-COST                       
+              GO TO 379-TABLE-FRT-IA-EXIT                                       
+           END-IF.                                                              
+                                                                                
+           IF WS-895-MANUAL-SW = 'Y'                                            
+              GO TO 379-TABLE-FRT-IA-EXIT                                       
+           END-IF.                                                              
+                                                                                
+           IF WS-FR-FREE-FRT                                                    
+              MOVE 'F'                   TO  TB-MCHG-CHARGE-SW                  
+              PERFORM 380-MISC-CHARGE THRU 380-EXIT                             
+              IF WS-ORSLNE-NORESP                                               
+                 MOVE 'Y'                TO  WS-UPDATE-895-LINE-SW              
+                 MOVE 'P'                TO  WS-FRT-OUT-CODE                    
+              END-IF                                                            
+              GO TO 379-TABLE-FRT-IA-EXIT                                       
+           END-IF.                                                              
+                                                                                
+           IF WS-KEY-COURIER AND NOT WS-KEY-PALLET                              
+      *       ( RULE NUMBER 4 - THIS IS RULE 3 AND ADD THE FIRST ENTRY          
+      *                 ONLY TO THE EACHES / EXTRA KG)                          
+              MOVE ORH-COMPANY           TO TB-RTE-CO                           
+              MOVE ORSH-CARRIER-CODE     TO TB-RTE-CC                           
+              MOVE '**'                  TO TB-RTE-SF                           
+                                            TB-RTE-ZONE                         
+              CALL 'SYU510'  USING TB-RATE-NAME-IA                              
+              IF TB-RTE-NORESP AND                                              
+                 WS-FR-TOTAL-WEIGHT > TB-RTE-HIGH                               
+                 COMPUTE  WS-TL-FRT-CUS-PAYS = TB-RTE-UNIT1 +                   
+                 (WS-FR-TOTAL-WEIGHT - TB-RTE-HIGH) * WS-TL-FRT-CUS-PAYS        
+              END-IF                                                            
+              MOVE WS-TL-FRT-CUS-PAYS    TO SM-FRT-CUS-PAYS                     
+                                            WS-FRT-CUST-AMT                     
+           END-IF.                                                              
+                                                                                
+           IF WS-CDM-PALLET OR WS-KEY-PALLET                                    
+              IF ORSH-NUM-OF-CARTONS NUMERIC                                    
+               AND ORSH-NUM-OF-CARTONS > 0                                      
+                 COMPUTE  WS-TL-FRT-CUS-PAYS =  ORSH-NUM-OF-CARTONS  *          
+                       WS-TL-FRT-CUS-PAYS                                       
+              ELSE                                                              
+                 COMPUTE  WS-TL-FRT-CUS-PAYS =  WS-TL-FRT-CUS-PAYS * 1          
+              END-IF                                                            
+              MOVE WS-TL-FRT-CUS-PAYS    TO SM-FRT-CUS-PAYS                     
+           END-IF.                                                              
+                                                                                
+           MOVE 'F'                      TO  TB-MCHG-CHARGE-SW                  
+           PERFORM 380-MISC-CHARGE THRU 380-EXIT                                
+           IF WS-ORSLNE-NORESP                                                  
+              MOVE 'Y'                   TO  WS-UPDATE-895-LINE-SW              
+              MOVE 'Y'                   TO  WS-UPDATE-FRT-OUT-AMT-SW           
+              MOVE 'P'                   TO  WS-FRT-OUT-CODE                    
+           END-IF.                                                              
+                                                                                
+       379-TABLE-FRT-IA-EXIT.                                                   
+           EXIT.                                                                
+                                                                                
+      *ADDING PARA 379XX TO 379XZ FOR 'HSN CODE FOR FREIGHT' REQ#8 IN           
+      *GST PHASE-2, THESE PARAS WILL FETCH THE HEADER LEVEL FREIGHT             
+      *AMOUNT AND THE SAME AMOUNT WILL BE DISTRIBUTED IN LINE LEVEL AND         
+      *AND ACCORDINGLY TAX WILL BE CALCULATED.                                  
+       379XX-ADD-FRT-AT-LINE-FOR-GST.                                           
+                                                                                
+           MOVE ZEROES                 TO WS-FRT-AT-HDR                         
+                                          WS-FRT-AT-LINE                        
+                                          WS-TOTAL-VALUE                        
+                                          WS-LINE-VALUE                         
+                                          WS-GST-FRT-AMT                        
+                                          WS-SUM-FRT-AT-LINE                    
+                                          WS-ORL-LST-LNE-NBR                    
+                                          WS-FRT-PAISE-DFF                      
+                                          WS-FRT-CGST-TAX-TOTAL                 
+                                          WS-FRT-SGST-TAX-TOTAL                 
+                                          WS-CESS1-AT-FRT-AMT-TOT               
+                                          WS-CESS2-AT-FRT-AMT-TOT               
+                                          WS-CESS3-AT-FRT-AMT-TOT               
+                                          WS-CESS4-AT-FRT-AMT-TOT               
+                                          O99-S-SKU-CESS-AMT-TOT                
+                                          O99-G-SKU-CESS-AMT-TOT.               
+           SET WS-SET-CESS-FRT-TOT-NO  TO TRUE.                                 
+           SET WS-CESS-APPLICABLE-NO   TO TRUE.                                 
+           SET O99-CESS-AMT-READ-NO    TO TRUE.                                 
+           MOVE WS-ORSHED-CO           TO WS-ORGH-COMPANY                       
+           MOVE WS-ORSHED-BR           TO WS-ORGH-BR-NBR                        
+           INITIALIZE SY777-PARM-DATA                                           
+           MOVE ORH-ENTRY-DATE         TO SY777-IN-JUL-YYDDD                    
+           CALL 'SYU777'            USING DFHEIBLK                              
+                                          DFHCOMMAREA                           
+                                          SY777-PARM-DATA.                      
+           MOVE SY777-OUT-ISO-10       TO WS-ORGH-INVC-DT.                      
+           MOVE WS-ORSHED-NBR          TO WS-ORGH-ORDR-NBR.                     
+           MOVE WS-ORSSHH-DIST         TO WS-ORGH-DIST-NBR.                     
+           MOVE WS-ORSSHH-SHIP         TO WS-ORGH-SHIP-NBR.                     
+           MOVE 'O'                    TO WS-ORGH-RECORD-CODE.                  
+           MOVE '('                    TO WS-ORSLNE-QUAL.                       
+           MOVE '='                    TO WS-ORSLNE-SEARCH.                     
+           MOVE '895'                  TO WS-ORSLNE-NBR                         
+                                          WS-ORGH-LINE-NBR.                     
+           PERFORM 1204-GU-ORSLNE.                                              
+           IF WS-ORSLNE-NORESP                                                  
+              IF ORL-UNIT-PRICE         IS  NUMERIC AND                         
+                 ORSH-STOCK-LINES-SHIP-AMT > ZEROES AND                         
+                 (ORSHOF-IA-GST-SC-GST              OR                          
+                  ORSHOF-IA-GST-I-GST)                                          
+      * ORSH-STOCK-LINES-SHIP-AMT CONTAINS THE TOTAL VALUE OF ORDER             
+      * EXCLUDING FREIGHT AMOUNT                                                
+                 COMPUTE WS-FRT-AT-HDR = ORL-UNIT-PRICE *                       
+                                         ORL-QTY-SHIPPED                        
+                 MOVE ORSH-STOCK-LINES-SHIP-AMT                                 
+                                        TO WS-TOTAL-VALUE                       
+                 MOVE '000'             TO WS-ORGH-LINE-NBR                     
+                                                                                
+      ******************************************************************        
+      ***CHANGES HAVE BEEN MADE TO READ THE ORGDTL FILE TO VERIFY THE **        
+      ***CESS APPLICABLE FOR THE GIVEN SALES ORDER                    **        
+      ******************************************************************        
+                 PERFORM 985XC-LINE-READ-ORGDTL                                 
+                    THRU 985XC-EXIT                                             
+                 IF WS-EIB-NORESP                                               
+                    SET WS-CESS-APPLICABLE-YES TO TRUE                          
+                 ELSE                                                           
+                    SET WS-CESS-APPLICABLE-NO  TO TRUE                          
+                 END-IF                                                         
+                 MOVE ORTD-DIST-NBR         TO WS-ORSSHH-DIST                   
+                 MOVE ORTD-SHIP-NBR         TO WS-ORSSHH-SHIP                   
+                 MOVE '('                   TO WS-ORSSHH-QUAL                   
+                 PERFORM 1213-GU-ORSSHH                                         
+                 MOVE 'Y'               TO WS-ORSLNE-IO-SW                      
+                 MOVE '('               TO WS-ORSLNE-QUAL                       
+                 MOVE ' >'              TO WS-ORSLNE-SEARCH                     
+                 MOVE '000'             TO WS-ORSLNE-NBR                        
+                 PERFORM 379XY-CALCULATE-FOR-ALL-LINES THRU                     
+                         379XY-EXIT  UNTIL NOT WS-ORSLNE-NORESP                 
+                 IF WS-SUM-FRT-AT-LINE IS ZERO                                  
+                    CONTINUE                                                    
+                 ELSE                                                           
+                    COMPUTE WS-FRT-PAISE-DFF = WS-FRT-AT-HDR -                  
+                                               WS-SUM-FRT-AT-LINE               
+                    IF WS-FRT-PAISE-DFF = 0                                     
+                       CONTINUE                                                 
+                    ELSE                                                        
+                       MOVE '('        TO WS-ORSLNE-QUAL                        
+                       MOVE '='        TO WS-ORSLNE-SEARCH                      
+                       MOVE WS-ORL-LST-LNE-NBR                                  
+                                       TO WS-ORSLNE-NBR                         
+                       PERFORM 1212-GHU-ORSLNE                                  
+                       IF WS-ORSLNE-NORESP                                      
+                          ADD WS-FRT-PAISE-DFF                                  
+                                       TO ORL-FRT-CHARGE-AT-LINE                
+                          PERFORM 9316-REPL-ORSLNE                              
+                       END-IF                                                   
+                    END-IF                                                      
+                 END-IF                                                         
+                 SET WS-SET-ORSSHH-FRT-RATE-0-YES                               
+                                        TO TRUE                                 
+              ELSE                                                              
+                 IF ORSHOF-IA-GST-CUST-EXMPT                                    
+                    PERFORM 9212-GHU-ORSLNE                                     
+                    MOVE SPACES          TO ORL-GST-TAX-SW                      
+                    MOVE ZEROES          TO ORL-I-GST-TAX-RATE                  
+                                            ORL-I-GST-TAX-AMT                   
+                                            ORL-S-GST-TAX-RATE                  
+                                            ORL-S-GST-TAX-AMT                   
+                                            ORL-C-GST-TAX-RATE                  
+                                            ORL-C-GST-TAX-AMT                   
+                    PERFORM 9316-REPL-ORSLNE                                    
+                    MOVE '000'                     TO WS-ORGH-LINE-NBR          
+                    PERFORM 985XC-LINE-READ-ORGDTL                              
+                       THRU 985XC-EXIT                                          
+                    IF WS-EIB-NORESP                                            
+                       SET WS-CESS-APPLICABLE-YES  TO TRUE                      
+                       INITIALIZE ORGH-DATA                                     
+                       MOVE '895'                  TO WS-ORGH-LINE-NBR          
+                       MOVE WS-ORGH-RECORD-KEY     TO ORGH-RECORD-KEY           
+                       SET  WS-SET-CESS-FRT-TOT-NO TO TRUE                      
+                       PERFORM 985XA-LN895-WRITE-ORGDTL                         
+                          THRU 985XA-EXIT                                       
+                    ELSE                                                        
+                       SET WS-CESS-APPLICABLE-NO   TO TRUE                      
+                    END-IF                                                      
+                 END-IF                                                         
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE '895'                           TO WS-ORGH-LINE-NBR          
+              PERFORM 985XF-LN895-DEL-ORGDTL                                    
+                 THRU 985XF-EXIT                                                
+              IF WS-IA-FRT-FRTTAX-AMT > ZEROS                                   
+                 IF ORSH-RMA                OR                                  
+                    WS-IA-REVISED-INVC-YES  OR                                  
+                  ((ORSH-CREDIT-MEMO OR                                         
+                    ORSH-DEBIT-MEMO) AND                                        
+                   (NOT ORH-CCN-SKU))                                           
+                    CONTINUE                                                    
+                 ELSE                                                           
+                    MOVE 'Y'           TO WS-ORSLNE-IO-SW                       
+                    MOVE '('           TO WS-ORSLNE-QUAL                        
+                    MOVE ' >'          TO WS-ORSLNE-SEARCH                      
+                    MOVE '000'         TO WS-ORSLNE-NBR                         
+                    PERFORM UNTIL (NOT WS-ORSLNE-NORESP)                        
+                        PERFORM 1276-GHNP-ORSLNE                                
+                        IF WS-ORSLNE-NORESP                                     
+                           MOVE ORL-LINE-NBR                                    
+                                       TO WS-ORSLNE-NBR                         
+                           MOVE ZEROS  TO ORL-FRT-CHARGE-AT-LINE                
+                                          ORL-C-GST-AT-FRT                      
+                                          ORL-S-GST-AT-FRT                      
+                           PERFORM 9316-REPL-ORSLNE                             
+                        END-IF                                                  
+                    END-PERFORM                                                 
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       379XX-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      * IN THIS PARA WE WILL BE SPLITTING THE HEADER LEVEL FREIGHT AMOU-        
+      * NT TO THE RESPECTIVE LINES                                              
+       379XY-CALCULATE-FOR-ALL-LINES.                                           
+                                                                                
+           PERFORM 1276-GHNP-ORSLNE                                             
+           IF WS-ORSLNE-NORESP                                                  
+              MOVE ORL-LINE-NBR           TO WS-ORSLNE-NBR                      
+           ELSE                                                                 
+              GO TO 379XY-EXIT                                                  
+           END-IF.                                                              
+                                                                                
+      *¦ RULES FOR FREIGHT AMOUNT DISTRIBUTION¦¦¦¦                      SK223097
+      *¦ - KIT SKU        = PARENT LEVEL ONLY¦¦¦¦¦                      SK223097
+      *¦ - CNP HARD BUNDLE= PARENT LEVEL ONLY¦¦¦¦¦                      SK223097
+      *¦ - SOFT BUNDLE¦¦¦ = COMPONENT¦ LEVEL ONLY¦                      SK223097
+      *¦ - HARD BUNDLE¦¦¦ = COMPONENT¦ LEVEL ONLY¦                      SK223097
+      *¦ - NORMAL SKU     = INDIVIDUAL LINE¦¦                           SK223097
+                                                                        SK223097
+           IF(ORL-PART-NBR     > SPACES)   AND                          SK223097
+             (ORL-LINE-NBR NOT = '895' )   AND                          SK223097
+             (NOT ORL-VOIDED-LINE      )   AND                          SK223097
+              ORL-C-GST-TAX-AMT IS NUMERIC AND                          SK223097
+              ORL-I-GST-TAX-AMT IS NUMERIC                              SK223097
+                                                                        SK223097
+              IF ORL-COMPONENT-ITEM                                     SK223097
+                 CONTINUE                                               SK223097
+              ELSE                                                      SK223097
+                 MOVE ORL-ROLL-SW              TO  WS-SKU-TYPE-SW       SK223097
+              END-IF                                                    SK223097
+                                                                        SK223097
+              IF ORL-SYSTEMS-ITEM AND WS-NORMAL-SKU                     SK223097
+                 MOVE ORH-COMPANY              TO  WS-INAL2-CO          SK223097
+                 MOVE ORL-PART-NBR             TO  WS-INAL2-PART        SK223097
+                 PERFORM 1550-GU-INSHED-VIA-PART                        SK223097
+                 IF WS-INSHED-NORESP AND INI-NP-HARD-BUNDLE             SK223097
+                     SET WS-CNP-HARD-BUNDLE    TO  TRUE                 SK223097
+                 END-IF                                                 SK223097
+              END-IF                                                    SK223097
+                                                                        SK223097
+              IF WS-KIT-SKU OR WS-CNP-HARD-BUNDLE                       SK223097
+                 IF ORL-COMPONENT-ITEM                                  SK223097
+                    SET WS-FRT-AMT-DIST-NO     TO  TRUE                 SK223097
+                 ELSE                                                   SK223097
+                    SET WS-FRT-AMT-DIST-YES    TO  TRUE                 SK223097
+                 END-IF                                                 SK223097
+              ELSE                                                      SK223097
+                 IF WS-SOFT-BUNDLE OR WS-HARD-BUNDLE                    SK223097
+                    IF ORL-COMPONENT-ITEM                               SK223097
+                       SET WS-FRT-AMT-DIST-YES TO  TRUE                 SK223097
+                    ELSE                                                SK223097
+                       SET WS-FRT-AMT-DIST-NO  TO  TRUE                 SK223097
+                    END-IF                                              SK223097
+                 ELSE                                                   SK223097
+                    SET WS-FRT-AMT-DIST-YES    TO  TRUE                 SK223097
+                 END-IF                                                 SK223097
+              END-IF                                                    SK223097
+                                                                        SK223097
+              IF WS-FRT-AMT-DIST-YES                                    SK223097
+                 CONTINUE                                               SK223097
+              ELSE                                                      SK223097
+                 GO TO 379XY-EXIT                                       SK223097
+              END-IF                                                    SK223097
+                                                                        SK223097
+              COMPUTE WS-LINE-VALUE                  =                          
+                      ORL-UNIT-PRICE * ORL-QTY-SHIPPED                          
+              COMPUTE WS-FRT-AT-LINE                 =                          
+                       (WS-LINE-VALUE / WS-TOTAL-VALUE)                         
+              COMPUTE WS-FRT-AT-LINE                 =                          
+                           WS-FRT-AT-HDR  * WS-FRT-AT-LINE                      
+              COMPUTE ORL-FRT-CHARGE-AT-LINE ROUNDED =                          
+                           1 * WS-FRT-AT-LINE                                   
+              COMPUTE WS-SUM-FRT-AT-LINE = ORL-FRT-CHARGE-AT-LINE +             
+                                           WS-SUM-FRT-AT-LINE                   
+              IF ORL-SC-GST-TAX                                                 
+                 COMPUTE ORL-C-GST-AT-FRT ROUNDED    =                          
+                         ORL-FRT-CHARGE-AT-LINE * ORL-C-GST-TAX-RATE            
+                 COMPUTE ORL-S-GST-AT-FRT ROUNDED    =                          
+                         ORL-FRT-CHARGE-AT-LINE * ORL-S-GST-TAX-RATE            
+                 COMPUTE WS-FRT-CGST-TAX-TOTAL       =                          
+                         WS-FRT-CGST-TAX-TOTAL  + ORL-C-GST-AT-FRT              
+                 COMPUTE WS-FRT-SGST-TAX-TOTAL       =                          
+                         WS-FRT-SGST-TAX-TOTAL  + ORL-S-GST-AT-FRT              
+              ELSE                                                              
+                 IF ORL-I-GST-TAX                                               
+                    COMPUTE ORL-I-GST-AT-FRT ROUNDED =                          
+                            ORL-FRT-CHARGE-AT-LINE * ORL-I-GST-TAX-RATE         
+                    COMPUTE WS-FRT-IGST-TAX-TOTAL    =                          
+                            WS-FRT-IGST-TAX-TOTAL  + ORL-I-GST-AT-FRT           
+                 END-IF                                                         
+              END-IF                                                            
+              IF ORL-QTY-SHIPPED > ZEROS                                        
+                 MOVE ORL-LINE-NBR       TO WS-ORL-LST-LNE-NBR                  
+              END-IF                                                            
+              PERFORM 9316-REPL-ORSLNE                                          
+              SET O99-CESS-AMT-READ-YES                                         
+                  WS-IGNRE-ORGTL-NOTFND-N                                       
+                                       TO TRUE                                  
+              IF WS-CESS-APPLICABLE-YES                                         
+                 MOVE ORL-LINE-NBR       TO WS-ORGH-LINE-NBR                    
+                                            ORGH-LINE-NBR                       
+                 SET WS-IGNRE-ORGTL-NOTFND-Y TO TRUE                            
+                 PERFORM 985XD-READ-ORGDTL-FOR-UPDATE                           
+                    THRU 985XD-EXIT                                             
+                 IF WS-EIB-NORESP                                               
+                    MOVE ZEROS         TO ORGL-O-CESS1-AT-FRT-AMT               
+                                          ORGL-O-CESS2-AT-FRT-AMT               
+                                          ORGL-O-CESS3-AT-FRT-AMT               
+                                          ORGL-O-CESS4-AT-FRT-AMT               
+                    IF ORGL-O-CESS1-YES OR ORGL-O-CESS2-YES OR                  
+                       ORGL-O-CESS3-YES OR ORGL-O-CESS4-YES                     
+                       PERFORM 985XB-CALC-FRT-CESS-AMT                          
+                          THRU 985XB-EXIT                                       
+                    END-IF                                                      
+                    PERFORM 985XE-LINE-REWRITE-ORGDTL                           
+                       THRU 985XE-EXIT                                          
+                 ELSE                                                           
+                    INITIALIZE ORGL-O-CESS-DATA                                 
+                 END-IF                                                         
+                 IF ORL-PART-NBR(1:1) = 'S'                                     
+                    IF ORGL-O-CESS1-YES                                         
+                       COMPUTE O99-S-SKU-CESS-AMT-TOT =                         
+                               O99-S-SKU-CESS-AMT-TOT +                         
+                               ORGL-O-CESS1-AMOUNT                              
+                    END-IF                                                      
+                    IF ORGL-O-CESS2-YES                                         
+                       COMPUTE O99-S-SKU-CESS-AMT-TOT =                         
+                               O99-S-SKU-CESS-AMT-TOT +                         
+                               ORGL-O-CESS2-AMOUNT                              
+                    END-IF                                                      
+                    IF ORGL-O-CESS3-YES                                         
+                       COMPUTE O99-S-SKU-CESS-AMT-TOT =                         
+                               O99-S-SKU-CESS-AMT-TOT +                         
+                               ORGL-O-CESS3-AMOUNT                              
+                    END-IF                                                      
+                    IF ORGL-O-CESS4-YES                                         
+                       COMPUTE O99-S-SKU-CESS-AMT-TOT =                         
+                               O99-S-SKU-CESS-AMT-TOT +                         
+                               ORGL-O-CESS4-AMOUNT                              
+                    END-IF                                                      
+                 ELSE                                                           
+                    IF ORL-PART-NBR(1:1) = 'G'                                  
+                       IF ORGL-O-CESS1-YES                                      
+                          COMPUTE O99-G-SKU-CESS-AMT-TOT =                      
+                                  O99-G-SKU-CESS-AMT-TOT +                      
+                                  ORGL-O-CESS1-AMOUNT                           
+                       END-IF                                                   
+                       IF ORGL-O-CESS2-YES                                      
+                          COMPUTE O99-G-SKU-CESS-AMT-TOT =                      
+                                  O99-G-SKU-CESS-AMT-TOT +                      
+                                  ORGL-O-CESS2-AMOUNT                           
+                       END-IF                                                   
+                       IF ORGL-O-CESS3-YES                                      
+                          COMPUTE O99-G-SKU-CESS-AMT-TOT =                      
+                                   O99-G-SKU-CESS-AMT-TOT +                     
+                                  ORGL-O-CESS3-AMOUNT                           
+                       END-IF                                                   
+                       IF ORGL-O-CESS4-YES                                      
+                          COMPUTE O99-G-SKU-CESS-AMT-TOT =                      
+                                  O99-G-SKU-CESS-AMT-TOT +                      
+                                  ORGL-O-CESS4-AMOUNT                           
+                       END-IF                                                   
+                    END-IF                                                      
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+           IF ORL-LINE-NBR = '895' AND ORL-COMMOD-CODE = 'FOC'                  
+              IF ORSHOF-IA-GST-SC-GST                                           
+                 MOVE WS-FRT-CGST-TAX-TOTAL TO ORL-C-GST-TAX-AMT                
+                 MOVE WS-FRT-SGST-TAX-TOTAL TO ORL-S-GST-TAX-AMT                
+                 COMPUTE WS-GST-FRT-AMT     =  WS-FRT-CGST-TAX-TOTAL            
+                                            +  WS-FRT-SGST-TAX-TOTAL            
+                 MOVE ZEROES                TO ORL-C-GST-TAX-RATE               
+                 MOVE ZEROES                TO ORL-S-GST-TAX-RATE               
+                 MOVE 'S'                   TO ORL-GST-TAX-SW                   
+              ELSE                                                              
+                 IF ORSHOF-IA-GST-I-GST                                         
+                    MOVE WS-FRT-IGST-TAX-TOTAL                                  
+                                            TO ORL-I-GST-TAX-AMT                
+                    MOVE WS-FRT-IGST-TAX-TOTAL                                  
+                                            TO WS-GST-FRT-AMT                   
+                    MOVE ZEROES             TO ORL-I-GST-TAX-RATE               
+                    MOVE 'I'                TO ORL-GST-TAX-SW                   
+                 END-IF                                                         
+              END-IF                                                            
+              PERFORM 9316-REPL-ORSLNE                                          
+              IF WS-CESS-APPLICABLE-YES                                         
+                 INITIALIZE ORGH-DATA                                           
+                 MOVE '895'                   TO WS-ORGH-LINE-NBR               
+                 MOVE WS-ORGH-RECORD-KEY      TO ORGH-RECORD-KEY                
+                 MOVE WS-CESS1-AT-FRT-AMT-TOT TO ORGL-O-CESS1-AT-FRT-AMT        
+                 MOVE WS-CESS2-AT-FRT-AMT-TOT TO ORGL-O-CESS2-AT-FRT-AMT        
+                 MOVE WS-CESS3-AT-FRT-AMT-TOT TO ORGL-O-CESS3-AT-FRT-AMT        
+                 MOVE WS-CESS4-AT-FRT-AMT-TOT TO ORGL-O-CESS4-AT-FRT-AMT        
+                 SET  WS-SET-CESS-FRT-TOT-YES TO TRUE                           
+                 PERFORM 985XA-LN895-WRITE-ORGDTL                               
+                    THRU 985XA-EXIT                                             
+                 COMPUTE WS-GST-FRT-AMT =  WS-GST-FRT-AMT          +            
+                                           WS-CESS1-AT-FRT-AMT-TOT +            
+                                           WS-CESS2-AT-FRT-AMT-TOT +            
+                                           WS-CESS3-AT-FRT-AMT-TOT +            
+                                           WS-CESS4-AT-FRT-AMT-TOT              
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       379XY-EXIT.                                                              
+           EXIT.                                                                
+      ******************************************************************        
+      ***PARAGRAPH TO WRITE FREIGHT CESS VALUES IN ORGDTL FILE *********        
+      ******************************************************************        
+      *----------------------------------------------------------------*        
+       985XA-LN895-WRITE-ORGDTL.                                                
+      *----------------------------------------------------------------*        
+           EXEC CICS WRITE                                                      
+                DATASET(WS-ORGH-FILE-NAME)                                      
+                FROM   (ORGH-DATA)                                              
+                LENGTH (WS-GST-REC-LENGTH)                                      
+                RIDFLD (ORGH-RECORD-KEY)                                        
+                RESP   (WS-EIBRESP)                                             
+                RESP2  (WS-EIBRESP2)                                            
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              CONTINUE                                                          
+           ELSE                                                                 
+             IF WS-EIB-DUPKEY OR WS-EIB-DUPREC                                  
+                SET WS-IGNRE-ORGTL-NOTFND-N                                     
+                                       TO TRUE                                  
+                MOVE ORGH-RECORD-KEY            TO WS-ORGH-RECORD-KEY           
+                PERFORM 985XD-READ-ORGDTL-FOR-UPDATE                            
+                   THRU 985XD-EXIT                                              
+                MOVE ZEROES                     TO ORGL-O-CESS1-RATE            
+                                                   ORGL-O-CESS2-RATE            
+                                                   ORGL-O-CESS3-RATE            
+                                                   ORGL-O-CESS4-RATE            
+                                                   ORGL-O-CESS1-AMOUNT          
+                                                   ORGL-O-CESS2-AMOUNT          
+                                                   ORGL-O-CESS3-AMOUNT          
+                                                   ORGL-O-CESS4-AMOUNT          
+                IF WS-SET-CESS-FRT-TOT-YES                                      
+                   MOVE WS-CESS1-AT-FRT-AMT-TOT TO                              
+                                                ORGL-O-CESS1-AT-FRT-AMT         
+                   MOVE WS-CESS2-AT-FRT-AMT-TOT TO                              
+                                                ORGL-O-CESS2-AT-FRT-AMT         
+                   MOVE WS-CESS3-AT-FRT-AMT-TOT TO                              
+                                                ORGL-O-CESS3-AT-FRT-AMT         
+                   MOVE WS-CESS4-AT-FRT-AMT-TOT TO                              
+                                                ORGL-O-CESS4-AT-FRT-AMT         
+                ELSE                                                            
+                   MOVE ZEROES                  TO                              
+                                                ORGL-O-CESS1-AT-FRT-AMT         
+                                                ORGL-O-CESS2-AT-FRT-AMT         
+                                                ORGL-O-CESS3-AT-FRT-AMT         
+                                                ORGL-O-CESS4-AT-FRT-AMT         
+                END-IF                                                          
+                PERFORM 985XE-LINE-REWRITE-ORGDTL                               
+                   THRU 985XE-EXIT                                              
+             ELSE                                                               
+                MOVE 'GDWR'             TO WS-ABCODE                            
+                MOVE EIBRCODE           TO WS-STATUS                            
+                PERFORM 999-ABEND                                               
+             END-IF                                                             
+           END-IF.                                                              
+                                                                                
+       985XA-EXIT.                                                              
+             EXIT.                                                              
+      *----------------------------------------------------------------*        
+      ******************************************************************        
+      ***PARAGRAPH TO CALCULATE FREIGHT CESS VALUES BASED ON CESS ******        
+      ***INDICATOR AVAILABLE IN ORGDTL FILE                       ******        
+      ******************************************************************        
+      *----------------------------------------------------------------*        
+       985XB-CALC-FRT-CESS-AMT.                                                 
+      *----------------------------------------------------------------*        
+           IF ORGL-O-CESS1-YES                                                  
+              COMPUTE ORGL-O-CESS1-AT-FRT-AMT ROUNDED =                         
+                      ORL-FRT-CHARGE-AT-LINE  * ORGL-O-CESS1-RATE               
+              COMPUTE WS-CESS1-AT-FRT-AMT-TOT       =                           
+                      WS-CESS1-AT-FRT-AMT-TOT + ORGL-O-CESS1-AT-FRT-AMT         
+           END-IF.                                                              
+                                                                                
+           IF ORGL-O-CESS2-YES                                                  
+              COMPUTE ORGL-O-CESS2-AT-FRT-AMT ROUNDED =                         
+                      ORL-FRT-CHARGE-AT-LINE  * ORGL-O-CESS2-RATE               
+              COMPUTE WS-CESS2-AT-FRT-AMT-TOT       =                           
+                      WS-CESS2-AT-FRT-AMT-TOT + ORGL-O-CESS2-AT-FRT-AMT         
+           END-IF.                                                              
+                                                                                
+           IF ORGL-O-CESS3-YES                                                  
+              IF ORL-SC-GST-TAX                                                 
+                 COMPUTE ORGL-O-CESS3-AT-FRT-AMT    ROUNDED =                   
+                        ((ORL-FRT-CHARGE-AT-LINE +                              
+                          ORL-C-GST-AT-FRT       + ORL-S-GST-AT-FRT)            
+                                                 * ORGL-O-CESS3-RATE)           
+              ELSE                                                              
+                 IF ORL-I-GST-TAX                                               
+                    COMPUTE ORGL-O-CESS3-AT-FRT-AMT ROUNDED =                   
+                        ((ORL-FRT-CHARGE-AT-LINE + ORL-I-GST-AT-FRT)            
+                                                 * ORGL-O-CESS3-RATE)           
+                 END-IF                                                         
+              END-IF                                                            
+              COMPUTE WS-CESS3-AT-FRT-AMT-TOT       =                           
+                      WS-CESS3-AT-FRT-AMT-TOT + ORGL-O-CESS3-AT-FRT-AMT         
+           END-IF.                                                              
+                                                                                
+           IF ORGL-O-CESS4-YES                                                  
+              IF ORL-SC-GST-TAX                                                 
+                 COMPUTE ORGL-O-CESS4-AT-FRT-AMT ROUNDED =                      
+                         (ORL-C-GST-AT-FRT   + ORL-S-GST-AT-FRT)                
+                                             * ORGL-O-CESS4-RATE                
+              ELSE                                                              
+                 IF ORL-I-GST-TAX                                               
+                    COMPUTE ORGL-O-CESS4-AT-FRT-AMT ROUNDED =                   
+                         (ORL-I-GST-AT-FRT   * ORGL-O-CESS4-RATE)               
+                 END-IF                                                         
+              END-IF                                                            
+              COMPUTE WS-CESS4-AT-FRT-AMT-TOT       =                           
+                     WS-CESS4-AT-FRT-AMT-TOT + ORGL-O-CESS4-AT-FRT-AMT          
+           END-IF.                                                              
+                                                                                
+       985XB-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      ***PARAGRAPH TO READ THE ORGDTL FILE TO GET CESS VALUES AT LINE **        
+      ******************************************************************        
+      *---------------------------------------------------------------          
+       985XC-LINE-READ-ORGDTL.                                                  
+                                                                                
+           EXEC CICS READ                                                       
+                DATASET  (WS-ORGH-FILE-NAME)                                    
+                RIDFLD   (WS-ORGH-RECORD-KEY)                                   
+                LENGTH   (WS-GST-REC-LENGTH)                                    
+                KEYLENGTH(LENGTH OF WS-ORGH-RECORD-KEY)                         
+                INTO     (ORGH-DATA)                                            
+                RESP     (WS-EIBRESP)                                           
+                RESP2    (WS-EIBRESP2)                                          
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP OR WS-EIB-NOTFND OR WS-EIB-ENDFILE                  
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE 'GDRD'             TO WS-ABCODE                              
+              MOVE EIBRCODE           TO WS-STATUS                              
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+       985XC-EXIT.                                                              
+             EXIT.                                                              
+      *----------------------------------------------------------------*        
+       985XD-READ-ORGDTL-FOR-UPDATE.                                            
+      *----------------------------------------------------------------*        
+           EXEC CICS READ                                                       
+                DATASET(WS-ORGH-FILE-NAME)                                      
+                RIDFLD (WS-ORGH-RECORD-KEY)                                     
+                LENGTH (WS-GST-REC-LENGTH)                                      
+                INTO   (ORGH-DATA)                                              
+                UPDATE                                                          
+                RESP   (WS-EIBRESP)                                             
+                RESP2  (WS-EIBRESP2)                                            
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP OR WS-EIB-NOTFND OR WS-EIB-ENDFILE                  
+              CONTINUE                                                          
+           ELSE                                                                 
+              EXEC CICS UNLOCK                                                  
+                   DATASET (WS-ORGH-FILE-NAME)                                  
+                   RESP    (WS-EIBRESP)                                         
+                   RESP2   (WS-EIBRESP2)                                        
+              END-EXEC                                                          
+              EXEC CICS READ                                                    
+                   DATASET(WS-ORGH-FILE-NAME)                                   
+                   RIDFLD (WS-ORGH-RECORD-KEY)                                  
+                   LENGTH (WS-GST-REC-LENGTH)                                   
+                   INTO   (ORGH-DATA)                                           
+                   UPDATE                                                       
+                   RESP   (WS-EIBRESP)                                          
+                   RESP2  (WS-EIBRESP2)                                         
+              END-EXEC                                                          
+           END-IF.                                                              
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              CONTINUE                                                          
+           ELSE                                                                 
+              IF (WS-EIB-NOTFND OR WS-EIB-ENDFILE) AND                          
+                 WS-IGNRE-ORGTL-NOTFND-Y                                        
+                 CONTINUE                                                       
+              ELSE                                                              
+                 MOVE 'GDRU'          TO WS-ABCODE                              
+                 MOVE EIBRCODE        TO WS-STATUS                              
+                 PERFORM 999-ABEND                                              
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       985XD-EXIT.                                                              
+             EXIT.                                                              
+      *----------------------------------------------------------------*        
+       985XE-LINE-REWRITE-ORGDTL.                                               
+      *----------------------------------------------------------------*        
+           EXEC CICS REWRITE                                                    
+                DATASET(WS-ORGH-FILE-NAME)                                      
+                FROM   (ORGH-DATA)                                              
+                LENGTH (WS-GST-REC-LENGTH)                                      
+                RESP   (WS-EIBRESP)                                             
+                RESP2  (WS-EIBRESP2)                                            
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE 'GDRW'             TO WS-ABCODE                              
+              MOVE EIBRCODE           TO WS-STATUS                              
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+       985XE-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      ***PARAGRAPH TO DELETE 895 LINE IF FREIGHT TAX IS NOT APPLICABLE**        
+      ******************************************************************        
+       985XF-LN895-DEL-ORGDTL.                                                  
+                                                                                
+           EXEC CICS DELETE                                                     
+                DATASET  (WS-ORGH-FILE-NAME)                                    
+                RIDFLD   (WS-ORGH-RECORD-KEY)                                   
+                KEYLENGTH(WS-GST-KEY-LENGTH)                                    
+                RESP     (WS-EIBRESP)                                           
+                RESP2    (WS-EIBRESP2)                                          
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              CONTINUE                                                          
+           ELSE                                                                 
+             IF WS-EIB-NOTFND OR WS-EIB-ENDFILE                                 
+                CONTINUE                                                        
+             ELSE                                                               
+                MOVE 'GSDL'             TO WS-ABCODE                            
+                MOVE EIBRCODE           TO WS-STATUS                            
+                PERFORM 999-ABEND                                               
+             END-IF                                                             
+           END-IF.                                                              
+                                                                                
+       985XF-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      *-----------------------------------------------------------------        
+       985XG-WRITE-ORGDTL.                                                      
+      *-----------------------------------------------------------------        
+           EXEC CICS WRITE                                                      
+                DATASET(WS-ORGH-FILE-NAME)                                      
+                FROM   (ORGH-DATA)                                              
+                LENGTH (WS-GST-REC-LENGTH)                                      
+                RIDFLD (ORGH-RECORD-KEY)                                        
+                RESP   (WS-EIBRESP)                                             
+                RESP2  (WS-EIBRESP2)                                            
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              CONTINUE                                                          
+           ELSE                                                                 
+             IF WS-EIB-DUPKEY OR WS-EIB-DUPREC                                  
+                CONTINUE                                                        
+             ELSE                                                               
+                MOVE 'GDW2'            TO WS-ABCODE                             
+                MOVE EIBRCODE          TO WS-STATUS                             
+                PERFORM 999-ABEND                                               
+             END-IF                                                             
+           END-IF.                                                              
+       985XG-EXIT.                                                              
+             EXIT.                                                              
+                                                                        SK223097
+       1550-GU-INSHED-VIA-PART.        COPY INIO1550.                   SK223097

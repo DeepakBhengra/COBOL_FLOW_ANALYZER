@@ -1,0 +1,555 @@
+                                                                                
+      *****************************************************************         
+      *         PROCEDURE DIVISION COMMON ROUTINES THAT SUPPORT       *         
+      *         VARIOUS VISIBLE RESERVE INVENTORY PROCESSES           *         
+      *                                                               *         
+      *  PURPOSE:  VARIOUS ROUTINES TO HELP INQUIRE VISIBLE           *         
+      *            RESERVE INVENTORY DATA.                            *         
+      *                                                               *         
+      *  USAGE:    COPY THIS ICSVRSVI P/D COPYBOOK & THE ICWVRSV W/S  *         
+      *            COPYBOOK INTO APPLICATIONS THAT INQUIRE VISIBLE    *         
+      *            RESERVE INVENTORY AND PERFORM THE APPROPRIATE      *         
+      *            SUPPORT ROUTINE PARAGRAPHS.                        *         
+      *                                                               *         
+      *  SUPPORT:  THE FOLLOWING COPYBOOKS ARE REQUIERD:              *         
+      *                                                               *         
+      *     WS DATA:  COPY ICWVRSV.                                   *         
+      *     W/S DATA: COPY INSLOR                                     *         
+      *     W/S SSA:  COPY INKLOR.                                    *         
+      *     W/S SSA:  COPY INKLOR2.                                   *         
+      *                                                               *         
+      *     P/D:      COPY ICSVRSV.                                   *         
+      *                                                               *         
+      *  OPTIONAL: REPLACE BY PLACEHOLDER OR USE ACTUAL I/O COPYBKS   *         
+      *     P/D I/O:  1552-GU-INSBRN-PART-NBR.   COPY INIO1552.       *         
+      *     P/D I/O:  1845-GNP-INSLOR-VIA-PART.  COPY INIO1845.       *         
+      *                                                               *         
+      *  SUMMARY OF EACH ROUTINE ENTRY POINT:                         *         
+      *     A000 = SET RI ELIGIBLE WHEN BOTH CORP & CUST SWITCHES ON  *         
+      *     B000 = CALCULATES VISIBLE RESERVE TOTAL FOR CUST/SKU/BR   *         
+      *     C000 = SORTS VISIBLE RESERVE ARRAY IN PULLING SEQUENCE    *         
+      *                                                               *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 06/10/08 TKC  1. GET BOTH SELF AND PARENT AVAILABLE RESERVE   * TKC08162
+      *               2. RE-ARRANGE SORT SEQUENC TO CUSTOMER FIRST    * TKC08162
+      * 07/07/05 AXR     *** RESERVE INVENTORY AUTOMATION, PHASE1 *** * AXR05188
+      *               1. CREATED COPYBOOK.                            * AXR05188
+      * 08/22/05 AXR  1. IMPROVED LOGIC RELATED TO STREAMLINE RESERVE * AXR05234
+      *                  FAMILY LOOKUP AND SORTING LOGIC.             * AXR05234
+      *               2. IMPROVED CALCULATION OF NET RESERVE QTY.     * AXR05234
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+      *ICSVRSVI-A000-SET-CU-VRSV-IND.                                           
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE SETS ICWVRSV-CU-VISRSV-ON WHEN THE       <<<**         
+      **>>> VISIBLE RESERVE CORP SWITCH ON AND CUSTOMER IS PART   <<<**         
+      **>>> OF A RESERVE FAMILY (EITHER PARENT OR CHILD). IT      <<<**         
+      **>>> ASSUMES THAT SUCCESSFUL READS HAVE BEEN PERFORMED     <<<**         
+      **>>> FOR TBICORP5, CUSHED AND CUSHEDOF.                    <<<**         
+      **>>>                                                       <<<**         
+      **>>>                                                       <<<**         
+      **>>> INPUT:                                                <<<**         
+      **>>>   DATA AND I/O STATUS FOR TBICORP5, CUSHED, CUSHEDOF  <<<**         
+      **>>>                                                       <<<**         
+      **>>> OUTPUT:                                               <<<**         
+      **>>>   ICWVRSV-CU-VISRSV-IND WITH 'Y' OR 'N'               <<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ICSVRSVI-A000-SET-CU-VRSV-IND.                                           
+                                                                                
+      *   (DEFAULT TO ICWVRSV-CU-VISRSV-OFF)                                    
+           MOVE 'N'                          TO ICWVRSV-CU-VISRSV-IND.          
+                                                                                
+      *   (SET ON WHEN SUCCESSFUL ACCESS TO CORP5, CUSHED & CUSHEDOF AS         
+      *    WELL POSITIVE VALUES FOR VISIBLE RESERVE INVENTORY FIELDS)           
+           IF  (TB-CPO5-NORESP      AND TB-CPO5-RSV-VISIBLE)                    
+           AND (WS-CUSHED-NORESP    AND CU-RESERVE-ALLOWED)                     
+               MOVE 'Y'                      TO ICWVRSV-CU-VISRSV-IND           
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVI-B000-CALC-VISRSV.                                               
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE CALCULATES A VISIBLE RESERVE TOTAL       <<<**         
+      **>>> FOR A CUSTOMER/SKU/BRANCH. IT EXPECTS THAT READS      <<<**         
+      **>>> HAVE BEEN PERFORMED FOR CUSHED, CUSHEDOF, INSHED      <<<**         
+      **>>> AND INSBRN BEFORE IT PROCESSES THE INSLOR SEGMENTS.   <<<**         
+      **>>>                                                       <<<**         
+      **>>> INPUT DATA:                                           <<<**         
+      **>>>   1. CUOF-RI-PARENT-NBR  = RESERVE PARENT CUST        <<<**         
+      **>>>   2. CUOF-RI-TOFROM-FLAG = HOW CHILDREN SHARE RESERVES<<<**         
+      **>>>   3. ICWVRSV-PARENTAGE-SET-IND = OPTIONAL INDICATOR   <<<**         
+      **>>>      TO RE-SET INSBRN PARENTAGE. SET TO 'Y' IN THE    <<<**         
+      **>>>      APPLICATIONS THAT HAVE PROPER POSITIONING TO     <<<**         
+      **>>>      AVOID REDUNDANT I/O.                             <<<**         
+      **>>>                                                       <<<**         
+      **>>> OUTPUT DATA:                                          <<<**         
+      **>>>   ICWVRSV-VISRSV-STATUS = SUCCESS INDICATOR           <<<**         
+      **>>>   ICWVRSV-VISRSV-QTY    = VIS RES QTY FOR CUST/BR/SKU <<<**         
+      **>>>   ICWVRSV-ROW-COUNT     = NBR OF OPEN VIS RES SEQ     <<<**         
+      **>>>   ICWVRSV-RESERVE-TABLE = ARRAY OF OPEN VIS RES SEQ   <<<**         
+      **>>>                                                       <<<**         
+      **>>> REQUIRED I/O COPYBOOKS:                               <<<**         
+      **>>>   1552-GU-INSBRN-PART-NBR.   COPY INIO1552.           <<<**         
+      **>>>   1845-GNP-INSLOR-VIA-PART.  COPY INIO1845.           <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ICSVRSVI-B000-CALC-VISRSV.                                               
+                                                                                
+      *   (INITIALIZE OUTPUT FIELDS)                                            
+           SET ICWVRSV-STATUS-OKAY           TO TRUE.                           
+           MOVE 'N'                          TO ICWVRSV-DONE-IND.               
+           MOVE ZEROES                       TO ICWVRSV-VISRSV-QTY.             
+           MOVE ZEROES                       TO ICWVRSV-ROW-COUNT.              
+                                                                                
+      *   (FOR DIAGNOSTIC PURPOSES, SAVE THE BRANCH BEING PROCESSED)            
+           MOVE WS-INSBRN-NBR                TO ICWVRSV-BR.                     
+                                                                                
+      *   (INITIALIZE AND DEFAULT SSA FIELDS)                                   
+           MOVE LOW-VALUES                   TO WS-INSLOR-RSV-KEY-VALUE.        
+           MOVE '=>'                         TO WS-INSLOR-RSV-SEARCH.           
+           MOVE '2'                          TO WS-INSLOR-RSV-TYPE.             
+           MOVE 'V'                          TO WS-INSLOR-RSV-STATUS.           
+           MOVE CU-BR-NBR                    TO WS-INSLOR-RSV-CUST-BR   TKC08162
+                                                ICWVRSV-SELF-BR.        TKC08162
+           MOVE CU-CUST-NBR                  TO WS-INSLOR-RSV-CUST-NBR  TKC08162
+                                                ICWVRSV-SELF-CUSTOMER.  TKC08162
+                                                                        TKC08162
+      *   (SETUP SSA TO RETRIEVE PARENT RESERVE FIRST IF SMALLER KEY)   TKC08162
+           IF CUOF-RI-PARENT-NBR  > SPACES                              TKC08162
+           AND CUOF-RI-PARENT-NBR < ICWVRSV-SELF-KEY                    TKC08162
+               PERFORM ICSVRSVI-B100-FROMPARENT-SETUP                           
+           END-IF.                                                              
+                                                                                
+      *   (WHEN NECESSARY RE-ESTABLISH PARENTAGE ON INSBRN)                     
+           IF ICWVRSV-PARENTAGE-NOTSET                                          
+              PERFORM ICSVRSVI-B200-GET-INSBRN                                  
+           END-IF.                                                              
+                                                                                
+      *   (PRIMING READ TO GET FIRST INSLOR TYPE 2 SEGMENT)                     
+           IF ICWVRSV-STATUS-OKAY                                               
+              MOVE 'N'                       TO WS-INSLOR-IO-SW                 
+              PERFORM 1845-GNP-INSLOR-VIA-PART                                  
+           END-IF.                                                              
+                                                                                
+      *   (WHEN INSLOR FOUND PROCESS IT WITH MATCH KEY UNTIL NOT MATCH) TKC08162
+           IF  ICWVRSV-STATUS-OKAY                                              
+           AND WS-INSLOR-NORESP                                                 
+           AND INL-RESERVE-SEGMENT                                              
+               PERFORM ICSVRSVI-B300-GNP-INSLOR                                 
+                 UNTIL ICWVRSV-DONE-YES                                         
+           END-IF.                                                              
+                                                                                
+      *   (WHEN INSLOR FOUND PROCESS IT WITH NEXT KEY - SELF OR PARENT) TKC08162
+           IF  ICWVRSV-STATUS-OKAY                                      TKC08162
+           AND WS-INSLOR-NORESP                                         TKC08162
+           AND INL-RESERVE-SEGMENT                                      TKC08162
+               IF  CUOF-RI-PARENT-NBR > SPACES                          TKC08162
+               AND CUOF-RI-PARENT-NBR NOT = ICWVRSV-SELF-KEY            TKC08162
+                  IF CUOF-RI-PARENT-NBR < ICWVRSV-SELF-KEY              TKC08162
+                     MOVE CU-BR-NBR         TO WS-INSLOR-RSV-CUST-BR    TKC08162
+                     MOVE CU-CUST-NBR       TO WS-INSLOR-RSV-CUST-NBR   TKC08162
+                  ELSE                                                  TKC08162
+                     MOVE CUOF-RI-BR-NBR    TO WS-INSLOR-RSV-CUST-BR    TKC08162
+                     MOVE CUOF-RI-CUST-NBR  TO WS-INSLOR-RSV-CUST-NBR   TKC08162
+                  END-IF                                                TKC08162
+                  IF  INL-CUST-BR-NBR    > WS-INSLOR-RSV-CUST-BR        TKC08162
+                  OR (INL-CUST-BR-NBR    = WS-INSLOR-RSV-CUST-BR        TKC08162
+                  AND INL-CUST-NBR       > WS-INSLOR-RSV-CUST-NBR)      TKC08162
+                      MOVE 'Y'          TO ICWVRSV-DONE-IND             TKC08162
+                  ELSE                                                  TKC08162
+                      MOVE 'N'          TO ICWVRSV-DONE-IND             TKC08162
+                      IF INL-CUST-BR-NBR = WS-INSLOR-RSV-CUST-BR        TKC08162
+                      AND INL-CUST-NBR   = WS-INSLOR-RSV-CUST-NBR       TKC08162
+                          CONTINUE                                      TKC08162
+                      ELSE                                              TKC08162
+                          PERFORM ICSVRSVI-B200-GET-INSBRN              TKC08162
+                          PERFORM 1845-GNP-INSLOR-VIA-PART              TKC08162
+                      END-IF                                            TKC08162
+                  END-IF                                                TKC08162
+                  IF ICWVRSV-STATUS-OKAY                                TKC08162
+                  AND WS-INSLOR-NORESP                                  TKC08162
+                  AND INL-RESERVE-SEGMENT                               TKC08162
+                      PERFORM ICSVRSVI-B300-GNP-INSLOR                  TKC08162
+                        UNTIL ICWVRSV-DONE-YES                          TKC08162
+                  END-IF                                                TKC08162
+               END-IF                                                   TKC08162
+           END-IF.                                                      TKC08162
+                                                                                
+                                                                                
+      *ICSVRSVI-B100-FROMPARENT-SETUP.                                          
+      ******************************************************************        
+      * SETS UP THE INKLOR2 SSA USING THE RESERVE PARENT CUSTOMER      *        
+      * NUMBER TO SEARCH FOR V STATUS (VISIBLE) RESERVE INVENTORY      *        
+      * THAT CAN BE USED FROM THE RESERVE PARENT. SAME SETUP WORKS     *        
+      * FOR RESERVE CHILDREN THAT PULL FROM PARENT, AND ALSO WHEN      *        
+      * PROCESSING THE RESERVE PARENT.                                 *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVI-B100-FROMPARENT-SETUP.                                          
+                                                                                
+      *   (SEARCH INSLOR TYPE 2 SEGMENTS WITH RES INV PARENT NBR)               
+           MOVE CUOF-RI-BR-NBR               TO WS-INSLOR-RSV-CUST-BR.          
+           MOVE CUOF-RI-CUST-NBR             TO WS-INSLOR-RSV-CUST-NBR.         
+                                                                                
+                                                                                
+      *ICSVRSVI-B200-GET-INSBRN.                                                
+      ******************************************************************        
+      * RE-ESTABLISH INSBRN PARENTAGE AND POSITIONING                  *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVI-B200-GET-INSBRN.                                                
+                                                                                
+      *   (SAVE SSA VALUES)                                                     
+           MOVE WS-INSBRN-COMMAND-CODE     TO ICWVRSV-SAVE-COMMAND-CODE.        
+           MOVE WS-INSBRN-QUAL             TO ICWVRSV-SAVE-QUAL.                
+           MOVE WS-INSBRN-SEARCH           TO ICWVRSV-SAVE-SEARCH.              
+                                                                                
+      *   (FORCE NEW SSA VALUES)                                                
+           MOVE '*-'                       TO WS-INSBRN-COMMAND-CODE.           
+           MOVE '('                        TO WS-INSBRN-QUAL.                   
+           MOVE ' ='                       TO WS-INSBRN-SEARCH.                 
+                                                                                
+      *   (RE-ESTABLISH INSBRN PARENTAGE AND POSITIONING)                       
+           MOVE 'N'                          TO WS-INSBRN-IO-SW.                
+           PERFORM 1552-GU-INSBRN-PART-NBR.                                     
+                                                                                
+      *   (RESTORE SSA VALUES)                                                  
+           MOVE ICWVRSV-SAVE-COMMAND-CODE    TO WS-INSBRN-COMMAND-CODE.         
+           MOVE ICWVRSV-SAVE-QUAL            TO WS-INSBRN-QUAL.                 
+           MOVE ICWVRSV-SAVE-SEARCH          TO WS-INSBRN-SEARCH.               
+                                                                                
+                                                                                
+      *ICSVRSVI-B300-GNP-INSLOR.                                                
+      ******************************************************************        
+      * GET NEXT INSLOR AND EVALUATE WHETHER THE CUSTOMER ON THAT      *        
+      * RESERVE SEQUENCE MATCHES A MEMBER OF THE RESERVE INVENTORY     *        
+      * FAMILY THAT IS BEING PROCESSED.                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVI-B300-GNP-INSLOR.                                                
+                                                                                
+      *   (DEFAULT TO ICWVRSV-MATCH-NO)                                         
+           MOVE 'N'                          TO ICWVRSV-MATCH-IND.              
+                                                                                
+      *   (REGARDLESS OF RESERVE CHILD/PARENT SETUP, VISIBLE RESERVES           
+      *    ESTABLISHED FOR YOURSELF CAN BE ACCESSED)                            
+              PERFORM ICSVRSVI-B310-MATCH-SELF                                  
+                                                                                
+      *   (WHEN RESERVES FROM THE RESERVE PARENT ADD TO CHILDREN THEN           
+      *    VISIBLE RESERVES ESTABLISHED FOR PARENT CAN BE ACCESSED)             
+           IF CUOF-RI-PARENT-NBR  > SPACES                              TKC08162
+           AND ICWVRSV-MATCH-NO                                         AXR05234
+              PERFORM ICSVRSVI-B320-MATCH-PARENT                                
+           END-IF.                                                              
+                                                                                
+      *   (WHEN A MATCHING RESERVE FOUND THEN CALCULATE NET REMAINING           
+      *    RESERVE QUANTITY TO HELP BUILD THE VISIBLE RESERVE ARRAY)            
+           IF ICWVRSV-MATCH-YES                                                 
+              PERFORM ICSVRSVI-B330-PROCESS-MATCH                               
+           END-IF.                                                              
+                                                                                
+      *   (READ NEXT INSLOR SEGMENT)                                            
+           PERFORM 1845-GNP-INSLOR-VIA-PART.                                    
+                                                                                
+      *   (DONE PROCESSING INSLORS WHEN NOT NORMAL RESPONSE OR WHEN             
+      *    THE RETRIEVE INSLOR IS BEYOND THE TYPE 2 SEQUENCES)                  
+      *   (DETERMINE WHETHER INSLOR RECORD IS = RESERVED CUSTOMER)      TKC08162
+           IF  WS-INSLOR-NORESP                                                 
+           AND INL-RESERVE-SEGMENT                                              
+               IF  INL-CUST-BR-NBR = WS-INSLOR-RSV-CUST-BR              TKC08162
+               AND INL-CUST-NBR    = WS-INSLOR-RSV-CUST-NBR             TKC08162
+                   CONTINUE                                                     
+               ELSE                                                     TKC08162
+                   SET ICWVRSV-DONE-YES      TO TRUE                    TKC08162
+               END-IF                                                   TKC08162
+           ELSE                                                                 
+               SET ICWVRSV-DONE-YES          TO TRUE                            
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVI-B310-MATCH-SELF.                                                
+      ******************************************************************        
+      * MATCH FOUND WHEN CUSTOMER RETURNED ON INSLOR SEGMENT IS THE    *        
+      * SAME AS THE CURRENT CUSTOMER BEING PROCESSED                   *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVI-B310-MATCH-SELF.                                                
+                                                                                
+      *   (DETERMINE WHETHER INSLOR RECORD MATCHES SELF CUSTOMER)               
+           IF  INL-CUST-BR-NBR    = CU-BR-NBR                                   
+           AND INL-CUST-NBR       = CU-CUST-NBR                                 
+           AND INL-RSV-STATUS     = WS-INSLOR-RSV-STATUS                        
+               MOVE 'Y'                      TO ICWVRSV-MATCH-IND               
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVI-B320-MATCH-PARENT.                                              
+      ******************************************************************        
+      * MATCH FOUND WHEN CUSTOMER RETURNED ON INSLOR SEGMENT IS THE    *        
+      * SAME AS THE RESERVE PARENT FOR THE CURRENT CUSTOMER            *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVI-B320-MATCH-PARENT.                                              
+                                                                                
+      *   (DETERMINE WHETHER INSLOR RECORD MATCHES PARENT CUSTOMER)             
+           IF  INL-CUST-BR-NBR    = CUOF-RI-BR-NBR                              
+           AND INL-CUST-NBR       = CUOF-RI-CUST-NBR                            
+           AND INL-RSV-STATUS     = WS-INSLOR-RSV-STATUS                        
+               MOVE 'Y'                      TO ICWVRSV-MATCH-IND               
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVI-B330-PROCESS-MATCH.                                             
+      ******************************************************************        
+      * WHEN MATCHING INSLOR RESERVE SEQUENCE FOUND FOR RESERVE FAMILY *        
+      * THEN ADD NEW ICWVRSV-RESERVE-TABLE ELEMENT FROM INSLOR DATA    *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVI-B330-PROCESS-MATCH.                                             
+                                                                                
+      *   (CALCULATE NET RESERVE QUANTITY REMAINING)                            
+           IF  INL-RESERVE-QTY NUMERIC                                  AXR05234
+           AND INL-QTY-SHIPPED-TO-DATE NUMERIC                          AXR05234
+               COMPUTE ICWVRSV-VISRSV-NETQTY                            AXR05234
+                     = INL-RESERVE-QTY - INL-QTY-SHIPPED-TO-DATE        AXR05234
+           ELSE                                                         AXR05234
+               MOVE ZERO                     TO ICWVRSV-VISRSV-NETQTY   AXR05234
+           END-IF.                                                      AXR05234
+                                                                                
+      *   (WHEN RESERVE QUANTITY EXISTS ADD TO TOTALS & RESERVE-TABLE)          
+           IF ICWVRSV-VISRSV-NETQTY > ZERO                                      
+      *      (ACCUMULATE CURRENT NET RESERVE TO TOTAL RESERVE QTY)              
+              ADD ICWVRSV-VISRSV-NETQTY      TO ICWVRSV-VISRSV-QTY              
+      *      (LOAD VISIBLE RESERVE ARRAY WHEN CAPACITY AVAILABLE)               
+              IF ICWVRSV-ROW-COUNT < 99                                         
+      *         (MOVE DATA FROM INSLOR TO INTERNAL ARRAY ELEMENT)               
+                 ADD +1                      TO ICWVRSV-ROW-COUNT               
+                 MOVE INL-RESERVE-DATA                                          
+                   TO ICWVRSV-RESERVE-DATA (ICWVRSV-ROW-COUNT)                  
+              ELSE                                                              
+      *         (SET ERROR AND EXIT WHEN BEYOND MAX ROW SIZE)                   
+                 MOVE 'Y'                    TO ICWVRSV-DONE-IND                
+                 SET ICWVRSV-STATUS-MAX-SUB  TO TRUE                            
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVI-C000-SORT-VRSV-ARRAY.                                           
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE SORTS THE CREATES AN ARRAY OF SORTED     <<<**         
+      **>>> SUBSCRIPTS BASED ON THE SORT KEYS ASSOCIATED TO       <<<**         
+      **>>> THE UNSORTED DATA.                                    <<<**         
+      **>>>                                                       <<<**         
+      **>>> THIS ROUTINE EXPECTS THAT THE B000 ROUTINE HAS        <<<**         
+      **>>> ALREADY LOADED ICWVRSV-RESERVE-TABLE WITH DATA (OR    <<<**         
+      **>>> THAT THE TABLE HAS BEEN RESTORED WITH DATA IF         <<<**         
+      **>>> MULTIPLE BRANCHES HAVE BEEN SAVED OFF)                <<<**         
+      **>>>                                                       <<<**         
+      **>>> INPUT DATA:                                           <<<**         
+      **>>>   ICWVRSV-RESERVE-TABLE-HEADER = COUNT OF SEQUENCES   <<<**         
+      **>>>   ICWVRSV-RESERVE-TABLE = RESERVE DATA SEQUENCES      <<<**         
+      **>>>                                                       <<<**         
+      **>>> OUTPUT DATA:                                          <<<**         
+      **>>>   ICWVRSV-VISRSV-STATUS = SUCCESS INDICATOR           <<<**         
+      **>>>   ICWVRSV-RESERVE-TABLE-SORTED = ARRAY POINTING TO    <<<**         
+      **>>>           SORTED SEQUENCE OF RESERVE-TABLE ELEMENTS   <<<**         
+      **>>>                                                       <<<**         
+      **>>> OUTPUT NOTES:                                         <<<**         
+      **>>> THE ORIGINAL RESERVE-TABLE REMAINS IN THE SEQUENCE    <<<**         
+      **>>> IT WAS READ FROM INSLOR, BUT BY USING EACH OFFSET     <<<**         
+      **>>> IN ICWVRSV-SUB FROM RESERVE-TABLE-SORTED THEN         <<<**         
+      **>>> YOU CAN DETERMINE WHERE THE 1ST SORT ELEMENT IS IN    <<<**         
+      **>>> RESERVE-TABLE, WHERE THE 2ND IS, ETC. FOR EXAMPLE:    <<<**         
+      **>>>                                                       <<<**         
+      **>>>   ORIGINAL OCCURENCES  DATA FOR SORT                  <<<**         
+      **>>>            01             CCC                         <<<**         
+      **>>>            02             DDD                         <<<**         
+      **>>>            03             AAA                         <<<**         
+      **>>>            04             BBB                         <<<**         
+      **>>>   SORTED OCCURENCES    ICWVRSV-SUB                    <<<**         
+      **>>>            01             03 =1ST SORT ITEM AT SUB 03 <<<**         
+      **>>>            02             04 =2ND SORT ITEM AT SUB 04 <<<**         
+      **>>>            03             01 =3RD SORT ITEM AT SUB 01 <<<**         
+      **>>>            04             02 =4TH SORT ITEM AT SUB 02 <<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ICSVRSVI-C000-SORT-VRSV-ARRAY.                                           
+                                                                                
+      *   (INITIALIZE OUTPUT FIELDS)                                            
+           SET ICWVRSV-STATUS-OKAY           TO TRUE.                           
+           IF ICWVRSV-ROW-COUNT > ZERO                                  AXR05234
+              MOVE 'N'                       TO ICWVRSV-DONE-IND                
+           ELSE                                                                 
+              MOVE 'Y'                       TO ICWVRSV-DONE-IND                
+           END-IF.                                                              
+                                                                                
+      *   (ERROR CONDITION WHEN NO ARRAY ELEMENTS TO BE SORTED)                 
+           IF ICWVRSV-ROW-COUNT = ZERO                                          
+              SET ICWVRSV-STATUS-NO-DATA     TO TRUE                            
+              MOVE 'Y'                       TO ICWVRSV-DONE-IND                
+           END-IF.                                                              
+                                                                                
+      *   (BUILD THE SORT KEYS FOR THE VISIBLE RESERVE ARRAY)                   
+           PERFORM ICSVRSVI-C100-BUILD-SORTKEYS                                 
+           VARYING ICWVRSV-SORTSUB                                              
+              FROM 1 BY 1                                                       
+             UNTIL ICWVRSV-DONE-YES.                                            
+                                                                                
+      *   (WHEN THERE IS DATA TO BE SORTED, THEN SORT SUBSCRIPTS)               
+           IF ICWVRSV-ROW-COUNT > ZERO                                  AXR05234
+              PERFORM ICSVRSVI-C200-SORT-VISRSV-SUBS                            
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVI-C100-BUILD-SORTKEYS.                                            
+      ******************************************************************        
+      * BUILD THE VISIBLE RESERVE ARRAY SORT KEYS AND DEFAULT THE      *        
+      * SORT SUBSCRIPTS THE SAME AS THE UNSORTED RESERVE-TABLE ARRAY   *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVI-C100-BUILD-SORTKEYS.                                            
+                                                                                
+      *   (INITIALIZE SORT KEY FIELDS TO HIGH-VALUES)                           
+           MOVE HIGH-VALUES                                                     
+             TO ICWVRSV-SORTREC (ICWVRSV-SORTSUB).                              
+                                                                                
+      *   (INITIAL SORT SUBSCRIPT SEQUENCE IS SAME AS LOAD SEQUENCE)            
+           MOVE ICWVRSV-SORTSUB                                                 
+             TO ICWVRSV-SUB (ICWVRSV-SORTSUB).                                  
+                                                                                
+      *   (V=0, H=1 TO SORT VISIBLE RESEVES BEFORE HIDDENS)                     
+           EVALUATE ICWVRSV-RSV-STATUS (ICWVRSV-SORTSUB)                        
+               WHEN 'V' MOVE '0'                                                
+                 TO ICWVRSV-SORT-RSV-STATUS (ICWVRSV-SORTSUB)                   
+               WHEN 'H' MOVE '1'                                                
+                 TO ICWVRSV-SORT-RSV-STATUS (ICWVRSV-SORTSUB)                   
+           END-EVALUATE.                                                        
+                                                                                
+      *   (SELF CUSTOMER=0, OTHER CUSTOMER=1 TO SORT IN THAT ORDER)     TKC08162
+           IF  ICWVRSV-CUST-BR-NBR (ICWVRSV-SORTSUB) = CU-BR-NBR        TKC08162
+           AND ICWVRSV-CUST-NBR    (ICWVRSV-SORTSUB) = CU-CUST-NBR      TKC08162
+               MOVE '0'                                                 TKC08162
+                 TO ICWVRSV-SORT-SELF-OTHER-IND (ICWVRSV-SORTSUB)       TKC08162
+           ELSE                                                         TKC08162
+               MOVE '1'                                                 TKC08162
+                 TO ICWVRSV-SORT-SELF-OTHER-IND (ICWVRSV-SORTSUB)       TKC08162
+           END-IF.                                                      TKC08162
+                                                                                
+      *   (EXPIRATION DATE IS JULIAN, WHICH IS EASY TO SORT ASCENDING)          
+           IF ICWVRSV-EXPIRATION-DATE (ICWVRSV-SORTSUB) NUMERIC                 
+              MOVE ICWVRSV-EXPIRATION-DATE (ICWVRSV-SORTSUB)                    
+                TO ICWVRSV-SORT-EXP-DATE-YYDDD (ICWVRSV-SORTSUB)                
+           END-IF.                                                              
+                                                                                
+      *   (TO SORT HIGHEST TO LOWEST EXTENSION COUNT THE ORIGINAL       TKC08162
+      *    EXTENSION COUNT IS SUBTRACTED FROM 999)                      TKC08162
+           IF ICWVRSV-EXTENSION-COUNT (ICWVRSV-SORTSUB) NUMERIC         TKC08162
+              COMPUTE ICWVRSV-INVERSE-EXT-COUNT                         TKC08162
+                    = 999 - ICWVRSV-EXTENSION-COUNT (ICWVRSV-SORTSUB)   TKC08162
+                 MOVE ICWVRSV-INVERSE-EXT-COUNT                         TKC08162
+                   TO ICWVRSV-SORT-INVRS-EXT-COUNT (ICWVRSV-SORTSUB)    TKC08162
+           END-IF.                                                      TKC08162
+                                                                                
+      *   (P=0, C=1, G=2, L=3 TO SORT IN THAT RESERVE TYPE ORDER)               
+           EVALUATE ICWVRSV-RESERVE-TYPE (ICWVRSV-SORTSUB)                      
+               WHEN 'P' MOVE '0'                                                
+                 TO ICWVRSV-SORT-RESERVE-TYPE-CD (ICWVRSV-SORTSUB)              
+               WHEN 'C' MOVE '1'                                                
+                 TO ICWVRSV-SORT-RESERVE-TYPE-CD (ICWVRSV-SORTSUB)              
+               WHEN 'G' MOVE '2'                                                
+                 TO ICWVRSV-SORT-RESERVE-TYPE-CD (ICWVRSV-SORTSUB)              
+               WHEN 'L' MOVE '3'                                                
+                 TO ICWVRSV-SORT-RESERVE-TYPE-CD (ICWVRSV-SORTSUB)              
+           END-EVALUATE.                                                        
+                                                                                
+      *   (SET DONE INDICATOR AFTER PROCESSING LAST ROW)                        
+           IF ICWVRSV-SORTSUB >= ICWVRSV-ROW-COUNT                              
+              MOVE 'Y'                       TO ICWVRSV-DONE-IND                
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVI-C200-SORT-VISRSV-SUBS.                                          
+      ******************************************************************        
+      * BUBBLE SORT THE SUBSCRIPTS BY COMPARING SORT KEYS              *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVI-C200-SORT-VISRSV-SUBS.                                          
+                                                                                
+      *   SORT ALGORITHM ORIGINALLY BASED ON MICD.SRCLIB(ABENDLOG)              
+      *   PARAGRAPH 133-SORT-BY-PROGRAM, BUT WAS REDESIGNED                     
+                                                                                
+           COMPUTE ICWVRSV-MAX1 = ICWVRSV-ROW-COUNT - 1.                        
+           PERFORM VARYING ICWVRSV-SUB1                                         
+             FROM  1 BY 1                                                       
+             UNTIL ICWVRSV-SUB1 > ICWVRSV-MAX1                                  
+               COMPUTE ICWVRSV-MIN2 = ICWVRSV-SUB1 + 1                          
+               PERFORM ICSVRSVI-C210-COMPARE-SORTKEYS                           
+               VARYING ICWVRSV-SUB2                                             
+                 FROM  ICWVRSV-MIN2 BY 1                                        
+                 UNTIL ICWVRSV-SUB2  > ICWVRSV-ROW-COUNT                        
+           END-PERFORM.                                                         
+                                                                                
+                                                                                
+      *ICSVRSVI-C210-COMPARE-SORTKEYS.                                          
+      ******************************************************************        
+      * COMPARE EACH SORT KEY TO OTHERS AND SWAP THEM WHEN COMPARISON  *        
+      * SORT KEY VALUE IS LESS THAN CURRENT SORT KEY, RESULTING IN     *        
+      * AN ASSENDING SORTED ARRAY OF KEYS                              *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVI-C210-COMPARE-SORTKEYS.                                          
+                                                                                
+      *   (WHEN OTHER ROW KEY IS LESS THAN CURRENT ROW KEY, SWAP THEM)          
+           IF ICWVRSV-SORTKEY (ICWVRSV-SUB2)                                    
+            < ICWVRSV-SORTKEY (ICWVRSV-SUB1)                                    
+      *      (MOVE CURRENT ROW TO SAVE AREA)                                    
+              MOVE ICWVRSV-SORTREC (ICWVRSV-SUB1)                               
+                TO ICWVRSV-SAVEREC                                              
+      *      (MOVE NEXT ROW TO CURRENT ROW)                                     
+              MOVE ICWVRSV-SORTREC (ICWVRSV-SUB2)                               
+                TO ICWVRSV-SORTREC (ICWVRSV-SUB1)                               
+      *      (MOVE SAVE ARRAY TO NEXT ROW)                                      
+              MOVE ICWVRSV-SAVEREC                                              
+                TO ICWVRSV-SORTREC (ICWVRSV-SUB2)                               
+           END-IF.                                                              
+                                                                                
+                                                                                
+      ******************************************************************        
+      * USE COPY REPLACING TO SUBSTITUTE PLACEHOLDER PARAGRAPHS FOR    *        
+      * THE ACTUAL I/O PROCESS FOR ANY ROUTINES YOUR PROGRAM DOES      *        
+      * NOT REQUIRE.  FOR EXAMPLE, IF A PROGRAM DOES UPDATES (SUCH     *        
+      * AS ORDER LINE VOID) BUT IT DOES NOT INSERT AN ORDER LINE       *        
+      * DESCRIPTION, IT WILL NOT NEED TO ISRT-ORSDES, THEN USE:        *        
+      *     COPY ICSVRSVU REPLACING 1344-ISRT-ORSDES                   *        
+      *                         BY ICSVRSVI-1344-PLACEHOLDER           *        
+      *                                                                *        
+      * AS LONG AS J000- IS NOT PERFORMED, THEN THE 1344 I/O ROUTINE   *        
+      * WILL NOT BE INVOKED, AND IF IT ACCIDENTALLY DOES, THEN THE     *        
+      * PLACEHOLDER ROUTINE WILL BE INVOKED, SETTING AN I/O ERROR.     *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+      *1552-GU-INSBRN-PART-NBR.   COPY INIO1552.                                
+       ICSVRSVI-1552-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-INSBRN-IO-SW.                
+                                                                                
+      *1845-GNP-INSLOR-VIA-PART.  COPY INIO1845.                                
+       ICSVRSVI-1845-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-INSLOR-IO-SW.                
+                                                                                

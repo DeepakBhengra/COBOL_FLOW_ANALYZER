@@ -1,0 +1,50 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+*     *    08/07/15  TGF  VIRTUAL INVENTORY                             TGF15220
+*     *    05/03/00  EDR  SET WS-AVAIL-QTY TO 999999 WHEN OUTSOURCE     EDR00124
+*     *    08/19/96  EXL  RESET INB-QTY-COMMITTED TO ZERO WHEN NEGATIVE EXL96232
+*     *                   SO WS-AVAIL-QTY WILL REMAIN NEGATIVE.         EXL96232
+*     *    07/10/96  JXS  REMOVED RESERVE QTY CALCULATION               JXS96190
+*     *    03/25/96  RMF  MOVE ZEROES TO WS-AVAIL-QTY IF NEGATIVE       RMF96085
+*     *                   AND CUSTOMER HAS RESERVES. THIS WILL ALLOW    RMF96085
+*     *                   A POSITIVE AVAILABILITY FOR THAT CUSTOMER.    RMF96085
+*     *    * PC 60298      TKW1               02/27/87   03/04/87       00000010
+*     *    * PC 60167      K-H-               01/20/87   02/09/87       00000020
+      *                                                                 00000030
+      *    WS-AVAIL-QTY MUST BE DEFINED IN WORKING STORAGE.             00000040
+      *    PARENTAGE MUST BE ESTABLISHED ON INSBRN BEFORE               00000050
+      *    PERFORMING THIS ROUTINE.                                     00000060
+      *    ALSO, INSLOR SSA SEARCH ARGUMENTS SHOULD BE SET.             JXS96190
+      *                                                                 00000080
+           IF INI-SKU-TYPE-OUTSOURCED                                   EDR00124
+           AND NOT INI-SKU-TYPE-VIRTUAL                                 TGF15220
+                MOVE +99999999 TO WS-AVAIL-QTY                          EDR00124
+           ELSE                                                         EDR00124
+                MOVE ZEROES            TO  WS-AVAIL-QTY                 EDR00124
+                IF INB-QTY-COMMITTED  <  ZERO                           EDR00124
+                        MOVE ZERO      TO  INB-QTY-COMMITTED            EDR00124
+                END-IF                                                  EDR00124
+                COMPUTE WS-AVAIL-QTY =                                  EDR00124
+                        (INB-BAL-ON-HAND - INB-QTY-COMMITTED            EDR00124
+                            - INB-QTY-ON-HOLD - INB-RES-QTY)            EDR00124
+           END-IF.                                                      EDR00124
+      *    IF INB-RESERVE-SEG-EXISTS                                    JXS96190
+      *        MOVE '=>'               TO  WS-INSLOR-SEARCH             JXS96190
+      *        PERFORM 1854-GHNP-INSLOR-VIA-PART                        JXS96190
+      *        MOVE '= '               TO  WS-INSLOR-SEARCH             JXS96190
+      *        IF WS-INSLOR-NORESP                                      JXS96190
+      *            AND INL-RESERVE-SEGMENT                              JXS96190
+      *            IF INL-CUST-BR-NBR EQUAL WS-INSLOR-CUST-BR           JXS96190
+      *                AND INL-CUST-NBR EQUAL WS-INSLOR-CUST-NBR        JXS96190
+      *                IF INL-PREPAID                                   JXS96190
+      *                    OR INL-FIRM                                  JXS96190
+      *                    IF WS-AVAIL-QTY  IS NEGATIVE                 JXS96190
+      *                       MOVE ZEROES   TO WS-AVAIL-QTY             JXS96190
+      *                       COMPUTE WS-AVAIL-QTY = WS-AVAIL-QTY +     JXS96190
+      *                           (INL-RESERVE-QTY -                    JXS96190
+      *                                    INL-QTY-SHIPPED-TO-DATE)     JXS96190
+      *                    ELSE                                         JXS96190
+      *                       COMPUTE WS-AVAIL-QTY = WS-AVAIL-QTY +     JXS96190
+      *                           (INL-RESERVE-QTY -                    JXS96190
+      *                                    INL-QTY-SHIPPED-TO-DATE).    JXS96190

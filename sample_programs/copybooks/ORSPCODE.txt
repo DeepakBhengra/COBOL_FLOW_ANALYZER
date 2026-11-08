@@ -1,0 +1,49 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY9022
+      ******************************************************************        
+      *CHANGE:                                                                  
+      * 04/02/01 MYA - ADDED COPYBOOK TO PROCESS TABLE DRIVEN           MYA01092
+      *                 LOGIC FOR FRENCH CCS.                           MYA01092
+      * 09/22/99 SGB - INCLUDE CHECK FOR FRANCE MORY CARRIERS           SGB99264
+      * 04/16/98 SXW - EXCLUDE NEW TAT T9 CARRIER FROM THIS ROUTINE     SXW98105
+      * 03/25/98 CMB - NEW ROUTINE FOR EUROPEAN CARRIER VALIDATION      CMB98084
+      ******************************************************************        
+      * THIS ROUTINE IS TO CHECK IF THERE IS ANY RESTRICTION ON USE OF          
+      * A CARRIER TO SPECIFIC ZIP CODE IN EUROPEAN REGIONS ONLY.                
+      * FOLLOWING MUST BE AVAILABLE BERFORE PERFORMING THIS PARAGRAPH:          
+      *     - COPYBOOK NCARRWS WITH WS-CARR-CODE POPULATED                      
+      *     - COPYBOOK ORWPCODE WITH WS-EUR-CARR-OUT AND                        
+      *                              WS-EUR-POSTCODE POPULATED                  
+      ******************************************************************        
+      *                                                                         
+           IF WS-TAT-FRANCE AND NOT WS-TAT-FRANCE-ECONOCOM              SXW98105
+              MOVE ORH-COMPANY        TO TB-PCODE-COMPANY-CODE          MYA01092
+              MOVE WS-EUR-CARR-OUT    TO TB-PCODE-CARRIER-CODE          MYA01092
+              MOVE SPACES             TO TB-PCODE-POSTAL-CODE           MYA01092
+              MOVE WS-EUR-POSTCODE(1:2)  TO  TB-PCODE-POSTAL-CODE (1:2) MYA01092
+              CALL 'SYU510'           USING TB-PCODE-PROC-IA            MYA01092
+              IF TB-PCODE-NORESP                                        MYA01092
+                 MOVE TB-PCODE-CARRIER-CODE  TO WS-EUR-CARR-OUT         MYA01092
+              ELSE                                                      MYA01092
+                 MOVE SPACES                 TO WS-EUR-CARR-OUT         MYA01092
+              END-IF                                                    MYA01092
+           END-IF.                                                      MYA01092
+      *                                                                         
+           IF WS-KEY-BELGIUM AND                                                
+              WS-EUR-CARR-OUT = 'SD' AND                                        
+              NOT WS-SD-VALID                                                   
+              MOVE SPACES TO WS-EUR-CARR-OUT                                    
+           END-IF.                                                              
+      *                                                                 SGB99264
+           IF WS-MORY-FRANCE                                            SGB99264
+              EVALUATE TRUE                                             SGB99264
+                 WHEN WS-M1-VALID                                       SGB99264
+                      MOVE 'M1' TO WS-EUR-CARR-OUT                      SGB99264
+                 WHEN WS-M2-VALID                                       SGB99264
+                      MOVE 'M2' TO WS-EUR-CARR-OUT                      SGB99264
+                 WHEN WS-M3-VALID                                       SGB99264
+                      MOVE 'M3' TO WS-EUR-CARR-OUT                      SGB99264
+                 WHEN WS-M4-VALID                                       SGB99264
+                      MOVE 'M4' TO WS-EUR-CARR-OUT                      SGB99264
+              END-EVALUATE                                              SGB99264
+           END-IF.                                                      SGB99264

@@ -1,0 +1,193 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+*     *    * 05/12/03      TLC  ALLOW TAX TO 4DP                        TLC03131
+*     *    * 10/27/95      KLL  REMOVE VERTEX LOGIC                     KLL95300
+*     *    * 10/23/95      KLL  SKIP LOGIC IF VERTEX IS TURNED ON       KLL95296
+*     *    * PC 40868      AMYM               02/18/86   05/13/86       00000010
+*     *    * PC 40814      FRED               01/24/86   01/28/86       00000020
+*     *    * REV 4.06      R.S.                850823                   00000030
+*     *    * REV 4.02      RKS.                850723     850724        00000040
+*********************************************************************** 00000050
+********      THIS COPY BOOK IS FOR ON-LINE PROGRAMS ONLY!     ******** 00000060
+*********************************************************************** 00000070
+      *900-CALCULATE-TAXES.                                             00000080
+           MOVE SPACES                 TO WS-TAX-CODE.                  00000090
+           MOVE ZEROES                 TO WS-BACKOUT-AMT                00000100
+                                          WS-ST-TAX-AMT                 00000110
+                                          WS-ST-TAX-AMT-4DEC            TLC03131
+                                          WS-CNY-TAX-AMT-4DEC           TLC03131
+                                          WS-CNY-TAX-AMT                00000120
+                                          WS-CTY-TAX-AMT-4DEC           TLC03131
+                                          WS-CTY-TAX-AMT                00000130
+                                          WS-OTH-TAX-AMT-4DEC           TLC03131
+                                          WS-OTH-TAX-AMT.               00000140
+           IF NOT WS-SYTX-NORESP                                        00000150
+               GO TO 900-EXIT-TAXES.                                    00000160
+           COMPUTE WS-ST-TAX-PCT ROUNDED =                              00000170
+                   SYTX-STATE-SALES-TAX-RATE * .01.                     00000180
+           IF WS-LINE-FED-TAX-INCLUDED                                  00000190
+               PERFORM 905-CALCULATE-BACKOUT-AMT.                       00000200
+           IF WS-LINE-TAX-CODE EQUAL 'S' OR 'C' OR 'K' OR 'N' OR 'T'    00000210
+               MOVE WS-LINE-TAX-CODE   TO WS-TAX-CODE                   00000220
+           ELSE                                                         00000230
+               MOVE WS-ORDER-TAX-CODE  TO WS-TAX-CODE                   00000240
+               IF TB-CPO-OVERRIDE-COMMOD                                00000250
+                   AND WS-LINE-COMMOD-CODE GREATER THAN SPACES          00000260
+                   PERFORM 910-CHECK-FOR-TAX-OVERRIDE                   00000270
+                       THRU 910-EXIT-TAX-OVR.                           00000280
+           IF (WS-TAX                                                   00000290
+               OR WS-STATE-TAX) AND NOT WS-LINE-FED-TAX-EXEMPT          00000300
+               PERFORM 920-CALCULATE-STATE-TAX                          00000310
+           ELSE                                                         00000320
+               MOVE ZEROES             TO WS-ST-TAX-PCT.                00000330
+           IF WS-TAX                                                    00000340
+               OR WS-COUNTY-TAX                                         00000350
+                  IF SYTX-COUNTY IS GREATER THAN SPACES                 00000360
+                      PERFORM 930-CALCULATE-COUNTY-TAX.                 00000370
+           IF WS-TAX                                                    00000380
+               OR WS-CITY-TAX                                           00000390
+                  IF SYTX-CITY IS GREATER THAN SPACES                   00000400
+                      PERFORM 935-CALCULATE-CITY-TAX.                   00000410
+       900-EXIT-TAXES.                                                  00000420
+      *                                                                 00000430
+       905-CALCULATE-BACKOUT-AMT.                                       00000440
+           COMPUTE WS-BACKOUT-AMT =                                     00000450
+               (WS-TAXABLE-AMT * SYTX-CITY-SALES-TAX-RATE) * .01.       00000460
+           COMPUTE WS-TAXABLE-AMT =                                     00000470
+               WS-TAXABLE-AMT - WS-BACKOUT-AMT.                         00000480
+           COMPUTE WS-ST-TAX-PCT ROUNDED =                              00000490
+               WS-BACKOUT-AMT / WS-TAXABLE-AMT.                         00000500
+           COMPUTE WS-LINE-UNIT-PRICE =                                 00000510
+               WS-LINE-UNIT-PRICE -                                     00000520
+               ((WS-LINE-UNIT-PRICE * SYTX-CITY-SALES-TAX-RATE) * .01). 00000530
+      *                                                                 00000540
+       910-CHECK-FOR-TAX-OVERRIDE.                                      00000550
+           MOVE WS-ORDER-COMPANY       TO TB-CTO-COMPANY.               00000560
+           MOVE WS-LINE-COMMOD-CODE    TO TB-CTO-COMMOD-CODE.           00000570
+           MOVE WS-ORDER-STATE         TO TB-CTO-STATE-EXCEPTION.       00000580
+           CALL 'SYU510'               USING                            00000590
+                                       TB-COMMODITY-TAX-OVERRIDE-IA.    00000600
+           IF NOT TB-CTO-NORESP                                         00000610
+               GO TO 910-EXIT-TAX-OVR.                                  00000620
+           IF TB-CTO-TAXABLE                                            00000630
+               MOVE WS-ORDER-TAX-CODE  TO WS-TAX-CODE                   00000640
+           ELSE                                                         00000650
+               MOVE 'N'                TO WS-TAX-CODE.                  00000660
+           IF NOT TB-CTO-PART-EXCEPTIONS                                00000670
+               OR WS-LINE-PART-NBR NOT GREATER THAN SPACES              00000680
+               GO TO 910-EXIT-TAX-OVR.                                  00000690
+           MOVE WS-ORDER-COMPANY       TO TB-PTO-COMPANY.               00000700
+           MOVE WS-ORDER-STATE         TO TB-PTO-STATE-CODE.            00000710
+           MOVE WS-LINE-PART-NBR       TO TB-PTO-PART-NBR.              00000720
+           CALL 'SYU510'               USING                            00000730
+                                       TB-PART-TAX-OVERRIDE-IA.         00000740
+           IF NOT TB-PTO-NORESP                                         00000750
+               GO TO 910-EXIT-TAX-OVR.                                  00000760
+           MOVE TB-PTO-PART-PCT        TO WS-ST-TAX-PCT.                00000770
+       910-EXIT-TAX-OVR.                                                00000780
+      *                                                                 00000790
+       920-CALCULATE-STATE-TAX.                                         00000800
+           IF WS-LINE-FED-TAX-INCLUDED                                  00000810
+               MOVE WS-BACKOUT-AMT     TO WS-ST-TAX-AMT                 00000820
+           ELSE                                                         00000830
+               COMPUTE WS-ST-TAX-AMT ROUNDED =                          00000840
+                   WS-TAXABLE-AMT * WS-ST-TAX-PCT.                      00000850
+           ADD WS-ST-TAX-AMT           TO WS-ST-TAX-TOT.                00000860
+           IF TB-CPO4-CALC-TAX-4DEC AND NOT WS-LINE-FED-TAX-INCLUDED    TLC03131
+              COMPUTE WS-ST-TAX-AMT-4DEC ROUNDED =                      TLC03131
+                WS-TAXABLE-AMT * WS-ST-TAX-PCT                          TLC03131
+              ADD WS-ST-TAX-AMT-4DEC TO WS-ST-TAX-TOT-4DEC              TLC03131
+              COMPUTE WS-ST-TAX-TOT ROUNDED = WS-ST-TAX-TOT-4DEC * 1    TLC03131
+           END-IF.                                                      TLC03131
+      *                                                                 00000870
+       930-CALCULATE-COUNTY-TAX.                                        00000880
+           IF TB-CPO4-CALC-TAX-4DEC                                     TLC03131
+              COMPUTE WS-CNY-TAX-AMT-4DEC ROUNDED =                     TLC03131
+               (WS-TAXABLE-AMT * SYTX-COUNTY-SALES-TAX-RATE) * .01      TLC03131
+              ADD WS-CNY-TAX-AMT-4DEC TO WS-CNY-TAX-TOT-4DEC            TLC03131
+              COMPUTE WS-CNY-TAX-TOT ROUNDED = WS-CNY-TAX-TOT-4DEC * 1  TLC03131
+           ELSE                                                         TLC03131
+              COMPUTE WS-CNY-TAX-AMT ROUNDED =                          TLC03131
+               (WS-TAXABLE-AMT * SYTX-COUNTY-SALES-TAX-RATE) * .01      TLC03131
+              ADD WS-CNY-TAX-AMT      TO WS-CNY-TAX-TOT                 TLC03131
+           END-IF.                                                      TLC03131
+      *                                                                         
+       935-CALCULATE-CITY-TAX.                                          00000930
+           IF TB-CPO4-CALC-TAX-4DEC                                     TLC03131
+              COMPUTE WS-CTY-TAX-AMT-4DEC ROUNDED =                     TLC03131
+               (WS-TAXABLE-AMT * SYTX-CITY-SALES-TAX-RATE) * .01        TLC03131
+              ADD WS-CTY-TAX-AMT-4DEC TO WS-CTY-TAX-TOT-4DEC            TLC03131
+              COMPUTE WS-CTY-TAX-TOT ROUNDED = WS-CTY-TAX-TOT-4DEC * 1  TLC03131
+           ELSE                                                         TLC03131
+              COMPUTE WS-CTY-TAX-AMT ROUNDED =                          TLC03131
+               (WS-TAXABLE-AMT * SYTX-CITY-SALES-TAX-RATE) * .01        TLC03131
+              ADD WS-CTY-TAX-AMT      TO WS-CTY-TAX-TOT                 TLC03131
+           END-IF.                                                      TLC03131
+      *                                                                 00000970
+       940-CALCULATE-TAX-TOTAL.                                         00000980
+           COMPUTE WS-TAX-AMT-TOTAL =                                   00000990
+               WS-ST-TAX-LINE-TOT + WS-CNY-TAX-LINE-TOT                 00001000
+               + WS-CTY-TAX-LINE-TOT.                                   00001010
+           MOVE WS-ST-TAX-LINE-TOT     TO WS-TAXES-STATE.               00001020
+           MOVE WS-CNY-TAX-LINE-TOT    TO WS-TAXES-COUNTY.              00001030
+           MOVE WS-CTY-TAX-LINE-TOT    TO WS-TAXES-CITY.                00001040
+           IF WS-TAX-AMT-TOTAL IS GREATER THAN ZEROES                   00001050
+               GO TO 940-EXIT-TAX-TOTAL.                                00001060
+           IF WS-ORDER-PRICE-OVERRIDE                                   00001070
+               MOVE WS-ORDER-TOTAL-SALES                                00001080
+                                       TO WS-TAXABLE-AMT                00001090
+                                          WS-MDSE-AMT-TOTAL             00001100
+               MOVE ZEROES             TO WS-ST-TAX-TOT                 00001110
+                                          WS-ST-TAX-TOT-4DEC            TLC03131
+                                          WS-CNY-TAX-TOT-4DEC           TLC03131
+                                          WS-CNY-TAX-TOT                00001120
+                                          WS-CTY-TAX-TOT                00001130
+                                          WS-CTY-TAX-TOT-4DEC           TLC03131
+                                          WS-OTH-TAX-TOT                00001140
+               MOVE SPACES             TO WS-LINE-TAXABLE-ITEM-SW       00001150
+                                          WS-LINE-TAX-CODE              00001160
+                                          WS-LINE-COMMOD-CODE           00001170
+                                          WS-LINE-PART-NBR              00001180
+               PERFORM 900-CALCULATE-TAXES THRU 900-EXIT-TAXES.         00001190
+           IF WS-ORDER-PRICE-OVERRIDE                                   00001200
+               IF WS-ORDER-FRT-IN-AMT GREATER THAN ZEROES               00001210
+                   MOVE WS-ORDER-FRT-IN-AMT                             00001220
+                                       TO WS-TAXABLE-AMT                00001230
+                   MOVE SPACES         TO WS-LINE-TAXABLE-ITEM-SW       00001240
+                                          WS-LINE-TAX-CODE              00001250
+                                          WS-LINE-COMMOD-CODE           00001260
+                                          WS-LINE-PART-NBR              00001270
+                   PERFORM 900-CALCULATE-TAXES                          00001280
+                       THRU 900-EXIT-TAXES.                             00001290
+           IF WS-ORDER-PRICE-OVERRIDE                                   00001300
+               IF WS-ORDER-FRT-OUT-AMT GREATER THAN ZEROES              00001310
+                   AND WS-SYTX-NORESP                                   00001320
+                   AND SYTX-FREIGHT-INDICATOR EQUAL TO 'Y'              00001330
+                   MOVE WS-ORDER-FRT-OUT-AMT                            00001340
+                                       TO WS-TAXABLE-AMT                00001350
+                   MOVE SPACES         TO WS-LINE-TAXABLE-ITEM-SW       00001360
+                                          WS-LINE-TAX-CODE              00001370
+                                          WS-LINE-COMMOD-CODE           00001380
+                                          WS-LINE-PART-NBR              00001390
+                   PERFORM 900-CALCULATE-TAXES                          00001400
+                       THRU 900-EXIT-TAXES.                             00001410
+           IF TB-CPO4-CALC-TAX-4DEC                                     TLC03131
+              COMPUTE WS-TAX-AMT-TOTAL ROUNDED =                        TLC03131
+               WS-ST-TAX-TOT-4DEC + WS-CNY-TAX-TOT-4DEC                 TLC03131
+               + WS-CTY-TAX-TOT-4DEC                                    TLC03131
+              COMPUTE WS-TAXES-STATE ROUNDED =                          TLC03131
+                   WS-ST-TAX-TOT-4DEC * 1                               TLC03131
+              COMPUTE WS-TAXES-COUNTY ROUNDED =                         TLC03131
+                   WS-CNY-TAX-TOT-4DEC * 1                              TLC03131
+              COMPUTE WS-TAXES-CITY ROUNDED =                           TLC03131
+                   WS-CTY-TAX-TOT-4DEC * 1                              TLC03131
+           ELSE                                                         TLC03131
+              COMPUTE WS-TAX-AMT-TOTAL =                                TLC03131
+                  WS-ST-TAX-TOT + WS-CNY-TAX-TOT                        TLC03131
+                  + WS-CTY-TAX-TOT                                      TLC03131
+              MOVE WS-ST-TAX-TOT     TO WS-TAXES-STATE                  TLC03131
+              MOVE WS-CNY-TAX-TOT    TO WS-TAXES-COUNTY                 TLC03131
+              MOVE WS-CTY-TAX-TOT    TO WS-TAXES-CITY                   TLC03131
+           END-IF.                                                      TLC03131
+       940-EXIT-TAX-TOTAL.                                              00001480

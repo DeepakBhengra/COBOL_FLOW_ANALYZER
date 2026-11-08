@@ -1,0 +1,148 @@
+      *****************************************************************         
+      * ORSORDER - PROCEDURAL COPYBOOK TO:                            *         
+      *          >GET ORDER DB DATA IN THE CONTAINER                  *         
+      *          >PUT ORDER DB DATA (ORSHED/ORSHEDOF/ORSSHH/ORSSHHOF) *         
+      *           INTO CONTAINER                                      *         
+      *          - THIS WILL BE USED BY THE FOLLOWING PROCESSES:      *         
+      *          > ORP530MD - PUT ORDER DATA WHEN CALLING SFP500      *         
+      *          > SFP500   - GET ORDER DATA FROM ORP530              *         
+      *          > SRFEE SUBPGMS - TO GET/PUT ORDER DATA FROM/TO      *         
+      *                            SFP500                             *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * DATE      ID   DESCRIPTION                                    *         
+      * 08/04/23  VYA  INITIAL CREATION                               * VYA23216
+      *****************************************************************         
+      *****************************************************************         
+      *GET ORDER DATA THAT WAS STORED IN THE CONTAINER                *         
+      *****************************************************************         
+       ORD100-GET-ORDER-CONT.                                                   
+                                                                                
+      * GET THE STORED IMS IN THE CONTAINER                                     
+      *                                                                         
+           MOVE LENGTH OF ORXS500-ORDER-AREA                                    
+                                        TO ORXS500-LENGTH                       
+           MOVE WS-CHANNEL              TO ORXS500-CHANNEL-NAME                 
+           EXEC CICS GET                                                        
+                 CONTAINER  ('ORXS500_ORDER')                                   
+                 CHANNEL    (ORXS500-CHANNEL-NAME)                              
+                 FLENGTH    (ORXS500-LENGTH)                                    
+                 INTO       (ORXS500-ORDER-AREA)                                
+                 RESP       (WS-EIBRESP)                                        
+           END-EXEC                                                             
+                                                                                
+           IF WS-EIB-NORESP                                                     
+               SET WS-GET-ORD-SUCCESS       TO TRUE                             
+           END-IF.                                                              
+                                                                                
+       ORD100-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      *****************************************************************         
+      *PUT IMS DATA INTO THE CONTAINER SO IT CAN BE PASSED LATER ON.  *         
+      *BEFORE STORING THE IMS DATA, MAKE SURE THAT THE DATA IS FOR THE*         
+      *CORRECT ORDER DETAILS (COMPARE VS SFCALC DATA)                 *         
+      *****************************************************************         
+       ORD900-PUT-ORDER-CONT.                                                   
+                                                                                
+      * IF ORH-KEY HAS DATA, CHECK IF ORSHED KEY(ORH-KEY-ORSMST) IS             
+      * SAME WITH CONTAINER (ORXS500-I-ORSHED-KEY)                              
+           IF ORH-KEY-ORSMST > SPACES                                           
+              IF  ORH-COMPANY   = SF-CALC-COMPANY-CODE                          
+              AND ORH-BR-NBR    = SF-CALC-BR-NBR                                
+              AND ORH-ORDER-NBR = SF-CALC-ORD-NBR                               
+                  MOVE ORH-ORSHED           TO ORXS500-I-ORSHED                 
+                  SET  ORXS500-I-ORSHED-FND TO TRUE                             
+              ELSE                                                              
+                 INITIALIZE ORXS500-I-ORSHED                                    
+                            ORXS500-I-ORSHED-SW                                 
+              END-IF                                                            
+           ELSE                                                                 
+      * IF ORSHED IS NOT ACCESSED OR USED IN PROGRAM, CHECK IF                  
+      * ORSHED DATA IS AVAILABLE IN CONTAINER AND RETAIN                        
+              IF ORXS500-I-ORSHED-FND                                           
+                 CONTINUE                                                       
+              ELSE                                                              
+                 INITIALIZE ORXS500-I-ORSHED                                    
+                            ORXS500-I-ORSHED-SW                                 
+              END-IF                                                            
+           END-IF                                                               
+                                                                                
+           IF ORHOF-ORSHEDOF-KEY > SPACES                                       
+              MOVE ORHOF-ORSHEDOF         TO ORXS500-I-ORSHEDOF                 
+              SET  ORXS500-I-ORSHEDOF-FND TO TRUE                               
+           ELSE                                                                 
+      * IF ORSHEDOF IS NOT ACCESSED OR USED IN PROGRAM, CHECK IF                
+      * ORSHEDOF DATA IS AVAILABLE IN CONTAINER AND RETAIN                      
+              IF ORXS500-I-ORSHEDOF-FND                                         
+                  CONTINUE                                                      
+              ELSE                                                              
+                  INITIALIZE ORXS500-I-ORSHEDOF                                 
+                             ORXS500-I-ORSHEDOF-SW                              
+              END-IF                                                            
+           END-IF                                                               
+                                                                                
+      * SOME SUBPGM MIGHT DO A LOOP ON ALL ORSSHH SEGMENTS, MAKE SURE           
+      * THAT WE ARE ONLY STORING THE DATA FOR THE SEGMENT PASSED IN             
+      * THE COMMAREA (SFCALC LAYOUT)                                            
+           IF ORSH-KEY-ORSSHH > SPACES                                          
+              IF  ORSH-DIST-NBR = SF-CALC-ORD-DIST-NBR                          
+              AND ORSH-SHIP-NBR = SF-CALC-ORD-SHIP-NBR                          
+                  MOVE ORSH-ORSSHH         TO ORXS500-I-ORSSHH                  
+                  SET ORXS500-I-ORSSHH-FND TO TRUE                              
+              ELSE                                                              
+                  INITIALIZE ORXS500-I-ORSSHH                                   
+                             ORXS500-I-ORSSHH-SW                                
+              END-IF                                                            
+           ELSE                                                                 
+      * IF ORSSHH IS NOT ACCESSED OR USED IN PROGRAM, CHECK IF                  
+      * ORSSHH DATA IS AVAILABLE IN CONTAINER AND RETAIN                        
+              IF ORXS500-I-ORSSHH-FND                                           
+                 CONTINUE                                                       
+              ELSE                                                              
+                 INITIALIZE ORXS500-I-ORSSHH                                    
+                            ORXS500-I-ORSSHH-SW                                 
+              END-IF                                                            
+           END-IF                                                               
+                                                                                
+      * WS-SAVE-ORSSHH-KEY CONTAINS THE ORSSHH KEY THAT IS USED TO              
+      * CALL ORSSHHOF.                                                          
+      * WS-SAVE-ORSSHH-KEY IS VALIDATED AGAINST ORSSHH KEY FROM SFCALC          
+      * TO ENSURE THAT STORED ORSSHHOF MATCHES THE STORED SEGMENT OF            
+      * ORSSHH                                                                  
+           IF ORSHOF-ORSSHHOF-KEY > SPACES                                      
+              IF  WS-SAVE-ORSSHH-DIST = SF-CALC-ORD-DIST-NBR                    
+              AND WS-SAVE-ORSSHH-SHIP = SF-CALC-ORD-SHIP-NBR                    
+                  MOVE ORSHOF-ORSSHHOF        TO ORXS500-I-ORSSHHOF             
+                  SET  ORXS500-I-ORSSHHOF-FND TO TRUE                           
+              ELSE                                                              
+                  INITIALIZE ORXS500-I-ORSSHHOF                                 
+                             ORXS500-I-ORSSHHOF-SW                              
+              END-IF                                                            
+           ELSE                                                                 
+      * IF ORSSHHOF IS NOT ACCESSED OR USED IN PROGRAM, CHECK IF                
+      * ORSSHHOF DATA IS AVAILABLE IN CONTAINER AND RETAIN                      
+              IF ORXS500-I-ORSSHHOF-FND                                         
+                 CONTINUE                                                       
+              ELSE                                                              
+                 INITIALIZE ORXS500-I-ORSSHHOF                                  
+                            ORXS500-I-ORSSHHOF-SW                               
+              END-IF                                                            
+           END-IF                                                               
+           MOVE EIBTASKN              TO ORXS500-CHANNEL-NAME-TASK              
+                                                                                
+           EXEC CICS PUT                                                        
+                CONTAINER    ('ORXS500_ORDER')                                  
+                CHANNEL      (ORXS500-CHANNEL-NAME)                             
+                FROM         (ORXS500-ORDER-AREA)                               
+                FLENGTH      (LENGTH OF ORXS500-ORDER-AREA)                     
+                RESP         (WS-EIBRESP)                                       
+           END-EXEC                                                             
+                                                                                
+           IF WS-EIB-NORESP                                                     
+               SET WS-PUT-ORD-SUCCESS       TO TRUE                             
+           END-IF.                                                              
+                                                                                
+       ORD900-EXIT.                                                             
+           EXIT.                                                                
+      *                                                                         

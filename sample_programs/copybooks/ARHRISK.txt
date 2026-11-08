@@ -1,0 +1,123 @@
+      ******************************************************************        
+      *** YEAR 2000 REMEDIATED                                         *TLKY8314
+      ******************************************************************        
+      *---                                                                      
+      *--- ARWRISK COPY BOOK IS NEEDED IN WORKING STORAGE                       
+      *---                                                                      
+      *  03/12/09 DXB FIELD NAME CHANGED TO WS-PASTDUE-RISKCODE         DXB09071
+      *  11/04/02 YLM POPULATE ZERO PASTDUE RISKCODE FROM CUSTOMER      YLM02308
+      *  11/10/98 RXD Y2K REMEDIATION                                   RXDY8314
+      ****************************************************************          
+      *  USED TO GET FACTOR FOR RISK CLASS CHECK                     *          
+      ****************************************************************          
+      *--- IF DAILY RISK CLASS DATE EQUAL TODAYS DATE, ASSUME DAILY             
+      *--- RISK CLASS CODES FOR TODAY ONLY                                      
+      *Y2K********************************************************Y2K*  RXDY8314
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8314
+      *Y2K********************************************************Y2K*  RXDY8314
+           CALL 'CAWINUP'                                               RXDY8314
+               USING CU-AR-DAILY-RISK-DATE                              RXDY8314
+                     ARHRISK-DEFAULT-WINDOW-SPEC                        RXDY8314
+                     ARHRISK-DECIMAL5-TYPE                              RXDY8314
+                     ARHRISK-CU-AR-D-RISK-DATE-Y2K                      RXDY8314
+                     ARHRISK-THIS-YEAR-Y2K                              RXDY8314
+      *Y2K********************************************************Y2K*  RXDY8314
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8314
+      *Y2K********************************************************Y2K*  RXDY8314
+      *    IF CU-AR-DAILY-RISK-DATE EQUAL EIBDATE                       RXDY8314
+           IF  ARHRISK-CU-AR-D-RISK-DATE-Y2K   EQUAL EIBDATE            RXDY8314
+                                                                                
+              IF CU-AR-DAILY-RISK-CLASS GREATER THAN SPACES                     
+                 MOVE CU-AR-DAILY-RISK-CLASS                                    
+                                       TO CU-AR-RISK-CLASS.                     
+                                                                                
+      *--- IF RISK CODE NOT FOUND AND COD ORDER, ASSUME COD RISK CODE           
+           IF CU-AR-RISK-CLASS GREATER THAN SPACES                              
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              IF ORH-TERMS NUMERIC                                              
+                 IF ORH-COD-ORDER                                               
+                    MOVE WS-COD-RISK-CODE                                       
+                                       TO CU-AR-RISK-CLASS.                     
+                                                                                
+           MOVE TC-COMPANY             TO TB-RISK-COMPANY-CODE.                 
+           MOVE CU-AR-RISK-CLASS       TO TB-RISK-CODE.                         
+                                                                                
+           CALL 'SYU510' USING TB-RISK-CODE-TABLE-IA                            
+                                                                                
+           IF TB-RISK-NORESP                                                    
+              MOVE TB-RISK-CREDIT-LIMIT-FACTOR                                  
+                                       TO WS-HOLD-CREDIT-FACTOR                 
+              ADD  1.0                 TO WS-HOLD-CREDIT-FACTOR                 
+      *--- IF RISK CODE NOT FOUND/INVALID, ASSUME DEFAULT RISK CODE             
+           ELSE                                                                 
+              IF TB-RISK-ENTRY-NOTFND                                           
+                 MOVE WS-DEFAULT-RISK-CODE                                      
+                                       TO TB-RISK-CODE                          
+                 CALL 'SYU510' USING TB-RISK-CODE-TABLE-IA                      
+                 IF TB-RISK-NORESP                                              
+                    MOVE TB-RISK-CREDIT-LIMIT-FACTOR                            
+                                       TO WS-HOLD-CREDIT-FACTOR                 
+                    ADD  1.0           TO WS-HOLD-CREDIT-FACTOR.                
+                                                                                
+      *--- TABLE ERROR, ABEND TRANSACTION                                       
+           IF NOT TB-RISK-NORESP                                                
+              MOVE '3000'              TO WS-ABCODE                             
+              PERFORM 999-ABEND.                                                
+                                                                                
+      ****************************************************************          
+      *  USED TO GET PAST DUE FACTOR FOR RISK CLASS CHECK            *          
+      ****************************************************************          
+      *--- IF DAILY RISK CLASS DATE EQUAL TODAYS DATE, ASSUME DAILY             
+      *Y2K********************************************************Y2K*  RXDY8314
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8314
+      *Y2K********************************************************Y2K*  RXDY8314
+      *--- PAST DUE RISK CLASS CODES FOR TODAY ONLY                             
+           CALL 'CAWINUP'                                               RXDY8314
+               USING CU-AR-DAILY-RISK-DATE                              RXDY8314
+                     ARHRISK-DEFAULT-WINDOW-SPEC                        RXDY8314
+                     ARHRISK-DECIMAL5-TYPE                              RXDY8314
+                     ARHRISK-CU-AR-D-RISK-DATE-Y2K                      RXDY8314
+      *Y2K********************************************************Y2K*  RXDY8314
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8314
+      *Y2K********************************************************Y2K*  RXDY8314
+      *    IF CU-AR-DAILY-RISK-DATE EQUAL EIBDATE                       RXDY8314
+           IF ARHRISK-CU-AR-D-RISK-DATE-Y2K EQUAL EIBDATE               RXDY8314
+              IF CU-AR-DAILY-PSTDUE-RISK-CLASS GREATER THAN SPACES              
+                 MOVE CU-AR-DAILY-PSTDUE-RISK-CLASS                             
+                                       TO CU-AR-PSTDUE-RISK-CLASS.              
+                                                                                
+      *--- IF RISK CODE NOT FOUND AND COD ORDER, ASSUME COD RISK CODE           
+           IF CU-AR-PSTDUE-RISK-CLASS GREATER THAN SPACES                       
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              IF ORH-TERMS NUMERIC                                              
+                 IF ORH-COD-ORDER                                               
+                    MOVE WS-COD-PSTDUE-RISK-CODE                                
+                                       TO CU-AR-PSTDUE-RISK-CLASS.              
+                                                                                
+           MOVE TC-COMPANY             TO TB-RISK-COMPANY-CODE.                 
+           MOVE CU-AR-PSTDUE-RISK-CLASS                                         
+                                       TO WS-PASTDUE-RISKCODE           DXB09071
+                                          TB-RISK-CODE.                 YLM02308
+                                                                                
+           CALL 'SYU510' USING TB-RISK-CODE-TABLE-IA                            
+                                                                                
+           IF TB-RISK-NORESP                                                    
+              MOVE TB-RISK-PAST-DUE-FACTOR                                      
+                                       TO WS-HOLD-PSTDUE-FACTOR                 
+      *--- IF RISK CODE NOT FOUND/INVALID, ASSUME DEFAULT RISK CODE             
+           ELSE                                                                 
+              IF TB-RISK-ENTRY-NOTFND                                           
+                 MOVE WS-DEFAULT-PSTDUE-RISK-CODE                               
+                                       TO WS-PASTDUE-RISKCODE           DXB09071
+                                          TB-RISK-CODE                  YLM02308
+                 CALL 'SYU510' USING TB-RISK-CODE-TABLE-IA                      
+                 IF TB-RISK-NORESP                                              
+                    MOVE TB-RISK-PAST-DUE-FACTOR                                
+                                       TO WS-HOLD-PSTDUE-FACTOR.                
+                                                                                
+      *--- TABLE ERROR, ABEND TRANSACTION                                       
+           IF NOT TB-RISK-NORESP                                                
+              MOVE '3000'              TO WS-ABCODE                             
+              PERFORM 999-ABEND.                                                

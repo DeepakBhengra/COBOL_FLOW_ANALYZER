@@ -1,0 +1,246 @@
+                                                                                
+      *****************************************************************         
+      *       PROCEDURE DIVISION PARAMETER ROUTINE FOR USE BY THE     *         
+      *       SYPCTR ENGINE CONNECTOR UTILITY PROGRAM                 *         
+      *                                                               *         
+      *  PURPOSE:  EXTERNALIZED LOGIC TO HIGHLIGHT THE CODE THAT      *         
+      *            WILL NEED TO BE MODIFIED TO ADD OR MODIFY THE      *         
+      *            THE TARGET ENVIRONMENTS THAT SYPCTR CONNECTS TO.   *         
+      *                                                               *         
+      *  USAGE:    CHANGE THIS COPYBOOK AND RECOMPILE SYPCTR TO       *         
+      *            CHANGE THE AVAILABLE TARGET ENVIRONMENTS. THIS     *         
+      *            COPYBOOK IS ONLY INTENDED FOR USE BY SYPCTR,       *         
+      *            NOT FOR USE BY OR BETWEEN APPLICATION PROGRAMS.    *         
+      *                                                               *         
+      *  SPECIAL NOTES:                                               *         
+      *                                                               *         
+      *         1) TO ADD A NEW TARGET SERVER FOLLOW THE SPECIAL      *         
+      *            NOTES IN SYWCTRP THEN ADD A CORRESPONDING SET      *         
+      *            OF NEW VALUES TO THE TARGET ENVIRONMENT            *         
+      *            EVALUATION IN THIS COPYBOOK AND RECOMPILE SYPCTR.  *         
+      *                                                               *         
+      *         2) TO CHANGE PARAMETERS FOR AN EXISTING TARGET        *         
+      *            ENVIRONMENT, CHANGE THE VALUES IN SYWCTRP AND      *         
+      *            RECOMPILE SYPCTR. NO CHANGES SHOULD BE REQUIRED    *         
+      *            TO THIS COPYBOOK.                                  *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 02/11/23 WXP  ADD LOGIC TO DIRECT REQUESTS TO GPP OR SP       * WXP23042
+      *               SERVERS, BASED ON ENTRIES IN THE COMPANY CONTROL* WXP23042
+      *               TABLE (CCT).  THESE CALLS CAN ALSO INCLUDE THE  * WXP23042
+      *               INSANCE (COUNTRY) VALUE ASSOCIATED WITH THE     * WXP23042
+      *               COMPANY, BASED ON SETTINGS IN THIS TABLE.       * WXP23042
+      * 07/19/17 SAS  CICS UPGRADE PHASE II -                         * SAS17200
+      *               DELETED THE CICS TRANSLATED CODE AND            * SAS17200
+      *               UNCOMMENTED THE EXEC CICS STATEMENTS.           * SAS17200
+      * 08/01/06 AXR  1. ADDED NEW 'D317' DEVELOPMENT SERVER TARGET   * AXR06213
+      *                  WHICH IS NOW THE NEW DEFAULT VALUE IN THE    * AXR06213
+      *                  SELF AWARE CODE WHEN NOT RUNNING IN          * AXR06213
+      *                  PRODUCTION, AND WHEN VALUE NOT RECOGNIZED.   * AXR06213
+      *               2  REMOVED SUPPORT FOR OBSOLETE TARGET SERVERS  * AXR06213
+      *                  'ELAN', 'D309' AND 'D310'.                   * AXR06213
+      *               3. USED ACTUAL SIZE OF POST AND HOST VALUES,    * AXR06213
+      *                  PLUS TWO TRAILING SPACES (FOR CR/LF), TO    .* AXR06213
+      *                  SET LENGTH VALUES USED BY SYPCTR.           .* AXR06213
+      * 06/06/06 AXR  1. ADDED SUPPORT FOR TEST SERVLET ON D307       * AXR06159
+      *               2. ADDED CODE FOR FUTURE USE TO BE SELF AWARE   * AXR06159
+      * 04/29/05 AXR  1. REPLACED D308 SERVER PARAMETERS WITH 307     * AXR05119
+      * 11/14/04 AXR       *** STRATEGIC PRICING - FULL SOLUTION ***  * AXR04319
+      *               1. CREATED COPYBOOK FROM CODE WITHIN SYPCTR     * AXR04319
+      *                                                               *         
+      *****************************************************************         
+                                                                        AXR06159
+                                                                        AXR06159
+      **>>>-------------------------------------------------------<<<** AXR06159
+      **>>> ROUTINE TO BECOME SELF AWARE OF REGION WHERE PROGRAM  <<<** AXR06159
+      **>>> IS RUNNING IN ORDER TO DYNAMICALLY SET APPROPRIATE    <<<** AXR06159
+      **>>> TARGET SERVER                                         <<<** AXR06159
+      **>>>                                                       <<<** AXR06159
+      **>>>-------------------------------------------------------<<<** AXR06159
+                                                                        AXR06159
+       SYSCTRP-DETERMINE-DESTINATION.                                   AXR06159
+                                                                        AXR06159
+      *   (BECOME SELF AWARE IN ORDER TO SET TARGET SERVER)             AXR06159
+                                                                        AXR06159
+      *   BELOW IS THE ASSIGN COMMAND BEFORE CICS TRANSLATION:          AXR06159
+                                                                        AXR06159
+      *   (GET CICS DIAGNOSTIC INFORMATION)                             AXR06159
+           EXEC CICS                                                    SAS17200
+                ASSIGN                                                  SAS17200
+                APPLID    (WS-APPLID)                                   SAS17200
+                STARTCODE (WS-STARTCODE)                                SAS17200
+                SYSID     (WS-SYSID)                                    SAS17200
+           END-EXEC.                                                    SAS17200
+                                                                        AXR06159
+      *   BELOW IS THE ASSIGN COMMAND AFTER CICS TRANSLATION, CUT       AXR06159
+      *   AND PASTED IN HEX MODE FROM A COMPILED LISTING:               AXR06159
+                                                                        AXR06159
+                                                                        AXR06159
+                                                                        AXR06159
+      *   (DETERMINE TARGET SERVER BASED ON WHERE SYPCTR IS RUNNING)    AXR06159
+           EVALUATE TRUE                                                AXR06159
+      *     (IF IN A PRODUCTION REGION, TARGET SERVER IS US PRODUCTION) AXR06159
+             WHEN (    WS-APPLID = 'TCP1CICS'                           AXR06159
+                    OR WS-APPLID = 'IMU1CICS'                           AXR06159
+                    OR WS-APPLID = 'IMU2CICS'                           AXR06159
+                    OR WS-APPLID = 'IMU3CICS'                           AXR06159
+                    OR WS-APPLID = 'IMU4CICS'                           AXR06159
+                    OR WS-APPLID = 'IMU5CICS' )                         AXR06159
+                  SET WS-IN-PUSA              TO TRUE                   AXR06159
+      *     (OTHERWISE DEFAULT THE SERVER TO DEVELOPMENT 317)           AXR06213
+             WHEN OTHER                                                 AXR06159
+                  SET WS-IN-D317              TO TRUE                   AXR06213
+           END-EVALUATE.                                                AXR06159
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> ROUTINES USED BY THE SYPCTR UTILITY PROGRAM TO SET    <<<**         
+      **>>> THE PARAMETERS ASSOCIATED TO THE TARGET ENVIRONMENT   <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SYSCTRP-SET-TARGET-PARMS.                                                
+                                                                                
+      *   (SET TARGET PARAMETERS BASED ON DEFAULT SET IN SYWCTRP)               
+                                                                        AXR06159
+      *    NOTE: SYSCTRP-DETERMINE-DESTINATION CAN OVERRIDE WS-IN-SERVERAXR06159
+                                                                        AXR06159
+      *===>  FIND THE ENTRY FOR THIS COMPANY IN THE CCT TABLE.          WXP23042
+                                                                        WXP23042
+           SET WS-CCT-IDX TO +1.                                        WXP23042
+           SEARCH WS-COMPANY-CONTROL-TBL                                WXP23042
+               AT END                                                   WXP23042
+                  SET WS-CCT-IDX TO +1                                  WXP23042
+             WHEN WS-CCT-XREF-CO (WS-CCT-IDX)                           WXP23042
+                   = WS-REQUEST-CO-CD                                   WXP23042
+                  CONTINUE                                              WXP23042
+           END-SEARCH.                                                  WXP23042
+           EVALUATE TRUE                                                        
+                                                                                
+      *     OVERRIDE THE HOST IF GPP IS ENABLED                         WXP23042
+             WHEN (WS-IN-PUSA AND WS-CCT-GPP-CO (WS-CCT-IDX))           WXP23042
+                  MOVE WS-HOST-PGPP           TO SOCKET-DATA-02         WXP23042
+                  MOVE LENGTH OF WS-HOST-PGPP TO SOCKET-DATA-02-LENGTH  WXP23042
+                  MOVE WS-IP-ADDRESS-PGPP     TO SOCKET-IP-ADDRESS-A    WXP23042
+                  MOVE WS-PORT-PGPP           TO SOCKET-PORT            WXP23042
+      *     (SET DESTINATION TO PRODUCTION US SERVER)                           
+             WHEN WS-IN-PUSA                                                    
+                  MOVE WS-HOST-PUSA           TO SOCKET-DATA-02                 
+                  MOVE LENGTH OF WS-HOST-PUSA TO SOCKET-DATA-02-LENGTH  AXR06213
+                  MOVE WS-IP-ADDRESS-PUSA     TO SOCKET-IP-ADDRESS-A            
+                  MOVE WS-PORT-PUSA           TO SOCKET-PORT                    
+             WHEN WS-IN-PGPP                                            WXP23042
+                  MOVE WS-HOST-PGPP           TO SOCKET-DATA-02         WXP23042
+                  MOVE LENGTH OF WS-HOST-PGPP TO SOCKET-DATA-02-LENGTH  WXP23042
+                  MOVE WS-IP-ADDRESS-PGPP     TO SOCKET-IP-ADDRESS-A    WXP23042
+                  MOVE WS-PORT-PGPP           TO SOCKET-PORT            WXP23042
+      *     (SET DESTINATION TO OLD PRODUCTION US SERVER)               AXR06213
+             WHEN WS-IN-POLD                                            AXR06213
+                  MOVE WS-HOST-POLD           TO SOCKET-DATA-02         AXR06213
+                  MOVE LENGTH OF WS-HOST-POLD TO SOCKET-DATA-02-LENGTH  AXR06213
+                  MOVE WS-IP-ADDRESS-POLD     TO SOCKET-IP-ADDRESS-A    AXR06213
+                  MOVE WS-PORT-POLD           TO SOCKET-PORT            AXR06213
+      *     (SET DESTINATION TO DEVELOPMENT GPP SERVER)                 WXP23042
+             WHEN (WS-IN-D317 OR WS-IN-TEST)                            WXP23042
+                  AND WS-CCT-GPP-CO (WS-CCT-IDX)                        WXP23042
+                  MOVE WS-HOST-TGPP           TO SOCKET-DATA-02         WXP23042
+                  MOVE LENGTH OF WS-HOST-TGPP TO SOCKET-DATA-02-LENGTH  WXP23042
+                  MOVE WS-IP-ADDRESS-TGPP     TO SOCKET-IP-ADDRESS-A    WXP23042
+                  MOVE WS-PORT-TGPP           TO SOCKET-PORT            WXP23042
+      *     (SET DESTINATION TO DEVELOPMENT GPP SERVER)                 WXP23042
+             WHEN WS-IN-TGPP                                            WXP23042
+                  MOVE WS-HOST-TGPP           TO SOCKET-DATA-02         WXP23042
+                  MOVE LENGTH OF WS-HOST-TGPP TO SOCKET-DATA-02-LENGTH  WXP23042
+                  MOVE WS-IP-ADDRESS-TGPP     TO SOCKET-IP-ADDRESS-A    WXP23042
+                  MOVE WS-PORT-TGPP           TO SOCKET-PORT            WXP23042
+      *     (SET DESTINATION TO DEVELOPMENT 317 SERVER)                 AXR06213
+             WHEN WS-IN-D317 OR WS-IN-TEST                              AXR06213
+                  MOVE WS-HOST-D317           TO SOCKET-DATA-02         AXR06213
+                  MOVE LENGTH OF WS-HOST-D317 TO SOCKET-DATA-02-LENGTH  AXR06213
+                  MOVE WS-IP-ADDRESS-D317     TO SOCKET-IP-ADDRESS-A    AXR06213
+                  MOVE WS-PORT-D317           TO SOCKET-PORT            AXR06213
+      *     (SET DESTINATION TO DEVELOPMENT 307 SERVER)                 AXR06213
+             WHEN WS-IN-D307                                            AXR06213
+                  MOVE WS-HOST-D307           TO SOCKET-DATA-02         AXR06213
+                  MOVE LENGTH OF WS-HOST-D307 TO SOCKET-DATA-02-LENGTH  AXR06213
+                  MOVE WS-IP-ADDRESS-D307     TO SOCKET-IP-ADDRESS-A    AXR06213
+                  MOVE WS-PORT-D307           TO SOCKET-PORT            AXR06213
+      *     (OTHERWISE DEFAULT TO DEVELPMENT 317 SERVER)                AXR06213
+             WHEN OTHER                                                 AXR06213
+                  MOVE WS-HOST-D317           TO SOCKET-DATA-02         AXR06213
+                  MOVE LENGTH OF WS-HOST-D317 TO SOCKET-DATA-02-LENGTH  AXR06213
+                  MOVE WS-IP-ADDRESS-D317     TO SOCKET-IP-ADDRESS-A    AXR06213
+                  MOVE WS-PORT-D317           TO SOCKET-PORT            AXR06213
+           END-EVALUATE.                                                        
+                                                                                
+                                                                                
+      *   (SPECIFY THE APPROPRIATE POST LAYOUT REQUEST BASED ON                 
+      *    THE PARAMETER PASSED BY THE INVOKING APPLICATION IN                  
+      *    SYWSPP-DATA-LAYOUT-CD FROM SYWSPP)                                   
+                                                                                
+      *===>  THE FORMAT OF THE SERVICE CALL TO SP/GPP CAN INCLUDE       WXP23042
+      *===>  A TWO CHARACTER INSTANCE CODE, IF THE COMPANY IS SET       WXP23042
+      *===>  TO DO SO IN THE COMPANY CONTROL TABLE.  TYPICALLY,         WXP23042
+      *===>  THESE TWO CHARACTERS ARE THE COUNTRY CODE ASSOCIATED       WXP23042
+      *===>  WITH THE COMPANY.                                          WXP23042
+                                                                        WXP23042
+           IF WS-CCT-USE-INST (WS-CCT-IDX)                              WXP23042
+              EVALUATE TRUE                                             WXP23042
+                  WHEN WS-IN-TEST                                       WXP23042
+      *               (SPECIFY TEST SERVLET PRICING REQUEST)            WXP23042
+                       MOVE WS-CCT-XREF-INST (WS-CCT-IDX)               WXP23042
+                         TO WS-REQUEST-01-TEST-INST-CD                  WXP23042
+                       MOVE WS-REQUEST-01-TEST-INST TO SOCKET-DATA-01   WXP23042
+                       MOVE LENGTH OF WS-REQUEST-01-TEST-INST           WXP23042
+                         TO SOCKET-DATA-01-LENGTH                       WXP23042
+      *               (WHEN TEST SERVER ALSO TURN ON DEBUG MODE)        WXP23042
+                       MOVE 'Y'                  TO WS-DEBUG-SW         WXP23042
+                  WHEN SYWSPP-LAYOUT-PRICING-MULT                       WXP23042
+      *               (SPECIFY MULTIPLE SKU PRICING REQUEST)            WXP23042
+                       MOVE WS-CCT-XREF-INST (WS-CCT-IDX)               WXP23042
+                         TO WS-REQUEST-01-MULT-INST-CD                  WXP23042
+                       MOVE WS-REQUEST-01-MULT-INST  TO SOCKET-DATA-01  WXP23042
+                       MOVE LENGTH OF WS-REQUEST-01-MULT-INST           WXP23042
+                         TO SOCKET-DATA-01-LENGTH                       WXP23042
+                  WHEN SYWSPP-LAYOUT-END-ORDER                          WXP23042
+      *               (SPECIFY END ORDER ENGINE REQUEST)                WXP23042
+                       MOVE WS-CCT-XREF-INST (WS-CCT-IDX)               WXP23042
+                         TO WS-REQUEST-01-EO-INST-CD                    WXP23042
+                       MOVE WS-REQUEST-01-EO-INST TO SOCKET-DATA-01     WXP23042
+                       MOVE LENGTH OF WS-REQUEST-01-EO-INST             WXP23042
+                         TO SOCKET-DATA-01-LENGTH                       WXP23042
+                  WHEN OTHER                                            WXP23042
+      *               (DEFAULT TO SINGLE SKU PRICING REQUEST            WXP23042
+                       MOVE WS-CCT-XREF-INST (WS-CCT-IDX)               WXP23042
+                         TO WS-REQUEST-01-SNGL-INST-CD                  WXP23042
+                       MOVE WS-REQUEST-01-SNGL-INST TO SOCKET-DATA-01   WXP23042
+                       MOVE LENGTH OF WS-REQUEST-01-SNGL-INST           WXP23042
+                         TO SOCKET-DATA-01-LENGTH                       WXP23042
+              END-EVALUATE                                              WXP23042
+           ELSE                                                         WXP23042
+              EVALUATE TRUE                                             WXP23042
+                  WHEN WS-IN-TEST                                       WXP23042
+      *               (SPECIFY TEST SERVLET PRICING REQUEST)            WXP23042
+                       MOVE WS-REQUEST-01-TEST   TO SOCKET-DATA-01      WXP23042
+                       MOVE LENGTH OF WS-REQUEST-01-TEST                WXP23042
+                         TO SOCKET-DATA-01-LENGTH                       WXP23042
+      *               (WHEN TEST SERVER ALSO TURN ON DEBUG MODE)        WXP23042
+                       MOVE 'Y'                  TO WS-DEBUG-SW         WXP23042
+                  WHEN SYWSPP-LAYOUT-PRICING-MULT                       WXP23042
+      *               (SPECIFY MULTIPLE SKU PRICING REQUEST)            WXP23042
+                       MOVE WS-REQUEST-01-MULT   TO SOCKET-DATA-01      WXP23042
+                       MOVE LENGTH OF WS-REQUEST-01-MULT                WXP23042
+                         TO SOCKET-DATA-01-LENGTH                       WXP23042
+                  WHEN SYWSPP-LAYOUT-END-ORDER                          WXP23042
+      *               (SPECIFY END ORDER ENGINE REQUEST)                WXP23042
+                       MOVE WS-REQUEST-01-EO     TO SOCKET-DATA-01      WXP23042
+                       MOVE LENGTH OF WS-REQUEST-01-EO                  WXP23042
+                         TO SOCKET-DATA-01-LENGTH                       WXP23042
+                  WHEN OTHER                                            WXP23042
+      *               (DEFAULT TO SINGLE SKU PRICING REQUEST            WXP23042
+                       MOVE WS-REQUEST-01-SNGL   TO SOCKET-DATA-01      WXP23042
+                       MOVE LENGTH OF WS-REQUEST-01-SNGL                WXP23042
+                         TO SOCKET-DATA-01-LENGTH                       WXP23042
+              END-EVALUATE.                                             WXP23042
+                                                                                

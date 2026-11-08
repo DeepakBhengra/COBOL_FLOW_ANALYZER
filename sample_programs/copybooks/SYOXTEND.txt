@@ -1,0 +1,106 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *    * 07/03/22 MP4   BRLINK PROJCT -ADDED NEW COMPANY 'BL'.   *  MP422184
+      *    * 08/13/21 AP3   INDIA DSV INTERIM SOLUTION.              *  AP321225
+      *    * 06/22/04 TGF   ADDED BRAZIL NEW COMPANY CODE (BP).      *  TGF04174
+      *    * 01/08/99 KLM   ADDED MISC CHG SHIP-QTY CHECK FOR BRAZIL *  KLM99008
+      *    * 07/03/98 DAK   ADD CHECK TO HANDLE 4 DECIMALS FOR       *  DAK98184
+      *    *                SEMI-CONDUCTOR PARTS                     *  DAK98184
+      *    * 08/13/96 TFM   ADDED ORD-WEIGHT                         *  TFM96226
+      *    * 02/08/96 TFM   DO NOT CALC WEIGHT FOR SYSTEM ITEM.      *  TFM96072
+      *    * 01/08/96 DAK   ALLOW LINE CHANGE FOR 894 LINE           *  DAK96008
+      *                                                                         
+      *    EXTEND SALES FIELDS                                                  
+      *                                                                         
+       SYOTOTAL-EXTEND-SALES.                                                   
+      *                                                                         
+           IF ORL-COMMENT-TYPE OR ORL-LABOR OR ORL-TAX-LINE                     
+              IF ((ORH-COMPANY = 'BR' OR 'BL' OR 'BP') AND              MP422184
+                  ORL-COMMENT-TYPE            AND                       TGF04174
+                  (ORL-COMMOD-CODE = 'MCE' OR 'MCU'))                   AP321225
+      *INDIA DSV INTERIM SOLUTION                                       AP321225
+                OR ((ORH-COMPANY = 'IA' OR 'IN') AND                    AP321225
+                    ORL-COMMENT-TYPE)                                   AP321225
+                  NEXT SENTENCE                                         KLM99008
+              ELSE                                                      KLM99008
+              IF ORL-QTY-SHIPPED = ZERO AND NOT ORL-MISC-FRT-CHARGE             
+                 AND NOT ORL-MISC-LINE-CHARGE                           DAK96008
+                 MOVE 1                TO  ORL-QTY-SHIPPED                      
+                                           ORL-QTY-ORDERED                      
+                 MOVE ZEROES           TO  ORL-QTY-BACKORDERED.                 
+      *                                                                         
+           MOVE 1.00000                TO  WS-FACTOR                            
+           IF ORL-WEIGHT-PER = 'C' OR 'DE'                                      
+               MOVE .01000             TO  WS-FACTOR                            
+           ELSE                                                                 
+               IF ORL-WEIGHT-PER = 'M'                                          
+                   MOVE .00100         TO  WS-FACTOR                            
+               ELSE                                                             
+                   IF ORL-WEIGHT-PER = 'DZ'                                     
+                       MOVE .08333     TO  WS-FACTOR.                           
+      *                                                                         
+           IF NOT ORL-SYSTEMS-ITEM                                      TFM96226
+              COMPUTE WS-EXT-WEIGHT ROUNDED =                           TFM96226
+              ORL-UNIT-WEIGHT * ORL-QTY-SHIPPED * WS-FACTOR             TFM96226
+              COMPUTE WS-EXT-ORD-WEIGHT ROUNDED =                       TFM96226
+              ORL-UNIT-WEIGHT * ORL-QTY-ORDERED * WS-FACTOR.            TFM96226
+                                                                                
+                                                                                
+      *                                                                         
+           MOVE 1.00000                TO  WS-FACTOR.                           
+           IF ORL-UM = 'C ' OR 'DE'                                             
+               MOVE .01000             TO  WS-FACTOR                            
+           ELSE                                                                 
+               IF ORL-UM = 'M '                                                 
+                   MOVE .00100         TO  WS-FACTOR                            
+               ELSE                                                             
+                   IF ORL-UM = 'DZ'                                             
+                       MOVE .08333     TO  WS-FACTOR.                           
+      *                                                                         
+           IF ORL-UM = 'H'                                                      
+               IF ORL-WEIGHT-PER = 'E'                                          
+                   COMPUTE WS-FACTOR = .01 * ORL-UNIT-WEIGHT                    
+               ELSE                                                             
+                   IF ORL-WEIGHT-PER = 'C'                                      
+                       COMPUTE WS-FACTOR = .0001 * ORL-UNIT-WEIGHT              
+                   ELSE                                                         
+                       IF ORL-WEIGHT-PER = 'M'                                  
+                           COMPUTE WS-FACTOR = .00001 * ORL-UNIT-WEIGHT.        
+      *                                                                         
+           COMPUTE WS-EXT-ORDERED-SALES ROUNDED =                               
+                   ORL-UNIT-PRICE * ORL-QTY-ORDERED * WS-FACTOR                 
+           IF ORL-SEMI-CONDUCTOR                                        DAK98184
+               COMPUTE WS-EXT-FOREIGN-ORDERED-SALES ROUNDED =           DAK98184
+                   ORL-FOREIGN-UNIT-PRICE-SEMI *                        DAK98184
+                       ORL-QTY-ORDERED * WS-FACTOR                      DAK98184
+           ELSE                                                         DAK98184
+               COMPUTE WS-EXT-FOREIGN-ORDERED-SALES ROUNDED =           DAK98184
+                   ORL-FOREIGN-UNIT-PRICE *                             DAK98184
+                       ORL-QTY-ORDERED * WS-FACTOR.                     DAK98184
+      *                                                                         
+           IF ORL-QTY-SHIPPED = ZERO                                            
+              MOVE ZEROES              TO  WS-EXT-CUBE                          
+                                           WS-EXT-COST                          
+                                           WS-EXT-ADJ-COST                      
+                                           WS-EXT-SALES                         
+                                           WS-EXT-FOREIGN-SALES                 
+           ELSE                                                                 
+              COMPUTE WS-EXT-CUBE ROUNDED = ORL-QTY-SHIPPED * ORL-CUBE          
+              COMPUTE WS-EXT-SALES ROUNDED =                                    
+                      ORL-QTY-SHIPPED * WS-FACTOR                               
+                   *  ORL-UNIT-PRICE                                            
+              COMPUTE WS-EXT-COST ROUNDED =                                     
+                      ORL-QTY-SHIPPED * WS-FACTOR                               
+                   *  ORL-UNIT-COST                                             
+              COMPUTE WS-EXT-ADJ-COST ROUNDED =                                 
+                      ORL-QTY-SHIPPED * WS-FACTOR                               
+                   *  ORL-ADJUSTED-COST                                         
+              IF ORL-SEMI-CONDUCTOR                                     DAK98184
+                  COMPUTE WS-EXT-FOREIGN-SALES ROUNDED =                DAK98184
+                      ORL-QTY-SHIPPED * WS-FACTOR                       DAK98184
+                      *  ORL-FOREIGN-UNIT-PRICE-SEMI                    DAK98184
+              ELSE                                                      DAK98184
+                  COMPUTE WS-EXT-FOREIGN-SALES ROUNDED =                DAK98184
+                      ORL-QTY-SHIPPED * WS-FACTOR                       DAK98184
+                      *  ORL-FOREIGN-UNIT-PRICE.                        DAK98184

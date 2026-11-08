@@ -1,0 +1,56 @@
+      ******************************************************************        
+      *   *  COPYBOOK: SYSERREC - PLUG-IN COPYBOOK TO LOG APPLICATION  *        
+      *   *            ERROR IN IMPULSE_APPL_ERR_LOG DB2 TABLE         *        
+      *   *            THIS IS FOR ONLINE PROGRAMS.                    *        
+      *   *                                                            *        
+      *   *            ASSOCIATED COPYBOOK HOLDING WORKING VARIABLE IS *        
+      *   *            SYR990.                                         *        
+      *   *                                                            *        
+      *   *  PURPOSE : IT WILL INVOKE SYU990 TO INSERT THE DATA IN DB2.*        
+      *   *            IF ANY ERROR LOG NEEDS TO BE CAPTURED DURING    *        
+      *   *            CICS TRANSACTION EXECUTION - THIS COPYBOOK      *        
+      *   *            CAN BE INVOKED WITH LOGGER MESSAGE AND          *        
+      *   *            ASSOCIATED DATA ELEMENTS FOR SYSTEM ANALYSES.   *        
+      *   *                                                            *        
+      *   *  REVISION INFORMATION:                                     *        
+      *   *------------------------------------------------------------*        
+      *   *  07/07/23  SYJ FLEXIBILITY TO PASS PROGRAM NAME FROM SOURCE*SYJ23188
+      *   *  05/12/23  SYJ INITIAL COPYBOOK.                           *SYJ23132
+      *   *------------------------------------------------------------*        
+      ******************************************************************        
+      *                                                                         
+       990-IMP-ERR-MSG.                                                         
+      *                                                                         
+           MOVE WS-REVISION-LEVEL-STAMP  TO SYR990-LAST-REV-ID.                 
+           MOVE WS-LAST-CONTAINER-CHANGE TO SYR990-LAST-CONTAINER-NBR.          
+           MOVE EIBTASKN                 TO SYR990-TASK-ID.                     
+           MOVE EIBTRNID                 TO SYR990-TRAN-ID.                     
+           MOVE WHEN-COMPILED            TO SYR990-LAST-CMPL-TXT.               
+      *                                                                         
+           IF WS-PROGRAM > SPACES                                       SYJ23188
+              MOVE WS-PROGRAM            TO SYR990-PGM-ID               SYJ23188
+           ELSE                                                         SYJ23188
+              EXEC CICS ASSIGN                                          SYJ23188
+                   PROGRAM(SYR990-PGM-ID)                               SYJ23188
+              END-EXEC                                                  SYJ23188
+           END-IF.                                                      SYJ23188
+      *                                                                         
+           IF SYR990-ROUTINE > SPACES                                           
+              EXEC CICS                                                         
+                   LINK                                                         
+                   PROGRAM       (SYR990-ROUTINE)                               
+                   COMMAREA      (SYR990-IO-AREA)                               
+                   LENGTH        (LENGTH OF SYR990-IO-AREA)                     
+              END-EXEC                                                          
+           ELSE                                                                 
+              SET  SYR990-ELGR           TO TRUE                                
+              EXEC CICS                                                         
+                   START                                                        
+                   TRANSID       (SYR990-XCTL-ID)                               
+                   FROM          (SYR990-IO-AREA)                               
+                   LENGTH        (LENGTH OF SYR990-IO-AREA)                     
+              END-EXEC                                                          
+           END-IF.                                                              
+      *                                                                         
+       990-IMP-ERR-MSG-EXIT.                                                    
+                       EXIT.                                                    

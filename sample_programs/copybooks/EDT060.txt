@@ -1,0 +1,178 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT060                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV060 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV060-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV060-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV060-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV060-CO-CD                                  *          
+      *              - EDV060-PARTNER-ID                             *          
+      *              - EDV060-CREDIT-MEMO-FLG                        *          
+      *              - EDV060-ASSET-TAG-FLG                          *          
+      *              - EDV060-EDI-PO-FLG                             *          
+      *              - EDV060-ZERO-VALUE-FLG                         *          
+      *              - EDV060-REFUSAL-FLG                            *          
+      *              - EDV060-COMPONENTS-FLG                         *          
+      *              - EDV060-INTEREST-INV-FLG                       *          
+      *              - EDV060-LST-CHG-TS                             *          
+      *              - EDV060-LST-CHG-NAM                            *          
+      *              - EDV060-SHIP-BR-XMIT-FLG                       *  AZS08252
+      *                                                              *          
+      *    OUTPUT: EDV060-OUTPUT-DATA                                *          
+      *          - EDV060-ROW-COUNT                                  *          
+      *          - EDV060-MODULE-RESULT-CD                           *          
+      *          - EDV060-MODULE-MESSAGE                             *          
+      *          - EDV060-DATABASE-RESULT-CODES:                     *          
+      *              - EDV060-SQLCA VALUES                           *          
+      *              - EDV060-SQLCODE                                *          
+      *              - EDV060-SQLSTATE                               *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV060 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV060-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV060-PARTNER-ID.                *          
+      *     MOVE 'S ' TO EDV060-ACTION-CD.     .                     *          
+      *     MOVE 'IE_MISC_CHARGES' TO EDV060-OBJECT-ID.              *          
+      *                                                              *          
+      *     CALL 'EDV060' USING EDV060-COMMUNICATIONS-AREA.          *          
+      *     IF EDV060-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV060 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDR001 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                09/08/08  AZS   ADDED SHIP-BR-XMIT-FLG. THIS  *  AZS08252
+      *                                COLUMN INDICATES THAT THE EDI *  AZS08252
+      *                                DOCUMENT IS CREATED AND       *  AZS08252
+      *                                TRANSMITTED BY BRANCH.        *  AZS08252
+      *                10/07/02  TWA   PARTNER ID REMOVED FROM PRO-  *  TWA02280
+      *                                GRAM KEY LOGIC AND FROM COPY- *  TWA02280
+      *                                BOOK KEY AREA.                *  TWA02280
+      *                09/17/02  TWA   4 NEW FIELDS ADDED TO TABLE   *  TWA02260
+      *                                IE_SCAC_XREF AS PART OF REDI  *  TWA02260
+      *                                & ABLE CONVERSION OF 204 TRAN.*  TWA02260
+      *                11/20/01  KXR   ORIGINAL.                     *  KXR01324
+      ****************************************************************          
+                                                                                
+       01  EDV060-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV060-ACTION-CD                     PIC  X(002).                
+               88  EDV060-SELECT                    VALUE 'S '.                 
+               88  EDV060-INSERT                    VALUE 'I '.                 
+               88  EDV060-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV060-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV060-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV060-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV060-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV060-COUNT                     VALUE 'C '.                 
+               88  EDV060-MAX                       VALUE 'MX'.                 
+               88  EDV060-MIN                       VALUE 'MN'.                 
+               88  EDV060-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV060-MASS-UPDATE               VALUE 'MU'.                 
+               88  EDV060-MASS-INSERT               VALUE 'MI'.                 
+           05  EDV060-USER-ID                       PIC  X(010).                
+           05  EDV060-KEY-AREA.                                                 
+               10  EDV060-KEY-CO-CD                 PIC  X(002).                
+               10  EDV060-KEY-SCAC-CD               PIC  X(004).        TWA02280
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV060-INPUT-OUTPUT-AREA.                                        
+               10  EDV060-OBJECT-ID                 PIC  X(030).                
+                   88  EDV060-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV060-IE-SCAC-XREF          VALUE                       
+                                  'IE_SCAC_XREF                  '.             
+               10  EDV060-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV060-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV060-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV060-CO-CD                 PIC  X(002).                
+                   15  EDV060-SCAC-CD               PIC  X(004).                
+                   15  EDV060-PARTNER-ID            PIC  X(015).                
+                   15  EDV060-PRO-FRMT-CD           PIC  X(001).                
+                   15  EDV060-SCAC-INCLUDED-FLG     PIC  X(001).                
+                   15  EDV060-CONS-204-SW           PIC  X(001).                
+                   15  EDV060-SEND-204-FLG          PIC  X(001).        TWA02260
+                   15  EDV060-SEND-215-FLG          PIC  X(001).        TWA02260
+                   15  EDV060-LINE-BILL-204-FLG     PIC  X(001).        TWA02260
+                   15  EDV060-ITEM-LIMIT-NBR        PIC  9(003).        TWA02260
+                   15  EDV060-LST-CHG-TS            PIC  X(026).                
+                   15  EDV060-LST-CHG-NAM           PIC  X(015).                
+                   15  EDV060-SHIP-BR-XMIT-FLG      PIC  X(001).        AZS08252
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV060-OUTPUT-DATA.                                              
+               10  EDV060-ROW-COUNT                 PIC  S9(009).               
+               10  EDV060-MODULE-RESULT-CD          PIC  X(002).                
+                   88  EDV060-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV060-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV060-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV060-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV060-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV060-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV060-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV060-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV060-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV060-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV060-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV060-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV060-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV060-EXCEPTION-MESSAGE.                                    
+                   15  EDV060-MSG-OBJECT            PIC  X(030).                
+                   15  EDV060-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV060-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV060-SQLCA.                                            
+                       20  EDV060-SQLCAID           PIC  X(008).                
+                       20  EDV060-SQLCABC           PIC  S9(009).               
+                       20  EDV060-SQLCODE           PIC  S9(009).               
+                       20  EDV060-SQLERRM.                                      
+                           25  EDV060-SQLERRML      PIC  S9(004).               
+                           25  EDV060-SQLERRMC      PIC  X(070).                
+                       20  EDV060-SQLERRP           PIC  X(008).                
+                       20  EDV060-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV060-SQLWARN.                                      
+                           25  EDV060-SQLWARN0      PIC  X(001).                
+                           25  EDV060-SQLWARN1      PIC  X(001).                
+                           25  EDV060-SQLWARN2      PIC  X(001).                
+                           25  EDV060-SQLWARN3      PIC  X(001).                
+                           25  EDV060-SQLWARN4      PIC  X(001).                
+                           25  EDV060-SQLWARN5      PIC  X(001).                
+                           25  EDV060-SQLWARN6      PIC  X(001).                
+                           25  EDV060-SQLWARN7      PIC  X(001).                
+                       20  EDV060-SQLEXT.                                       
+                           25  EDV060-SQLWARN8      PIC  X(001).                
+                           25  EDV060-SQLWARN9      PIC  X(001).                
+                           25  EDV060-SQLWARNA      PIC  X(001).                
+                           25  EDV060-SQLSTATE      PIC  X(005).                

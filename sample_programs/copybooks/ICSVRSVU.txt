@@ -1,0 +1,732 @@
+                                                                                
+      *****************************************************************         
+      *         PROCEDURE DIVISION COMMON ROUTINES THAT SUPPORT       *         
+      *         VARIOUS VISIBLE RESERVE INVENTORY UPDATE ROUTINES.    *         
+      *                                                               *         
+      *  PURPOSE:  VARIOUS ROUTINES TO HELP UPDATE VISIBLE            *         
+      *            RESERVE INVENTORY DATA                             *         
+      *                                                               *         
+      *  USAGE:    COPY THIS ICSVRSVU P/D COPYBOOK & THE ICWVRSV W/S  *         
+      *            COPYBOOK INTO APPLICATIONS THAT UPDATE VISIBLE     *         
+      *            RESERVE INVENTORY AND PERFORM THE APPROPRIATE      *         
+      *            SUPPORT ROUTINE PARAGRAPHS.                        *         
+      *                                                               *         
+      *  SUPPORT:  THE FOLLOWING COPYBOOKS ARE REQUIRED:              *         
+      *                                                               *         
+      *     WS DATA:  COPY ICWVRSV.                                   *         
+      *     W/S DATA: COPY INSLOR                                     *         
+      *     W/S SSA:  COPY INKLOR.                                    *         
+      *     W/S SSA:  COPY INKLOR2.                                   *         
+      *     W/S DATA: COPY ORSCAP.                                    *         
+      *     W/S SSA:  COPY ORKCAP.                                    *         
+      *     W/S DATA: COPY INSBRN.                                    *         
+      *     W/S SSA:  COPY INKBRN.                                    *         
+      *     W/S DATA: COPY SYRADT.                                    * AXR05234
+      *                                                               *         
+      *     P/D:      COPY ICSVRSV.                                   *         
+      *                                                               *         
+      *                                                               *         
+      *  SUPPORT:  THE FOLLOWING FIELDS ARE REQUIRED:                 *         
+      *     W/S FIELD:   01 WS-UNQUAL-SSA PIC X(9) VALUE SPACES.      *         
+      *                                                               *         
+      *  OPTIONAL: REPLACE BY PLACEHOLDER OR USE ACTUAL I/O COPYBOOKS * AXR05234
+      *     P/D I/O:  1204-GU-ORSLNE.            COPY ORIO1204.       *         
+      *     P/D I/O:  1268-GNP-ORSCAP.           COPY ORIO1268.       *         
+      *     P/D I/O:  1344-ISRT-ORSDES.          COPY ORIO1344.       *         
+      *     P/D I/O:  1346-ISRT-ORSCAP.          COPY ORIO1346.       *         
+      *     P/D I/O:  1562-GHU-INSBRN            COPY INIO1562.       *         
+      *     P/D I/O:  1650-REPL-INSBRN           COPY INIO1650.       *         
+      *     P/D I/O:  1814-GHU-INSLOR-VIA-PART.  COPY INIO1814.       *         
+      *     P/D I/O:  1845-GNP-INSLOR-VIA-PART.  COPY INIO1845.       *         
+      *     P/D I/O:  1874-REPL-INSLOR-VIA-PART. COPY INIO1874.       *         
+      *                                                               * AXR05234
+      *  OPTIONAL: REPLACE BY PLACEHOLDER OR USE ACTUAL I/O ROUTINE   * AXR05234
+      *     P/D I/O:  ICSVRSVA-WRITE-RESERVE-AUDIT                    * AXR05234
+      *                THRU    ICSVRSVA-WRITE-EXIT                    * AXR05234
+      *                                                               *         
+      *  SUMMARY OF EACH ROUTINE ENTRY POINT:                         *         
+      *     J000 = INSERTS ORSCAPS FOR EACH RI SEQUENCE AND AN ORSDES *         
+      *     K000 = ALLOCATES FROM INSLOR SEQUENCES, UPDATING INSBRN   *         
+      *     L000 = REVERSES (UNAPPLIES) VISIBLE RESERVES ON AN ORSLNE *         
+      *                                                               *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 08/22/05 AXR  1. ADDED PERFORM OF AUDIT ROUTINES M000 & N000  * AXR05234
+      *                  WHICH ARE IN SEPARATE COPYBOOK ICSVRSVA      * AXR05234
+      *               2. ADDED INDICATORS TO ALLOW I/O LOGIC BYPASS   * AXR05234
+      *               3. IMPROVED TO DISALLOW NEGATIVE RESERVE QTY    * AXR05234
+      * 07/07/05 AXR     *** RESERVE INVENTORY AUTOMATION, PHASE1 *** * AXR05188
+      *               1. CREATED COPYBOOK.                            * AXR05188
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+      *ICSVRSVU-J000-ADD-LINE-DATA.                                             
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>> INSERT ALL THE CORRESPONDING ORSCAP ENTRIES AND A     <<<**         
+      **>>> SUMMARY ORSDES ENTRY FOR THE VISIBLE RESERVE          <<<**         
+      **>>> SEQUENCES THAT WERE APPLIED TO AN ORDER LINE.         <<<**         
+      **>>>                                                       <<<**         
+      **>>> INPUT DATA:                                           <<<**         
+      **>>>   ICWVRSV-ORSCAP-TABLE-HEADER = COUNT OF RESERVE SEQ  <<<**         
+      **>>>   ICWVRSV-ORSCAP-TABLE = APPLIED RESERVE SEQ DATA     <<<**         
+      **>>>   ICWVRSV-VISRSV-LINEQTY = TOTAL VIS RES FOR LINE     <<<**         
+      **>>>                                                       <<<**         
+      **>>> OUTPUT DATA:                                          <<<**         
+      **>>>   ICWVRSV-VISRSV-STATUS = SUCCESS INDICATOR           <<<**         
+      **>>>   ORSCAP = INSERT OF ORSCAP SEGMENTS PER SEQUENCE     <<<**         
+      **>>>   ORSDES = INSERT OF ORSDES SEGMENT VIS RES SUMMARY   <<<**         
+      **>>>                                                       <<<**         
+      **>>> REQUIRED I/O COPYBOOKS:                               <<<**         
+      **>>>   1344-ISRT-ORSDES.          COPY ORIO1344.           <<<**         
+      **>>>   1346-ISRT-ORSCAP.          COPY ORIO1346.           <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ICSVRSVU-J000-ADD-LINE-DATA.                                             
+                                                                        AXR05234
+      *   (INITALIZE OUTPUT FIELDS)                                     AXR05234
+           SET ICWVRSV-STATUS-OKAY           TO TRUE.                   AXR05234
+           MOVE 'N'                          TO ICWVRSV-DONE-IND.       AXR05234
+                                                                                
+      *   (AFTER ORSLNE INSERTED THEN THE VISIBLE RESERVE ORSCAP                
+      *    ENTRIES CAN BE INSERTED, IN THE REVERSE ORDER PULLED)                
+           IF ICWVRSV-ORSCAP-COUNT > ZERO                                       
+      *      (INSERT EACH VISIBLE RESERVE ORSCAP ENTRY)                         
+              PERFORM ICSVRSVU-J100-ISRT-ORSCAP                                 
+              VARYING ICWVRSV-ORSCAP-SUB                                        
+                 FROM 1                                                 AXR05234
+                   BY 1                                                 AXR05234
+                UNTIL ICWVRSV-ORSCAP-SUB > ICWVRSV-ORSCAP-COUNT         AXR05234
+                   OR ICWVRSV-DONE-YES                                          
+      *      (INSERT SUMMARY VISIBLE RESERVE ORSDES ENTRY)                      
+              PERFORM ICSVRSVU-J200-ISRT-ORSDES                                 
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVU-J100-ISRT-ORSCAP.                                               
+      ******************************************************************        
+      * FORMAT AND INSERT ORSCAP WITH VISIBLE RESERVE SEQUENCE DATA    *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-J100-ISRT-ORSCAP.                                               
+                                                                                
+      *   (FORMAT ORSCAP)                                                       
+           INITIALIZE                           ORC-CAPS-SEG.                   
+           MOVE 'V'                          TO ORC-SEG-TYPE.                   
+           MOVE 'ORSCAP   '                  TO WS-UNQUAL-SSA.                  
+           MOVE ICWVRSV-ORSCAP-DATA (ICWVRSV-ORSCAP-SUB)                        
+             TO ORC-VISIBLE-RESERVE-SEG.                                        
+                                                                        AXR05234
+      *   (IMS SEGMENT INSERT SEQUENCE IS INVERSE OF APPLIED SEQUENCE)  AXR05234
+           COMPUTE ORC-VRS-ISRT-SEQ =                                   AXR05234
+                   ICWVRSV-ORSCAP-COUNT -                               AXR05234
+                   ICWVRSV-VRS-APLD-SEQ (ICWVRSV-ORSCAP-SUB).           AXR05234
+                                                                                
+           MOVE 'N'                          TO WS-ORSCAP-IO-SW.                
+           PERFORM 1346-ISRT-ORSCAP.                                            
+                                                                                
+           IF NOT WS-ORSCAP-NORESP                                              
+              SET ICWVRSV-STATUS-IO-ERR      TO TRUE                            
+              SET ICWVRSV-DONE-YES           TO TRUE                            
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVU-J200-ISRT-ORSDES.                                               
+      ******************************************************************        
+      * INSERT ORSDES SEGMENT WITH VISIBLE RESERVE SUMMARY             *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-J200-ISRT-ORSDES.                                               
+                                                                                
+      *   (FORMAT ORSDES)                                                       
+           ADD 1                             TO ORD-DESC-NBR.                   
+           MOVE 'ORSDES   '                  TO WS-UNQUAL-SSA.                  
+                                                                                
+      *   12345678901234567890123456789012345  RULER                            
+      *   G02  RESERVE-COMMENTS78901234567890  HIDDEN TYPE/SEQ/COMMENTS         
+      *   ///VISIBLE RESERVES USED = +1234567  VISIBLE RESERVE TEXT             
+           MOVE SPACES                       TO ORD-DESCRIPTION-ORD.            
+           STRING '///VISIBLE RESERVES USED = '                                 
+                   ICWVRSV-VISRSV-LINEQTY                                       
+           DELIMITED BY SIZE               INTO ORD-DESCRIPTION-ORD.            
+                                                                                
+           MOVE 'N'                          TO WS-ORSDES-IO-SW.                
+           PERFORM 1344-ISRT-ORSDES.                                            
+           IF NOT WS-ORSDES-NORESP                                              
+              SET ICWVRSV-STATUS-IO-ERR      TO TRUE                            
+              SET ICWVRSV-DONE-YES           TO TRUE                            
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVU-K000-VISRSV-ALLOC.                                              
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>> LOOK FOR AND ALLOCATE FROM VISIBIBLE RESERVE          <<<**         
+      **>>> INVENTORY (BEFORE USING GENERAL AVAILABILITY)         <<<**         
+      **>>>                                                       <<<**         
+      **>>> INPUT:                                                <<<**         
+      **>>>   ICWVRSV-RQSTQTY = REQUESTED LINE SHIPMENT QUANTITY  <<<** AXR05234
+      **>>>   ICWVRSV-RESERVE-TABLE-HEADER = COUNT OF SEQUENCES   <<<**         
+      **>>>   ICWVRSV-RESERVE-TABLE = RESERVE DATA SEQUENCES      <<<**         
+      **>>>   ICWVRSV-RESERVE-TABLE-SORTED = ARRAY POINTING TO    <<<**         
+      **>>>           SORTED SEQUENCE OF RESERVE-TABLE ELEMENTS   <<<**         
+      **>>>   ICWVRSV-AUDIT-FIELDS = DATE, TIME, OPERID, ORDER    <<<** AXR05234
+      **>>>           NBR, ETC FOR WRITING TO SYQADT AUDIT FILE   <<<** AXR05234
+      **>>>                                                       <<<**         
+      **>>> OUTPUT:                                               <<<**         
+      **>>>   ICWVRSV-VISRSV-STATUS = SUCCESS INDICATOR           <<<**         
+      **>>>   ICWVRSV-VISRSV-LINEQTY = TOTAL VIS RES FOR THE LINE <<<**         
+      **>>>   ICWVRSV-ORSCAP-COUNT = COUNT OF RES SEQUENCES USED  <<<**         
+      **>>>   ICWVRSV-ORSCAP-TABLE = APPLIED RESERVE SEQ DATA     <<<**         
+      **>>>   INSLOR = UPDATED INSLORS WITH INCREASED SHIP QTY    <<<**         
+      **>>>   INSBRN = UPDATED WITH DECREASED BRANCH RESERVE QTY  <<<**         
+      **>>>     (UNLESS APPLICATION SETS ICWVRSV-UPDATE-INSBRN-NO <<<** AXR05234
+      **>>>      WHICH LEAVES IT TO THE APPLICATION TO ADD        <<<** AXR05234
+      **>>>      ICWVRSV-TEMPQTY TO INB-RES-QTY DURING ITS OWN    <<<** AXR05234
+      **>>>      UPDATE OF INSBRN)                                <<<** AXR05234
+      **>>>                                                       <<<**         
+      **>>> REQUIRED I/O COPYBOOKS:                               <<<**         
+      **>>>   1562-GHU-INSBRN.           COPY INIO1562.           <<<**         
+      **>>>   1650-REPL-INSBRN.          COPY INIO1650.           <<<**         
+      **>>>   1814-GHU-INSLOR-VIA-PART.  COPY INIO1814.           <<<**         
+      **>>>   1874-REPL-INSLOR-VIA-PART. COPY INIO1874.           <<<**         
+      **>>>                                                       <<<**         
+      **>>> PROCESS OUTLINE:                                      <<<**         
+      **>>>   1. READ EACH SORTED ARRAY                           <<<**         
+      **>>>      A. GHU CORRESPONDING INSLOR                      <<<**         
+      **>>>      B. UPDATE INSLOR FIELDS                          <<<**         
+      **>>>      C. REPL INSLOR                                   <<<**         
+      **>>>      D. MAINTAIN INV TOTALS                           <<<**         
+      **>>>      E. CREATE W/S ORSCAP ARRAY ELEMENT FOR INSLOR    <<<**         
+      **>>>   2. PROCESS EACH W/S ORSCAP TABLE ENTRY              <<<**         
+      **>>>      A. FORMAT ORSCAP SEGMENT                         <<<**         
+      **>>>      B. ISRT ORSCAP                                   <<<**         
+      **>>>   3. UPDATE INSBRN WITH INV TOTALS                    <<<**         
+      **>>>      A. GHU INSBRN                                    <<<**         
+      **>>>      B. UPDATE INSBRN TOTALS                          <<<**         
+      **>>>      C. REPL INSBRN                                   <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ICSVRSVU-K000-VISRSV-ALLOC.                                              
+                                                                                
+      *   (INITALIZE OUTPUT FIELDS)                                             
+           SET ICWVRSV-STATUS-OKAY           TO TRUE.                   AXR05234
+           MOVE ZERO                         TO ICWVRSV-VISRSV-LINEQTY.         
+           MOVE ZERO                         TO ICWVRSV-ORSCAP-COUNT.           
+           MOVE 'N'                          TO ICWVRSV-DONE-IND.       AXR05234
+                                                                                
+      *   (PROCESS EACH SORTED VISIBLE RESERVE ARRAY ELEMENT)                   
+           PERFORM ICSVRSVU-K100-DECR-INSLOR                                    
+           VARYING ICWVRSV-SORTSUB                                              
+              FROM 1 BY 1                                                       
+             UNTIL ICWVRSV-SORTSUB > ICWVRSV-ROW-COUNT                          
+                OR ICWVRSV-DONE-YES.                                            
+                                                                                
+      *   (IF ANY RESERVE SEQUENCES PULLED THEN UPDATE INSBRN)                  
+           IF ICWVRSV-ORSCAP-COUNT > ZERO                                       
+      *      (DECREMENT INB-RES-QTY BY NEGATIVE ICWVRSV-VISRSV-LINEQTY)         
+              COMPUTE ICWVRSV-TEMPQTY = -1 * ICWVRSV-VISRSV-LINEQTY             
+              IF ICWVRSV-UPDATE-INSBRN-YES                              AXR05234
+                 PERFORM ICSVRSVU-K200-UPDT-INSBRN-RSV                  AXR05234
+              END-IF                                                    AXR05234
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVU-K100-DECR-INSLOR.                                               
+      ******************************************************************        
+      * UPDATE INSLOR, DECREASING AMOUNT OF VISIBLE RESERVE AVAILABLE  *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-K100-DECR-INSLOR.                                               
+                                                                                
+      *   (ICWVRSV-SUB1 CONTAINS THE SUBSCRIPT FOR THE ROW WITHIN               
+      *    ICWVRSV-RESERVE-DATA TO BE PROCESSED, IN SORT SEQUENCE)              
+                                                                                
+      *   (FOR EXAMPLE, SORTKEY CONTAINS DATA AS READ FROM DB,                  
+      *             ICWVRSV-SUB CONTAINS THE TRUE SUB SORT SEQUENCE)            
+      *                                                                         
+      *         SUBSCRIPT    ICWVRSV-SORTREC()   ICWVRSV-SUB()                  
+      *            1              CCC               2 (1ST ROW @ SUB 2)         
+      *            2              AAA               4 (2ND ROW @ SUB 4)         
+      *            3              DDD               1 (3RD ROW @ SUB 1)         
+      *            4              BBB               3 (4TH ROW @ SUB 3)         
+                                                                                
+      *   (ICWVRSV-SUB1 WILL NOW CONTAIN THE NEXT ARRAY ELEMENT)                
+           MOVE ICWVRSV-SUB (ICWVRSV-SORTSUB) TO ICWVRSV-SUB1.                  
+                                                                                
+      *   (RETRIEVE THE INSLOR CUSTOMER/SEQUENCE)                               
+           MOVE ICWVRSV-SEG-KEY (ICWVRSV-SUB1)                                  
+             TO WS-INSLOR-KEY-VALUE                                             
+           MOVE ' ='                         TO WS-INSLOR-SEARCH                
+           PERFORM 1814-GHU-INSLOR-VIA-PART.                                    
+                                                                                
+      *   (WHEN MATCHING INSLOR FOUND, TRY TO USE IT)                   AXR05234
+           IF  WS-INSLOR-NORESP                                                 
+           AND INL-RESERVE-SEGMENT                                              
+           AND INL-CUST-BR-NBR = ICWVRSV-CUST-BR-NBR (ICWVRSV-SUB1)             
+           AND INL-CUST-NBR    = ICWVRSV-CUST-NBR (ICWVRSV-SUB1)                
+           AND INL-CUST-SEQ    = ICWVRSV-CUST-SEQ (ICWVRSV-SUB1)                
+           AND INL-EFFECT-DATE = ICWVRSV-EFFECT-DATE (ICWVRSV-SUB1)     AXR05234
+               PERFORM ICSVRSVU-K110-REPL-INSLOR                                
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVU-K110-REPL-INSLOR.                                               
+      ******************************************************************        
+      * RECALCULATE INL-QTY-SHIPPED-TO-DATE BASED ON HOW MUCH RESERVE  *        
+      * CAN BE USED FROM THIS SEQUENCE AND THEN UPDATE INSLOR          *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-K110-REPL-INSLOR.                                               
+                                                                                
+      *   (CALCULATE NET RESERVE QUANITY REMAINING FOR A SEQUENCE)              
+           IF  INL-RESERVE-QTY NUMERIC                                  AXR05234
+           AND INL-QTY-SHIPPED-TO-DATE NUMERIC                          AXR05234
+               COMPUTE ICWVRSV-VISRSV-NETQTY                                    
+                     = INL-RESERVE-QTY - INL-QTY-SHIPPED-TO-DATE                
+           ELSE                                                         AXR05234
+               MOVE ZERO                     TO ICWVRSV-VISRSV-NETQTY   AXR05234
+           END-IF.                                                      AXR05234
+                                                                                
+      *   (CALCULATE HOW MUCH OF RQST QTY CAN BE APPLIED TO SEQUENCE)           
+      *   EXAMPLES WHERE REQUESTED QUANITY = 10                                 
+      *                                                 VISRSV                  
+      *      RESERVE-QTY  QTY-SHIPPED-TO-DATE  NETQTY   SEQQTY                  
+      *      ===========  ===================  ======   ======                  
+      *           100             100            0        0  :CASE1     AXR05234
+      *           100              75           25       10  :CASE2     AXR05234
+      *           100              90           10       10  :CASE2     AXR05234
+      *           100              98            2        2  :CASE3     AXR05234
+                                                                                
+      *   (DETERMINE HOW MUCH OF RQST QTY CAN BE APPLIED FROM SEQUENCE) AXR05234
+           EVALUATE TRUE                                                        
+      *     (CASE 1: NO NET REMAINING RESERVES, APPLY NONE FROM RES SEQ)AXR05234
+             WHEN ICWVRSV-VISRSV-NETQTY <= ZERO                                 
+                  MOVE ZERO                  TO ICWVRSV-VISRSV-SEQQTY           
+      *     (CASE 2: NET RESERVES MEET/EXCEED REQUEST, APPLY ALL)       AXR05234
+             WHEN ICWVRSV-VISRSV-NETQTY >= ICWVRSV-RQSTQTY                      
+                  MOVE ICWVRSV-RQSTQTY       TO ICWVRSV-VISRSV-SEQQTY           
+      *     (CASE 3: NET RESERVES PARTIALLY MEET REQUEST, APPLY SOME)   AXR05234
+             WHEN ICWVRSV-VISRSV-NETQTY <  ICWVRSV-RQSTQTY                      
+                  MOVE ICWVRSV-VISRSV-NETQTY TO ICWVRSV-VISRSV-SEQQTY           
+           END-EVALUATE.                                                        
+                                                                                
+      *   (UPDATE INSLOR SEQUENCE WHEN RESERVE QUANTITY CAN BE APPLIED) AXR05234
+           IF ICWVRSV-VISRSV-SEQQTY > ZERO                                      
+      *      (INITIALIZE AUDIT LAYOUT AND SAVE BEFORE DATA)             AXR05234
+              PERFORM ICSVRSVA-M000-SETUP-AUDIT-BEF                     AXR05234
+              ADD ICWVRSV-VISRSV-SEQQTY      TO INL-QTY-SHIPPED-TO-DATE         
+      *      (SET THE LAST DATE THIS RESERVE SEQUENCE APPLIED TO ORDER) AXR05234
+              MOVE ICWVRSV-DATE-YYDDD        TO INL-DATE-LAST-SHIP      AXR05234
+              MOVE 'N'                       TO WS-INSLOR-IO-SW                 
+              PERFORM 1874-REPL-INSLOR-VIA-PART                                 
+                                                                                
+              IF WS-INSLOR-NORESP                                               
+      *         (AFTER THE UPDATE, FORMAT AND WRITE THE RESERVE AUDIT)  AXR05234
+                 PERFORM ICSVRSVA-N000-WRITE-AUDIT-AFT                  AXR05234
+      *         (REDUCE RUNNING REQUESTED FULFILLMENT QUANTITY)         AXR05234
+                 SUBTRACT ICWVRSV-VISRSV-SEQQTY FROM ICWVRSV-RQSTQTY            
+      *         (INCREASE RUNNING LINE QUANTITY FULFILLED FROM RESERVES)AXR05234
+                 ADD ICWVRSV-VISRSV-SEQQTY   TO ICWVRSV-VISRSV-LINEQTY          
+                 PERFORM ICSVRSVU-K112-INC-ORSCAP-TABLE                         
+              ELSE                                                              
+      *         (SET AN ERROR AND GET OUT IF ANY I/O PROBLEMS)                  
+                 SET ICWVRSV-STATUS-IO-ERR   TO TRUE                            
+                 SET ICWVRSV-DONE-YES        TO TRUE                            
+              END-IF                                                            
+                                                                                
+      *      (WHEN ALL ORDER QUANTITY PROCESSED, SET DONE INDICATOR)            
+              IF ICWVRSV-RQSTQTY <= ZERO                                        
+                 SET ICWVRSV-DONE-YES        TO TRUE                            
+              END-IF                                                            
+                                                                                
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVU-K112-INC-ORSCAP-TABLE.                                          
+      ******************************************************************        
+      * ADD TO THE INTERNAL ARRAY OF RESERVE INV ORSCAP TABLE ENTRIES  *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-K112-INC-ORSCAP-TABLE.                                          
+                                                                                
+      *   (BUILD W/S ORSCAP ENTRY WITH RESERVE SEQUENCE DATA)                   
+           ADD 1                             TO ICWVRSV-ORSCAP-COUNT.           
+                                                                                
+           INITIALIZE ICWVRSV-ORSCAP-DATA (ICWVRSV-ORSCAP-COUNT).       AXR05234
+                                                                        AXR05234
+      *   (ORSCAP-COUNT SEQUENCE IS LATER INVERSED DURING ORSCAP INSERT)AXR05234
+           MOVE ICWVRSV-ORSCAP-COUNT                                    AXR05234
+             TO ICWVRSV-VRS-APLD-SEQ (ICWVRSV-ORSCAP-COUNT).            AXR05234
+           MOVE ICWVRSV-CUST-BR-NBR (ICWVRSV-SUB1)                              
+             TO ICWVRSV-VRS-CUST-BR-NBR (ICWVRSV-ORSCAP-COUNT).                 
+           MOVE ICWVRSV-CUST-NBR (ICWVRSV-SUB1)                                 
+             TO ICWVRSV-VRS-CUST-NBR (ICWVRSV-ORSCAP-COUNT).                    
+           MOVE ICWVRSV-CUST-SEQ (ICWVRSV-SUB1)                                 
+             TO ICWVRSV-VRS-CUST-SEQ (ICWVRSV-ORSCAP-COUNT).                    
+           MOVE ICWVRSV-VISRSV-SEQQTY                                           
+             TO ICWVRSV-VRS-ALLOC-QTY (ICWVRSV-ORSCAP-COUNT).                   
+           MOVE ICWVRSV-EFFECT-DATE (ICWVRSV-SUB1)                              
+             TO ICWVRSV-VRS-EFFECT-DATE (ICWVRSV-ORSCAP-COUNT).                 
+                                                                                
+                                                                                
+      *ICSVRSVU-K200-UPDT-INSBRN-RSV.                                           
+      ******************************************************************        
+      * UPDATE THE BRANCH RESERVE TOTAL QUANTITY, EITHER UP OR DOWN    *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-K200-UPDT-INSBRN-RSV.                                           
+                                                                                
+      *   (UPDATE TOTAL RESERVE QUANTITY ON INSBRN FOR SKU/BR)                  
+           MOVE 'N'                          TO WS-INSBRN-IO-SW                 
+           PERFORM 1562-GHU-INSBRN                                              
+                                                                                
+           IF WS-INSBRN-NORESP                                                  
+      *     (TEMPQTY CAN BE POSITIVE OR NEGATIVE ADJUSTMENT QTY)                
+              IF INB-RES-QTY NUMERIC                                    AXR05234
+                 COMPUTE INB-RES-QTY = INB-RES-QTY + ICWVRSV-TEMPQTY    AXR05234
+              END-IF                                                    AXR05234
+      *     (THE BRANCH RESERVE TOTAL CAN NOT BE NEGATIVE)              AXR05234
+             IF INB-RES-QTY NEGATIVE                                    AXR05234
+                MOVE ZERO                    TO INB-RES-QTY             AXR05234
+             END-IF                                                     AXR05234
+             MOVE 'N'                        TO WS-INSBRN-IO-SW                 
+             PERFORM 1650-REPL-INSBRN                                           
+             IF NOT WS-INSBRN-NORESP                                            
+                SET ICWVRSV-STATUS-IO-ERR    TO TRUE                            
+                SET ICWVRSV-DONE-YES         TO TRUE                            
+             END-IF                                                             
+           ELSE                                                                 
+              SET ICWVRSV-STATUS-IO-ERR      TO TRUE                            
+              SET ICWVRSV-DONE-YES           TO TRUE                            
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVU-L000-REVERSE-VRSV-LN.                                           
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE RETRIEVES ALL THE RESERVE INVENTORY      <<<**         
+      **>>> ORSCAP SEGMENTS ASSOCIATED TO AN ORDER LINE,          <<<**         
+      **>>> REVERSING THE CORRESPONDING INSLOR SEGMENT DATA.      <<<**         
+      **>>> IT ASSUMES THAT THE ORSLNE HAS ALREADY BEEN READ.     <<<**         
+      **>>>                                                       <<<**         
+      **>>> INPUT:                                                <<<**         
+      **>>>   1. ICWVRSV-RQSTQTY = REQUESTED REVERSAL QTY,        <<<**         
+      **>>>      USE ORL-ALLOC-RESERVE-QTY IF FULL LINE REVERSAL  <<<**         
+      **>>>   2. ICWVRSV-PARENTAGE-SET-IND = OPTIONAL INDICATOR   <<<**         
+      **>>>      TO RE-SET ORSLNE PARENTAGE. SET TO 'Y' IN THE    <<<**         
+      **>>>      APPLICATIONS THAT HAVE PROPER POSITIONING TO     <<<**         
+      **>>>      AVOID REDUNDANT I/O.                             <<<**         
+      **>>>                                                       <<<**         
+      **>>> OUTPUT:                                               <<<**         
+      **>>>   1. ICWVRSV-VISRSV-QTY = ACTUAL REVERSAL QTY TOTAL   <<<**         
+      **>>>                                                       <<<**         
+      **>>> REQUIRED I/O COPYBOOKS:                               <<<**         
+      **>>>   1204-GU-ORSLNE.            COPY ORIO1204.           <<<**         
+      **>>>   1268-GNP-ORSCAP.           COPY ORIO1268.           <<<**         
+      **>>>   1562-GHU-INSBRN.           COPY INIO1562.           <<<**         
+      **>>>   1650-REPL-INSBRN.          COPY INIO1650.           <<<**         
+      **>>>   1814-GHU-INSLOR-VIA-PART.  COPY INIO1814.           <<<**         
+      **>>>   1874-REPL-INSLOR-VIA-PART. COPY INIO1874.           <<<**         
+      **>>>                                                       <<<**         
+      **>>>                                                       <<<**         
+      **>>> EXAMPLE1: RQSTQTY=20, ACTUAL VISRSV=12, DIFF=8 WHICH  <<<**         
+      **>>>           IS ADDED BACK TO G.A. AND LINE RESV SET -20 <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ICSVRSVU-L000-REVERSE-VRSV-LN.                                           
+                                                                                
+      *   (INITIALIZE PROCESSING TOTALS).                                       
+           SET ICWVRSV-STATUS-OKAY           TO TRUE.                   AXR05234
+           MOVE ZERO                         TO ICWVRSV-VISRSV-QTY.             
+           MOVE 'N'                          TO ICWVRSV-DONE-IND.               
+                                                                                
+      *   (SETUP ORSCAP SSA)                                                    
+           PERFORM ICSVRSVU-L100-INIT-ORSCAP.                                   
+                                                                                
+      *   (WHEN NECESSARY RE-ESTABLISH PARENTAGE ON ORLSNE)                     
+           IF ICWVRSV-PARENTAGE-NOTSET                                          
+              PERFORM ICSVRSVU-L200-GET-ORSLNE                                  
+           END-IF.                                                              
+                                                                                
+      *   (PRIMING READ FOR ORSCAP)                                             
+           IF ICWVRSV-STATUS-OKAY                                               
+              MOVE 'N'                       TO WS-ORSCAP-IO-SW                 
+              PERFORM 1268-GNP-ORSCAP                                           
+           END-IF.                                                              
+                                                                                
+      *   (PROCESS EACH RETRIEVED ORSCAP)                                       
+           IF  ICWVRSV-STATUS-OKAY                                              
+           AND WS-ORSCAP-NORESP                                                 
+              PERFORM ICSVRSVU-L300-REVERSE-ORSCAP                              
+                UNTIL ICWVRSV-DONE-YES                                          
+           END-IF.                                                              
+                                                                                
+      *   (IF REVERSE QTY REQUESTED=20, ACTUAL REVERSAL=12 ADDED TO BR)         
+      *   (IF REVERSE QTY REQUESTED=20, ACTUAL REVERSAL=20 ADDED TO BR)         
+      *   (IF REVERSE QTY REQUESTED=20, ACTUAL REVERSAL=0, NOT EXEC)            
+                                                                                
+      *   (ADD VISRSV TOTAL APPLIED TO INSLOR SEGMENTS TO INB-RES-QTY)          
+           IF ICWVRSV-VISRSV-A-QTY                                              
+      *      (INCREMENT RESERVE QUANTITY ON INSBRN FOR SKU/BR USING             
+      *       TOTAL RESERSAL QUANTITY TO OPEN RESERVE SEQUENCES)                
+              MOVE ICWVRSV-VISRSV-QTY        TO ICWVRSV-TEMPQTY                 
+              IF ICWVRSV-UPDATE-INSBRN-YES                              AXR05234
+                 PERFORM ICSVRSVU-K200-UPDT-INSBRN-RSV                  AXR05234
+              END-IF                                                    AXR05234
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVU-L100-INIT-ORSCAP.                                               
+      ******************************************************************        
+      * INITIALIZE ORSCAP SSA AND DATA AREAS                           *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-L100-INIT-ORSCAP.                                               
+                                                                                
+      *   (INITIALIZE WS-ORSCAP-KEY-VALUE).                                     
+           MOVE '=>'                         TO WS-ORSCAP-SEARCH.               
+           MOVE LOW-VALUES                   TO WS-ORSCAP-KEY.                  
+           MOVE 'V'                          TO WS-ORSCAP-SEG-TYPE.             
+                                                                                
+      *   (INITIALIZE OUTPUT AREA).                                             
+           INITIALIZE ORC-VISIBLE-RESERVE-SEG.                                  
+                                                                                
+                                                                                
+      *ICSVRSVU-L200-GET-ORSLNE.                                                
+      ******************************************************************        
+      * RE-ESTABLISH ORSLNE PARENTAGE AND POSITIONING                  *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-L200-GET-ORSLNE.                                                
+                                                                                
+      *   (SAVE SSA VALUES)                                                     
+           MOVE WS-ORSLNE-COMMAND-CODEOF   TO ICWVRSV-SAVE-COMMAND-CODE.        
+           MOVE WS-ORSLNE-QUAL             TO ICWVRSV-SAVE-QUAL.                
+           MOVE WS-ORSLNE-SEARCH           TO ICWVRSV-SAVE-SEARCH.              
+                                                                                
+      *   (FORCE SSA VALUES)                                                    
+           MOVE '*---'                     TO WS-ORSLNE-COMMAND-CODEOF.         
+           MOVE '('                        TO WS-ORSLNE-QUAL.                   
+           MOVE ' ='                       TO WS-ORSLNE-SEARCH.                 
+                                                                                
+      *   (RE-ESTABLISH ORSLNE PARENTAGE AND POSITIONING)                       
+           MOVE 'N'                          TO WS-ORSLNE-IO-SW.                
+           PERFORM 1204-GU-ORSLNE.                                              
+                                                                                
+      *   (RESTORE SSA VALUES)                                                  
+           MOVE ICWVRSV-SAVE-COMMAND-CODE  TO WS-ORSLNE-COMMAND-CODEOF.         
+           MOVE ICWVRSV-SAVE-QUAL          TO WS-ORSLNE-QUAL.                   
+           MOVE ICWVRSV-SAVE-SEARCH        TO WS-ORSLNE-SEARCH.                 
+                                                                                
+                                                                                
+      *ICSVRSVU-L300-REVERSE-ORSCAP.                                            
+      ******************************************************************        
+      * PROCESS EACH RETRIEVED ORSCAP, RETRIEVING/UPDATING             *        
+      * CORRESPONDING INSLOR, THEN READING NEXT ORSCAP                 *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-L300-REVERSE-ORSCAP.                                            
+                                                                                
+      *   (ASSUME NO MATCHING INSLOR CORRESPONDS TO ORSCAP)                     
+           MOVE 'N'                          TO ICWVRSV-MATCH-IND.              
+                                                                                
+      *   (SETUP INSLOR SSA WITH DATA FROM ORSCAP)                              
+           PERFORM ICSVRSVU-L310-ORSCAP-TO-INSLOR.                              
+                                                                                
+      *   (GET AND HOLD THE CORRESPONDING INSLOR)                               
+           PERFORM 1814-GHU-INSLOR-VIA-PART.                                    
+                                                                                
+      *   (VERIFY THAT MATCHING INSLOR FOUND FOR CURRENT ORSCAP)                
+           IF WS-INSLOR-NORESP                                                  
+              IF  INL-RESERVE-SEGMENT                                           
+              AND INL-RSV-VISIBLE                                               
+              AND INL-CUST-BR-NBR      = ORC-VRS-CUST-BR-NBR                    
+              AND INL-CUST-NBR         = ORC-VRS-CUST-NBR                       
+              AND INL-CUST-SEQ         = ORC-VRS-CUST-SEQ                       
+              AND INL-EFFECT-DATE      = ORC-EFFECT-DATE                        
+      *      (ONLY USE ORSCAP WHEN ALLOC-QTY NOT PREVIOUSLY DEPLETED)   AXR05234
+              AND ORC-VRS-ALLOC-QTY    > ZERO                           AXR05234
+                  MOVE 'Y'                   TO ICWVRSV-MATCH-IND               
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+      *   (WHEN A MATCHING RESERVE FOUND THEN DECREMENT QTY SHIPPED             
+      *    FROM RESERVE SEQUENCE WHICH INCREASES NET AVAIL RES QTY)             
+           IF ICWVRSV-MATCH-YES                                                 
+              PERFORM ICSVRSVU-L320-DECR-INSLOR                                 
+           END-IF.                                                              
+                                                                                
+      *   (ATTEMPT TO READ READ NEXT ORSCAP)                                    
+           MOVE 'N'                          TO WS-ORSCAP-IO-SW.                
+           PERFORM 1268-GNP-ORSCAP.                                             
+                                                                                
+      *   (STOP PROCESSING WHEN NO MORE ORSCAP SEGMENTS FOUND)                  
+           IF NOT WS-ORSCAP-NORESP                                              
+              MOVE 'Y'                       TO ICWVRSV-DONE-IND                
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *ICSVRSVU-L310-ORSCAP-TO-INSLOR.                                          
+      ******************************************************************        
+      * FORMAT INSLOR SSA USING DATA RETRIEVED FROM ORSCAP             *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-L310-ORSCAP-TO-INSLOR.                                          
+                                                                                
+      *   (INITIALIZE SSA FIELDS)                                               
+           MOVE LOW-VALUES                   TO WS-INSLOR-KEY-VALUE.            
+                                                                                
+      *   (SETS UP THE INKLOR SSA USING THE DATA FROM 'V' ORSCAP TO             
+      *    GET CORRESPONDING VISIBLE RESERVE SEQUENCE)                          
+                                                                                
+           MOVE '= '                         TO WS-INSLOR-SEARCH.               
+                                                                                
+           MOVE '2'                          TO WS-INSLOR-SEG-TYPE.             
+                                                                                
+           MOVE ORC-VRS-CUST-BR-NBR          TO WS-INSLOR-CUST-BR.              
+           MOVE ORC-VRS-CUST-NBR             TO WS-INSLOR-CUST-NBR.             
+           MOVE ORC-VRS-CUST-SEQ             TO WS-INSLOR-CUST-SEQ.             
+                                                                                
+                                                                                
+      *ICSVRSVU-L320-DECR-INSLOR.                                               
+      ******************************************************************        
+      * UPDATE INSLOR SEGMENT, DECREASING THE SHIPPED RESERVE QUANTITY *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       ICSVRSVU-L320-DECR-INSLOR.                                               
+                                                                                
+      *   (INITIALIZE AUDIT LAYOUT AND SAVE BEFORE DATA)                AXR05234
+           PERFORM ICSVRSVA-M000-SETUP-AUDIT-BEF                        AXR05234
+                                                                                
+      *   (REVERSE THE ENTIRE RESERVE QTY FROM THE ORSCAP SEQUENCE,             
+      *    EXCEPT WHEN PROCESSING A PARTIAL REVERSAL QUANTITY)                  
+           MOVE ZERO TO ICWVRSV-TEMPQTY.                                AXR05234
+           IF (ORC-VRS-ALLOC-QTY + ICWVRSV-VISRSV-QTY)                  AXR05234
+                   <= ICWVRSV-RQSTQTY                                   AXR05234
+      *      (CALC TEMP REVERSAL QTY AS ORIG RESERVE SEQ QTY ON ORSCAP) AXR05234
+              COMPUTE ICWVRSV-TEMPQTY                                           
+                    = ORC-VRS-ALLOC-QTY                                         
+           ELSE                                                                 
+      *      (CALC TEMP REVERSAL QTY AS OUTSTANDING REQUEST BALANCE)    AXR05234
+              COMPUTE ICWVRSV-TEMPQTY                                           
+                    = ICWVRSV-RQSTQTY - ICWVRSV-VISRSV-QTY              AXR05234
+           END-IF.                                                              
+                                                                                
+      *   (BY REDUCING SHIPPED-TO-DATE, NET AVAILABLE RES QTY INCREASES)        
+           IF INL-QTY-SHIPPED-TO-DATE NUMERIC                           AXR05234
+              COMPUTE INL-QTY-SHIPPED-TO-DATE                           AXR05234
+                    = INL-QTY-SHIPPED-TO-DATE - ICWVRSV-TEMPQTY         AXR05234
+           END-IF.                                                      AXR05234
+                                                                        AXR05234
+      *   (A NEGATIVE SHIPPED-TO-DATE QUANTITY IS NOT ALLOWED)          AXR05234
+           IF INL-QTY-SHIPPED-TO-DATE NEGATIVE                          AXR05234
+              MOVE ZERO TO INL-QTY-SHIPPED-TO-DATE                      AXR05234
+           END-IF.                                                      AXR05234
+                                                                                
+      *   (ATTEMPT TO UPDATE THE INSLOR SEGMENT)                                
+           MOVE 'N'                          TO WS-INSLOR-IO-SW.                
+           PERFORM 1874-REPL-INSLOR-VIA-PART.                                   
+                                                                                
+      *   (WHEN SUCCESSFUL INSLOR, INCREMENT TOTAL VISRSV REVERSAL QTY  AXR05234
+      *    AND WRITE THE RESERVE AUDIT)                                 AXR05234
+           IF WS-INSLOR-NORESP                                                  
+              ADD ICWVRSV-TEMPQTY            TO ICWVRSV-VISRSV-QTY              
+              PERFORM ICSVRSVA-N000-WRITE-AUDIT-AFT                     AXR05234
+                                                                        AXR05234
+      *      (MIGHT MAKE SENSE TO GHU-ORSCAP, SUBTRACT ICWVRSV-TEMPQTY  AXR05234
+      *       FROM ORC-VRS-ALLOC-QTY, THEN REPL-ORSCAP TO REFLECT       AXR05234
+      *       SUCCESSFUL REVERSAL OF A QTY, PREVENTING RE-REVERSALS!)   AXR05234
+           END-IF.                                                              
+                                                                                
+      *   (STOP PROCESSING ORSCAP SEGMENTS WHEN ACTUAL REVERSAL QTY             
+      *    IS EQUAL TO OR EXECEEDS REQUESTED REVERSAL QUANTITY)                 
+           IF ICWVRSV-VISRSV-QTY >= ICWVRSV-RQSTQTY                             
+              MOVE 'Y'                       TO ICWVRSV-DONE-IND                
+           END-IF.                                                              
+                                                                        AXR05234
+                                                                        AXR05234
+      ******************************************************************        
+      * USE COPY REPLACING TO SUBSTITUTE PLACEHOLDER PARAGRAPHS FOR    *        
+      * THE ACTUAL I/O PROCESS FOR ANY ROUTINES YOUR PROGRAM DOES      *        
+      * NOT REQUIRE.  FOR EXAMPLE, IF A PROGRAM DOES UPDATES (SUCH     *        
+      * AS ORDER LINE VOID) BUT IT DOES NOT INSERT AN ORDER LINE       *        
+      * DESCRIPTION, IT WILL NOT NEED TO ISRT-ORSDES, THEN USE:        *        
+      *     COPY ICSVRSVU REPLACING 1344-ISRT-ORSDES                   *        
+      *                         BY ICSVRSVU-1344-PLACEHOLDER.          *        
+      *                                                                *        
+      * AS LONG AS J000- IS NOT PERFORMED, THEN THE 1344 I/O ROUTINE   *        
+      * WILL NOT BE INVOKED, AND IF IT ACCIDENTALLY DOES, THEN THE     *        
+      * PLACEHOLDER ROUTINE WILL BE INVOKED, SETTING AN I/O ERROR.     *        
+      *                                                                *        
+      ******************************************************************        
+                                                                        AXR05234
+                                                                        AXR05234
+      ******************************************************************AXR05234
+      * WHEN AN APPLICATION USES COMMON ROUTINES THAT DO NOT USE       *AXR05234
+      * USE A SPECIFIC I/O ROUTINE THEN USE 'COPY REPLACING' TO        *AXR05234
+      * REPLACE I/O ROUTINE WITH THE CORRESPONDING PLACEHOLDER.        *AXR05234
+      *                                                                *AXR05234
+      ******************************************************************AXR05234
+      *1204-GU-ORSLNE.            COPY ORIO1204.                                
+       ICSVRSVU-1204-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-ORSLNE-IO-SW.                
+                                                                                
+      *1268-GNP-ORSCAP.           COPY ORIO1268.                                
+       ICSVRSVU-1268-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-ORSCAP-IO-SW.                
+                                                                                
+      *1344-ISRT-ORSDES.          COPY ORIO1344.                                
+       ICSVRSVU-1344-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-ORSDES-IO-SW.                
+                                                                                
+      *1346-ISRT-ORSCAP.          COPY ORIO1346.                                
+       ICSVRSVU-1346-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-ORSCAP-IO-SW.                
+                                                                                
+      *1562-GHU-INSBRN            COPY INIO1562.                                
+       ICSVRSVU-1562-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-INSBRN-IO-SW.                
+                                                                                
+      *1650-REPL-INSBRN           COPY INIO1650.                                
+       ICSVRSVU-1650-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-INSBRN-IO-SW.                
+                                                                                
+      *1814-GHU-INSLOR-VIA-PART.  COPY INIO1814.                                
+       ICSVRSVU-1814-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-INSLOR-IO-SW.                
+                                                                                
+      *1845-GNP-INSLOR-VIA-PART.  COPY INIO1845.                                
+       ICSVRSVU-1845-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-INSLOR-IO-SW.                
+                                                                                
+      *1874-REPL-INSLOR-VIA-PART. COPY INIO1874.                                
+       ICSVRSVU-1874-PLACEHOLDER.                                               
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           MOVE 'N'                          TO WS-INSLOR-IO-SW.                
+                                                                                

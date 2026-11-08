@@ -1,0 +1,211 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT015                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV015 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV015-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV015-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV015-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV015-CO-CD                                  *          
+      *              - EDV015-PARTNER-ID                             *          
+      *              - EDV015-BILL-TO-ADDR-FLG                       *          
+      *              - EDV015-LINES-PRSNT-FLG                        *          
+      *              - EDV015-MULTI-HEADER-FLG                       *          
+      *              - EDV015-ASSET-TAG-FLG                          *          
+      *              - EDV015-CREDIT-MEMO-FLG                        *          
+      *              - EDV015-MISC-CHRG-FLG                          *          
+      *              - EDV015-SERIAL-NBR-FLG                         *          
+      *              - EDV015-SHIPPER-LINES-FLG                      *          
+      *              - EDV015-ORDER-TYPE-FLG                         *          
+      *              - EDV015-LST-CHG-TS                             *          
+      *              - EDV015-LST-CHG-NAM                            *          
+      *              - EDV015-ETA-DAYS                               *          
+      *              - EDV015-XREF-CUST-PART-FLG                     *  SXP01141
+      *              - EDV015-ORDR-PRNT-FLG                          *  JEH06233
+      *              - EDV015-ORDR-CONF-SENT-FLG                     *  JEH06233
+      *              - EDV015-ORP899-RPT-CD                          *  JEH06233
+      *              - EDV015-SEND-CUST-PART-FLG                     *  JEH06233
+      *              - EDV015-SEND-VOID-LINE-FLG                     *  JEH06233
+      *              - EDV015-ST-ADDR-SENT-FLG                       *  JEH06233
+      *              - EDV015-RPT-BRK-BILLTO-FLG                     *  JEH06233
+      *              - EDV015-RPT-BRK-CUST-FLG                       *  JEH06233
+      *              - EDV015-RPT-BRK-SHIPTO-FLG                     *  JEH06233
+      *              - EDV015-RPT-ORDR-STUS-CD                       *  JEH06233
+      *                                                              *          
+      *    OUTPUT: EDV015-OUTPUT-DATA                                *          
+      *          - EDV015-ROW-COUNT                                  *          
+      *          - EDV015-MODULE-RESULT-CD                           *          
+      *          - EDV015-MODULE-MESSAGE                             *          
+      *          - EDV015-DATABASE-RESULT-CODES:                     *          
+      *              - EDV015-SQLCA VALUES                           *          
+      *              - EDV015-SQLCODE                                *          
+      *              - EDV015-SQLSTATE                               *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV015 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV015-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV015-PARTNER-ID.                *          
+      *     MOVE 'S ' TO EDV015-ACTION-CD.     .                     *          
+      *     MOVE 'IE_OUT_ORDR_STS_SW' TO EDV015-OBJECT-ID.                      
+      *                                                              *          
+      *     CALL 'EDV015' USING EDV015-COMMUNICATIONS-AREA.          *          
+      *     IF EDV015-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV015 TO VALIDATE THAT IT     *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT015 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *      8434      05/04/19  MYM   ADDED CLASS CODE SW           *  MYM19124
+      *      25243     05/12/18  AM1   ADDED XREF PO FLAG            *  ABM18132
+      *      25047     06/17/17  RYD   ADDED KIT FLAGS               *  RYD17168
+      *      NONE      09/15/16  RYD   ADD FLAG FOR USE DSA DATA     *  RYD16259
+      *      23059N    08/21/06  JEH   ADD FLAGS FROM CBLTBL FOR SR4 *  JEH06233
+      *                                ORP865 CONVERSION.            *  JEH06233
+      *      32512     10/23/03  MOG   ADDED EDV015-ORDR-PRNT-FLG    *  MOG03296
+      *      42643E    05/21/01  SXP   ADDED EDV015-XREF-CUST-PART-FLG  SXP01141
+      *                04/22/01  SXP   ORIGINAL.                     *          
+      ****************************************************************          
+                                                                                
+       01  EDV015-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV015-ACTION-CD                     PIC  X(002).                
+               88  EDV015-SELECT                    VALUE 'S '.                 
+               88  EDV015-INSERT                    VALUE 'I '.                 
+               88  EDV015-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV015-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV015-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV015-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV015-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV015-COUNT                     VALUE 'C '.                 
+           05  EDV015-USER-ID                       PIC  X(010).                
+           05  EDV015-KEY-AREA.                                                 
+               10  EDV015-KEY-CO-CD                 PIC  X(002).                
+               10  EDV015-KEY-PARTNER-ID            PIC  X(015).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV015-INPUT-OUTPUT-AREA.                                        
+               10  EDV015-OBJECT-ID                 PIC  X(030).                
+                   88  EDV015-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV015-IE-OUT-ORDR-STS-SW    VALUE                       
+                                  'IE_OUT_ORDR_STS_SW            '.             
+               10  EDV015-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV015-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV015-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV015-CO-CD                 PIC  X(002).                
+                   15  EDV015-PARTNER-ID            PIC  X(015).                
+                   15  EDV015-BILL-TO-ADDR-FLG      PIC  X(001).                
+                   15  EDV015-LINES-PRSNT-FLG       PIC  X(001).                
+                   15  EDV015-MULTI-HEADER-FLG      PIC  X(001).                
+                   15  EDV015-ASSET-TAG-FLG         PIC  X(001).                
+                   15  EDV015-CREDIT-MEMO-FLG       PIC  X(001).                
+                   15  EDV015-MISC-CHRG-FLG         PIC  X(001).                
+                   15  EDV015-SERIAL-NBR-FLG        PIC  X(001).                
+                   15  EDV015-SHIPPER-LINES-FLG     PIC  X(001).                
+                   15  EDV015-ORDER-TYPE-FLG        PIC  X(001).                
+                   15  EDV015-LST-CHG-TS            PIC  X(026).                
+                   15  EDV015-LST-CHG-NAM           PIC  X(015).                
+                   15  EDV015-ETA-DAYS              PIC  S9(009).               
+                   15  EDV015-XREF-CUST-PART-FLG    PIC  X(001).        SXP01141
+                   15  EDV015-ORDR-PRNT-FLG         PIC  X(001).        MOG03296
+                   15  EDV015-ORDR-CONF-SENT-FLG    PIC  X(001).        JEH06233
+                   15  EDV015-ORP899-RPT-CD         PIC  X(001).        JEH06233
+                   15  EDV015-SEND-CUST-PART-FLG    PIC  X(001).        JEH06233
+                   15  EDV015-SEND-VOID-LINE-FLG    PIC  X(001).        JEH06233
+                   15  EDV015-ST-ADDR-SENT-FLG      PIC  X(001).        JEH06233
+                   15  EDV015-RPT-BRK-BILLTO-FLG    PIC  X(001).        JEH06233
+                   15  EDV015-RPT-BRK-CUST-FLG      PIC  X(001).        JEH06233
+                   15  EDV015-RPT-BRK-SHIPTO-FLG    PIC  X(001).        JEH06233
+                   15  EDV015-RPT-ORDR-STUS-CD      PIC  X(001).        JEH06233
+                   15  EDV015-USE-DSA-DATES-FLG     PIC  X(001).        RYD16259
+                       88  EDV015-USE-DSA-DATES-YES      VALUE 'Y'.     RYD16259
+                       88  EDV015-USE-DSA-DATES-NO       VALUE 'N'.     RYD16259
+                   15  EDV015-CONFIG-KIT-FLG        PIC  X(001).        RYD17168
+                       88  EDV015-CONFIG-KIT-SYS         VALUE 'S'.     RYD17168
+                       88  EDV015-CONFIG-KIT-COMP        VALUE 'C'.     RYD17168
+                       88  EDV015-CONFIG-KIT-BOTH        VALUE 'B'.     RYD17168
+                   15  EDV015-NON-CONFIG-KIT-FLG    PIC  X(001).        RYD17168
+                       88  EDV015-NON-CONFIG-KIT-SYS      VALUE 'S'.    RYD17168
+                       88  EDV015-NON-CONFIG-KIT-COMP     VALUE 'C'.    RYD17168
+                       88  EDV015-NON-CONFIG-KIT-BOTH     VALUE 'B'.    RYD17168
+                   15  EDV015-SND-XREF-PO-FLG       PIC  X(001).        ABM18132
+                       88  EDV015-SND-XREF-PO-FLG-YES     VALUE 'Y'.    ABM18132
+                   15  EDV015-CLS-CD-FLG            PIC  X(001).        MYM19124
+                       88  EDV015-CLS-CD-YES              VALUE 'Y'.    MYM19124
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV015-OUTPUT-DATA.                                              
+               10  EDV015-ROW-COUNT                 PIC  S9(009).               
+               10  EDV015-MODULE-RESULT-CD          PIC  X(002).                
+                   88  EDV015-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV015-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV015-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV015-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV015-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV015-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV015-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV015-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV015-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV015-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV015-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV015-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV015-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV015-EXCEPTION-MESSAGE.                                    
+                   15  EDV015-MSG-OBJECT            PIC  X(030).                
+                   15  EDV015-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV015-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV015-SQLCA.                                            
+                       20  EDV015-SQLCAID           PIC  X(008).                
+                       20  EDV015-SQLCABC           PIC  S9(009).               
+                       20  EDV015-SQLCODE           PIC  S9(009).               
+                       20  EDV015-SQLERRM.                                      
+                           25  EDV015-SQLERRML      PIC  S9(004).               
+                           25  EDV015-SQLERRMC      PIC  X(070).                
+                       20  EDV015-SQLERRP           PIC  X(008).                
+                       20  EDV015-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV015-SQLWARN.                                      
+                           25  EDV015-SQLWARN0      PIC  X(001).                
+                           25  EDV015-SQLWARN1      PIC  X(001).                
+                           25  EDV015-SQLWARN2      PIC  X(001).                
+                           25  EDV015-SQLWARN3      PIC  X(001).                
+                           25  EDV015-SQLWARN4      PIC  X(001).                
+                           25  EDV015-SQLWARN5      PIC  X(001).                
+                           25  EDV015-SQLWARN6      PIC  X(001).                
+                           25  EDV015-SQLWARN7      PIC  X(001).                
+                       20  EDV015-SQLEXT.                                       
+                           25  EDV015-SQLWARN8      PIC  X(001).                
+                           25  EDV015-SQLWARN9      PIC  X(001).                
+                           25  EDV015-SQLWARNA      PIC  X(001).                
+                           25  EDV015-SQLSTATE      PIC  X(005).                

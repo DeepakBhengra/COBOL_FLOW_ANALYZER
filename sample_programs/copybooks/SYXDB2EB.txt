@@ -1,0 +1,90 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *REVISON LOG:                                                    *SYJ20220
+      *------------                                                    *SYJ20220
+      *  DATE        USER    DESCRIPTION                               *SYJ20220
+      *  --------    ----    -----------                               *SYJ20220
+      *  08/07/20    SYJ     ADDED LOGIC TO CAPTURE MESSAGE-3 AND 4    *SYJ20220
+      ******************************************************************        
+      *                                                                         
+      *    SYXDB2EB                                                             
+      *                                                                         
+      *    BATCH DB2 ERROR TEXT MESSAGE HANDLER.                                
+      *    FUNCTIONS:                                                           
+      *       1)  CONVERT SQL RETURN CODE INTO A TEXT MESSAGE.                  
+      *       2)  DISPLAY THE CONVERTED SQL TEXT MESSAGE                        
+      *       3)  DISPLAY THE 'EXTRA' DIAGNOSTIC MESSAGE LINES.                 
+      *                                                                         
+      *    NOTE: REQUIRES WORKING-STORAGE COPYBOOK SYWDB2ER.                    
+      ******************************************************************        
+      *                                                                         
+      * PROGRAM EXAMPLE:                                                        
+      *    .                                                                    
+      * WORKING-STORAGE.                                                        
+      *    COPY SYWDB2ER.                                                       
+      *    .                                                                    
+      *    .                                                                    
+      * PROCEDURE DIVISION.                                                     
+      *    .                                                                    
+      *    EXEC SQL XXXXXXX    END-EXEC                                         
+      *    .                                                                    
+      *    IF TROUBLE                                                           
+      *       MOVE 'RECORD NOT FOUND'     TO  SYWDB2-EXTRA-MESSAGE-1            
+      *       MOVE WS-KEY-INFO            TO  SYWDB2-EXTRA-MESSAGE-2            
+      *       PERFORM 990-SQL-MESSAGE                                           
+      *    ELSE                                                                 
+      *       IF BIG-TROUBLE                                                    
+      *          MOVE 'UPDATE ERROR'      TO  SYWDB2-EXTRA-MESSAGE-1            
+      *          MOVE WS-KEY-INFO         TO  SYWDB2-EXTRA-MESSAGE-2            
+      *          PERFORM 990-SQL-MESSAGE                                        
+      *          PERFORM 999-ABEND.                                             
+      *    .                                                                    
+      *    .                                                                    
+      *                             COPY SYXDB2EB.                              
+      *    .                                                                    
+      *999-ABEND.                   COPY ERXBATCH.                              
+      *    .                                                                    
+      ******************************************************************        
+      *                                                                         
+      *    SYXDB2EB                                                             
+      *                                                                         
+       990-SQL-MESSAGE.                                                         
+      *                                                                         
+           DISPLAY '***'                                                        
+           DISPLAY '*** SQL ERROR:'                                             
+           DISPLAY '***'                                                        
+      *                                                                         
+      *    EXTRA MESSAGE LINES                                                  
+      *                                                                         
+           IF SYWDB2-EXTRA-MESSAGE-1 > SPACES                                   
+              DISPLAY SYWDB2-EXTRA-MESSAGE-1.                                   
+      *                                                                         
+           IF SYWDB2-EXTRA-MESSAGE-2 > SPACES                                   
+              DISPLAY SYWDB2-EXTRA-MESSAGE-2.                                   
+      *                                                                         
+           IF SYWDB2-EXTRA-MESSAGE-3 > SPACES                           SYJ20220
+              DISPLAY SYWDB2-EXTRA-MESSAGE-3                            SYJ20220
+           END-IF.                                                      SYJ20220
+      *                                                                 SYJ20220
+           IF SYWDB2-EXTRA-MESSAGE-4 > SPACES                           SYJ20220
+              DISPLAY SYWDB2-EXTRA-MESSAGE-4                            SYJ20220
+           END-IF.                                                      SYJ20220
+      *                                                                 SYJ20220
+      *    CONVERT SQL RETURN CODE TO TEXT MESSAGE                              
+      *                                                                         
+           CALL 'DSNTIAR'           USING  SQLCA                                
+                                           SYWDB2-ERROR-MESSAGE                 
+                                           SYWDB2-ERROR-TEXT-LEN                
+      *                                                                         
+      *    DISPLAY NON-BLANK MESSAGE LINES                                      
+      *                                                                         
+           PERFORM VARYING SYWDB2-ERROR-INDEX                                   
+                FROM   +1                                                       
+                BY     +1                                                       
+                UNTIL  SYWDB2-ERROR-INDEX > +10                                 
+              IF SYWDB2-ERROR-TEXT (SYWDB2-ERROR-INDEX) > SPACES                
+                 DISPLAY SYWDB2-ERROR-TEXT (SYWDB2-ERROR-INDEX)                 
+              END-IF                                                            
+           END-PERFORM.                                                         
+      *                                                                         

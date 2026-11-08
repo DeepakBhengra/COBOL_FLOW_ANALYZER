@@ -1,0 +1,285 @@
+﻿      *****************************************************************         
+      *  ICSCOP25- ORD PROCEDURE LOGIC FOR BRAZIL NET PRICE MISC CALC *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 01/27/2024 AP3 EVEREST: FOR GDS, PUSH EMEA UPLIFT DATA FROM   * AP324027
+      *                ICWCOP TO ORSLNEOF                             * AP324027
+      * 08/06/2021 SYJ CNP- WHEN NO ACOP IS APPLIED, MOVE UPLIFT      * SYJ21218
+      *                CODES TO ORSLNEOF SO THAT BATCH RECOST CAN PICK* SYJ21218
+      *                PROPER VALUES FOR UPLIFT COMPUTATION.          * SYJ21218
+      * 04/16/2021 TGF HELLO WORLD                                    * TGF21106
+      *****************************************************************         
+       PROCESS-BRAZIL-MISC-COST.                                                
+                                                                                
+           IF INI-CONV-BASE-PRICE   NOT NUMERIC                                 
+              MOVE +0             TO INI-CONV-BASE-PRICE                        
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-BR-MISC-COST NOT NUMERIC                                   
+              MOVE +0             TO ICWCOP-BR-MISC-COST                        
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-BR-IMPORT-TAX NOT NUMERIC                                  
+              MOVE +0             TO ICWCOP-BR-IMPORT-TAX                       
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-BR-MISC-RATE   NOT NUMERIC                                 
+              MOVE +0             TO ICWCOP-BR-MISC-RATE                        
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-VEND-CURR-RATE NOT NUMERIC                                 
+           OR ICWCOP-VEND-CURR-RATE = ZERO                                      
+              IF TB-CURR-RATE NUMERIC AND                                       
+                 TB-CURR-RATE NOT EQUAL ZERO                                    
+                 MOVE TB-CURR-RATE     TO ICWCOP-VEND-CURR-RATE                 
+              ELSE                                                              
+                 MOVE +1               TO ICWCOP-VEND-CURR-RATE                 
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-BR-MISC-COST > +0                                          
+              MOVE ICWCOP-BR-MISC-COST TO ORLOF-MISC-COST                       
+           ELSE                                                                 
+              COMPUTE ICWCOP-BR-MISC-COST   = (INI-CONV-BASE-PRICE              
+                                            * (ICWCOP-BR-MISC-RATE              
+                                            + ICWCOP-BR-IMPORT-TAX)             
+                                            * (ICWCOP-VEND-CURR-RATE))          
+              MOVE ICWCOP-BR-MISC-COST TO ORLOF-MISC-COST                       
+              IF INI-CONV-CURR-CALC-CODE = TB-CPO-CURRENCY-CODE                 
+                 COMPUTE ORL-UNIT-COST      = (INI-CONV-BASE-PRICE +            
+                                               ORLOF-MISC-COST)                 
+              ELSE                                                              
+      * ICWCOP-BR-MISC-COST WAS/IS HELD IN LOCAL SO CAN'T ADD IN LIKE THIS      
+      * SO HERE - ASSUME INI-CONV-BASE IS FRGN - SO CONVERT TO LOCAL            
+                 COMPUTE ORL-UNIT-COST      = (INI-CONV-BASE-PRICE              
+                                             * ICWCOP-VEND-CURR-RATE)           
+      * THEN ADD MISC INTO ORL-UNIT-COST TO HAVE SUM                            
+                 COMPUTE ORL-UNIT-COST      = (ORL-UNIT-COST +                  
+                                               ORLOF-MISC-COST)                 
+           END-IF.                                                              
+                                                                                
+      * CLEAN UP ICWCOP-BR-MISC-COST                                            
+           MOVE ZERO                   TO ICWCOP-BR-MISC-COST.                  
+                                                                                
+       BRAZIL-MISC-COST-EXIT.                                                   
+           EXIT.                                                                
+                                                                                
+      * THIS IS FOR B2B/REP AND NO ACOP LINES AND NP COUNTRY, SO SET            
+      * ORLOF-NP-IND AS NEEDED                                                  
+       PROCESS-NP-CTRY-FLAG.                                                    
+                                                                                
+           IF TB-CPO7-NET-PRICNG-CTRY                                           
+              EVALUATE TRUE                                                     
+                  WHEN ORHOF-NP-ORDER-BACK-2-BACK                               
+                       SET ORLOF-NP-B2B-LINE                                    
+                                       TO TRUE                                  
+                  WHEN ORHOF-NP-ORDER-REPLNISHMNT                               
+                       SET ORLOF-NP-REPLNISHMNT-LINE                            
+                                       TO TRUE                                  
+              END-EVALUATE                                                      
+           END-IF.                                                              
+                                                                                
+           IF TB-CPO-EUROPEAN-CNTRY         AND                         SYJ21218
+              TB-CPO-ALT-INVENTORY-ALLOWED  AND                         SYJ21218
+              TB-CPO7-NET-PRICNG-PROCESS    AND                         SYJ21218
+              VNH-NET-PRICING                                           SYJ21218
+      *FOR GDS VENDOR, UPLIFT WOULD BE CALCULATED BY GPE/GDS AND PASSED AP324027
+      *TO IMPULSE IN RESPONSE. SO, NO NEED TO EXECUTE LOGIC IN THIS     AP324027
+      *PARA EMEA-UPLIFT-NPACOP-NPVEND FOR GDS DATA.                     AP324027
+            IF TB-CPO7-GDS-PROCESS AND                                  AP324027
+               (VNH-GDS-PROCESS OR VNH-GDS-ORD-PROCESS)                 AP324027
+              PERFORM EMEA-GDS-UPLIFT-NOACOP-NP                         AP324027
+                 THRU EMEA-GDS-UPLIFT-NOACOP-NP-EXIT                    AP324027
+            ELSE                                                        AP324027
+              PERFORM EMEA-UPLIFT-NOACOP-NPVEND                         SYJ21218
+                 THRU EMEA-UPLIFT-NOACOP-NPVEND-EXIT                    SYJ21218
+            END-IF                                                      AP324027
+           END-IF.                                                      SYJ21218
+                                                                        SYJ21218
+       PROCESS-NP-CTRY-FLAG-EXIT.                                               
+           EXIT.                                                                
+                                                                                
+      *IF THERE IS NO ACOP,CAPTURE THE EMEA-UPLIFT CODES AND RATES AND  SYJ21218
+      *SO IF BATCH PICKS ACOP, PROPER UPLIFT WILL BE COMPUTED.          SYJ21218
+      *FOR PF26 - INP387 WILL NOT BE CALLED BUT THE BOUNDARY CHECK FOR  SYJ21218
+      *SPACES/ZEROS WILL HELP TO NOT UPDATE ORLOF VALUES AND SO THE     SYJ21218
+      *DATA REMAINS INTACT FOR FURTHER RECOST/REPRICE.                  SYJ21218
+       EMEA-UPLIFT-NOACOP-NPVEND.                                       SYJ21218
+                                                                        SYJ21218
+           IF INR387-OUT-RETURN-OK                                      SYJ21218
+      *OWNING UPLIFT VALUE                                              SYJ21218
+              IF INR387-OWNING-TAX-CODE > SPACES                        SYJ21218
+                 MOVE INR387-OWNING-TAX-CODE                            SYJ21218
+                                       TO ORLOF-EMEA-NP-OWN-TAX-CD      SYJ21218
+              END-IF                                                    SYJ21218
+              IF INR387-OWNING-DUTY-CODE > SPACES                       SYJ21218
+                 MOVE INR387-OWNING-DUTY-CODE                           SYJ21218
+                                       TO ORLOF-EMEA-NP-OWN-DUTY-CD     SYJ21218
+              END-IF                                                    SYJ21218
+              IF INR387-OWNING-VNDR-FRT-CODE > SPACES                   SYJ21218
+                 MOVE INR387-OWNING-VNDR-FRT-CODE                       SYJ21218
+                                       TO ORLOF-EMEA-NP-OWN-VNDR-FRT-CD SYJ21218
+              END-IF                                                    SYJ21218
+      * FOR STOCK ORLOF-EMEA-NP-OWN-VNDR-FRT-AMT HOLD THE OWING BASE    SYJ21218
+      * COST - ORLOF-EMEA-NP-OWN-BSE-COST                               SYJ21218
+              IF ICWCOP-NP-STOCK-ORDER                                  SYJ21218
+                 IF INR387-STKING-BASE-COST NUMERIC AND                 SYJ21218
+                    INR387-STKING-BASE-COST NOT = ZERO                  SYJ21218
+                    MOVE INR387-STKING-BASE-COST                        SYJ21218
+                                       TO ORLOF-EMEA-NP-OWN-BSE-COST    SYJ21218
+                 END-IF                                                 SYJ21218
+                 MOVE ZEROS            TO ORLOF-EMEA-NP-OWN-VNDR-FRT-RTESYJ21218
+              ELSE                                                      SYJ21218
+      * FOR DROPSHIP ORLOF-EMEA-NP-OWN-VNDR-FRT-AMT HOLD THE VF AMOUNT  SYJ21218
+                IF ICWCOP-OWNING-NP-VNDR-FRT-AMT NUMERIC AND            SYJ21218
+                   ICWCOP-OWNING-NP-VNDR-FRT-AMT NOT = ZERO             SYJ21218
+                   MOVE ICWCOP-OWNING-NP-VNDR-FRT-AMT                   SYJ21218
+                                       TO ORLOF-EMEA-NP-OWN-VNDR-FRT-AMTSYJ21218
+                END-IF                                                  SYJ21218
+                IF INR387-OWNING-VNDR-FRT-RATE NUMERIC AND              SYJ21218
+                   INR387-OWNING-VNDR-FRT-RATE NOT = ZERO               SYJ21218
+                   MOVE INR387-OWNING-VNDR-FRT-RATE                     SYJ21218
+                                       TO ORLOF-EMEA-NP-OWN-VNDR-FRT-RTESYJ21218
+                END-IF                                                  SYJ21218
+              END-IF                                                    SYJ21218
+      *ORLOF-EMEA-NP-OWN-MISC-COST IS IN CP'S LOCAL CURRENCY(USD)       SYJ21218
+              IF INR387-OWNING-MISC-COST NUMERIC AND                    SYJ21218
+                 INR387-OWNING-MISC-COST NOT = ZERO                     SYJ21218
+                 MOVE INR387-OWNING-MISC-COST                           SYJ21218
+                                       TO ORLOF-EMEA-NP-OWN-MISC-COST   SYJ21218
+              END-IF                                                    SYJ21218
+      *DUAL UPLIFT VALUE                                                SYJ21218
+              IF INR387-UPLIFT-DUAL-MIRROR                              SYJ21218
+                 IF INR387-DUAL-TAX-CODE > SPACES                       SYJ21218
+                    MOVE INR387-DUAL-TAX-CODE                           SYJ21218
+                                       TO ORLOF-EMEA-NP-DUAL-TAX-CD     SYJ21218
+                 END-IF                                                 SYJ21218
+                 IF INR387-DUAL-DUTY-CODE > SPACES                      SYJ21218
+                    MOVE INR387-DUAL-DUTY-CODE                          SYJ21218
+                                       TO ORLOF-EMEA-NP-DUAL-DUTY-CD    SYJ21218
+                 END-IF                                                 SYJ21218
+      *ORLOF-EMEA-NP-DUAL-MISC-COST STORES IN LOCALS                    SYJ21218
+                 IF INR387-DUAL-MISC-COST-LOCAL NUMERIC AND             SYJ21218
+                    INR387-DUAL-MISC-COST-LOCAL NOT = ZERO              SYJ21218
+                    MOVE INR387-DUAL-MISC-COST-LOCAL                    SYJ21218
+                                       TO ORLOF-EMEA-NP-DUAL-MISC-COST  SYJ21218
+                 END-IF                                                 SYJ21218
+              ELSE                                                      SYJ21218
+                 MOVE SPACES           TO ORLOF-EMEA-NP-DUAL-TAX-CD     SYJ21218
+                                          ORLOF-EMEA-NP-DUAL-DUTY-CD    SYJ21218
+                 MOVE ZEROS            TO ORLOF-EMEA-NP-DUAL-MISC-COST  SYJ21218
+              END-IF                                                    SYJ21218
+      *SELLING UPLIFT VALUE                                             SYJ21218
+              IF INR387-SELLING-TAX-CODE > SPACES                       SYJ21218
+                 MOVE INR387-SELLING-TAX-CODE                           SYJ21218
+                                       TO ORLOF-EMEA-NP-SELL-TAX-CD     SYJ21218
+              END-IF                                                    SYJ21218
+              IF INR387-SELLING-DUTY-CODE > SPACES                      SYJ21218
+                 MOVE INR387-SELLING-DUTY-CODE                          SYJ21218
+                                       TO ORLOF-EMEA-NP-SELL-DUTY-CD    SYJ21218
+              END-IF                                                    SYJ21218
+      *STORE ORLOF-EMEA-NP-SELL-MISC-COST IN LOCALS                     SYJ21218
+              IF INR387-SELL-MISC-COST-LOCAL NUMERIC AND                SYJ21218
+                 INR387-SELL-MISC-COST-LOCAL NOT = ZERO                 SYJ21218
+                 MOVE INR387-SELL-MISC-COST-LOCAL                       SYJ21218
+                                       TO ORLOF-EMEA-NP-SELL-MISC-COST  SYJ21218
+              END-IF                                                    SYJ21218
+           ELSE                                                         SYJ21218
+              MOVE SPACES              TO ORLOF-EMEA-NP-OWN-TAX-CD      SYJ21218
+                                          ORLOF-EMEA-NP-OWN-DUTY-CD     SYJ21218
+                                          ORLOF-EMEA-NP-OWN-VNDR-FRT-CD SYJ21218
+                                          ORLOF-EMEA-NP-DUAL-TAX-CD     SYJ21218
+                                          ORLOF-EMEA-NP-DUAL-DUTY-CD    SYJ21218
+                                          ORLOF-EMEA-NP-SELL-TAX-CD     SYJ21218
+                                          ORLOF-EMEA-NP-SELL-DUTY-CD    SYJ21218
+              MOVE ZEROS               TO ORLOF-EMEA-NP-OWN-BSE-COST    SYJ21218
+                                          ORLOF-EMEA-NP-OWN-VNDR-FRT-RTESYJ21218
+                                          ORLOF-EMEA-NP-OWN-VNDR-FRT-AMTSYJ21218
+                                          ORLOF-EMEA-NP-OWN-MISC-COST   SYJ21218
+                                          ORLOF-EMEA-NP-DUAL-MISC-COST  SYJ21218
+                                          ORLOF-EMEA-NP-SELL-MISC-COST  SYJ21218
+           END-IF.                                                      SYJ21218
+                                                                        SYJ21218
+       EMEA-UPLIFT-NOACOP-NPVEND-EXIT.                                  SYJ21218
+                                 EXIT.                                  SYJ21218
+                                                                        SYJ21218
+      ***************************************************************** AP324027
+      *MOVE EMEA UPLIFT DETAILS FROM ICWCOP AREA FOR GDS TRANSACTION  * AP324027
+      ***************************************************************** AP324027
+       EMEA-GDS-UPLIFT-NOACOP-NP.                                       AP324027
+                                                                        AP324027
+      *OWNING UPLIFT VALUE                                              AP324027
+           IF ICWCOP-OWNING-TAX-CODE > SPACES                           AP324027
+              MOVE ICWCOP-OWNING-TAX-CODE                               AP324027
+                                       TO ORLOF-EMEA-NP-OWN-TAX-CD      AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+           IF ICWCOP-OWNING-DUTY-CODE > SPACES                          AP324027
+              MOVE ICWCOP-OWNING-DUTY-CODE                              AP324027
+                                       TO ORLOF-EMEA-NP-OWN-DUTY-CD     AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+           IF ICWCOP-OWNING-VNDR-FRT-CODE > SPACES                      AP324027
+              MOVE ICWCOP-OWNING-VNDR-FRT-CODE                          AP324027
+                                       TO ORLOF-EMEA-NP-OWN-VNDR-FRT-CD AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+      * FOR STOCK ORLOF-EMEA-NP-OWN-VNDR-FRT-AMT HOLD THE OWING BASE    AP324027
+      * COST - ORLOF-EMEA-NP-OWN-BSE-COST                               AP324027
+           IF ICWCOP-NP-STOCK-ORDER                                     AP324027
+              IF ICWCOP-OWNING-BASE-COST NUMERIC                        AP324027
+                 MOVE ICWCOP-OWNING-BASE-COST                           AP324027
+                                       TO ORLOF-EMEA-NP-OWN-BSE-COST    AP324027
+              END-IF                                                    AP324027
+              MOVE ZEROS            TO ORLOF-EMEA-NP-OWN-VNDR-FRT-RTE   AP324027
+           ELSE                                                         AP324027
+      * FOR DROPSHIP ORLOF-EMEA-NP-OWN-VNDR-FRT-AMT HOLD THE VF AMOUNT  AP324027
+              IF ICWCOP-OWNING-NP-VNDR-FRT-AMT NUMERIC                  AP324027
+                 MOVE ICWCOP-OWNING-NP-VNDR-FRT-AMT                     AP324027
+                                       TO ORLOF-EMEA-NP-OWN-VNDR-FRT-AMTAP324027
+              END-IF                                                    AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+      *ORLOF-EMEA-NP-OWN-MISC-COST IS IN CP'S LOCAL CURRENCY(USD)       AP324027
+           IF ICWCOP-OWNING-MISC-COST NUMERIC                           AP324027
+              MOVE ICWCOP-OWNING-MISC-COST                              AP324027
+                                       TO ORLOF-EMEA-NP-OWN-MISC-COST   AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+      *DUAL UPLIFT VALUE                                                AP324027
+           IF ICWCOP-DUAL-TAX-CODE > SPACES                             AP324027
+              MOVE ICWCOP-DUAL-TAX-CODE                                 AP324027
+                                       TO ORLOF-EMEA-NP-DUAL-TAX-CD     AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+           IF ICWCOP-DUAL-DUTY-CODE > SPACES                            AP324027
+              MOVE ICWCOP-DUAL-DUTY-CODE                                AP324027
+                                       TO ORLOF-EMEA-NP-DUAL-DUTY-CD    AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+      *ORLOF-EMEA-NP-DUAL-MISC-COST STORES IN LOCALS                    AP324027
+           IF ICWCOP-DUAL-MISC-COST NUMERIC                             AP324027
+              MOVE ICWCOP-DUAL-MISC-COST                                AP324027
+                                       TO ORLOF-EMEA-NP-DUAL-MISC-COST  AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+      *SELLING UPLIFT VALUE                                             AP324027
+           IF ICWCOP-SELLING-TAX-CODE > SPACES                          AP324027
+              MOVE ICWCOP-SELLING-TAX-CODE                              AP324027
+                                       TO ORLOF-EMEA-NP-SELL-TAX-CD     AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+           IF ICWCOP-SELLING-DUTY-CODE > SPACES                         AP324027
+              MOVE ICWCOP-SELLING-DUTY-CODE                             AP324027
+                                       TO ORLOF-EMEA-NP-SELL-DUTY-CD    AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+      *STORE ORLOF-EMEA-NP-SELL-MISC-COST IN LOCALS                     AP324027
+           IF ICWCOP-SELLING-MISC-COST NUMERIC                          AP324027
+              MOVE ICWCOP-SELLING-MISC-COST                             AP324027
+                                       TO ORLOF-EMEA-NP-SELL-MISC-COST  AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+       EMEA-GDS-UPLIFT-NOACOP-NP-EXIT.                                  AP324027
+           EXIT.                                                        AP324027
+                                                                        AP324027

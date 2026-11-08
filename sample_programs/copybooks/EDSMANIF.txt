@@ -1,0 +1,48 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *AMAY9077
+      ******************************************************************        
+      ******************************************************************        
+      *                                                                         
+      *    EDSMANIF - PROCEDURAL COPYBOOK FOR EDI 204 (MOTOR CARRIER            
+      *               SHIPMENT INFORMATION) DAILY MANIFEST PROCESSING.          
+      *                                                                         
+      *    03/18/99  LIB  NEW                                           LIB99077
+      *                                                                         
+      ******************************************************************        
+       EDSMANIF-100-TBXCARR-FOR-SCAC.                                           
+                                                                                
+              MOVE SPACES               TO WS-SCAC-CODE                         
+              MOVE TC-COMPANY           TO TB-CARR-CO                           
+              MOVE BTN-CARRIER-CODE     TO TB-CARR-CODE                         
+              CALL 'SYU510'          USING TB-CARRIER-TABLE-IA                  
+              IF TB-CARR-NORESP AND                                             
+                 TB-CARR-SCAC-CODE > SPACE                                      
+                 MOVE 'Y'               TO WS-TBXCARR-FOUND-SW                  
+                 MOVE TB-CARR-SCAC-CODE TO WS-SCAC-CODE                         
+              ELSE                                                              
+                 MOVE 'N'               TO WS-TBXCARR-FOUND-SW                  
+              END-IF.                                                           
+                                                                                
+       EDSMANIF-100-EXIT.                                                       
+            EXIT.                                                               
+                                                                                
+       EDSMANIF-200-WRITE-TO-MQ.                                                
+                                                                                
+    *** THIS PROGRAM DOES NOT USE A CORRELATION QUEUE TO TRIGGER THE            
+    *** BASE QUEUE PROCESSING. SPACES TO WS-MQ-CORRELATION-NAME ENSURES         
+    *** THAT THE CORRELATION ID LOGIC DOESN'T GET HIT.                          
+                                                                                
+            MOVE SPACES                 TO WS-MQ-CORRELATION-NAME               
+            PERFORM 8000-MQ-INITIALIZATION                                      
+                                                                                
+            MOVE WS-QN-LITERAL          TO WS-MQ-BASE-NAME                      
+            PERFORM 8000-MQ-INIT-BASE-QUEUE                                     
+                                                                                
+            COMPUTE MQUTIL-DATA-LENGTH = LENGTH OF BTN-TRKMST                   
+            MOVE BTN-TRKMST              TO MQPDBR-DATA                         
+            PERFORM 8100-MQ-PUT-BASE-MESSAGE                                    
+            PERFORM 8200-MQ-TERMINATE-BASE-QUEUE.                               
+                                                                                
+       EDSMANIF-200-EXIT.                                                       
+            EXIT.                                                               
+                                                                                

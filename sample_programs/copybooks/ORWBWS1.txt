@@ -1,0 +1,924 @@
+      *****************************************************************         
+      *                                                               *         
+      *    ORDER BILLING WORK FILE    ------------  COPY ORWBWS1      *         
+      *        ------ CHANGES TO THIS COPYBOOK THAT AFFECT THE LRECL  *         
+      *         ------ MUST ALSO BE MADE TO THE FOLLOWING COPYBOOKS:  *         
+      *                                                               *         
+      *               ORWBFD1, ORWBWS1, ORRHWS, ORRHFD                * MJW91129
+      *                                                               *         
+      *                                                                *KMR95009
+      *    NOTE: VSAM FILE FOR ABOVE CPYLIB MEMBERS IS 1000... FILLER  *KMR95009
+      *          HAS BEEN ADDED TO THE END OF EACH SEGMENT SO THAT     *KMR95009
+      *          YOU CAN ADD DATA ELEMENTS W/OUT EFFECTING VSAMDEF'S   *KMR95009
+      *          OR EXPANDING THE ACTUAL FILES.  FILLER HAS BEEN ADDED *KMR95009
+      *          TO THIS CPYLIB MEMBER SO THAT ALL = 630.              *KMR95009
+      *                                                                *KMR95009
+      *MICD CHANGES                                                   *         
+      * 04/03/20 MZM  ADDED W TO LINE ROLL SW FOR APPLE CARE           *MZM20089
+      * 11/16/18 CYG  ADDED NEW 88 VARIABLE FOR INDIA GST PHASE-II     *CYG18320
+      * 05/12/17 BXD  ENDLESS AISLE PROJECT CHANGES FOR ALPHA          *BXD17132
+      *               NUMERIC BRANCHES.                                *BXD17132
+      * 01/17/14 RLH  ADD SERIAL-NUMBER-TYPE FIELD                     *RLH14017
+      * 03/11/05 RLH  ADD REDEFINES FOR ORBH-ORWBWS                    *RLH05070
+      * 07/04/04 SCT  CHINESE CHARACTER                                *SCT04240
+      * 05/25/02 DBC  PRICING ENHANCEMENTS 2001 PROJECT.               *MEP02145
+      *                      ! DO NOT USE THE ORBL-REQ-PROFIT-PCT-ORIG *MEP02145
+      *                      FIELD. THIS FIELD IS RESERVED FOR         *MEP02145
+      *                      ARCHIVING PURPOSES ONLY !!!               *MEP02145
+      * 10/04/01 SXO  EXPANDED ORBL-LINE-RECORD LENGTH FROM 730 TO 1000*SXO01277
+      *               FOR THE SAGENCY PROJECT                          *SXO01277
+      * 05/03/00 GAE ADDED SECOND SOURCE FIELDS AND MAKE ORBC- DATA    *GAE00124
+      *              FIELDS IN SYNCH WITH ORWBFD.                      *GAE00124
+      * 11/11/99 TEH  ADDED ORBA-DATE-REL,ORBA-TIME-REL,ORBA-OPER-ID   *TEH99320
+      * 05/18/99 LMH  ADDED 88 LEVELS FOR ORBH-ORDER-SHIP-COMPLETE AND *LMH99138
+      *               ORBH-CONSOLIDATED-SHIPMENT                       *LMH99138
+      * 02/05/98 AXG  ADDED 'CLP' TO 88 LEVEL                          *AXG98036
+      * 07/03/97 JHW  INCREASE LENGTH OF ORBH-ORWBWS TO 1000 BYTES     *JHW97183
+      * 05/28/97 JXH  RENAME ORHH-CUBIC-FT TO FILLER                   *JXH97148
+      * 04/15/97 RAP  REDEFINED ORBH-IMAGINE-APPLY-FLAG TO             *RAP97105
+      *               ORBH-RESELLER-IN-TRANSIT-FLAG FOR FULFILLMENT    *RAP97105
+      * 07-05-96 GEH  UTILIZE "OLD" S/N REC FOR ASSET TAG AND S/N REC   GEH96187
+      * 06-10-96 MJS  ADDED 88 LVL FOR EARLY PAY TERMS                * MJS96162
+      * 10-20-95 LLS  CHANGED ALL REFERENCES OF GWMD TO IMAGINE       * LLS95293
+      * 01-09-95 KMR  INCREASE FILE LENGTH TO 1000 FOR FUTURE USE     * KRM95009
+      * 01-03-95 GEH  ADD COMMENTS CONCERNING FREIGHT REC PROCESSING  * GEH95003
+      * 08/11/94 ACP  INCREASE HDR REC LENGTH FROM 474 TO 482         * ACP94223
+      * 04/15/94 ACP  INCREASE HDR REC LENGTH FROM 444 TO 474         * ACP94105
+      * 11/16/93 GEH  ADD NEW FREIGHT DATA REC TYPE   (PAR# 31747)    * GEH93320
+      * 09/20/93 GEH  ADD NEW 30 BYTE SERIAL NBR RECORD TYPE          * GEH93263
+      * 02/02/93 TMH  ADD 88 LEVEL TO COPY-CODE (ITALY BILLING)       * TMH93033
+      * 10/02/92 CJS  ADD NEW FIELDS TO THE LINE SEGMENT              * CJS92276
+      * 09/29/92 JMB  ADD NEW FIELDS TO THE LINE SEGMENT              * JMB92273
+      *               FOR GOVERNMENT BIDS PROJECT:                    * JMB92273
+      *               1. GOVERNMENT BID FLAG (Y OR N)                 * JMB92273
+      *               2. RELATED GOVT BID GSN                         * JMB92273
+      *               3. RELATED GOVT BID VSN                         * JMB92273
+      * 09/18/92 TMH  ADD 88 LEVEL FOR COD TERMS                      * TMH92262
+      * 07/20/92 ELB  ADD  ORBL-ADJUSTED-COST                         * ELB92202
+      * 05/29/92 MJW  ITALY CONVERSION PROJECT                        * MJW92200
+      * 01/28/92 MCV  MOVE VAT-TAX-FIELDS; ADD VAT-TAX-CODE ;         * MCV92028
+      *               CHANGE VAT-TAX-RATE TO COMP-3 ;                 * MCV92028
+      *               MOVE FUTURE LINE AREA TO LINE AREA.             * MCV92028
+      *    01/27/92 MCV  LINE FILLER                                  * MCV92027
+      *    01/24/92 PTG  ADD 2 FIELDS VAT TAX RATE, VAT TAX AMT        *PTG92024
+      *    05/08/91 MJW  FILTERED; ADDED FILLER FOR FUTURE USE        * MJW91129
+      * MODIFIED 2.56 ORWBWS FOR 5.0 (5.0 DOES NOT HAVE ORWBWS)       *         
+      *    * REV MD56      F.R.                841201     870710      *         
+      *    * REV 2.56      KMJH                840801     840806      *         
+      *    * REV 2.50      F.R.                840313     840404      *         
+      *    * REV 2.00      F.R.                831121     831216      *         
+      *    * REV 1.40      KMJH                831011     831020      *         
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+      *****************************************************************         
+      *                                                               *         
+      *    ORDER BILLING WORK SHIP HEADER RECORD LRECL=1000  (FIXED)  * JHW97183
+      *                                                               *         
+      *****************************************************************         
+                                                                        KMR95009
+       01  ORBH-ORWBWS.                                                         
+           05  ORBH-SHIP-HEADER-SORT-KEY.                                       
+               10  ORBH-SORT-BR-NBR-SHIP-FROM      PIC X(2).                    
+               10  ORBH-SORT-BR-NBR-INVENTORY      PIC X(2).                    
+               10  ORBH-SORT-IS-SALESMAN           PIC X(4).                    
+               10  ORBH-SORT-INV-INFO REDEFINES ORBH-SORT-IS-SALESMAN.  MJW91129
+                   15  ORBH-SORT-INV-DATE          PIC S9(5) COMP-3.    MJW91129
+                   15  ORBH-SORT-INV-TYPE          PIC X(1).            MJW91129
+               10  ORBH-SORT-OS-SALESMAN           PIC X(4).                    
+               10  ORBH-SORT-POSTAL-CODES          PIC X(6).                    
+               10  ORBH-SORT-ZIP-CODE REDEFINES ORBH-SORT-POSTAL-CODES.         
+                   15  ORBH-SORT-ZIP               PIC S9(9) COMP-3.            
+                   15  FILLER                      PIC X(1).                    
+               10  ORBH-SORT-BILL-TO.                                           
+                   15  ORBH-SORT-BILL-TO-BR-NBR    PIC X(2).                    
+                   15  ORBH-SORT-BILL-TO-CUST-NBR  PIC X(6).                    
+                   15  ORBH-SORT-BILL-TO-SUFFIX    PIC X(3).                    
+               10  ORBH-SORT-PRINT-CODE            PIC X(1).            MJW91129
+           05  ORBH-KEY-SHIP-HEADER.                                            
+               10  ORBH-COMPANY                    PIC X(2).                    
+               10  ORBH-BR-NBR                     PIC X(2).                    
+               10  ORBH-ORDER-NBR                  PIC X(5).                    
+               10  ORBH-DIST-NBR                   PIC 9(1).                    
+               10  ORBH-SHIPMENT-NBR               PIC 9(1).                    
+               10  ORBH-CR-SEQ                     PIC X(1).                    
+               10  ORBH-LINE-NBR                   PIC 9(3).                    
+                   88  ORBH-LINE-NBR-VALUE                VALUE 000.            
+               10  ORBH-RECORD-CODE                PIC X(1).                    
+               10  ORBH-SEQ-NBR                    PIC 9(1).                    
+                   88  ORBH-SEQ-NBR-VALUE                 VALUE 0.              
+       02  ORBH-SHIP-HEADER-DATA.                                               
+           05  ORBH-SHIP-STATUS                    PIC X(1).                    
+               88  ORBH-OPEN-SHIPMENT                     VALUE ' '.            
+               88  ORBH-BILLING-RECORD                    VALUE 'E'.            
+               88  ORBH-FORCE-BILLING                     VALUE 'F'.            
+               88  ORBH-INVOICE                           VALUE 'I'.            
+               88  ORBH-BILLED                            VALUE 'B'.            
+               88  ORBH-RECEIVED                          VALUE 'R'.            
+               88  ORBH-VOIDED                            VALUE 'V'.            
+               88  ORBH-PAID-STATUS                       VALUE 'P'.            
+               88  ORBH-TRANSFERRED                       VALUE 'T'.            
+           05  ORBH-ORDER-TYPE                     PIC X(1).                    
+               88  ORBH-BR-TRANSFER-ORDER                 VALUE 'B'.            
+               88  ORBH-CASH-ORDER                        VALUE 'C'.            
+               88  ORBH-DIRECT-ORDER                      VALUE 'D'.            
+               88  ORBH-FUTURE-ORDER                      VALUE 'F'.            
+               88  ORBH-JOB-ORDER                         VALUE 'J'.            
+               88  ORBH-MEMO-ORDER                        VALUE 'M'.            
+               88  ORBH-SPECIAL-ORDER                     VALUE 'P'.            
+               88  ORBH-STOCK-ORDER                       VALUE 'S'.            
+           05  ORBH-DIV-CODE                       PIC X(1).                    
+           05  ORBH-BILL-TO-NBR.                                                
+               10  ORBH-BILL-TO-BR-NBR             PIC X(2).                    
+               10  ORBH-BILL-TO-CUST-NBR           PIC X(6).                    
+               10  ORBH-BILL-TO-SUFFIX             PIC X(3).                    
+               10  ORBH-BILL-TO-CUST-TYPE          PIC X(1).                    
+                   88  ORBH-TYPE-SHIP-TO                  VALUE 'Z'.            
+                   88  ORBH-TYPE-TRANSFER                 VALUE 'T'.            
+                   88  ORBH-TYPE-CASH                     VALUE 'C'.            
+                   88  ORBH-TYPE-EMPLOYEE                 VALUE 'X'.            
+               10  ORBH-BILL-TO-CUST-REGION        PIC X(3).                    
+           05  ORBH-SHIP-TO-NBR.                                                
+               10  ORBH-SHIP-TO-SUFFIX             PIC X(3).                    
+           05  ORBH-CUST-ORDER-NBR                 PIC X(18).                   
+           05  ORBH-JOB-ACCT-NBR                   PIC X(5).                    
+           05  ORBH-CUST-BUYER-NBR REDEFINES ORBH-JOB-ACCT-NBR.                 
+               10  ORBH-CUST-BUYER                 PIC X(4).                    
+               10  FILLER                          PIC X(1).                    
+           05  ORBH-CAPS-ID-CODE                   PIC X(4).                    
+           05  ORBH-CREDIT-MEMO-CODE               PIC X(1).                    
+               88  ORBH-CREDIT-MEMO                       VALUE 'Y'.            
+               88  ORBH-EXCHANGE                          VALUE 'X'.            
+           05  ORBH-CREDIT-REASON                  PIC X(2).                    
+               88  ORBH-DEFECTIVE-MATERIAL                VALUE 'DM'.           
+           05  ORBH-CREDIT-RELEASE                 PIC X(3).                    
+           05  ORBH-ENTRY-INFO.                                                 
+               10  ORBH-ENTRY-DATE                 PIC S9(5) COMP-3.            
+               10  ORBH-ENTRY-METHOD               PIC X(1).                    
+                   88  ORBH-CAPS-ENTRY                    VALUE 'C'.            
+                   88  ORBH-BR-ENTRY                      VALUE 'N'.            
+                   88  ORBH-BR-TRANSFER                   VALUE 'T'.            
+                   88  ORBH-OFF-LINE-ENTRY                VALUE 'O'.            
+                   88  ORBH-BACK-ORDERED                  VALUE 'B'.            
+               10  ORBH-TERM-ID                    PIC X(4).                    
+           05  ORBH-SHIP-DATE                      PIC S9(5) COMP-3.            
+           05  ORBH-SHIP-VIA                       PIC X(12).                   
+           05  ORBH-PROMISED-DATE                  PIC S9(5) COMP-3.            
+           05  ORBH-INV-DATE                       PIC S9(5) COMP-3.            
+           05  ORBH-BR-NBR-SHIP-FROM               PIC X(2).                    
+           05  ORBH-BR-NBR-INVENTORY               PIC X(2).                    
+           05  ORBH-COPY-CODE                      PIC X(1).                    
+               88  ORBH-EXPORT                            VALUE 'E'.            
+               88  ORBH-MAIL-TO-BR                        VALUE 'B'.            
+               88  ORBH-DO-NOT-MAIL                       VALUE 'N'.            
+               88  ORBH-WAREHOUSE-INVOICE                 VALUE 'I'.    TMH93033
+               88  ORBH-WAREHOUSE-PACKSLIP                VALUE 'P'.    TMH93033
+           05  ORBH-ACK-CODE                       PIC X(1).                    
+               88  ORBH-ACK-REQ                           VALUE 'Y'.            
+               88  ORBH-ACK-NOT-REQ                       VALUE 'N'.            
+               88  ORBH-PACKING-LIST-REQ                  VALUE 'P'.            
+           05  ORBH-EXT-SO-CODE                    PIC X(1).                    
+               88  ORBH-EXT-SC                            VALUE 'Y'.            
+               88  ORBH-UNIT-PRICE-ONLY                   VALUE 'N'.            
+               88  ORBH-NO-PRICES-SHOWN                   VALUE 'Z'.            
+           05  ORBH-BO-CODE                        PIC X(1).                    
+               88  ORBH-BACKORDER                         VALUE 'Y'.            
+               88  ORBH-SHIP-COMPLETE             VALUE 'C' 'E' 'B'.    LMH99138
+               88  ORBH-ORDER-SHIP-COMPLETE               VALUE 'E'.    LMH99138
+               88  ORBH-CONSOLIDATED-SHIPMENT             VALUE 'B'.    LMH99138
+               88  ORBH-BACKORDER-DONE                    VALUE 'D'.    MJW91129
+           05  ORBH-PRIORITY-CODE                  PIC X(1).                    
+           05  ORBH-TRADE-DISC-PCT                 PIC SV9(3) COMP-3.           
+           05  ORBH-POSTAL-CODES                   PIC X(6).                    
+           05  ORBH-ZIP-CODE REDEFINES ORBH-POSTAL-CODES.                       
+               10  ORBH-ZIP                        PIC S9(9) COMP-3.            
+               10  FILLER                          PIC X(1).                    
+           05  ORBH-FREIGHT-IN.                                                 
+               10  ORBH-FRT-IN-CODE                PIC X(1).                    
+                   88  ORBH-IN-NO-BILL                    VALUE 'P'.            
+                   88  ORBH-IN-BILL                       VALUE 'B'.            
+               10  ORBH-FRT-IN-AMT                 PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-FREIGHT-OUT.                                                
+               10  ORBH-FRT-OUT-CODE               PIC X(1).                    
+                   88  ORBH-OUT-PREPAY                    VALUE 'P'.            
+                   88  ORBH-OUT-BILL                      VALUE 'B'.            
+                   88  ORBH-OUT-COLLECT                   VALUE 'C'.            
+               10  ORBH-FRT-OUT-AMT                PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-TAX-CODE                       PIC X(1).                    
+               88  ORBH-STATE-TAX                         VALUE 'S'.            
+               88  ORBH-COUNTY-TAX                        VALUE 'C'.            
+               88  ORBH-CITY-TAX                          VALUE 'K'.    MJW91129
+               88  ORBH-NO-TAX                            VALUE 'N'.    MJW91129
+               88  ORBH-TAX                               VALUE 'T'.    MJW91129
+               88  ORBH-BOTH-TAX                          VALUE 'B'.            
+           05  ORBH-STATE-COUNTY.                                               
+               10  ORBH-STATE-CODE                 PIC X(2).                    
+               10  ORBH-COUNTY-CODE                PIC X(3).                    
+               10  ORBH-CITY-CODE                  PIC X(4).                    
+               10  ORBH-TOTAL-STATE-TAX-AMT        PIC S9(15)V99 COMP-3.MJW92200
+               10  ORBH-TL-ST-TAX-AMT-NO-DEC REDEFINES                  MJW92200
+                   ORBH-TOTAL-STATE-TAX-AMT        PIC S9(17)    COMP-3.MJW92200
+               10  ORBH-TOTAL-COUNTY-TAX-AMT       PIC S9(15)V99 COMP-3.MJW92200
+               10  ORBH-TOTAL-CITY-TAX-AMT         PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-TERMS-CODE                     PIC S9(3) COMP-3.            
+               88  ORBH-EARLY-PAY                  VALUE +333.          MJS96162
+               88  ORBH-COD-ORDER                  VALUE +000 +004      TMH92261
+                                                         +900 +996.     TMH92261
+           05  ORBH-DISC-AMT                       PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-DISC-DATE                      PIC S9(5) COMP-3.            
+           05  ORBH-NO-OF-LINES                    PIC S9(3) COMP-3.            
+           05  ORBH-OVERRIDE-CODE                  PIC X(1).                    
+               88  ORBH-PRICE-OVERRIDE                    VALUE '1'.            
+               88  ORBH-COST-OVERRIDE                     VALUE '2'.            
+               88  ORBH-PRICE-IGNORE                      VALUE '3'.            
+               88  ORBH-COST-IGNORE                       VALUE '4'.            
+           05  ORBH-TOTAL-SALES-COST.                                           
+               10  ORBH-TOTAL-SALES                PIC S9(15)V99 COMP-3.MJW92200
+               10  ORBH-TOTAL-COST                 PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-SALESMAN.                                                   
+               10  ORBH-IS-SALESMAN                PIC X(4).                    
+               10  ORBH-OS-SALESMAN                PIC X(4).                    
+           05  ORBH-INV-PRINT-LINES                PIC S9(3) COMP-3.            
+           05  ORBH-PRIOR-SALES-COST.                                           
+               10  ORBH-PRIOR-SALES                PIC S9(15)V99 COMP-3.MJW92200
+               10  ORBH-PRIOR-COST                 PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-TOTAL-SHIPPED-QTY              PIC S9(7) COMP-3.            
+           05  ORBH-TAX-PCT                        PIC SV9(5) COMP-3.           
+           05  ORBH-TOTAL-FREIGHT                  PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-CU-SUMM-INVOICE-CODE           PIC X(1).                    
+               88  ORBH-CU-WEEK-INVOICE                   VALUE 'W'.            
+               88  ORBH-CU-BIWEEK-INVOICE                 VALUE 'B'.            
+               88  ORBH-CU-MONTH-INVOICE                  VALUE 'M'.            
+               88  ORBH-CU-SUMM-INVOICE                   VALUE 'W' 'B'         
+                                                                'M'.            
+           05  ORBH-LOB                            PIC S9(3) COMP-3.            
+           05  ORBH-PRINT-COUNT                    PIC 9(1).                    
+           05  ORBH-FRT-OUT-TAXABLE-SW             PIC X(1).                    
+               88  ORBH-FRT-OUT-TAXABLE                   VALUE 'Y'.            
+           05  ORBH-SOURCE-CODE                    PIC X(2).                    
+           05  ORBH-SYSTEM-ITEM-EXIST-SW           PIC X(1).                    
+               88  ORBH-SYSTEM-ITEM-EXIST                 VALUE 'Y'.            
+           05  ORBH-NO-OF-CARTONS                  PIC S9(5) COMP-3.            
+           05  FILLER                              PIC X(3).            JXH97148
+           05  ORBH-ORDER-TAX-PRINT-SW             PIC X(1).                    
+               88  ORBH-SHOW-TAX-IN-PRICE                 VALUE 'P'.            
+               88  ORBH-SHOW-SEP-TAX-LINE                 VALUE 'S' ' '.        
+           05  ORBH-SALES-MONTH                    PIC X(2).                    
+           05  ORBH-DUPLICATE-ORDER-SW             PIC X(1).                    
+               88  ORBH-DUPLICATE-ORDER                   VALUE 'D'.            
+           05  ORBH-BILL-LADING-NBR                PIC X(5).                    
+           05  ORBH-PARENT-NBR.                                                 
+               10  ORBH-PARENT-BR-NBR              PIC X(2).                    
+               10  ORBH-PARENT-CUST-NBR            PIC X(6).                    
+           05  ORBH-NIKON-AREA-REMOVED.                                 MJW91129
+               10  ORBH-DISCOUNT-QUALIFY-SW        PIC X(1).            MJW91129
+                   88  ORBH-DISCOUNT-QUALIFIES            VALUES ARE    MJW91129
+                                                    '1' '2' '3' '4' '5'.MJW91129
+                   88  ORBH-DISCOUNT-QUALIFY-1            VALUE '1'.    MJW91129
+                   88  ORBH-DISCOUNT-QUALIFY-2            VALUE '2'.    MJW91129
+                   88  ORBH-DISCOUNT-QUALIFY-3            VALUE '3'.    MJW91129
+                   88  ORBH-DISCOUNT-QUALIFY-4            VALUE '4'.    MJW91129
+                   88  ORBH-DISCOUNT-QUALIFY-5            VALUE '5'.    MJW91129
+               10  ORBH-MD-DISC-PERCENT            PIC SV9(3) COMP-3.   MJW91129
+               10  ORBH-IMAGINE-APPLY-FLAG         PIC X(1).            LLS95293
+                   88  ORBH-DO-NOT-APPLY-TO-IMAGINE       VALUE 'N'.    LLS95293
+                   88  ORBH-APPLY-TO-IMAGINE              VALUE 'Y' ' '.LLS95293
+               10  ORBH-RESELLER-IN-TRANSIT-FLAG   REDEFINES            RAP97105
+                   ORBH-IMAGINE-APPLY-FLAG         PIC X(1).            RAP97105
+                   88  ORBH-RESELLER-IN-TRANSIT           VALUE 'Y'.    RAP97105
+               10  ORBH-SLS-MGR-CODE               PIC X(2).            MJW91129
+               10  ORBH-RMA-CODE                   PIC X(1).            MJW91129
+                   88  ORBH-RMA                           VALUE 'Y'.    MJW91129
+               10  ORBH-RMA-OFFSET-CODE            PIC X(1).            MJW91129
+               10  ORBH-Z-REASON                   PIC X(1).            MJW91129
+                   88  ORBH-Z-CASH-AND-NOT-CM             VALUE '1'.    MJW91129
+                   88  ORBH-Z-DO-NOT-MAIL                 VALUE '2'.    MJW91129
+                   88  ORBH-Z-BR-TRANSFER                 VALUE '3'.    MJW91129
+                   88  ORBH-Z-CU-WEEK-INVOICE             VALUE '4'.    MJW91129
+                   88  ORBH-Z-CU-MONTH-INVOICE            VALUE '5'.    MJW91129
+                   88  ORBH-Z-TOTAL-SALES-EQUAL-ZEROS     VALUE '6'.    MJW91129
+                   88  ORBH-Z-TOTAL-SALES-EQ-ZER-TO-3     VALUE '7'.    MJW91129
+           05  ORBH-NIKON-AREA REDEFINES ORBH-NIKON-AREA-REMOVED.       MJW91129
+               10  ORBH-CORP-NBR                   PIC X(4).                    
+               10  ORBH-COOP-SUF                   PIC X(3).                    
+               10  ORBH-REMIT-BR                   PIC X(2).                    
+           05  ORBH-WEIGHT                         PIC S9(7)V99 COMP-3.         
+           05  ORBH-CARRIER-CODE                   PIC X(2).                    
+           05  ORBH-FRT-OUT-COST-AMT               PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-FOB-CODE                       PIC X(1).                    
+           05  ORBH-LAST-PRINT-DATE                PIC S9(5) COMP-3.            
+           05  ORBH-FI-OVERRIDE-CODE               PIC X(1).                    
+               88  ORBH-FRT-IN-OVERRIDE                   VALUE 'Y'.            
+           05  ORBH-FO-OVERRIDE-CODE               PIC X(1).                    
+               88  ORBH-FRT-OUT-OVERRIDE                  VALUE 'Y'.            
+           05  ORBH-DISCOUNT-AMT                   PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-MD-WEIGHT                      PIC S9(5)V9999       MJW91129
+                                                                COMP-3. MJW91129
+           05  ORBH-CURRENCY-CODE                  PIC X(03).           JMB91319
+               88  ORBH-NO-DECIMAL-CURRENCY        VALUE 'ESP' 'ITL'    JMB91353
+                                             'IDR' 'CLP' 'JPY' 'BEF'.   AXG98036
+           05  ORBH-CURRENCY-RATE                  PIC S9(11)V9(6)      TLK92200
+                                                          COMP-3.       JMB91319
+           05  ORBH-CUSTOMERS-LANGUAGE-CODE        PIC X(01).           JMB91319
+           05  ORBH-FOREIGN-TOTAL-SALES            PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-FOREIGN-DISCOUNT-AMT           PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-FOREIGN-FRT-IN-AMT             PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-FOREIGN-FRT-OUT-AMT            PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-FOREIGN-TAX-AMT                PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-IM-ORDER-NBR.                                       ELB91347
+               10  ORBH-IM-ORD-NBR                 PIC X(5).            ELB91347
+               10  ORBH-IM-DIST-NBR                PIC 9(1).            ELB91347
+               10  ORBH-IM-SHIP-NBR                PIC 9(1).            ELB91347
+           05  ORBH-EDI-CO                         PIC X(02).           KMB92079
+           05  ORBH-BASE-COST                      PIC S9(15)V99 COMP-3.MJW92200
+           05  ORBH-FUTURE-USAGE                   PIC X(77).           ACP94223
+           05  FILLER                              PIC X(488).          JHW97183
+       01  ORBH-ORWBWS-R                         REDEFINES              RLH05070
+           ORBH-ORWBWS.                                                 RLH05070
+           05 ORBH-KEY-R                           PIC X(030).          RLH05070
+           05 ORBH-ORRHWS-R                        PIC X(970).          RLH05070
+                                                                                
+       01  ORBH-ORWBWS-1000-RECORD                 PIC X(1000).         KMR95009
+      ******************************************************************        
+      *                                                                *        
+      *    ORDER BILLING WORK SHIP-TO / NAME-ADDRESS  LRECL=(254,730)  *KMR95009
+      *                                                                *        
+      ******************************************************************        
+       01  ORBA-SHIP-TO-RECORD.                                                 
+           05  ORBA-SHIP-TO-SORT-KEY.                                           
+               10  ORBA-SORT-BR-NBR-SHIP-FROM      PIC X(2).                    
+               10  ORBA-SORT-BR-NBR-INVENTORY      PIC X(2).                    
+               10  ORBA-SORT-IS-SALESMAN           PIC X(4).                    
+               10  ORBA-SORT-INV-INFO REDEFINES ORBA-SORT-IS-SALESMAN.  MJW91129
+                   15  ORBA-SORT-INV-DATE          PIC S9(5) COMP-3.    MJW91129
+                   15  ORBA-SORT-INV-TYPE          PIC X(1).            MJW91129
+               10  ORBA-SORT-OS-SALESMAN           PIC X(4).                    
+               10  ORBA-SORT-POSTAL-CODES          PIC X(6).                    
+               10  ORBA-SORT-ZIP-CODE REDEFINES ORBA-SORT-POSTAL-CODES.         
+                   15  ORBA-SORT-ZIP               PIC S9(9) COMP-3.            
+                   15  FILLER                      PIC X(1).                    
+               10  ORBA-SORT-BILL-TO.                                           
+                   15  ORBA-SORT-BILL-TO-BR-NBR    PIC X(2).                    
+                   15  ORBA-SORT-BILL-TO-CUST-NBR  PIC X(6).                    
+                   15  ORBA-SORT-BILL-TO-SUFFIX    PIC X(3).                    
+               10  FILLER                          PIC X(1).                    
+           05  ORBA-KEY-SHIP-TO.                                                
+               10  ORBA-COMPANY                    PIC X(2).                    
+               10  ORBA-BR-NBR                     PIC X(2).                    
+               10  ORBA-ORDER-NBR                  PIC X(5).                    
+               10  ORBA-DIST-NBR                   PIC 9(1).                    
+               10  ORBA-SHIPMENT-NBR               PIC 9(1).                    
+               10  ORBA-CR-SEQ                     PIC X(1).                    
+               10  ORBA-LINE-NBR                   PIC 9(3).                    
+                   88  ORBA-LINE-NBR-VALUE                VALUE 000.            
+               10  ORBA-RECORD-CODE                PIC X(1).                    
+                   88  ORBA-CUST-BILL-TO                  VALUE 'B'.            
+                   88  ORBA-ORDER-SHIP-TO                 VALUE 'C'.            
+                   88  ORBA-CUST-SHIP-TO                  VALUE 'D'.            
+               10  ORBA-SEQ-NBR                    PIC 9(1).                    
+           05  ORBA-COUNT                          PIC 9(1).                    
+           05  ORBA-DATE-REL                       PIC S9(05) COMP-3.   TEH99320
+           05  ORBA-TIME-REL                       PIC S9(07) COMP-3.   TEH99320
+           05  ORBA-OPER-ID-REL                    PIC X(04).           TEH99320
+           05  ORBA-FUTURE-USAGE                   PIC X(159).          TEH99320
+           05  ORBA-SHIP-TO-VARIABLE-AREA.                                      
+               10  ORBA-SHIP-TO OCCURS 1 TO 6 TIMES                             
+                   DEPENDING ON ORBA-COUNT.                                     
+                   15  ORBA-CODE                   PIC 9(1).                    
+                       88  ORBA-ATTENTION                 VALUE 0.              
+                       88  ORBA-SHIP-TO-LINES             VALUES ARE            
+                                                             1, 2, 3, 4.        
+                       88  ORBA-SIGNATURE                 VALUE 9.              
+                   15  ORBA-NAME-ADDR-SIG-ATTN     PIC X(35).                   
+           05  FILLER                              PIC X(296).          KMR95009
+                                                                                
+      ******************************************************************SCT04240
+      *                                                                *SCT04240
+      *    ORDER BILLING WORK INTL-LANG / NAME-ADDRESS (INTERNATIONAL) *SCT04240
+      *    BINARY LINE SEQUENCE NUMBER 001 - CHINESE LANGUAGE          *SCT04240
+      ******************************************************************SCT04240
+       01  ORBT-INTL-ADDR-RECORD.                                       SCT04240
+           05  ORBT-INTL-ADDR-SORT-KEY.                                 SCT04240
+               10  ORBT-SORT-BR-NBR-SHIP-FROM      PIC X(2).            SCT04240
+               10  ORBT-SORT-BR-NBR-INVENTORY      PIC X(2).            SCT04240
+               10  ORBT-SORT-IS-SALESMAN           PIC X(4).            SCT04240
+               10  ORBT-SORT-INV-INFO REDEFINES ORBT-SORT-IS-SALESMAN.  SCT04240
+                   15  ORBT-SORT-INV-DATE          PIC S9(5) COMP-3.    SCT04240
+                   15  ORBT-SORT-INV-TYPE          PIC X(1).            SCT04240
+               10  ORBT-SORT-OS-SALESMAN           PIC X(4).            SCT04240
+               10  ORBT-SORT-POSTAL-CODES          PIC X(6).            SCT04240
+               10  ORBT-SORT-ZIP-CODE REDEFINES ORBT-SORT-POSTAL-CODES. SCT04240
+                   15  ORBT-SORT-ZIP               PIC S9(9) COMP-3.    SCT04240
+                   15  FILLER                      PIC X(1).            SCT04240
+               10  ORBT-SORT-BILL-TO.                                   SCT04240
+                   15  ORBT-SORT-BILL-TO-BR-NBR    PIC X(2).            SCT04240
+                   15  ORBT-SORT-BILL-TO-CUST-NBR  PIC X(6).            SCT04240
+                   15  ORBT-SORT-BILL-TO-SUFFIX    PIC X(3).            SCT04240
+               10  FILLER                          PIC X(1).            SCT04240
+           05  ORBT-KEY-INTL-ADDR.                                      SCT04240
+               10  ORBT-COMPANY                    PIC X(2).            SCT04240
+               10  ORBT-BR-NBR                     PIC X(2).            SCT04240
+               10  ORBT-ORDER-NBR                  PIC X(5).            SCT04240
+               10  ORBT-DIST-NBR                   PIC 9(1).            SCT04240
+               10  ORBT-SHIPMENT-NBR               PIC 9(1).            SCT04240
+               10  ORBT-CR-SEQ                     PIC X(1).            SCT04240
+               10  ORBT-LINE-NBR                   PIC 9(3).            SCT04240
+                   88  ORBT-LINE-NBR-VALUE             VALUE 000.       SCT04240
+               10  ORBT-RECORD-CODE                PIC X(1).            SCT04240
+                   88  ORBT-CUST-BILL-TO               VALUE 'B'.       SCT04240
+                   88  ORBT-ORDER-SHIP-TO              VALUE 'C'.       SCT04240
+                   88  ORBT-CUST-SHIP-TO               VALUE 'D'.       SCT04240
+               10  ORBT-SEQ-NBR                    PIC 9(1).            SCT04240
+           05  ORBT-COUNT                          PIC 9(1).            SCT04240
+           05  ORBT-FUTURE-USAGE                   PIC X(170).          SCT04240
+           05  ORBT-INTL-ADDR-VARIABLE-AREA.                            SCT04240
+               10  ORBT-INTL-ADDR    OCCURS 1 TO 7 TIMES                SCT04240
+                       DEPENDING ON ORBT-COUNT.                         SCT04240
+                   15  ORBT-CODE                   PIC 9(1).            SCT04240
+                       88  ORBT-NAME               VALUE 1.             SCT04240
+                       88  ORBT-ADDRESS            VALUE 2 3 4 5.       SCT04240
+                       88  ORBT-ATTENTION          VALUE 6.             SCT04240
+                       88  ORBT-PHONE-FAX          VALUE 7.             SCT04240
+                   15  ORBT-CODEPAGE               PIC S9(2) COMP.      SCT04240
+                   15  ORBT-INTL-ADDR          PIC X(70).               SCT04240
+           05  FILLER                          PIC X(271).              SCT04240
+                                                                        SCT04240
+      ******************************************************************MJW91129
+      *                                                                *MJW91129
+      *    ORDER CREDIT MEMO APPLIED               LRECL=730 (FIXED)   *KMR95009
+      *                                                                *MJW91129
+      ******************************************************************MJW91129
+       01  ORBE-CREDIT-MEMO-REC.                                        MJW91129
+           05  ORBE-CREDIT-MEMO-SORT-AREA.                              MJW91129
+               10  ORBE-SORT-BR-NBR-SHIP-FROM      PIC X(2).            MJW91129
+               10  ORBE-SORT-BR-NBR-INVENTORY      PIC X(2).            MJW91129
+               10  ORBE-SORT-IS-SALESMAN           PIC X(4).            MJW91129
+               10  ORBE-SORT-INV-INFO REDEFINES ORBE-SORT-IS-SALESMAN.  MJW91129
+                   15  ORBE-SORT-INV-DATE          PIC S9(5) COMP-3.    MJW91129
+                   15  ORBE-SORT-INV-TYPE          PIC X(1).            MJW91129
+               10  ORBE-SORT-OS-SALESMAN           PIC X(4).            MJW91129
+               10  ORBE-SORT-POSTAL-CODES          PIC X(6).            MJW91129
+               10  ORBE-SORT-ZIP-CODE REDEFINES ORBE-SORT-POSTAL-CODES. MJW91129
+                   15  ORBE-SORT-ZIP               PIC S9(9) COMP-3.    MJW91129
+                   15  FILLER                      PIC X(1).            MJW91129
+               10  ORBE-SORT-BILL-TO.                                   MJW91129
+                   15  ORBE-SORT-BILL-TO-BR-NBR    PIC X(2).            MJW91129
+                   15  ORBE-SORT-BILL-TO-CUST-NBR  PIC X(6).            MJW91129
+                   15  ORBE-SORT-BILL-TO-SUFFIX    PIC X(3).            MJW91129
+               10  FILLER                          PIC X(1).            MJW91129
+           05  ORBE-CREDIT-MEMO-DATA-AREA.                              MJW91129
+               10  ORBE-CREDIT-MEMO-KEY.                                MJW91129
+                   15  ORBE-COMPANY                PIC X(2).            MJW91129
+                   15  ORBE-BR-NBR                 PIC X(2).            MJW91129
+                   15  ORBE-ORDER-NBR              PIC X(5).            MJW91129
+                   15  ORBE-DIST-NBR               PIC 9(1).            MJW91129
+                   15  ORBE-SHIPMENT-NBR           PIC 9(1).            MJW91129
+                   15  ORBE-CR-SEQ                 PIC X(1).            MJW91129
+                   15  ORBE-LINE-NBR               PIC 9(3).            MJW91129
+                   15  ORBE-RECORD-CODE            PIC X(1).            MJW91129
+                       88  ORBE-CREDIT-MEMO               VALUE 'E'.    MJW91129
+                   15  ORBE-LINE-SEQ-NBR           PIC X(1).            MJW91129
+               10  ORBE-CREDIT-MEMO-USED OCCURS 3 TIMES.                MJW91129
+                   15  ORBE-CM-NUMBER.                                  MJW91129
+                       20  ORBE-CM-ORD-NUM         PIC X(5).            MJW91129
+                       20  ORBE-CM-DIST-NUM        PIC X(1).            MJW91129
+                       20  ORBE-CM-SHIP-NUM        PIC X(1).            MJW91129
+                   15  ORBE-CM-AMOUNT              PIC S9(15)V99 COMP-3.MJW92200
+               10  ORBE-FUTURE-USAGE               PIC X(158).          MJW92200
+           05  FILLER                              PIC X(477).          KMR95009
+                                                                                
+      ******************************************************************        
+      *                                                                *        
+      *    ORDER BILLING WORK LINE RECORD          LRECL=(385,1000)    *SXO01277
+      *                                                                *        
+      ******************************************************************        
+       01  ORBL-LINE-RECORD.                                                    
+           05  ORBL-LINE-SORT-KEY-AREA.                                         
+               10  ORBL-LINE-SORT-KEY.                                          
+                   15  ORBL-SORT-BR-NBR-SHIP-FROM  PIC X(2).                    
+                   15  ORBL-SORT-BR-NBR-INVENTORY  PIC X(2).                    
+                   15  ORBL-SORT-IS-SALESMAN       PIC X(4).                    
+                   15  ORBL-SORT-INV-INFO REDEFINES                     MJW91129
+                       ORBL-SORT-IS-SALESMAN.                           MJW91129
+                       20  ORBL-SORT-INV-DATE      PIC S9(5) COMP-3.    MJW91129
+                       20  ORBL-SORT-INV-TYPE      PIC X(1).            MJW91129
+                   15  ORBL-SORT-OS-SALESMAN       PIC X(4).                    
+                   15  ORBL-SORT-POSTAL-CODES      PIC X(6).                    
+                   15  ORBL-SORT-ZIP-CODE REDEFINES                             
+                       ORBL-SORT-POSTAL-CODES.                                  
+                       20  ORBL-SORT-ZIP           PIC S9(9) COMP-3.            
+                       20  FILLER                  PIC X(1).                    
+                   15  ORBL-SORT-BILL-TO.                                       
+                       20  ORBL-SORT-BILL-TO-BR-NBR                             
+                                                   PIC X(2).                    
+                       20  ORBL-SORT-BILL-TO-CUST-NBR                           
+                                                   PIC X(6).                    
+                       20  ORBL-SORT-BILL-TO-SUFFIX                             
+                                                   PIC X(3).                    
+                   15  FILLER                      PIC X(1).                    
+           05  ORBL-LINE-DATA-AREA.                                             
+               10  ORBL-KEY-LINE.                                               
+                   15  ORBL-COMPANY                PIC X(2).                    
+                   15  ORBL-BR-NBR                 PIC X(2).                    
+                   15  ORBL-ORDER-NBR              PIC X(5).                    
+                   15  ORBL-DIST-NBR               PIC 9(1).                    
+                   15  ORBL-SHIPMENT-NBR           PIC 9(1).                    
+                   15  ORBL-CR-SEQ                 PIC X(1).                    
+                   15  ORBL-LINE-NBR               PIC 9(3).                    
+                   15  ORBL-RECORD-CODE            PIC X(1).                    
+                   15  ORBL-SEQ-NBR                PIC 9(1).                    
+                       88  ORBL-SEQ-NBR-VALUE             VALUE 0.              
+               10  ORBL-BR-NBR-SHIP-FROM           PIC X(2).                    
+               10  ORBL-BR-NBR-INVENTORY           PIC X(2).                    
+               10  ORBL-LINE-STATUS                PIC X(1).                    
+                   88  ORBL-OPEN-LINE                     VALUE ' ' 'R'.        
+                   88  ORBL-COMPLETE-LINE                 VALUE 'C'.            
+                   88  ORBL-VOIDED-LINE                   VALUE 'V'.            
+                   88  ORBL-TRANSFERRED-LINE              VALUE 'T'.            
+                   88  ORBL-RECEIPT                       VALUE 'R'.            
+               10  ORBL-LINE-TYPE                  PIC X(1).                    
+                   88  ORBL-OUR-PART-NBR                  VALUE 'P'.            
+                   88  ORBL-COMMENT-TYPE                  VALUE 'C'.            
+                   88  ORBL-VENDOR-CATALOG-LINE           VALUE 'V'.            
+                   88  ORBL-TAX-LINE                      VALUE 'T'.            
+                   88  ORBL-CUSTOMER-PART-NBR             VALUE 'S'.            
+                   88  ORBL-NONSTOCK                      VALUE 'N'.            
+                   88  ORBL-LABOR                         VALUE 'L'.            
+                   88  ORBL-MERCHANDISE-LINE              VALUE 'P' 'V' MJW91129
+                                                                'S' 'N'.MJW91129
+               10  ORBL-INV-IND                    PIC X(1).                    
+                   88  ORBL-INV-STOCK                     VALUE 'S'.            
+                   88  ORBL-INV-DIRECT                    VALUE 'D'.            
+                   88  ORBL-INV-NONSTOCK                  VALUE 'C'.            
+                   88  ORBL-INV-NONINV                    VALUE 'N'.            
+               10  ORBL-ITEM-TYPE                  PIC X(1).                    
+                   88  ORBL-INDUSTRIAL                    VALUE 'I'.            
+                   88  ORBL-ELECTRICAL                    VALUE 'E'.            
+                   88  ORBL-BOTH                          VALUE 'B'.            
+               10  ORBL-VENDOR-NBR                 PIC X(4).                    
+               10  ORBL-PART-NBR                   PIC X(12).                   
+               10  ORBL-CATALOG-NBR                PIC X(12).                   
+               10  ORBL-COMMOD-CODE                PIC X(3).                    
+               10  ORBL-QUANTITIES.                                             
+                   15  ORBL-QTY-ORDERED            PIC S9(7) COMP-3.            
+                   15  ORBL-QTY-BACKORDERED        PIC S9(7) COMP-3.            
+                   15  ORBL-QTY-SHIPPED            PIC S9(7) COMP-3.            
+               10  ORBL-UNIT.                                                   
+                   15  ORBL-UM                     PIC X(2).                    
+                   15  ORBL-UNIT-PRICE             PIC S9(13)V9(4)      MJW92200
+                                                                 COMP-3.MJW92200
+                   15  ORBL-UNIT-COST              PIC S9(13)V9(4)      MJW92200
+                                                                 COMP-3.MJW92200
+               10  ORBL-TRADE-DISC                 PIC SV9(3) COMP-3.           
+               10  ORBL-PRICING.                                                
+                   15  FILLER                      PIC X(1).                    
+                   15  ORBL-SHEET-IND              PIC X(1).                    
+                       88  ORBL-CURRENT-PS                VALUE 'C'.            
+                       88  ORBL-PREV-PS                   VALUE 'P'.            
+                       88  ORBL-TWO-PREV-PS               VALUE 'S'.            
+                       88  ORBL-THREE-PREV-PS             VALUE 'T'.            
+                       88  ORBL-PREV-QTR                  VALUE '1'.            
+                       88  ORBL-TWO-PREV-QTR              VALUE '2'.            
+                       88  ORBL-THREE-PREV-QTR            VALUE '3'.            
+                   15  ORBL-COLUMN-IND             PIC X(1).                    
+                       88  ORBL-COLUMN-1                  VALUE '1'.            
+                       88  ORBL-COLUMN-2                  VALUE '2'.            
+                       88  ORBL-COLUMN-3                  VALUE '3'.            
+                       88  ORBL-COLUMN-4                  VALUE '4'.    MJW91129
+                       88  ORBL-COLUMN-5                  VALUE '5'.    MJW91129
+                       88  ORBL-COLUMN-6                  VALUE '6'.    MJW91129
+                       88  ORBL-COLUMN-7                  VALUE '7'.    MJW91129
+                       88  ORBL-COLUMN-8                  VALUE '8'.    MJW91129
+                       88  ORBL-COST                      VALUE 'C'.            
+                       88  ORBL-BASE                      VALUE 'B'.            
+                       88  ORBL-GROSS-PROFIT              VALUE 'G'.            
+                       88  ORBL-NO-CHARGE                 VALUE 'N'.            
+                       88  ORBL-ITEM-DISCOUNTED           VALUE 'D'.            
+                   15  ORBL-REQ-PROFIT-PCT         PIC SV9(4) COMP.     MEP02145
+                   15  ORBL-COLUMN-DISC REDEFINES ORBL-REQ-PROFIT-PCT           
+                                                   PIC SV9(4) COMP.     MEP02145
+                   15  ORBL-REQ-PROFIT-PCT-ORIG    REDEFINES            MEP02145
+                       ORBL-REQ-PROFIT-PCT         PIC SV9(3) COMP-3.   MEP02145
+               10  ORBL-TAX-CODE                   PIC X(1).                    
+                   88  ORBL-STATE-TAX                     VALUE 'S'.            
+                   88  ORBL-COUNTY-TAX                    VALUE 'C'.            
+                   88  ORBL-BOTH-TAX                      VALUE 'B'.            
+                   88  ORBL-NON-TAX                       VALUE 'N'.            
+               10  ORBL-TERMS                      PIC SV9(3) COMP-3.           
+               10  ORBL-EXTENDED-VALUES.                                        
+                   15  ORBL-EXTENDED-SALES         PIC S9(15)V99 COMP-3.MJW92200
+                   15  ORBL-EXTENDED-COST          PIC S9(15)V99 COMP-3.MJW92200
+               10  ORBL-IN-STK-BR                  PIC X(1).                    
+               10  ORBL-IN-STK-OTH                 PIC X(1).                    
+               10  ORBL-PROMISED-DATE              PIC S9(5)    COMP-3.         
+               10  ORBL-UM-OVERRIDE-SW             PIC X(1).                    
+                   88  ORBL-UM-OVERRIDE                   VALUE 'Y'.            
+               10  ORBL-UP-OVERRIDE-SW             PIC X(1).                    
+                   88  ORBL-UP-MANUAL                     VALUE 'M'.            
+                   88  ORBL-UP-INV                        VALUE 'I'.            
+                   88  ORBL-UP-CUST                       VALUE 'C'.            
+                   88  ORBL-UP-VENDOR                     VALUE 'V'.            
+                   88  ORBL-UP-PRICE-KEY                  VALUE 'P'.            
+                   88  ORBL-UP-ACTUALLY-ENT               VALUE 'A'.            
+               10  ORBL-UC-OVERRIDE-SW             PIC X(1).                    
+                   88  ORBL-UC-INV                        VALUE 'I'.            
+                   88  ORBL-UC-VENDOR                     VALUE 'V'.            
+                   88  ORBL-UC-PRICE-KEY                  VALUE 'P'.            
+                   88  ORBL-UC-NO-COST                    VALUE 'N'.            
+                   88  ORBL-UC-ACTUALLY-ENT               VALUE 'A'.            
+               10  ORBL-TRANSFERRED-TO.                                         
+                   15  ORBL-TR-TO-BR-NBR           PIC X(02).           BXD17132
+                   15  ORBL-TR-TO-ORDER-NBR        PIC 9(5).                    
+                   15  ORBL-TR-TO-DIST-NBR         PIC X(1).                    
+                   15  ORBL-TR-TO-SHIP-NBR         PIC X(1).                    
+               10  ORBL-INVENTORY-COST             PIC S9(13)V9(4)      MJW92200
+                                                                 COMP-3.MJW92200
+               10  ORBL-WEIGHT                     PIC S9(5)V9(4)               
+                                                                 COMP-3.        
+               10  ORBL-SALESMAN.                                               
+                   15  ORBL-IS-SALESMAN            PIC X(4).                    
+                   15  ORBL-OS-SALESMAN            PIC X(4).                    
+               10  ORBL-SYSTEM-COMPONENT-SW        PIC X(1).                    
+                   88  ORBL-SYSTEMS-ITEM                  VALUE 'S'.            
+                   88  ORBL-COMPONENT-ITEM                VALUE 'C'.            
+               10  ORBL-COMP-QTY-PER               PIC S9(5) COMP-3.            
+               10  ORBL-SYSTEM-ITEM-LINE-NBR       PIC 9(3).                    
+               10  ORBL-CONSIGNMENT-INV-SW         PIC X(1).                    
+                   88  ORBL-CONSIGNMENT-INVENTORY         VALUE 'Y'.            
+               10  ORBL-CPU-CODE-REMOVED.                               MJW91129
+                   15  ORBL-STATE-TAX-PCT          PIC SV99999 COMP-3.  MJW91129
+                   15  ORBL-ROLL-SW                PIC X(1).            MJW91129
+                       88  ORBL-ROLL                      VALUE 'R'.    MJW91129
+                       88  ORBL-CUT-PIECES                VALUE 'P'.    MJW91129
+                       88  ORBL-LOT-NBR                   VALUE 'L'.    MJW91129
+                       88  ORBL-SERIAL-NBR               VALUE 'S','W'. MZM20089
+                       88  ORBL-WARRANTY-SERIAL           VALUE 'W'.    MZM20089
+                       88  ORBL-CONSISTING-OF             VALUE 'C'.    MJW91129
+                       88  ORBL-DRAWING-ITEM              VALUE 'D'.    MJW91129
+                       88  ORBL-SYSTEMS-ITEM-RS           VALUE 'K'     CYG18320
+                                                                'G'.    CYG18320
+                       88  ORBL-GST-SOFT-BUNDLE           VALUE 'G'.    CYG18320
+                       88  ORBL-MEMO-SERIAL-NBR           VALUE 'M'.    MJW91129
+                   15  ORBL-SALES-TYPE-SW          PIC X(1).            MJW91129
+                       88  ORBL-LEASE                     VALUE 'L'.    MJW91129
+                       88  ORBL-RENTAL                    VALUE 'R'.    MJW91129
+                   15  ORBL-FREIGHT-CLASS          PIC X(3).            MJW91129
+                   15  ORBL-RESERVE-PREPAID-SW     PIC X(1).            MJW91129
+                       88  ORBL-RESERVE                   VALUE 'R' ' '.MJW91129
+                       88  ORBL-PREPAID                   VALUE 'P'.    MJW91129
+                       88  ORBL-FIRM                      VALUE 'F'.    MJW91129
+                   15  ORBL-WEIGHT-PER             PIC X(2).            MJW91129
+                   15  ORBL-CONTRACT-NBR           PIC X(10).           MJW91129
+                   15  ORBL-BASE-UNIT              PIC X(3).            MJW91129
+                   15  ORBL-BASE-UM                PIC X(2).            MJW91129
+                   15  ORBL-NON-STD-CONV-SW        PIC X(1).            MJW91129
+                       88  ORBL-NON-STD-CONV              VALUE 'Y'.    MJW91129
+                   15  ORBL-IMAGINE-APPLY-FLAG        PIC X(1).         LLS95293
+                       88  ORBL-DO-NOT-APPLY-TO-IMAGINE   VALUE 'N'.    LLS95293
+                       88  ORBL-APPLY-TO-IMAGINE          VALUE 'Y' ' '.LLS95293
+                   15  ORBL-SUBSTITUTE-COST        PIC S9(15)V99 COMP-3.MJW92200
+                   15  ORBL-FOREIGN-UNIT-PRICE     PIC S9(15)V99 COMP-3.MJW92200
+                   15  ORBL-FOREIGN-EXT-SALES      PIC S9(15)V99 COMP-3.MJW92200
+                   15  ORBL-CMD-COOP-FLAG          PIC X(01).           KWF91336
+                       88 ORBL-COOP-VENDOR             VALUE 'Y'.       KWF91336
+                       88 ORBL-COOP-CUSTOMER           VALUE 'C'.       KWF91336
+                   15  ORBL-COST-AT-PURCH       PIC S9(13)V9(4) COMP-3. CJS92276
+                   15  FILLER                      PIC X(09).           CJS92276
+               10  ORBL-CPU-CODE-KEPT REDEFINES ORBL-CPU-CODE-REMOVED.  MJW91129
+                   15  ORBL-CPU-CODE               PIC X(6).            MJW91129
+                   15  FILLER                      PIC X(68).           MJW92200
+               10  ORBL-VAT-TAX-CODE               PIC X(02).           MCV92028
+               10  ORBL-VAT-TAX-RATE              PIC S9(2)V9(3) COMP-3.MCV92028
+               10  ORBL-VAT-TAX-TOTAL-AMT          PIC S9(15)V99 COMP-3.MJW92200
+               10  ORBL-ADJUSTED-COST            PIC S9(15)V99   COMP-3.ELB92202
+               10  ORBL-GOVT-BID-BASED-LINE-SW   PIC X(01).             JMB92273
+                   88  ORBL-GOVT-BID-BASED-LINE  VALUE 'Y'.             JMB92273
+               10  ORBL-RELATED-GOVT-BID-GSN     PIC X(14).             JMB92273
+               10  ORBL-RELATED-GOVT-BID-VSN     PIC X(14).             JMB92273
+               10  FILLER                        PIC X(64).             MCV92028
+           05  ORBL-VARIABLE-DATA.                                              
+               10  ORBL-DESC-COUNT                 PIC 9(1).                    
+               10  ORBL-PO-COUNT                   PIC 9(1).                    
+               10  ORBL-LINE-DESC-AREA.                                         
+                   15  ORBL-DESCR-AREA OCCURS 0 TO 2 TIMES                      
+                       DEPENDING ON ORBL-DESC-COUNT.                            
+                       20  ORBL-DESCRIPTION        PIC X(35).                   
+               10  ORBL-LINE-PO-AREA.                                           
+                   15  ORBL-RECEIVED-ON-PO OCCURS 0 TO 3 TIMES                  
+                       DEPENDING ON ORBL-PO-COUNT.                              
+                       20  ORBL-PO-BR-NBR          PIC X(2).                    
+                       20  ORBL-PO-NBR             PIC X(5).                    
+                       20  ORBL-PO-LINE-NBR        PIC 9(3).                    
+                       20  ORBL-PO-DATE            PIC S9(5) COMP-3.            
+                       20  ORBL-PO-REC-NBR         PIC S9(3) COMP-3.            
+                       20  ORBL-QTY-RECEIVED       PIC S9(7) COMP-3.            
+           05  FILLER                              PIC X(488).          SXO01277
+                                                                                
+      ******************************************************************        
+      *                                                                *        
+      *    ORDER BILLING WORK LINE EXTRA DESCRIPTION  LRECL=(254,730)  *KMR95009
+      *                                                                *        
+      ******************************************************************        
+       01  ORBX-EXTRA-LINE-DESC-RECORD.                                         
+           05  ORBX-EXTRA-LINE-DESC-SORT-KEY.                                   
+               10  ORBX-SORT-BR-NBR-SHIP-FROM      PIC X(2).                    
+               10  ORBX-SORT-BR-NBR-INVENTORY      PIC X(2).                    
+               10  ORBX-SORT-IS-SALESMAN           PIC X(4).                    
+               10  ORBX-SORT-INV-INFO REDEFINES ORBX-SORT-IS-SALESMAN.  MJW91129
+                   15  ORBX-SORT-INV-DATE          PIC S9(5) COMP-3.    MJW91129
+                   15  ORBX-SORT-INV-TYPE          PIC X(1).            MJW91129
+               10  ORBX-SORT-OS-SALESMAN           PIC X(4).                    
+               10  ORBX-SORT-POSTAL-CODES          PIC X(6).                    
+               10  ORBX-SORT-ZIP-CODE REDEFINES ORBX-SORT-POSTAL-CODES.         
+                   15  ORBX-SORT-ZIP               PIC S9(09) COMP-3.           
+                   15  FILLER                      PIC X(1).                    
+               10  ORBX-SORT-BILL-TO.                                           
+                   15  ORBX-SORT-BILL-TO-BR-NBR    PIC X(2).                    
+                   15  ORBX-SORT-BILL-TO-CUST-NBR  PIC X(6).                    
+                   15  ORBX-SORT-BILL-TO-SUFFIX    PIC X(3).                    
+               10  FILLER                          PIC X(1).                    
+           05  ORBX-KEY-EXTRA-LINE-DESC.                                        
+               10  ORBX-COMPANY                    PIC X(2).                    
+               10  ORBX-BR-NBR                     PIC X(2).                    
+               10  ORBX-ORDER-NBR                  PIC X(5).                    
+               10  ORBX-DIST-NBR                   PIC 9(1).                    
+               10  ORBX-SHIPMENT-NBR               PIC 9(1).                    
+               10  ORBX-CR-SEQ                     PIC X(1).                    
+               10  ORBX-LINE-NBR                   PIC 9(3).                    
+               10  ORBX-RECORD-CODE                PIC X(1).                    
+               10  ORBX-SEQ-NBR                    PIC 9(1).                    
+                   88  ORBX-SEQ-NBR-VALUE                 VALUE 1.              
+           05  ORBX-COUNT                          PIC 9(1).                    
+           05  ORBX-FUTURE-USAGE                   PIC X(170).          MJW91129
+           05  ORBX-XDESC-VARIABLE-AREA.                                        
+               10  ORBX-EXTRA-LINE-DESCRIPTION OCCURS 1 TO 6 TIMES              
+                       DEPENDING ON ORBX-COUNT.                                 
+                   15  ORBX-CODE                   PIC 9(1).                    
+                       88  ORBX-EXTRA-LINE-DESC           VALUE 0.              
+                   15  ORBX-EXTRA-DESCRIPTION      PIC X(35).                   
+           05  FILLER                              PIC X(296).          KMR95009
+                                                                                
+      ******************************************************************        
+      *                                                                *        
+      *    ORDER BILLING WORK CUSTOMER INFO (CAPS) LRECL=(270,730)     *KMR95009
+      *                                                                *        
+      ******************************************************************        
+       01  ORBC-CUST-INFO-RECORD.                                               
+           05  ORBC-CUST-INFO-SORT-KEY.                                         
+               10  ORBC-SORT-BR-NBR-SHIP-FROM      PIC X(2).                    
+               10  ORBC-SORT-BR-NBR-INVENTORY      PIC X(2).                    
+               10  ORBC-SORT-IS-SALESMAN           PIC X(4).                    
+               10  ORBC-SORT-INV-INFO REDEFINES ORBC-SORT-IS-SALESMAN.  MJW91129
+                   15  ORBC-SORT-INV-DATE          PIC S9(5) COMP-3.    MJW91129
+                   15  ORBC-SORT-INV-TYPE          PIC X(1).            MJW91129
+               10  ORBC-SORT-OS-SALESMAN           PIC X(4).                    
+               10  ORBC-SORT-POSTAL-CODES          PIC X(6).                    
+               10  ORBC-SORT-ZIP-CODE REDEFINES ORBC-SORT-POSTAL-CODES.         
+                   15  ORBC-SORT-ZIP               PIC S9(9) COMP-3.            
+                   15  FILLER                      PIC X(1).                    
+               10  ORBC-SORT-BILL-TO.                                           
+                   15  ORBC-SORT-BILL-TO-BR-NBR    PIC X(2).                    
+                   15  ORBC-SORT-BILL-TO-CUST-NBR  PIC X(6).                    
+                   15  ORBC-SORT-BILL-TO-SUFFIX    PIC X(3).                    
+               10  FILLER                          PIC X(1).                    
+           05  ORBC-KEY-CUST-INFO.                                              
+               10  ORBC-COMPANY                    PIC X(2).                    
+               10  ORBC-BR-NBR                     PIC X(2).                    
+               10  ORBC-ORDER-NBR                  PIC X(5).                    
+               10  ORBC-DIST-NBR                   PIC 9(1).                    
+               10  ORBC-SHIPMENT-NBR               PIC 9(1).                    
+               10  ORBC-CR-SEQ                     PIC X(1).                    
+               10  ORBC-LINE-NBR                   PIC 9(3).                    
+               10  ORBC-RECORD-CODE                PIC 9(1).                    
+               10  ORBC-SEQ-NBR                    PIC 9(1).                    
+                   88  ORBC-SEQ-NBR-VALUE                 VALUE 2.              
+           05  ORBC-CUST-INFO-DATA-1.                                   MJW91129
+               10  ORBC-CUST-PART-NBR              PIC X(12).                   
+               10  ORBC-FIRST-SRC-PART-NBR-FD REDEFINES                 GAE00124
+                   ORBC-CUST-PART-NBR              PIC X(12).           GAE00124
+               10  ORBC-CUST-WH-LOC                PIC X(7).                    
+               10  ORBC-CUST-UM                    PIC X(2).                    
+               10  ORBC-CUST-UM-FACTOR             PIC S9(4)V9(5)               
+                                                                 COMP-3.        
+               10  ORBC-CUST-UNIT                  PIC X(3).                    
+               10  ORBC-CUST-CONV-FACT             PIC S9(7) COMP-3.            
+               10  ORBC-COUNT                      PIC 9(1).                    
+               10  ORBC-EXP-LICENSE-F              PIC X(15).           GAE00124
+               10  ORBC-ECCN-F                     PIC X(07).           GAE00124
+               10  ORBC-COUNTRY-OF-ORIGIN-F        PIC X(02).           GAE00124
+               10  ORBC-SCHDB-HTS-CODE-F           PIC X(20).           GAE00124
+               10  ORBC-COMPLIANCE-HOLD-IND-F      PIC X(01).           GAE00124
+                   88  ORBC-COMPLIANCE-HOLD-F                VALUE 'Y'. GAE00124
+               10  ORBC-COMPL-HOLD-REASON-GRP-F.                        GAE00124
+                   15  ORBC-COMPL-HOLD-REASON-F    PIC X(02)            GAE00124
+                           OCCURS 10 TIMES                              GAE00124
+                              INDEXED BY HOLD-INDX.                     GAE00124
+               10  ORBC-RELEASE-OPID-F             PIC X(04).           GAE00124
+               10  ORBC-RELEASE-DATE-F             PIC S9(05) COMP-3.   GAE00124
+               10  ORBC-RELEASE-TIME-F             PIC S9(07) COMP-3.   GAE00124
+           05  ORBC-FUTURE-USAGE                   PIC X(094).          GAE00124
+           05  ORBC-NON-RECEIPT REDEFINES ORBC-FUTURE-USAGE.            GAE00124
+               10  ORBC-SECOND-SOURCE-IND          PIC X(01).           GAE00124
+                   88  ORBC-SECOND-SOURCE                    VALUE 'Y'. GAE00124
+               10  ORBC-ORIG-CUST-PART-NBR         PIC X(12).           GAE00124
+           05  ORBC-CUST-INFO-DATA-2.                                   MJW91129
+               10  ORBC-ACCOUNT-INFORMATION OCCURS 1 TO 3 TIMES                 
+                       DEPENDING ON ORBC-COUNT.                                 
+                   15  ORBC-ACCOUNT-NBR            PIC X(16).                   
+                   15  ORBC-ACCOUNT-PCT            PIC S9(1)V99.                
+           05  FILLER                              PIC X(422).          KMR95009
+                                                                                
+      ******************************************************************        
+      *                                                                *        
+      *  ORDER SERIAL AND ASSET TAG ITEM RECORD    LRECL=(236,730)     *GEH96187
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+       01  ORBI-SERIAL-ITEM-RECORD.                                             
+           02  ORBI-SERIAL-SORT-AREA.                                           
+               05  ORBI-SERIAL-SORT-KEY            PIC X(30).                   
+           02  ORBI-SERIAL-DATA-AREA.                                           
+               05  ORBI-KEY-SERIAL                 PIC X(17).                   
+               05  FILLER                          PIC X(5).                    
+               05  ORBI-COUNT                      PIC 9(2).                    
+               05  ORBI-FUTURE-USAGE               PIC X(36).           GEH96187
+               05  ORBI-SERIAL-INFO OCCURS 1 TO 10 TIMES                GEH96187
+                       DEPENDING ON ORBI-COUNT.                                 
+                   10  ORBI-SERIAL-NBR             PIC X(30).           GEH96187
+                   10  ORBI-ASSET-TAG-NBR          PIC X(30).           GEH96187
+           02  ORBI-OLD-FILLER.                                         RLH14017
+               05  ORBI-SERIAL-INF2.                                    RLH14017
+                   15  ORBI-SERIAL-NBR-TYPE        PIC  X(01)           RLH14017
+                                                   OCCURS 10 TIMES.     RLH14017
+               05  FILLER                          PIC  X(30).          RLH14017
+      *                                                                 GEH96187
+      ******************************************************************GEH96187
+      *         >->->->->->->->-> N O T I C E <-<-<-<-<-<-<-<-<        *GEH96187
+      * THIS REC LAYOUT IS NO LONGER BEING USED FOR STORING SHIP ORDER *GEH96187
+      * SERIAL NUMBERS.  IT IS BEING KEPT FOR EXISTING HISTORY RECS    *GEH96187
+      * THAT USE THIS LAYOUT.  ALSO THE RMA ORDER HISTORY FILE USES    *GEH96187
+      * THIS COPYBOOK AND THIS SERIAL NUMBER RECORD TYPE.              *GEH96187
+      ******************************************************************GEH93263
+      *                                                                *GEH93263
+      *    ORDER 30 BYTE SERIAL ITEM RECORD        LRECL=(236,730)     *KMR95009
+      *                                                                *GEH93263
+      ******************************************************************GEH93263
+                                                                        GEH93263
+       01  ORBJ-SERIAL-ITEM-RECORD.                                     GEH93263
+           02  ORBJ-SERIAL-SORT-AREA.                                   GEH93263
+               05  ORBJ-SERIAL-SORT-KEY            PIC X(30).           GEH93263
+           02  ORBJ-SERIAL-DATA-AREA.                                   GEH93263
+               05  ORBJ-KEY-SERIAL                 PIC X(17).           GEH93263
+               05  FILLER                          PIC X(5).            GEH93263
+               05  ORBJ-COUNT                      PIC 9(2).            GEH93263
+               05  ORBJ-FUTURE-USAGE               PIC X(98).           GEH93263
+               05  ORBJ-SERIAL-INFO OCCURS 1 TO 12 TIMES                GEH93263
+                       DEPENDING ON ORBJ-COUNT.                         GEH93263
+                   10  ORBJ-SERIAL-NBR             PIC X(30).           GEH93263
+           02  FILLER                              PIC X(218).          KMR95009
+                                                                                
+      ******************************************************************        
+      *                                                                *        
+      *    ORDER WAREHOUSE LOCATION RECORD         LRECL=(248,730)     *KMR95009
+      *                                                                *        
+      ******************************************************************        
+       01  ORBW-WAREHOUSE-LOC-RECORD.                                           
+           05  ORBW-LOCATION-SORT-AREA.                                         
+               10  ORBW-LOCATION-SORT-KEY          PIC X(30).                   
+           05  ORBW-LOCATION-DATA-AREA.                                         
+               10  ORBW-KEY-LOCATION               PIC X(17).                   
+               10  FILLER                          PIC X(18).                   
+               10  ORBW-COUNT                      PIC 9(2).                    
+               10  ORBW-FUTURE-USAGE               PIC X(170).          MJW91129
+               10  ORBW-LOCATION-INFO OCCURS 1 TO 25 TIMES                      
+                       DEPENDING ON ORBW-COUNT.                                 
+                   15  ORBW-LOC                    PIC X(7).                    
+                   15  ORBW-QTY                    PIC S9(7) COMP-3.            
+           05  FILLER                              PIC X(218).          KMR95009
+                                                                        GEH93320
+      ******************************************************************GEH93320
+      *                                                                *GEH93320
+      *    ORDER FREIGHT ITEM RECORD               LRECL=(080,730)     *KMR95009
+      *                                                                *GEH93320
+      ******************************************************************GEH93320
+                                                                        GEH93320
+       01  ORBF-FREIGHT-ITEM-RECORD.                                    GEH93320
+           02  ORBF-FREIGHT-SORT-AREA.                                  GEH93320
+               05  ORBF-FREIGHT-SORT-KEY           PIC X(30).           GEH93320
+           02  ORBF-FREIGHT-DATA-AREA.                                  GEH93320
+               05  ORBF-FREIGHT-KEY                PIC X(17).           GEH93320
+               05  FILLER                          PIC X(4).            GEH93320
+               05  ORBF-PICKUP-NBR-IND             PIC X(1).            GEH93320
+               05  ORBF-COUNT                      PIC 9(2).            GEH93320
+               05  ORBF-3RD-PARTY-BILL-ACCT        PIC X(15).           GEH93320
+               05  ORBF-FUTURE-USAGE               PIC X(11).           GEH93320
+      ******************************************************************GEH95003
+      * FREIGHT-INFO ENTRIES ARE REDEFINED BY WS-FREIGHT-WORKAREA      *GEH95003
+      * IN ORRHFRT.  REVIEW LOGIC IN MDP751IM BEFORE MAKING CHGS TO    *GEH95003
+      * THIS PORTION OF THE ORDER HISTORY RECORD.                      *GEH95003
+      ******************************************************************GEH95003
+               05  ORBF-FREIGHT-INFO OCCURS 1 TO 12 TIMES               GEH93320
+                       DEPENDING ON ORBF-COUNT.                         GEH93320
+                   10  ORBF-TRACKING-NBR           PIC X(30).           GEH93320
+                   10  ORBF-PKG-WGT                PIC S9(9)V99 COMP-3. GEH93320
+           02  FILLER                              PIC X(218).          KMR95009

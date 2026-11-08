@@ -1,0 +1,359 @@
+﻿000100*****************************************************************         
+      *  ORSEOPRC :                                                   * ROR05158
+      *          1.TO POPULATE REQUEST AREA OF COPYBOOK USED TO CALL  * ROR05158
+      *            EO PRICE ENGINE.                                   * ROR05158
+      *          2.TO GET RESPONSES FROM RESP AREA OF COPYBOOK THAT   * ROR05158
+      *            WAS USED TO CALL EO PRC ENGINE AND USE THEM TO KEEP* ROR05158
+      *            THE DIST ON HOLD ..OR.. ISRT/REPL/DLET MISC CHARGE * ROR05158
+      *            LINES ON EACH DIST.                                * ROR05158
+      *                                                               * ROR05158
+      *  IN ORDER TO USE THIS IN OTHER PROGRAMS,HAVE TO LOOK AT THE   * ROR05158
+      *   BASE DESIGN IN ORP678IM , ORP676IM FOR MORE DETAILS.        * ROR05158
+      *  HAVE TO MAKE SURE                                            * ROR05158
+      *  1. THAT WE READ ORSHED BEFORE COMING HERE.                   * ROR05158
+      *  2. TO CHECK THE ADDRESS'S OF POINTERS BEFORE COMING HERE.    * ROR05158
+      *  3. THAT FOLLOWING COPYBOOKS ARE PRESENT IN THE CALLING PGM'S * ROR05158
+      *          THAT USE THIS COPYBOOK.                              * ROR05158
+      *                                                               * ROR05158
+      *01  SYWSP-CONNECTOR-DATA.                                        ROR05158
+      *    SYWSPH.                                                      ROR05158
+      *    SYWSPS.                                                      ROR05158
+      *    SYWSPE.                                                      ROR05158
+      *    SYWSPP.                                                      ROR05158
+      *    ORW697WP.                                                    ROR05158
+      *    SYWEO.                                                       ROR05158
+      *                                                                 ROR05158
+      *    ORWEOPRC.                                                    ROR05158
+      *    TBIMCHG.                                                     ROR05158
+      *    SYWEO.                                                       ROR05158
+      *    SYSEOM.                                                      ROR05158
+      *    SYSPINIT.                                                    ROR05158
+      *    SYSPCL.                                                      ROR05158
+      *    SYRPWSA.                                                     ROR05158
+                                                                        ROR05158
+      *1202-GU-ORSSHH.                 COPY ORIO1202.                   ROR05158
+      *1210-GHU-ORSSHH.                COPY ORIO1210.                   ROR05158
+      *1212-GHU-ORSLNE.                COPY ORIO1212.                   ROR05158
+      *1296-DLET-ORSLNE.               COPY ORIO1296.                   ROR05158
+      *1314-REPL-ORSSHH.               COPY ORIO1314.                   ROR05158
+      *1316-REPL-ORSLNE.               COPY ORIO1316.                   ROR05158
+      *1336-ISRT-ORSLNE.               COPY ORIO1336.                   ROR05158
+      *1337-ISRT-ORSLNEOF.             COPY ORIO1337.                   ROR05158
+      *                                                               * ROR05158
+      * ------------------------------------------------------------- * ROR05158
+      * ------------------------------------------------------------- * ROR05158
+      * REVISIONS:                                                    * ROR05158
+      * 06/07/05   ROR NEW COPYBOOK FOR SP - EO PRICING PROJECT.      * ROR05158
+      ***************************************************************** ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P000-INIT-EO-PRC-REQ.                                            ROR05158
+      *                                                                 ROR05158
+      * HERE , WE INITIALIZE THE REQUEST AREA THAT WE USE WHILE CALLING ROR05158
+      *    PRICING ENGINE.                                              ROR05158
+      * SET THE FOLL NECESSARY FIELDS AS THEY ARE USED IN EO200- PARA   ROR05158
+      *    WS-PRC-..  COMPANY,BR-NBR,CUST-NBR.                          ROR05158
+      *  PERFORM SP799- PARA TO SET WS-PRC FIELDS PROPERLY,             ROR05158
+      *    WHICH ARE USED IN EO200- PARA.                               ROR05158
+      *                                                                 ROR05158
+           MOVE ZEROES TO  WS-ORWEOPRC-REQ-IDX1                         ROR05158
+                           WS-ORWEOPRC-REQ-IDX2.                        ROR05158
+           PERFORM SP799-PRICING-SET-UP.                                ROR05158
+           PERFORM EO200-SETUP-END-ORDER-REQUEST.                       ROR05158
+      *                                                                 ROR05158
+       P000-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P001-FILL-EO-PRC-REQ.                                            ROR05158
+      *                                                                 ROR05158
+           MOVE SPACES TO  WS-ORWEOPRC-BR-SW.                           ROR05158
+           MOVE ZEROES TO  WS-ORWEOPRC-REQ-IDX1                         ROR05158
+                           WS-ORWEOPRC-REQ-IDX2.                        ROR05158
+           PERFORM P002-FILL-EO-PRC-REQ THRU P002-EXIT                  ROR05158
+                   UNTIL WS-ORWEOPRC-NO-MORE-BR.                        ROR05158
+      *                                                                 ROR05158
+       P001-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P002-FILL-EO-PRC-REQ.                                            ROR05158
+      *                                                                 ROR05158
+           ADD 1       TO  WS-ORWEOPRC-REQ-IDX1.                        ROR05158
+           IF WS-ORWEOPRC-REQ-IDX1 > ORH-LAST-DIST-NBR                  ROR05158
+              MOVE 'E'              TO  WS-ORWEOPRC-BR-SW               ROR05158
+              GO TO P002-EXIT                                           ROR05158
+           ELSE                                                         ROR05158
+              MOVE WS-ORWEOPRC-REQ-IDX1 TO WS-ORSSHH-DIST.              ROR05158
+      *                                                                 ROR05158
+           PERFORM 1202-GU-ORSSHH.                                      ROR05158
+      *                                                                 ROR05158
+      * SHOULD NOT PASS THE VOIDED DIST TOTAL TO PRICE ENGINE.          ROR05158
+      * SHOULD NOT PASS DIST WITH ZERO SALES TO PRICE ENGINE.           ROR05158
+      *                                                                 ROR05158
+           IF WS-ORSSHH-NORESP  AND                                     ROR05158
+              (NOT ORSH-VOIDED)                                         ROR05158
+              NEXT SENTENCE                                             ROR05158
+           ELSE                                                         ROR05158
+              GO TO P002-EXIT                                           ROR05158
+           END-IF.                                                      ROR05158
+      *                                                                 ROR05158
+           PERFORM P003-FILL-EO-PRC-REQ THRU P003-EXIT.                 ROR05158
+      *                                                                 ROR05158
+       P002-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P003-FILL-EO-PRC-REQ.                                            ROR05158
+      *                                                                 ROR05158
+      * SHOULD NOT PASS DIST WITH ZERO SALES TO PRICE ENGINE.           ROR05158
+      *                                                                 ROR05158
+           IF (ORSH-TOTAL-SALES NOT EQUAL ZEROES)                       ROR05158
+              NEXT SENTENCE                                             ROR05158
+           ELSE                                                         ROR05158
+              GO TO P003-EXIT                                           ROR05158
+           END-IF.                                                      ROR05158
+      *                                                                 ROR05158
+           ADD 1       TO  WS-ORWEOPRC-REQ-IDX2.                        ROR05158
+           MOVE ORSH-DIST-NBR      TO                                   ROR05158
+                SYWEO-DIST-NBR (WS-ORWEOPRC-REQ-IDX2)                   ROR05158
+           MOVE ORSH-TOTAL-SALES   TO                                   ROR05158
+                SYWEO-TOT-SHIPABLE-SLS (WS-ORWEOPRC-REQ-IDX2)           ROR05158
+           IF ORSH-TOTAL-SALES IS NEGATIVE                              ROR05158
+              SET SYWEO-TOT-SHIPABLE-SLS-NEG (WS-ORWEOPRC-REQ-IDX2)     ROR05158
+                  TO TRUE                                               ROR05158
+           ELSE                                                         ROR05158
+              SET SYWEO-TOT-SHIPABLE-SLS-POS (WS-ORWEOPRC-REQ-IDX2)     ROR05158
+                  TO TRUE                                               ROR05158
+           END-IF.                                                      ROR05158
+           MOVE WS-ORWEOPRC-REQ-IDX2 TO SYWEO-NBR-OF-DISTS.             ROR05158
+      *                                                                 ROR05158
+       P003-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P004-PROCESS-EO-PRC-CALL.                                        ROR05158
+      *                                                                 ROR05158
+      *  WE ARE CALLING EO PRICING ENGINE HERE.                         ROR05158
+      *                                                                 ROR05158
+           PERFORM P005-PERFORM-EO-PRC-CALL THRU P005-EXIT.             ROR05158
+      *                                                                 ROR05158
+      *  GO THRU RESPONSE OF PRICING CALL AND LOOP THRU ALL THE DIST'S  ROR05158
+      *                                                                 ROR05158
+           PERFORM P006-GET-EO-PRC-RESP     THRU P006-EXIT.             ROR05158
+      *                                                                 ROR05158
+       P004-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P005-PERFORM-EO-PRC-CALL.                                        ROR05158
+      *                                                                 ROR05158
+      *  WE ARE CALLING EO PRICING ENGINE HERE.                         ROR05158
+      *                                                                 ROR05158
+           PERFORM EO900-END-ORDER-CALC-ADJ.                            ROR05158
+      *                                                                 ROR05158
+       P005-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P006-GET-EO-PRC-RESP.                                            ROR05158
+      *                                                                 ROR05158
+      *  GO THRU RESPONSE OF PRICING CALL AND LOOP THRU ALL THE DIST'S. ROR05158
+      *   IF WE GET A NORMAL RESP FROM PRICING CALL ,                   ROR05158
+      *      UPDATE DISTRIBUTIONS WITH MISCELLANEOUS CHARGE LINES.      ROR05158
+      *  IF WE DONT GET A NORMAL RESPONSE FROM PRICING ENGINE ,         ROR05158
+      *   KEEP ALL THE DIST'S ON HOLD AND CONTINUE WITH THE PROCESS.    ROR05158
+      *                                                                 ROR05158
+           MOVE SPACES TO  WS-ORWEOPRC-BR-SW.                           ROR05158
+           MOVE ZEROES TO  WS-ORWEOPRC-RES-IDX2                         ROR05158
+                           WS-ORWEOPRC-RES-IDX1.                        ROR05158
+           PERFORM P007-GET-EO-PRC-RESP THRU P007-EXIT                  ROR05158
+                   UNTIL WS-ORWEOPRC-NO-MORE-BR.                        ROR05158
+      *                                                                 ROR05158
+       P006-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P007-GET-EO-PRC-RESP.                                            ROR05158
+      *                                                                 ROR05158
+           MOVE SPACE  TO  WS-ORWEOPRC-MATCH-FND-SW                     ROR05158
+                           WS-ORWEOPRC-END-LOOP-SW.                     ROR05158
+           MOVE ZEROES TO  WS-ORWEOPRC-RES-IDX2.                        ROR05158
+           ADD 1       TO  WS-ORWEOPRC-RES-IDX1.                        ROR05158
+           IF WS-ORWEOPRC-RES-IDX1 > ORH-LAST-DIST-NBR                  ROR05158
+              MOVE 'E'              TO  WS-ORWEOPRC-BR-SW               ROR05158
+              GO TO P007-EXIT                                           ROR05158
+           ELSE                                                         ROR05158
+              MOVE WS-ORWEOPRC-RES-IDX1 TO WS-ORSSHH-DIST.              ROR05158
+      *                                                                 ROR05158
+      *  IF WE DONT GET A NORMAL RESPONSE FROM PRICING ENGINE,          ROR05158
+      *   KEEP ALL THE DISTRIBUTIONS ON HOLD (  S , SI)                 ROR05158
+      *                                                                 ROR05158
+           IF SYWEO-R-RECORD-NO-ERRORS                                  ROR05158
+              PERFORM 1202-GU-ORSSHH                                    ROR05158
+           ELSE                                                         ROR05158
+              PERFORM 1210-GHU-ORSSHH                                   ROR05158
+              INITIALIZE OR688-PARM-DATA                                ROR05158
+              MOVE 'S'              TO  OR688-NEW-STATUS                ROR05158
+              MOVE 'SI'             TO  OR688-NEW-REASON                ROR05158
+              PERFORM  P020-CHECK-HOLD-SEQUENCE THRU P020-EXIT          ROR05158
+              PERFORM 1314-REPL-ORSSHH                                  ROR05158
+              GO TO P007-EXIT                                           ROR05158
+           END-IF.                                                      ROR05158
+      *                                                                 ROR05158
+           IF WS-ORSSHH-NORESP  AND                                     ROR05158
+              (NOT ORSH-VOIDED) AND                                     ROR05158
+              (ORSH-TOTAL-SALES NOT EQUAL ZEROES)                       ROR05158
+              NEXT SENTENCE                                             ROR05158
+           ELSE                                                         ROR05158
+              GO TO P007-EXIT                                           ROR05158
+           END-IF.                                                      ROR05158
+      *                                                                 ROR05158
+      *   TO MAKE SURE THAT WE ARE UPDATING PROPER DISTRIBUTIONS WITH   ROR05158
+      *   CORRECT AMOUNTS SENT BACK BY PRICING ENGINE.                  ROR05158
+      *   IF WE SKIPPED A PARTICULAR DIST WHILE CALLING PRICE ENGINE ,  ROR05158
+      *    WE SHOUDLN'T BE UPDATING THAT DIST WHEN WE COME BACK.        ROR05158
+      *                                                                 ROR05158
+           PERFORM UNTIL (WS-ORWEOPRC-MATCH-FOUND OR                    ROR05158
+                          WS-ORWEOPRC-END-LOOP)                         ROR05158
+                  ADD 1       TO  WS-ORWEOPRC-RES-IDX2                  ROR05158
+                  IF SYWEO-R-DIST-NBR(WS-ORWEOPRC-RES-IDX2) EQUAL       ROR05158
+                     ORSH-DIST-NBR                                      ROR05158
+                     SET WS-ORWEOPRC-MATCH-FOUND TO TRUE                ROR05158
+                  END-IF                                                ROR05158
+                  IF WS-ORWEOPRC-RES-IDX2 EQUAL 9                       ROR05158
+                     SET WS-ORWEOPRC-END-LOOP TO TRUE                   ROR05158
+                  END-IF                                                ROR05158
+           END-PERFORM.                                                 ROR05158
+      *                                                                 ROR05158
+           IF WS-ORWEOPRC-MATCH-FOUND                                   ROR05158
+              NEXT SENTENCE                                             ROR05158
+           ELSE                                                         ROR05158
+              GO TO P007-EXIT                                           ROR05158
+           END-IF.                                                      ROR05158
+      *                                                                 ROR05158
+           MOVE ZEROES TO ORL-UNIT-PRICE                                ROR05158
+                          ORL-FOREIGN-UNIT-PRICE.                       ROR05158
+      *                                                                 ROR05158
+           IF SYWEO-R-MODIFIER-AMT(WS-ORWEOPRC-RES-IDX2)                ROR05158
+                                  GREATER THAN ZEROES                   ROR05158
+              IF SYWEO-R-DIST-MODIFIER-POS(WS-ORWEOPRC-RES-IDX2)        ROR05158
+                 MOVE SYWEO-R-MODIFIER-AMT(WS-ORWEOPRC-RES-IDX2) TO     ROR05158
+                      ORL-UNIT-PRICE                                    ROR05158
+              ELSE                                                      ROR05158
+                 COMPUTE ORL-UNIT-PRICE EQUAL                           ROR05158
+                  SYWEO-R-MODIFIER-AMT(WS-ORWEOPRC-RES-IDX2) * -1       ROR05158
+              END-IF                                                    ROR05158
+              IF ORH-CURRENCY-CODE NOT EQUAL TB-CPO-CURRENCY-CODE       ROR05158
+                 IF ORH-CURRENCY-RATE IS NOT NUMERIC OR                 ROR05158
+                    ORH-CURRENCY-RATE EQUAL ZEROES                      ROR05158
+                    MOVE 1 TO ORH-CURRENCY-RATE                         ROR05158
+                 END-IF                                                 ROR05158
+                 COMPUTE ORL-FOREIGN-UNIT-PRICE =                       ROR05158
+                         ORL-UNIT-PRICE / ORH-CURRENCY-RATE             ROR05158
+              END-IF                                                    ROR05158
+           END-IF.                                                      ROR05158
+      *                                                                 ROR05158
+           MOVE ORL-UNIT-PRICE         TO WS-ORWEOPRC-MISC-CHG.         ROR05158
+           MOVE ORL-FOREIGN-UNIT-PRICE TO WS-ORWEOPRC-MISC-CHG-FGN.     ROR05158
+      *                                                                 ROR05158
+           PERFORM P008-MANIPULATE-SP-MISC-LINE THRU P008-EXIT.         ROR05158
+      *                                                                 ROR05158
+       P007-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P008-MANIPULATE-SP-MISC-LINE.                                    ROR05158
+      *                                                                 ROR05158
+           MOVE '*-'                TO  WS-ORSSHH-COMMAND-CODE.         ROR05158
+           MOVE 879                 TO  WS-ORSLNE-NBR.                  ROR05158
+           MOVE ' ='                TO  WS-ORSLNE-SEARCH.               ROR05158
+           PERFORM 1212-GHU-ORSLNE.                                     ROR05158
+           IF WS-ORSLNE-NORESP                                          ROR05158
+              IF SYWEO-R-MODIFIER-AMT(WS-ORWEOPRC-RES-IDX2)             ROR05158
+                                     GREATER THAN ZEROES                ROR05158
+      *    PERFORM REPLACE LOGIC HERE.                                  ROR05158
+                 MOVE WS-ORWEOPRC-MISC-CHG    TO ORL-UNIT-PRICE         ROR05158
+                 MOVE WS-ORWEOPRC-MISC-CHG-FGN TO ORL-FOREIGN-UNIT-PRICE ABCDE  
+                 PERFORM 1316-REPL-ORSLNE                               ROR05158
+              ELSE                                                      ROR05158
+      *    PERFORM DELETE LOGIC HERE.                                   ROR05158
+                 PERFORM 1296-DLET-ORSLNE                               ROR05158
+              END-IF                                                    ROR05158
+           ELSE                                                         ROR05158
+              IF SYWEO-R-MODIFIER-AMT(WS-ORWEOPRC-RES-IDX2)             ROR05158
+                                     GREATER THAN ZEROES                ROR05158
+      *    PERFORM INSERT LOGIC HERE.                                   ROR05158
+                 PERFORM P009-INSERT-SP-MISC-LINE THRU P009-EXIT        ROR05158
+              END-IF                                                    ROR05158
+           END-IF.                                                      ROR05158
+      *                                                                 ROR05158
+       P008-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158
+      *                                                                 ROR05158
+       P009-INSERT-SP-MISC-LINE.                                        ROR05158
+      *                                                                 ROR05158
+      *  NEED TO ADD MISCELLANEOUS CHARGE LINE WITH RETURNED AMT.       ROR05158
+      *                                                                 ROR05158
+           MOVE ORH-COMPANY        TO TB-MCHG-CO-CODE.                  ROR05158
+           MOVE 'WEB'              TO TB-MCHG-CODE.                     ROR05158
+           CALL 'SYU510'           USING  TB-MISC-CHARGE-IA.            ROR05158
+      *                                                                 ROR05158
+      *  IF ENTRY NOT FOUND , KEEP THE DIST ON HOLD( S , SI).           ROR05158
+      *                                                                 ROR05158
+           IF TB-MCHG-NORESP                                            ROR05158
+              NEXT SENTENCE                                             ROR05158
+           ELSE                                                         ROR05158
+              PERFORM 1210-GHU-ORSSHH                                   ROR05158
+              INITIALIZE OR688-PARM-DATA                                ROR05158
+              MOVE 'S'              TO  OR688-NEW-STATUS                ROR05158
+              MOVE 'SI'             TO  OR688-NEW-REASON                ROR05158
+              PERFORM  P020-CHECK-HOLD-SEQUENCE THRU P020-EXIT          ROR05158
+              PERFORM 1314-REPL-ORSSHH                                  ROR05158
+              GO TO P009-EXIT                                           ROR05158
+           END-IF.                                                      ROR05158
+      *                                                                 ROR05158
+           INITIALIZE  ORL-ORSLNE.                                      ROR05158
+           MOVE 'C'                    TO ORL-LINE-TYPE.                ROR05158
+           MOVE 879                    TO ORL-LINE-NBR.                 ROR05158
+           MOVE +1                     TO ORL-QTY-SHIPPED               ROR05158
+                                          ORL-QTY-ORDERED.              ROR05158
+           MOVE WS-ORWEOPRC-MISC-CHG    TO ORL-UNIT-PRICE.              ROR05158
+           MOVE WS-ORWEOPRC-MISC-CHG-FGN TO ORL-FOREIGN-UNIT-PRICE.     ROR05158
+           IF TB-MCHG-NORESP                                            ROR05158
+              MOVE TB-MCHG-CODE           TO  ORL-COMMOD-CODE           ROR05158
+              MOVE TB-MCHG-TAX-CODE       TO  ORL-TAX-CODE              ROR05158
+              MOVE TB-MCHG-VAT-TAX-CODE   TO  ORL-VAT-TAX-CODE          ROR05158
+              MOVE TB-MCHG-DESC           TO  ORL-DESCRIPTION           ROR05158
+              IF TB-MCHG-AFFECT-COST                                    ROR05158
+                 MOVE ORL-UNIT-PRICE      TO  ORL-UNIT-COST             ROR05158
+              ELSE                                                      ROR05158
+                 MOVE ZERO                TO  ORL-UNIT-COST             ROR05158
+                 MOVE 'N'                 TO  ORL-UC-OVERRIDE-SW        ROR05158
+              END-IF                                                    ROR05158
+           END-IF.                                                      ROR05158
+           MOVE SPACES TO WS-ORSLNE-QUAL.                               ROR05158
+           PERFORM 1336-ISRT-ORSLNE.                                    ROR05158
+           IF WS-ORSLNE-NORESP                                          ROR05158
+              INITIALIZE ORLOF-ORSLNEOF-0                               ROR05158
+              MOVE '('                 TO  WS-ORSLNE-QUAL               ROR05158
+              MOVE SPACES              TO  WS-UNQUAL-SSA                ROR05158
+              MOVE 'ORSLNEOF'          TO  WS-UNQUAL-SSA                ROR05158
+              MOVE SPACES              TO  WS-ORSLNEOF-QUAL             ROR05158
+              MOVE ZERO                TO  ORLOF-ORSLNEOF-KEY-0         ROR05158
+              MOVE ORLOF-ORSLNEOF-0    TO  ORLOF-ORSLNEOF               ROR05158
+              PERFORM 1337-ISRT-ORSLNEOF                                ROR05158
+           ELSE                                                         ROR05158
+              PERFORM 1210-GHU-ORSSHH                                   ROR05158
+              INITIALIZE OR688-PARM-DATA                                ROR05158
+              MOVE 'S'              TO  OR688-NEW-STATUS                ROR05158
+              MOVE 'SI'             TO  OR688-NEW-REASON                ROR05158
+              PERFORM  P020-CHECK-HOLD-SEQUENCE THRU P020-EXIT          ROR05158
+              PERFORM 1314-REPL-ORSSHH                                  ROR05158
+           END-IF.                                                      ROR05158
+      *                                                                 ROR05158
+       P009-EXIT.                                                       ROR05158
+           EXIT.                                                        ROR05158
+      *                                                                 ROR05158

@@ -1,0 +1,384 @@
+      ******************************************************************        
+      *  DB2 CHECKPOINT/RESTART PROCEDURE DIVISION COPYBOOK            *        
+      * THIS COPYBOOK CONTAINS THE PROCEDURE DIVISION ROUTINES TO      *        
+      * ISSUE CHECKPOINT/RESTART CALLS FOR DB2.                        *        
+      *                                                                *        
+      * THIS COPYBOOK MUST BE USED IN CONJUCTION WITH COPYBOOKS:       *        
+      *    CKWDB2RS- DB2 RESTART/RECOVERY WORKING STORAGE FIELDS.      *        
+      *    SYTPGM  - DB2 RESTART/RECOVERY DCLGEN (CHKP FREQ NBR).      *        
+      *    SYTARA  - DB2 RESTART/RECOVERY DCLGEN (CHKP WORKING STORAGE *        
+      *              SAVE ARE NEEDED FOR THE RESTART PROCESS).         *        
+      *    SYXDB2EB- DB2 ABEND ROUTINES.                               *        
+      *    ERXPARM - IMS ABEND WORKING STORAGE                         *        
+      *    ERXBATCH- IMS ABEND ROUTINES                                *        
+      *                                                                *        
+      ******************************************************************        
+      * INGRAM MICRO REVISIONS:                                        *        
+      * 11/04/22 MXV ADD ELAPSED TIME CHECKPOINT LOGIC.                *MXV22308
+      *              REWRITE SQL ERROR HANDLING.                       *MXV22308
+      * 01/13/05 MCV CREATE CHECKPOINT PROGRAM ENTRY IF NOT PRESENT    *MCV05013
+      * 06/21/00 GAE INITIAL IMPLEMENTATION.                           *GAE00172
+      ******************************************************************        
+      * THIS ROUTINE SHOULD BE PERFORMED DURING PROGRAM INITIALIZATION *        
+      ******************************************************************        
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       8000-CHECK-FOR-RESTART-DB2.                                              
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+      *--- GET CHECKPOINT TIME INTERVAL STORED AS PROGRAM XXELAPSED.    MXV22308
+                                                                        MXV22308
+           MOVE SYTPGM-PGM-NAM            TO  WS-ERROR-FILE-NAME        MXV22308
+           MOVE 'XXELAPSED'               TO  SYTPGM-PGM-NAM            MXV22308
+      *    DEFAULT ELAPSED TIME THRESHOLD                               MXV22308
+           SET CHKDB2-LIMIT-TIME-DEFAULT  TO  TRUE                      MXV22308
+           MOVE CHKDB2-LIMIT-TIME         TO  SYTPGM-CHKPT-FREQ-NBR     MXV22308
+                                                                        MXV22308
+           PERFORM 8010-READ-SYTPGM                                     MXV22308
+                                                                        MXV22308
+           IF SQLCODE-NOT-FOUND                                         MXV22308
+              PERFORM 8015-INSERT-SYTPGM                                MXV22308
+           END-IF                                                       MXV22308
+                                                                        MXV22308
+           MOVE SYTPGM-CHKPT-FREQ-NBR     TO  CHKDB2-LIMIT-TIME         MXV22308
+                                                                        MXV22308
+           MOVE WS-ERROR-FILE-NAME        TO  SYTPGM-PGM-NAM            MXV22308
+                                                                        MXV22308
+      *--- GET CHECKPOINT FREQUENCY                                     MXV22308
+                                                                        MXV22308
+      *    DEFAULT CHECKPOINT THRESHOLD                                 MXV22308
+           MOVE 500                       TO  SYTPGM-CHKPT-FREQ-NBR     MXV22308
+                                                                        MXV22308
+           PERFORM 8010-READ-SYTPGM.                                            
+                                                                        MXV22308
+           IF SQLCODE-NOT-FOUND                                         MXV22308
+              PERFORM 8015-INSERT-SYTPGM                                MXV22308
+           END-IF                                                       MXV22308
+                                                                        MXV22308
+      *--- IF NORMAL RESPONSE THAT MEANS THIS PROGRAM HAS BEEN RESTARTEDMXV22308
+                                                                        MXV22308
+           DISPLAY 'PROGRAM NAME    : ' SYTPGM-PGM-NAM                  MXV22308
+           DISPLAY 'CHECKPOINT LIMIT: ' SYTPGM-CHKPT-FREQ-NBR           MXV22308
+           DISPLAY 'ELAPSED TIME    : ' CHKDB2-LIMIT-TIME               MXV22308
+                                                                        MXV22308
+           PERFORM 8020-READ-SYTARA                                     MXV22308
+                                                                        MXV22308
+           IF SQLCODE-NORESP                                            MXV22308
+              DISPLAY '**=== PROGRAM HAS BEEN RESTARTED ===**'          MXV22308
+              DISPLAY 'PROGRAM NAME    : ' SYTARA-PGM-NAM               MXV22308
+              DISPLAY 'BUSINESS REGION : ' SYTARA-BUS-REGN-CD           MXV22308
+              DISPLAY 'CHKP TIMESTAMP  : ' SYTARA-CHKPT-TS              MXV22308
+              MOVE 'R'     TO CHKDB2-RESTART-IND                        MXV22308
+           ELSE                                                         MXV22308
+              MOVE 'N'     TO CHKDB2-RESTART-IND.                       MXV22308
+                                                                        MXV22308
+      *> GET/SAVE INITIAL TIME.                                         MXV22308
+           PERFORM GET-CURRENT-TIME.                                    MXV22308
+                                                                        MXV22308
+           MOVE CHKDB2-SECONDS            TO  CHKDB2-SECONDS-PREVIOUS.  MXV22308
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       8010-READ-SYTPGM.                                                        
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           EXEC SQL                                                             
+                SELECT CHKPT_FREQ_NBR                                           
+                  INTO :SYTPGM-CHKPT-FREQ-NBR                                   
+                  FROM WW_PROGRAM                                               
+                 WHERE PGM_NAM = :SYTPGM-PGM-NAM                                
+           END-EXEC.                                                            
+                                                                        MXV22308
+           MOVE SQLCODE                   TO  SQLCODE-STATUS            MXV22308
+                                                                        MXV22308
+           EVALUATE TRUE                                                MXV22308
+              WHEN SQLCODE-NORESP                                       MXV22308
+              WHEN SQLCODE-NOT-FOUND                                    MXV22308
+                   CONTINUE                                             MXV22308
+                                                                        MXV22308
+              WHEN OTHER                                                MXV22308
+                   MOVE '8010'            TO  WS-ERROR-CODE             MXV22308
+                   MOVE '8010-READ-SYTPGM'                              MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-1    MXV22308
+                   MOVE 'ERROR SELECT WW_PROGRAM'                       MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-2    MXV22308
+                   MOVE SPACES            TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+                   MOVE SQLCODE-STATUS    TO  WS-ERROR-FILE-STAT        MXV22308
+                   MOVE 'SYTPGM'          TO  WS-ERROR-FILE-NAME        MXV22308
+                   MOVE 16                TO  WS-ERROR-RESPONSE         MXV22308
+                   PERFORM 990-SQL-MESSAGE                              MXV22308
+                   PERFORM 999-ABEND                                    MXV22308
+           END-EVALUATE.                                                MXV22308
+                                                                        MCV05013
+      *----------------------------------------------------------------*MXV22308
+       8015-INSERT-SYTPGM.                                              MCV05013
+      *----------------------------------------------------------------*MXV22308
+                                                                        MCV05013
+           EXEC SQL                                                     MCV05013
+                INSERT INTO WW_PROGRAM                                  MCV05013
+                       ( PGM_NAM                  ,                     MCV05013
+                         CHKPT_FREQ_NBR )                               MCV05013
+                  VALUES                                                MCV05013
+                       ( :SYTPGM-PGM-NAM          ,                     MCV05013
+                         :SYTPGM-CHKPT-FREQ-NBR )                       MCV05013
+           END-EXEC                                                     MCV05013
+                                                                        MXV22308
+           MOVE SQLCODE                   TO  SQLCODE-STATUS            MXV22308
+                                                                        MXV22308
+           EVALUATE TRUE                                                MXV22308
+              WHEN SQLCODE-NORESP                                       MXV22308
+                   CONTINUE                                             MXV22308
+                                                                        MXV22308
+              WHEN OTHER                                                MXV22308
+                   MOVE '8015'            TO  WS-ERROR-CODE             MXV22308
+                   MOVE '8015-INSERT-SYTPGM'                            MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-1    MXV22308
+                   MOVE 'ERROR INSERT WW_PROGRAM'                       MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-2    MXV22308
+                   MOVE SPACES            TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+                   MOVE SQLCODE-STATUS    TO  WS-ERROR-FILE-STAT        MXV22308
+                   MOVE 'SYTPGM'          TO  WS-ERROR-FILE-NAME        MXV22308
+                   MOVE 16                TO  WS-ERROR-RESPONSE         MXV22308
+                   PERFORM 990-SQL-MESSAGE                              MXV22308
+                   PERFORM 999-ABEND                                    MXV22308
+           END-EVALUATE.                                                MXV22308
+                                                                        MXV22308
+           DISPLAY '!!! CHECKPOINT CREATED FOR PROGRAM: '               MXV22308
+                                            SYTPGM-PGM-NAM              MXV22308
+                   ' USING FREQUENCY: '     SYTPGM-CHKPT-FREQ-NBR.      MXV22308
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       8020-READ-SYTARA.                                                        
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           EXEC SQL                                                             
+                SELECT CHKPT_TS                                                 
+                     , CHKPT_AREA_TXT                                           
+                  INTO :SYTARA-CHKPT-TS                                         
+                     , :SYTARA-CHKPT-AREA-TXT                                   
+                  FROM WW_CHKPT_AREA                                            
+                 WHERE PGM_NAM     = :SYTARA-PGM-NAM                            
+                   AND BUS_REGN_CD = :SYTARA-BUS-REGN-CD                        
+           END-EXEC.                                                            
+                                                                        MXV22308
+           MOVE SQLCODE                   TO  SQLCODE-STATUS            MXV22308
+                                                                        MXV22308
+           EVALUATE TRUE                                                MXV22308
+              WHEN SQLCODE-NORESP                                       MXV22308
+              WHEN SQLCODE-NOT-FOUND                                    MXV22308
+                   CONTINUE                                             MXV22308
+                                                                        MXV22308
+              WHEN OTHER                                                MXV22308
+                   MOVE '8020'            TO  WS-ERROR-CODE             MXV22308
+                   MOVE '8020-READ-SYTARA'                              MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-1    MXV22308
+                   MOVE 'ERROR SELECT WW_CHKPT_AREA'                    MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-2    MXV22308
+                   MOVE SPACES            TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+                   MOVE SQLCODE-STATUS    TO  WS-ERROR-FILE-STAT        MXV22308
+                   MOVE 'SYTARA'          TO  WS-ERROR-FILE-NAME        MXV22308
+                   MOVE 16                TO  WS-ERROR-RESPONSE         MXV22308
+                   PERFORM 990-SQL-MESSAGE                              MXV22308
+                   PERFORM 999-ABEND                                    MXV22308
+           END-EVALUATE.                                                MXV22308
+                                                                        MXV22308
+      ******************************************************************        
+      * THIS ROUTINE SHOULD BE PERFORMED WHEN CHECKPOINT PROGRAM COUNT *        
+      * IS GREATER THAN THE LIMIT. MAKE SURE THE DCLWW-CHKPT-AREA HAS  *        
+      * BEEN FORMATTED PRIOR TO PERFORMING THIS ROUTINE.               *        
+      ******************************************************************        
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       8100-CHECKPOINT-ROUTINE.                                                 
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+      *    CHECKPOINTS ARE TAKEN WHEN CHECKPOINT COUNT                  MXV22308
+      *    IS GREATER THAN THE COUNT LIMIT(MAKE SURE DCLWW-CHKPT-AREA   MXV22308
+      *    HAS BEEN FORMATTED ALREADY) OR 10 SECONDS HAVE ELAPSED       MXV22308
+      *    SINCE THE LAST CHECKPOINT CALL.                              MXV22308
+                                                                        MXV22308
+      *> ANYTHING UPDATED ?                                             MXV22308
+           IF CHKDB2-CHKP-COUNT > ZERO                                  MXV22308
+              PERFORM GET-CURRENT-TIME                                  MXV22308
+              COMPUTE CHKDB2-SECONDS-ELAPSED =                          MXV22308
+                      CHKDB2-SECONDS - CHKDB2-SECONDS-PREVIOUS          MXV22308
+              IF CHKDB2-CHKP-COUNT      > SYTPGM-CHKPT-FREQ-NBR OR      MXV22308
+                 CHKDB2-SECONDS-ELAPSED > CHKDB2-LIMIT-TIME             MXV22308
+                    PERFORM 8110-UPDATE-SYTARA                          MXV22308
+                    IF SQLCODE-NOT-FOUND                                MXV22308
+                       PERFORM 8120-INSERT-SYTARA                       MXV22308
+                    END-IF                                              MXV22308
+                    PERFORM 8130-DB2-COMMIT                             MXV22308
+              END-IF                                                    MXV22308
+           END-IF.                                                      MXV22308
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       8110-UPDATE-SYTARA.                                                      
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           EXEC SQL                                                             
+              UPDATE WW_CHKPT_AREA                                              
+                 SET CHKPT_TS       =  CURRENT TIMESTAMP                        
+                   , CHKPT_AREA_TXT = :SYTARA-CHKPT-AREA-TXT                    
+               WHERE PGM_NAM        = :SYTARA-PGM-NAM                           
+                 AND BUS_REGN_CD    = :SYTARA-BUS-REGN-CD                       
+           END-EXEC.                                                            
+                                                                        MXV22308
+           MOVE SQLCODE                   TO  SQLCODE-STATUS            MXV22308
+                                                                        MXV22308
+           EVALUATE TRUE                                                MXV22308
+              WHEN SQLCODE-NORESP                                       MXV22308
+              WHEN SQLCODE-NOT-FOUND                                    MXV22308
+                   CONTINUE                                             MXV22308
+                                                                        MXV22308
+              WHEN OTHER                                                MXV22308
+                   MOVE '8110'            TO  WS-ERROR-CODE             MXV22308
+                   MOVE '8110-UPDATE-SYTARA'                            MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-1    MXV22308
+                   MOVE 'ERROR UPDATE WW_CHKPT_AREA'                    MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-2    MXV22308
+                   MOVE SPACES            TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+                   MOVE SQLCODE-STATUS    TO  WS-ERROR-FILE-STAT        MXV22308
+                   MOVE 'SYTARA'          TO  WS-ERROR-FILE-NAME        MXV22308
+                   MOVE 16                TO  WS-ERROR-RESPONSE         MXV22308
+                   PERFORM 990-SQL-MESSAGE                              MXV22308
+                   PERFORM 999-ABEND                                    MXV22308
+           END-EVALUATE.                                                MXV22308
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       8120-INSERT-SYTARA.                                                      
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           EXEC SQL                                                             
+                INSERT INTO WW_CHKPT_AREA                                       
+                      (PGM_NAM                                                  
+                     , BUS_REGN_CD                                              
+                     , CHKPT_TS                                                 
+                     , CHKPT_AREA_TXT)                                          
+               VALUES (:SYTARA-PGM-NAM                                          
+                     , :SYTARA-BUS-REGN-CD                                      
+                     ,  CURRENT TIMESTAMP                                       
+                     , :SYTARA-CHKPT-AREA-TXT)                                  
+           END-EXEC.                                                            
+                                                                        MXV22308
+           MOVE SQLCODE                   TO  SQLCODE-STATUS            MXV22308
+                                                                        MXV22308
+           EVALUATE TRUE                                                MXV22308
+              WHEN SQLCODE-NORESP                                       MXV22308
+                   CONTINUE                                             MXV22308
+                                                                        MXV22308
+              WHEN OTHER                                                MXV22308
+                   MOVE '8120'            TO  WS-ERROR-CODE             MXV22308
+                   MOVE '8120-INSERT-SYTARA'                            MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-1    MXV22308
+                   MOVE 'ERROR INSERT WW_CHKPT_AREA'                    MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-2    MXV22308
+                   MOVE SPACES            TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+                   MOVE SQLCODE-STATUS    TO  WS-ERROR-FILE-STAT        MXV22308
+                   MOVE 'SYTARA'          TO  WS-ERROR-FILE-NAME        MXV22308
+                   MOVE 16                TO  WS-ERROR-RESPONSE         MXV22308
+                   PERFORM 990-SQL-MESSAGE                              MXV22308
+                   PERFORM 999-ABEND                                    MXV22308
+           END-EVALUATE.                                                MXV22308
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       8130-DB2-COMMIT.                                                         
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           EXEC SQL                                                             
+                COMMIT                                                          
+           END-EXEC.                                                            
+                                                                        MXV22308
+           MOVE SQLCODE                   TO  SQLCODE-STATUS            MXV22308
+                                                                        MXV22308
+           EVALUATE TRUE                                                MXV22308
+              WHEN SQLCODE-NORESP                                       MXV22308
+                   CONTINUE                                             MXV22308
+                                                                        MXV22308
+              WHEN OTHER                                                MXV22308
+                   MOVE '8120'            TO  WS-ERROR-CODE             MXV22308
+                   MOVE '8120-INSERT-SYTARA'                            MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-1    MXV22308
+                   MOVE 'ERROR INSERT WW_CHKPT_AREA'                    MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-2    MXV22308
+                   MOVE SPACES            TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+                   MOVE SQLCODE-STATUS    TO  WS-ERROR-FILE-STAT        MXV22308
+                   MOVE 'COMMIT'          TO  WS-ERROR-FILE-NAME        MXV22308
+                   MOVE 16                TO  WS-ERROR-RESPONSE         MXV22308
+                   PERFORM 990-SQL-MESSAGE                              MXV22308
+                   PERFORM 999-ABEND                                    MXV22308
+           END-EVALUATE.                                                MXV22308
+                                                                        MXV22308
+           MOVE CHKDB2-SECONDS            TO  CHKDB2-SECONDS-PREVIOUS   MXV22308
+           MOVE ZERO                      TO  CHKDB2-CHKP-COUNT.        MXV22308
+                                                                        MXV22308
+      ******************************************************************        
+      * THIS ROUTINE SHOULD BE PERFORMED DURING PROGRAM TERMINATION    *        
+      * OR COMPANY CODE CHANGES. THIS WILL DELETE THE CHECKPOINY RECORD*        
+      * FROM SYTARA TABLE.                                             *        
+      ******************************************************************        
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       8300-DELETE-CHECKPOINT-RECORD.                                           
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           PERFORM 8310-DELETE-SYTARA.                                          
+                                                                        MXV22308
+           IF SQLCODE-NORESP                                                    
+              PERFORM 8130-DB2-COMMIT.                                          
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       8310-DELETE-SYTARA.                                                      
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           EXEC SQL                                                             
+                DELETE                                                          
+                  FROM WW_CHKPT_AREA                                            
+                 WHERE PGM_NAM     = :SYTARA-PGM-NAM                            
+                   AND BUS_REGN_CD = :SYTARA-BUS-REGN-CD                        
+           END-EXEC.                                                            
+                                                                        MXV22308
+           MOVE SQLCODE                   TO  SQLCODE-STATUS            MXV22308
+                                                                        MXV22308
+           EVALUATE TRUE                                                MXV22308
+              WHEN SQLCODE-NORESP                                       MXV22308
+                   CONTINUE                                             MXV22308
+                                                                        MXV22308
+              WHEN SQLCODE-NOT-FOUND                                    MXV22308
+                   DISPLAY '=== NO CHECKPOINT RECORDS SAVED ==='        MXV22308
+                                                                        MXV22308
+              WHEN OTHER                                                MXV22308
+                   MOVE '8310'            TO  WS-ERROR-CODE             MXV22308
+                   MOVE '8310-DELETE-SYTARA'                            MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-1    MXV22308
+                   MOVE 'ERROR DELETE WW_CHKPT_AREA'                    MXV22308
+                                          TO  SYWDB2-EXTRA-MESSAGE-2    MXV22308
+                   MOVE SPACES            TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+                   MOVE SQLCODE-STATUS    TO  WS-ERROR-FILE-STAT        MXV22308
+                   MOVE 'SYTARA'          TO  WS-ERROR-FILE-NAME        MXV22308
+                   MOVE 16                TO  WS-ERROR-RESPONSE         MXV22308
+                   PERFORM 990-SQL-MESSAGE                              MXV22308
+                   PERFORM 999-ABEND                                    MXV22308
+           END-EVALUATE.                                                MXV22308
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       GET-CURRENT-TIME.                                                MXV22308
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+      *   WE WANT NUMBER OF SECONDS SINCE 00:00:00 ON 14 OCTOBER 1582   MXV22308
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           CALL 'CEELOCT'              USING  CHKDB2-LILIAN             MXV22308
+                                              CHKDB2-SECONDS            MXV22308
+                                              CHKDB2-GREGORIAN          MXV22308
+                                              CHKDB2-FC                 MXV22308
+                                                                        MXV22308
+           IF CHKDB2-FC NOT = LOW-VALUES                                MXV22308
+              DISPLAY '*********** GET TIME CALL **************'        MXV22308
+              DISPLAY 'GET-CURRENT-TIME'                                MXV22308
+              DISPLAY 'STATUS = ' CHKDB2-FC                             MXV22308
+              MOVE 'TIME'                 TO  WS-ERROR-CODE             MXV22308
+              MOVE SPACES                 TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+              PERFORM 999-ABEND                                         MXV22308
+           END-IF.                                                      MXV22308
+                                                                        MXV22308

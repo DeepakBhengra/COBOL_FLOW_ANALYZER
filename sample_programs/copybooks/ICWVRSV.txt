@@ -1,0 +1,324 @@
+                                                                                
+      *****************************************************************         
+      *         WORKING STORAGE SUPPORTING VARIOUS PROCESSES          *         
+      *                  FOR RESERVE INVENTORY AUTOMATION             *         
+      *                                                               *         
+      *  VARIOUS FIELDS TO HELP PROCESS VISIBLE RESERVE INVENTORY.    *         
+      *  FOR USE IN BATCH OR ONLINE PROGRAMS.  SEE THE COPYBOOKS      *         
+      *  ICSVRSVI AND ICSVRSVU FOR USAGE DETAILS.                     *         
+      *                                                               *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 06/10/08 TKC  1. ADD CUSTOMER SELF KEY                        * TKC08162
+      *               2. SETUP SORT KEY PROPERLY                      * TKC08162
+      * 08/22/05 AXR  1. ADDED NEW FIELDS TO SUPPORT CHANGES MADE TO  * AXR05234
+      *                  ICSVRSV* COPYBOOKS.                          * AXR05234
+      *               2. ADDED ICWVRSV-VRS-APLD-SEQ TO ENSURE PROPER  * AXR05234
+      *                  IMS SEGMENT INSERT SEQUENCE                  * AXR05234
+      * 07/07/05 AXR     *** RESERVE INVENTORY AUTOMATION, PHASE1 *** * AXR05188
+      *               1. CREATED COPYBOOK.                            * AXR05188
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> GENERAL USE VISIBLE RESERVE INVENTORY WORKING-STORAGE <<<**         
+      **>>>-------------------------------------------------------<<<**         
+       01  ICWVRSV-RESERVE-INVENTORY-WS.                                        
+                                                                                
+      *       (INPUT FIELDS FOR VISIBLE RESERVE PROCESSING)                     
+           05  ICWVRSV-INPUT-AREA.                                              
+                                                                                
+      *       (THE TOTAL REQUESTED REVERSAL QUANTITY FOR A SKU/BR)      AXR05234
+               10  ICWVRSV-RQSTQTY              PIC  9(07) VALUE ZERO.  AXR05234
+                   88  ICWVRSV-NO-RQSTQTY                  VALUE ZERO.  AXR05234
+                   88  ICWVRSV-A-RQSTQTY                   VALUES       AXR05234
+                                                           0000001      AXR05234
+                                                      THRU 9999999.     AXR05234
+                                                                        AXR05234
+      *       (TOTAL QUANTITY OF VISIBLE RESERVES FOR AN ORDER LINE)    AXR05234
+               10  ICWVRSV-VISRSV-LINEQTY       PIC  9(07) VALUE ZERO.  AXR05234
+                   88  ICWVRSV-VISRSV-NO-LINEQTY           VALUE ZERO.  AXR05234
+                   88  ICWVRSV-VISRSV-A-LINEQTY            VALUES       AXR05234
+                                                           0000001      AXR05234
+                                                      THRU 9999999.     AXR05234
+                                                                        AXR05234
+      *           (OPTIONAL INPUT INDICATOR THAT APPLICATION HAS ALREADY        
+      *            ESTABLISHED PARENTAGE REQUIRED BY A COMMON ROUTINE)          
+               10  ICWVRSV-PARENTAGE-SET-IND    PIC  X(01) VALUE 'N'.           
+                   88  ICWVRSV-PARENTAGE-SET               VALUE 'Y'.           
+                   88  ICWVRSV-PARENTAGE-NOTSET            VALUE 'N'.           
+                                                                        AXR05234
+      *           (OPTIONAL INPUT INDICATOR THAT DESIGNATES WHETHER     AXR05234
+      *            COMMON ROUTINE SHOULD WRITE RESERVE AUDIT WHEN       AXR05234
+      *            INSLOR SEQUENCE HAS BEEN UPDATED)                    AXR05234
+               10  ICWVRSV-WRITE-AUDIT-IND      PIC  X(01) VALUE 'Y'.   AXR05234
+                   88  ICWVRSV-WRITE-AUDIT-YES             VALUE 'Y'.   AXR05234
+                   88  ICWVRSV-WRITE-AUDIT-NO              VALUE 'N'.   AXR05234
+                                                                        AXR05234
+      *           (OPTIONAL INPUT INDICATOR THAT DESIGNATES WHETHER     AXR05234
+      *            COMMON ROUTINE SHOULD UPDATE INSBRN, OR LEAVE IT     AXR05234
+      *            UP TO THE APPLICATION TO DO THE UPDATE)              AXR05234
+               10  ICWVRSV-UPDATE-INSBRN-IND    PIC  X(01) VALUE 'Y'.   AXR05234
+                   88  ICWVRSV-UPDATE-INSBRN-YES           VALUE 'Y'.   AXR05234
+                   88  ICWVRSV-UPDATE-INSBRN-NO            VALUE 'N'.   AXR05234
+                                                                                
+      *           (OPTIONAL INPUT FIELDS FOR RESERVE AUDITING)          AXR05234
+               10  ICWVRSV-AUDIT-FIELDS.                                AXR05234
+                   15  ICWVRSV-COMPANY          PIC  X(02) VALUE SPACES.AXR05234
+      *               (THE CURRENT DATE IDENTIFYING WHEN RESERVE USED)  AXR05234
+                   15  ICWVRSV-DATE-YYDDD       PIC  9(05) COMP-3.      AXR05234
+                   15  ICWVRSV-TIME             PIC  9(07) COMP-3.      AXR05234
+                   15  ICWVRSV-CALLING-PGMID    PIC  X(08) VALUE        AXR05234
+                                                           'UNKNOWN'.   AXR05234
+                   15  ICWVRSV-TERMINAL         PIC  X(04) VALUE SPACES.AXR05234
+                   15  ICWVRSV-OPERATOR-ID      PIC  X(04) VALUE SPACES.AXR05234
+                   15  ICWVRSV-ORDER-BR         PIC  X(02) VALUE SPACES.AXR05234
+                   15  ICWVRSV-ORDER-NBR        PIC  X(05) VALUE SPACES.AXR05234
+                   15  ICWVRSV-ORDER-DIST       PIC  X(01) VALUE SPACE. AXR05234
+                   15  ICWVRSV-ORDER-SHIP       PIC  X(01) VALUE SPACE. AXR05234
+                   15  ICWVRSV-ORDER-LINE       PIC  X(03) VALUE SPACES.AXR05234
+                   15  ICWVRSV-PART-NBR         PIC  X(12) VALUE SPACES.AXR05234
+                                                                        AXR05234
+                                                                        AXR05234
+      *       (OUTPUT FIELDS AND FIELDS FOR INTERNAL PROCESSING)        AXR05234
+                                                                                
+      *       (THE OVERALL STATUS OF VISIBLE RESERVE PROCESSING)                
+           05  ICWVRSV-VISRSV-STATUS            PIC  X(04) VALUE SPACES.        
+               88  ICWVRSV-STATUS-OKAY                     VALUE SPACES.        
+               88  ICWVRSV-STATUS-ERROR                    VALUES               
+                                                'E100', 'E200', 'E900'.         
+               88  ICWVRSV-STATUS-NO-DATA                  VALUE 'E100'.        
+               88  ICWVRSV-STATUS-IO-ERR                   VALUE 'E200'.        
+               88  ICWVRSV-STATUS-MAX-SUB                  VALUE 'E900'.        
+                                                                                
+      *       (INDICATOR THAT CUSTOMER MAY HAVE VISIBLE RESERVES)               
+           05  ICWVRSV-CU-VISRSV-IND            PIC  X(01) VALUE SPACE.         
+               88  ICWVRSV-CU-VISRSV-ON                    VALUE  'Y'.          
+               88  ICWVRSV-CU-VISRSV-OFF                   VALUES               
+                                                           'N',  SPACE.         
+                                                                        AXR05234
+      *       (THE BEFORE AND AFTER INSLOR QTY SHIPPED, FOR AUDITING)   AXR05234
+           05  ICWVRSV-INL-QTY-SHPD-BEF         PIC S9(07) COMP-3.      AXR05234
+           05  ICWVRSV-INL-QTY-SHPD-AFT         PIC S9(07) COMP-3.      AXR05234
+                                                                                
+      *       (INDICATOR TO CONTROL WHEN A PROCESS IS DONE)                     
+           05  ICWVRSV-DONE-IND                 PIC  X(01) VALUE SPACE.         
+               88  ICWVRSV-DONE-YES                        VALUE 'Y'.           
+               88  ICWVRSV-DONE-NO                         VALUE 'N'.           
+                                                                                
+      *       (SWITCH INDICATING THAT A MATCH WAS FOUND)                        
+           05  ICWVRSV-MATCH-IND                PIC  X(01) VALUE SPACE.         
+               88  ICWVRSV-MATCH-YES                       VALUE 'Y'.           
+               88  ICWVRSV-MATCH-NO                        VALUE 'N'.           
+           05  ICWVRSV-SELF-KEY.                                        TKC08162
+               10  ICWVRSV-SELF-BR            PIC X(02).                TKC08162
+               10  ICWVRSV-SELF-CUSTOMER      PIC X(06).                TKC08162
+                                                                                
+      *       (NET AVAILABLE RESERVE QTY FOR A RESERVE SEQUENCE)                
+           05  ICWVRSV-VISRSV-NETQTY            PIC  9(07) VALUE ZERO.  AXR05234
+               88  ICWVRSV-VISRSV-NO-NETQTY                VALUE ZERO.          
+               88  ICWVRSV-VISRSV-A-NETQTY                 VALUES               
+                                                           0000001      AXR05234
+                                                      THRU 9999999.     AXR05234
+                                                                                
+      *       (TOTAL QUANTITY OF VISIBLE RESERVES FOR CUST/SKU/BR)              
+           05  ICWVRSV-VISRSV-QTY               PIC  9(07) VALUE ZERO.  AXR05234
+               88  ICWVRSV-VISRSV-NO-QTY                   VALUE ZERO.          
+               88  ICWVRSV-VISRSV-A-QTY                    VALUES               
+                                                           0000001      AXR05234
+                                                      THRU 9999999.     AXR05234
+                                                                                
+      *       (QUANTITY OF VISIBLE RESERVES FOR A RESERVE SEQUENCE)             
+           05  ICWVRSV-VISRSV-SEQQTY            PIC  9(07) VALUE ZERO.  AXR05234
+               88  ICWVRSV-VISRSV-NO-SEQQTY                VALUE ZERO.          
+               88  ICWVRSV-VISRSV-A-SEQQTY                 VALUES               
+                                                           0000001      AXR05234
+                                                      THRU 9999999.     AXR05234
+                                                                                
+      *       (A FIELD TO TEMPORARILY HOLD A QUANTITY)                          
+           05  ICWVRSV-TEMPQTY                  PIC S9(07) VALUE ZERO.          
+               88  ICWVRSV-NO-TEMPQTY                      VALUE ZERO.          
+               88  ICWVRSV-A-TEMPQTY                       VALUES               
+                                                           +0000001             
+                                                      THRU +9999999.            
+                                                                                
+      *       (TEMPORARY FIELD OF 999 MINUS THE EXTENSION COUNT)                
+           05  ICWVRSV-INVERSE-EXT-COUNT        PIC  9(03) VALUE ZERO.          
+                                                                                
+      *       (SUBSCRIPTS FOR USE ON THE RESERVE-TABLE-SORTED ARRAY)            
+           05  ICWVRSV-SORTSUB                  PIC  9(02) VALUE ZERO.          
+           05  ICWVRSV-MAX1                     PIC  9(02) VALUE ZERO.          
+           05  ICWVRSV-MIN2                     PIC  9(02) VALUE ZERO.          
+           05  ICWVRSV-SUB1                     PIC  9(02) VALUE ZERO.          
+           05  ICWVRSV-SUB2                     PIC  9(02) VALUE ZERO.          
+                                                                                
+      *       (TEMPORARY SAVE AREAS FOR SSA FIELDS)                             
+           05  ICWVRSV-SAVE-COMMAND-CODE        PIC X(04).                      
+           05  ICWVRSV-SAVE-QUAL                PIC X(01).                      
+           05  ICWVRSV-SAVE-SEARCH              PIC X(02).                      
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> HEADER FIELDS ASSOCIATED TO ICWVRSV-RESERVE-TABLE     <<<**         
+      **>>>-------------------------------------------------------<<<**         
+       01  ICWVRSV-RESERVE-TABLE-HEADER.                                        
+                                                                                
+      *       (BRANCH ASSOCIATED TO THESE RESERVES, FOR DIAGNOSTICS)            
+           05  ICWVRSV-BR                       PIC X(02) VALUE SPACES.         
+      *       (THE NUMBER OF INSLOR TYPE 2 SEGMENTS IN RESERVE-TABLE)           
+           05  ICWVRSV-ROW-COUNT                PIC 9(02) VALUE ZERO.           
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> RESERVE DATA AS LOADED FROM INSLOR TYPE 2 SEGMENTS    <<<**         
+      **>>>-------------------------------------------------------<<<**         
+       01  ICWVRSV-RESERVE-TABLE.                                               
+                                                                                
+      *      (ICWRSV-RESERVE-DATA MUST MATCH INL-RESERVE-DATA)                  
+           05  ICWVRSV-RESERVE-DATA  OCCURS  1 TO 99 TIMES                      
+                                     DEPENDING ON ICWVRSV-ROW-COUNT.            
+      *          (SEGMENT KEY FOR INSLOR TYPE 2, RESERVE INVENTORY)             
+              10  ICWVRSV-SEG-KEY.                                              
+                  15  ICWVRSV-SEG-TYPE          PIC X(01).                      
+                      88  ICWVRSV-RESERVE-SEGMENT          VALUE '2'.           
+                  15  ICWVRSV-CUST-KEY.                                         
+                      20  ICWVRSV-CUST-BR-NBR   PIC X(02).                      
+                      20  ICWVRSV-CUST-NBR      PIC X(06).                      
+                          88  ICWVRSV-PROD-ADM  VALUE '000000'.                 
+                      20  ICWVRSV-CUST-SEQ      PIC X(02).                      
+      *          (NON KEY FIELDS ASSOCIATED TO INSLOR TYPE 2)                   
+              10  ICWVRSV-OPID                  PIC X(04).                      
+              10  ICWVRSV-RESERVE-QTY           PIC S9(7) COMP-3.               
+              10  ICWVRSV-CONTRACT-NBR          PIC X(10).                      
+              10  ICWVRSV-CONTRACT-PRICE        PIC S9(13)V9999 COMP-3.         
+              10  ICWVRSV-QTY-SHIPPED-TO-DATE   PIC S9(07) COMP-3.              
+              10  ICWVRSV-EXPIRATION-DATE       PIC S9(05) COMP-3.              
+              10  ICWVRSV-DATE-LAST-SHIP        PIC S9(05) COMP-3.              
+      *          (EFF DATE IS NOT PART OF KEY, BUT HELPS W/UNIQUENESS)  AXR05234
+              10  ICWVRSV-EFFECT-DATE           PIC S9(05) COMP-3.              
+              10  ICWVRSV-RESERVE-TYPE          PIC X(01).                      
+                  88  ICWVRSV-RESERVE                      VALUE 'R'.           
+                  88  ICWVRSV-PREPAID                      VALUE 'P'.           
+                  88  ICWVRSV-FIRM                         VALUE 'F'.           
+                  88  ICWVRSV-FRAMEWORKS                   VALUE 'F'.           
+                  88  ICWVRSV-PRIORITY                     VALUE 'P'.           
+                  88  ICWVRSV-CONSTRAINED                  VALUE 'C'.           
+                  88  ICWVRSV-LAP                          VALUE 'L'.           
+                  88  ICWVRSV-GENERAL                      VALUE 'G'.           
+              10  ICWVRSV-LAST-CHG-DATE         PIC S9(05) COMP-3.              
+              10  ICWVRSV-AUTO-BT-RESV-PROT-SW  PIC X(01).                      
+                  88  ICWVRSV-RESV-PROTECTED               VALUE 'Y'.           
+                  88  ICWVRSV-RESV-UNPROTECTED             VALUE 'N'.           
+              10  ICWVRSV-COMMENTS              PIC X(30).                      
+              10  ICWVRSV-PO.                                                   
+                  15  ICWVRSV-PO-BR             PIC X(02).                      
+                  15  ICWVRSV-PO-NBR            PIC X(05).                      
+                  15  ICWVRSV-PO-LINE-NBR       PIC X(03).                      
+              10  ICWVRSV-EXTENSION-COUNT       PIC 9(03).                      
+              10  ICWVRSV-FEE-PERCENT           PIC 9V9999 COMP-3.              
+              10  ICWVRSV-COST-PERCENT          PIC 9V9999 COMP-3.              
+              10  ICWVRSV-ORIGINAL-EXPIRATION   PIC S9(05) COMP-3.              
+              10  ICWVRSV-RSV-STATUS            PIC X(01).                      
+                  88  ICWVRSV-RSV-VISIBLE                  VALUE 'V'.           
+                  88  ICWVRSV-RSV-HIDDEN                   VALUE 'H'.           
+                  88  ICWVRSV-RSV-INTRANSIT                VALUE 'I'.           
+              10  ICWVRSV-EXPECTED-SHIP-DATE    PIC S9(05) COMP-3.              
+              10  FILLER                        PIC X(06).                      
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> RESERVE DATA FROM INSLOR TYPE 2 SEGMENTS, WITH THE    <<<**         
+      **>>> SUBSCRIPTS FOR EACH OF THE CORRESPONDING RESERVE      <<<**         
+      **>>> TABLE ELEMENTS IN ASCENDING SEQUENCE THEY SHOULD BE   <<<**         
+      **>>> USED. FOR EXAMPLE:                                    <<<**         
+      **>>>   ORIGINAL OCCURENCES  DATA FOR SORT                  <<<**         
+      **>>>            01             CCC                         <<<**         
+      **>>>            02             DDD                         <<<**         
+      **>>>            03             AAA                         <<<**         
+      **>>>            04             BBB                         <<<**         
+      **>>>   SORTED OCCURENCES    ICWVRSV-SUB                    <<<**         
+      **>>>            01             03 =1ST SORT ITEM AT SUB 03 <<<**         
+      **>>>            02             04 =2ND SORT ITEM AT SUB 04 <<<**         
+      **>>>            03             01 =3RD SORT ITEM AT SUB 01 <<<**         
+      **>>>            04             02 =4TH SORT ITEM AT SUB 02 <<<**         
+      **>>>-------------------------------------------------------<<<**         
+       01  ICWVRSV-RESERVE-TABLE-SORTED.                                        
+           05  ICWVRSV-SORTED-DATA   OCCURS 99 TIMES.                           
+                                                                                
+              10  ICWVRSV-SORTREC.                                              
+                                                                                
+      *           (THE SORT KEY IS BUILT FROM RESERVE ARRAY DATA)               
+                15 ICWVRSV-SORTKEY.                                             
+                                                                                
+      *               (V=0, H=1 TO SORT VISIBLES BEFORE HIDDENS)                
+                   20 ICWVRSV-SORT-RSV-STATUS   PIC X(01).                      
+                      88  ICWVRSV-SORT-STATUS-V            VALUE '0'.           
+                      88  ICWVRSV-SORT-STATUS-H            VALUE '1'.           
+                                                                                
+      *              (SELF=0, OTHER CUST=1 TO SORT IN THAT ORDER)       TKC08162
+                   20 ICWVRSV-SORT-SELF-OTHER-IND  PIC X(01).           TKC08162
+                      88  ICWVRSV-SELF-CUST                VALUE '0'.   TKC08162
+                      88  ICWVRSV-OTHER-CUST               VALUE '1'.   TKC08162
+                                                                                
+      *              (EXPIRATION DATE IS JULIAN, EASY TO SORT ASC)              
+                   20 ICWVRSV-SORT-EXP-DATE-YYDDD  PIC X(05).                   
+                                                                                
+      *              (TO SORT HIGHEST TO LOWEST EXTENSION COUNT         TKC08162
+      *               THE ORIGINAL COUNT IS SUBTRACTED FROM 999)        TKC08162
+                   20 ICWVRSV-SORT-INVRS-EXT-COUNT PIC X(03).           TKC08162
+                                                                                
+      *              (P=0, C=1, G=2, L=3 TO SORT IN THAT ORDER)                 
+                   20 ICWVRSV-SORT-RESERVE-TYPE-CD PIC X(01).                   
+                      88  ICWVRSV-RESERVE-TYPE-P           VALUE '0'.           
+                      88  ICWVRSV-RESERVE-TYPE-C           VALUE '1'.           
+                      88  ICWVRSV-RESERVE-TYPE-G           VALUE '2'.           
+                      88  ICWVRSV-RESERVE-TYPE-L           VALUE '3'.           
+                                                                                
+                15 ICWVRSV-SORTDATA.                                            
+      *              (CONTAINS THE SUBSCRIPT OF THE CORRESPONDING               
+      *               RESERVE ARRAY ELEMENT FOR THIS POSITION)                  
+                       20  ICWVRSV-SUB          PIC 9(02).                      
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS NEXT TEMPORARY SAVE AREA MUST MATCH THE SIZE OF  <<<**         
+      **>>> ICWVRSV-SORTREC WHILE SWAPPING DURING THE SORT PROCESS<<<**         
+      **>>>-------------------------------------------------------<<<**         
+       01 ICWVRSV-SAVEREC                       PIC X(13).                      
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> HEADER FIELDS ASSOCIATED TO ICWVRSV-ORSCAP-TABLE      <<<**         
+      **>>>-------------------------------------------------------<<<**         
+       01 ICWVRSV-ORSCAP-TABLE-HEADER.                                          
+                                                                                
+      *      (A SUBSCRIPT TO PROCESS INTERNAL ORSCAP ENTRIES)                   
+          05  ICWVRSV-ORSCAP-SUB                PIC 9(02).                      
+      *      (A COUNT OF THE NUMBER OF INTERNAL ORSCAP ENTRIES)                 
+          05  ICWVRSV-ORSCAP-COUNT              PIC 9(02).                      
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> A STORAGE AREA FOR EACH VISIBLE RESERVE INVENTORY     <<<**         
+      **>>> SEQUENCE THAT WAS PULLED TO AN ORDER LINE             <<<**         
+      **>>>-------------------------------------------------------<<<**         
+       01 ICWVRSV-ORSCAP-TABLE.                                                 
+                                                                                
+      *      (ICWRSV-ORSCAP-DATA MUST MATCH ORC-VISIBLE-RESERVE-SEG)            
+           05  ICWVRSV-ORSCAP-DATA   OCCURS  1 TO 99 TIMES                      
+                                     DEPENDING ON ICWVRSV-ORSCAP-COUNT.         
+                                                                                
+      *          (ORSCAP VISIBLE RESERVE KEY DATA)                              
+              10  ICWVRSV-VRS-KEY.                                              
+      *              (IMS INSERT SEQUENCE IS INVERSE OF APPLIED SEQ)    AXR05234
+                  15  ICWVRSV-VRS-APLD-SEQ      PIC 9(02).              AXR05234
+                  15  ICWVRSV-VRS-CUST-BR-NBR   PIC X(02).                      
+                  15  ICWVRSV-VRS-CUST-NBR      PIC X(06).                      
+                  15  ICWVRSV-VRS-CUST-SEQ      PIC X(02).                      
+      *          (ORSCAP VISIBLE RESERVE NON KEY DATA)                          
+              10  ICWVRSV-VRS-ALLOC-QTY         PIC S9(07) COMP-3.              
+              10  ICWVRSV-VRS-EFFECT-DATE       PIC S9(05) COMP-3.              
+              10  FILLER                        PIC X(92).                      
+                                                                                

@@ -1,0 +1,352 @@
+      *                                                               *         
+      *****************************************************************         
+      *                                                               *         
+      *  START OF COPYBOOK ICX837                                     *         
+      *                                                               *         
+      *****************************************************************         
+      *  REVISIONS:                                                   *         
+      *****************************************************************         
+      *  03/11/03  MJB  ADDED SWITCH FOR ACOP REPRICE OPTION.         * MJB03070
+      *  07/28/00  WFP  COPYBOOK CREATION.                            * WFP00210
+      ******************************************************************        
+      *                                                                *        
+      *  PROGRAM NAME: ICP837 - DETERMINE ALL ACOPS APPLIED TO A       *        
+      *  AND PURPOSE   PARTICULAR ORDER LINE, AND RECALCULATE THE UNIT *        
+      *                COST, GIVEN NEW CURRENCY RATE AND AVERAGE COST. *        
+      *                                                                *        
+      *========>       THIS IS DESIGNED TO OPERATE AS A SUBPROGRAM.    *        
+      *========>       THIS IS DESIGNED TO OPERATE AS A SUBPROGRAM.    *        
+      *========>       THIS IS DESIGNED TO OPERATE AS A SUBPROGRAM.    *        
+      *                AS A RESULT, THIS PROGRAM SHOULD NEVER          *        
+      *                INTENTIONALLY ABEND.  FURTHER, EXTRA EFFORT     *        
+      *                SHOULD BE MADE TO PREVENT UNINTENTIONAL ABENDS. *        
+      *                                                                *        
+      *  INPUT:        INTERFACE AREA                                  *        
+      *                ICLCOP                                          *        
+      *                ICHCOP                                          *        
+      *                                                                *        
+      *  OUTPUT:       INTERFACE AREA                                  *        
+      *                                                                *        
+      *  INTERFACE:  THE INTERFACE AREA IS DIVIDED INTO 4 PARTS:       *        
+      *              1.)  IACP-PARM-LENGTH - THIS WILL HOLD THE        *        
+      *                   LENGTH OF THE INTERFACE IF ICP837 IS         *        
+      *                   CALLED DIRECTLY FROM JCL.                    *        
+      *                   A CALLING PROGRAM CAN IGNORE THIS AREA.      *        
+      *              2.)  IACP-PROCESSING-FIELDS - THIS AREA HOLDS     *        
+      *                   THOSE FIELDS THAT ICP837 USES FOR ALL        *        
+      *                   EXECUTIONS OF THE PROGRAM.                   *        
+      *                   THIS SHOULD NOT BE INITIALIZED BEFORE EACH   *        
+      *                   CALL OF ICP837.                              *        
+      *              3.)  IACP-INPUT-FIELDS - THIS AREA HOLDS THE      *        
+      *                   DATA THAT ICP837 IS TO PROCESS.              *        
+      *                   THIS NEEDS TO BE INITIALIZED BEFORE EACH     *        
+      *                   CALL OF ICP837.                              *        
+      *              4.)  IACP-OUTPUT-FIELDS - THIS AREA HOLDS         *        
+      *                   THOSE FIELDS THAT ICP837 RETURNS TO THE      *        
+      *                   CALLING PROGRAM.                             *        
+      *                   THIS NEEDS TO BE INITIALIZED BEFORE EACH     *        
+      *                   CALL OF ICP837.                              *        
+      *                                                                *        
+      *  CALLING     THERE IS ONLY ONE SEQUENCE OF EVENTS TO USE THIS  *        
+      *  ICP837:     PROGRAM:                                          *        
+      *                                                                *        
+      *                   CALL ICP837 A MINIMUM OF 3 TIMES.  FIRST,    *        
+      *                   TO OPEN THE FILES AND TABLES.  SECOND, TO    *        
+      *                   CALCULATE THE ACOP AMOUNT.  THIRD, TO CLOSE  *        
+      *                   ALL FILES AND TABLES.                        *        
+      *                                                                *        
+      *                   TO CALL ICP837 IN ORDER TO OPEN FILES:       *        
+      *                    INITIALIZE IACP-INPUT-FIELDS.               *        
+      *                    INITIALIZE IACP-OUTPUT-FIELDS.              *        
+      *                    MOVE 'O '                                   *        
+      *                      TO IACP-ACTION.                           *        
+      *                    MOVE 'B'                                    *        
+      *                      TO IACP-INPUT-IND.                        *        
+      *                    CALL 'ICP837'  USING IACP-PROGRAM-INTERFACE *        
+      *                    IF IACP-ACOP-MAJOR-OK                       *        
+      *                       NEXT SENTENCE                            *        
+      *                    ELSE                                        *        
+      *                       DISPLAY 'ICP837 - ERROR OPENING FILES'.  *        
+      *                                                                *        
+      *                   TO CALL ICP837 IN ORDER TO PROCESS AN ACOP:  *        
+      *                    INITIALIZE IACP-INPUT-FIELDS.               *        
+      *                    INITIALIZE IACP-OUTPUT-FIELDS.              *        
+      *                    **                                          *        
+      *                    **  MOVE INVENTORY AND ORDER LINE FIELDS    *        
+      *                    **  TO ICP837 INPUT FIELDS.  THIS INCLUDES  *        
+      *                    **  THE COMPLETE INSHED SEGMENT FOR THE     *        
+      *                    **  PART.                                   *        
+      *                    **                                          *        
+      *                    MOVE 'A'                                    *        
+      *                      TO IACP-ACTION.                           *        
+      *                    MOVE 'B'                                    *        
+      *                      TO IACP-INPUT-IND.                        *        
+      *                    CALL 'ICP837'  USING IACP-PROGRAM-INTERFACE *        
+      *                    IF IACP-ACOP-MAJOR-OK                       *        
+      *                       NEXT SENTENCE                            *        
+      *                    ELSE                                        *        
+      *                       DISPLAY 'ICP837 - ERROR PROCESSING ACOP' *        
+      *                                                                *        
+      *                   TO CALL ICP837 IN ORDER TO CLOSE FILES:      *        
+      *                    *** NOTE THAT ONLY THE INPUT AND OUTPUT     *        
+      *                    *** FIELDS NEED TO BE INITIALIZED           *        
+      *                    INITIALIZE IACP-INPUT-FIELDS.               *        
+      *                    INITIALIZE IACP-OUTPUT-FIELDS.              *        
+      *                    MOVE 'C'                                    *        
+      *                      TO IACP-ACTION.                           *        
+      *                    MOVE 'B'                                    *        
+      *                      TO IACP-INPUT-IND.                        *        
+      *                    CALL 'ICP837'  USING IACP-PROGRAM-INTERFACE *        
+      *                    IF IACP-ACOP-MAJOR-OK                       *        
+      *                       NEXT SENTENCE                            *        
+      *                    ELSE                                        *        
+      *                       DISPLAY 'ICP837 - ERROR CLOSING FILES'.  *        
+      *                                                                *        
+      *                                                                *        
+      *              THE OVERRIDE TABLE IN THE OUTPUT AREA CAN ALSO    *        
+      *              BE INPUT BY THE USER.  IN SUCH A CASE, ICP837     *        
+      *              CAN BE SET TO USE THIS DATA.  THIS MEANS THAT     *        
+      *              ICP837 WILL NOT GO THROUGH THE PROCESS OF         *        
+      *              DETERMINING THE ACOP'S THAT WERE APPLIED TO THE   *        
+      *                                                                *        
+      *              IN ORDER TO PROCESS WITH THE OVERRIDE TABLE       *        
+      *              PROVIDED BY THE USER, FILL IN THE OVERRIDE        *        
+      *              TABLE, AND THEN SET IACP-INPUT-IND TO 'P'.        *        
+      *              ORDINARILY, IACP-INPUT-IND IS SET TO 'B'.         *        
+      *                                                                *        
+      *  ICP837      THE INPUT AREA, PARM LENGTH, AND STATIC FIELDS ARE*        
+      *  OUTPUT:     LEFT UNCHANGED.                                   *        
+      *              THE OUTPUT AREA CONTAINS MANY USEFUL FIELDS,      *        
+      *              INCLUDING:                                        *        
+      *              IACP-RETURN-CODE - 2 BYTES, FOR MAJOR AND MINOR   *        
+      *                                 MESSAGES.                      *        
+      *               IACP-RETURN-MAJOR - IF '0', IT IS OK TO USE      *        
+      *                                   THE OUTPUT.                  *        
+      *                                   IF '1', THEN THE OUTPUT IS   *        
+      *                                   SUSPECT, AND SHOULD BE       *        
+      *                                   DISCARDED.                   *        
+      *               IACP-RETURN-MINOR - IF '0', ALL IS WELL, SO THE  *        
+      *                                   OUTPUT IS FINE. IF IT IS NOT *        
+      *                                   '0', THE OUTPUT MAY STILL BE *        
+      *                                   OK. CONSULT THE MAJOR RETURN *        
+      *                                   CODE TO DETERMINE THIS.      *        
+      *                                   FOR OTHER VALUES, USE THE    *        
+      *                                   CONDITION NAMES TO DETERMINE *        
+      *                                   THEIR MEANING.               *        
+      *                                                                *        
+      *              IACP-RETURN-TEXT - CONTAINS A MESSAGE, SUITABLE   *        
+      *                                 FOR DISPLAYING, BY THE         *        
+      *                                 CALLING PROGRAM.               *        
+      *                                                                *        
+      *              IACP-COST-OVERRIDE-INFO                           *        
+      *                               - THIS TABLE CONTAINS UP TO 5    *        
+      *                                 OCCURRENCES, EACH OF WHICH     *        
+      *                                 CORRESPONDS TO A COST          *        
+      *                                 OVERRIDE APPLIED TO THE LINE.  *        
+      *                               - MOST OF THESE FIELDS APPLY     *        
+      *                                 ONLY IF THE OVERRIDE TYPE IS   *        
+      *                                 AN 'A' (ACOP).                 *        
+      *              IACP-COST-OVERRIDE-AMT                            *        
+      *                               - FOR ALL OVERRIDES, THIS FIELD  *        
+      *                                 LISTS THE AMOUNT OF THE COST   *        
+      *                                 CHANGE ATTRIBUTABLE TO THIS    *        
+      *                                 OVERRIDE.                      *        
+      *              IACP-UNIT-COST-OUT                                *        
+      *                               - THIS IS THE FINAL UNIT COST,   *        
+      *                                 AFTER ALL OVERRIDES ARE        *        
+      *                                 APPLIED.                       *        
+      *              IACP-ADJUSTED-COST-OUT                            *        
+      *                               - THIS IS THE NEW ADJUSTED COST  *        
+      *                                 FOR THE ORDER LINE.            *        
+      *              IACP-ADJ-COST-NO-IR-OUT                           *        
+      *                               - THIS IS THE NEW ADJUSTED COST  *        
+      *                                 FOR THE ORDER LINE, WITHOUT    *        
+      *                                 REGARD FOR INSTANT REBATE.     *        
+      *              IACP-ADJUSTED-COST-DATA-OUT                       *        
+      *                               - THESE ARE THE FIELDS USED IN   *        
+      *                                 CALCULATING THE NEW ADJUSTED   *        
+      *                                 COST.  THEY CORRESPOND TO THOSE*        
+      *                                 STORED ON INSHED AND ICRCOP.   *        
+      *              IACP-TOTAL-OVERRIDE-OUT                           *        
+      *                               - THIS IS THE TOTAL OVERRIDE     *        
+      *                                 APPLIED TO THE LINE.           *        
+      *                                 IT IS THE SUM OF THE           *        
+      *                                 IACP-COST-OVERRIDE-AMT         *        
+      *                                 FIELDS FROM THE OVERRIDE       *        
+      *                                 INFO TABLE.                    *        
+      *                                                                *        
+      ******************************************************************        
+      *                                                               *         
+       01  IACP-PROGRAM-INTERFACE.                                              
+           05  IACP-PARM-LENGTH                       PIC S9(4) COMP.           
+           05  IACP-STATIC-FIELDS.                                              
+               10  IACP-COI-MAX                       PIC S9(02)                
+                                                      COMP-3                    
+                                                      VALUE +10.                
+           05  IACP-INPUT-FIELDS.                                               
+               10  IACP-ACTION                        PIC X(02).                
+                   88  IACP-DETERMINE-ACOP            VALUE 'A '.               
+                   88  IACP-OPEN-FILES                VALUE 'O '.               
+                   88  IACP-CLOSE-FILES               VALUE 'C '.               
+                   88  IACP-SINGLE-ACOP               VALUE 'S '.               
+               10  IACP-INPUT-IND                     PIC X(02).                
+                   88  IACP-BUILD-ACOP-TBL            VALUE 'B '.               
+                   88  IACP-USE-INFO-PROVIDED         VALUE 'P '.               
+               10  IACP-CO                            PIC X(02).                
+               10  IACP-BILL-TO-NBR.                                            
+                   15  IACP-BILL-TO-BR-NBR            PIC X(02).                
+                   15  IACP-BILL-TO-CUST-NBR          PIC X(06).                
+                   15  IACP-BILL-TO-SUFFIX            PIC X(03).                
+                       88  IACP-FLOOR-SUF      VALUE '111' THRU '139'.          
+               10  IACP-ITEM-VENDOR-NBR               PIC X(04).                
+               10  IACP-VENDOR-NBR-OLD                PIC X(04).                
+               10  IACP-PART-NBR                      PIC X(12).                
+               10  IACP-SUBSTITUTE-PART-OLD           PIC X(12).                
+               10  IACP-INSHED-SEGMENT                PIC X(608).               
+               10  IACP-SPECIAL-COMP-IND              PIC X(01).                
+                   88  IACP-SPECIAL-COMPONENT         VALUE 'S'.                
+               10  IACP-REBATE-AMT                    PIC S9(15)V99             
+                                                      COMP-3.                   
+               10  IACP-QTY-SHIPPED                   PIC S9(7)                 
+                                                      COMP-3.                   
+               10  IACP-ORDMST-COSTS.                                           
+                   15  IACP-SUBSTITUTE-COST-OLD       PIC S9(15)V99             
+                                                      COMP-3.                   
+                   15  IACP-SUBSTITUTE-COST-NEW       PIC S9(15)V99             
+                                                      COMP-3.                   
+                   15  IACP-REPL-COST                 PIC S9(15)V9(2)           
+                                                      COMP-3.                   
+                   15  IACP-SPECIAL-SYSTEMS-COST-OLD  PIC S9(13)V9(4)           
+                                                      COMP-3.                   
+                   15  IACP-SPECIAL-SYSTEMS-COST-NEW  PIC S9(13)V9(4)           
+                                                      COMP-3.                   
+                   15  IACP-UNIT-COST-OLD             PIC S9(13)V9(4)           
+                                                      COMP-3.                   
+                   15  IACP-AVG-COST-NEW              PIC S9(13)V9(4)           
+                                                      COMP-3.                   
+               10  IACP-ENTRY-DATE                    PIC S9(09) COMP-3.        
+               10  IACP-ENTRY-TIME                    PIC S9(07) COMP-3.        
+               10  IACP-COST-OVERRIDE-FIELDS-IN.                                
+                   15  IACP-COST-OVERRIDE-IND         PIC X(01).                
+                   15  IACP-REPRICE-SW                PIC X(01).                
+                   15  IACP-PROGRAM-TYPE.                                       
+                       20  IACP-PROGRAM-TYPE-1        PIC X(02).                
+                       20  IACP-PROGRAM-TYPE-2        PIC X(02).                
+               10  IACP-MC-OVERRIDE-SW                PIC X(01).                
+                   88  IACP-MC-OVERRIDE-ACOP          VALUE 'B'.                
+               10  IACP-UC-OVERRIDE-SW                PIC X(01).                
+               10  IACP-GOV-CONT-CODE                 PIC X(02).                
+               10  IACP-GOV-END-USER-TYPE             PIC X(01).                
+                   88  IACP-GOV-FEDERAL               VALUE 'F'.                
+                   88  IACP-GOV-STATE-LOCAL           VALUE 'S'.                
+                   88  IACP-GOV-K-12                  VALUE 'K'.                
+                   88  IACP-GOV-HIGHER                VALUE 'H'.                
+                   88  IACP-GOV-E-RATE                VALUE 'E'.                
+               10  IACP-ACOP-END-USER-NBR             PIC S9(09) COMP-3.        
+               10  IACP-REVERSE-ACOP-IND              PIC X(01).                
+                   88  IACP-REVERSE-ACOP              VALUE 'Y'.                
+               10  IACP-OSS-NO                        PIC X(04).                
+               10  IACP-SF-BR                         PIC X(02).                
+           05  IACP-OUTPUT-FIELDS.                                              
+               10  IACP-RETURN-CODE.                                            
+                   15  IACP-RETURN-MAJOR              PIC X(01).                
+                       88  IACP-ACOP-MAJOR-OK         VALUE '0'.                
+                       88  IACP-ACOP-MAJOR-PROB       VALUE '1'.                
+                   15  IACP-RETURN-MINOR              PIC X(01).                
+                       88  IACP-ALL-ACOP-OK           VALUE '0'.                
+                       88  IACP-PRIMARY-FILE-NOT-OK   VALUE '1'.                
+                       88  IACP-HISTORY-FILE-NOT-OK   VALUE '2'.                
+                       88  IACP-BAD-INPUT-DATA        VALUE '3'.                
+                       88  IACP-ACOPS-NOT-INCLUDED    VALUE '4'.                
+                       88  IACP-MC-NOT-INCLUDED       VALUE '5'.                
+                       88  IACP-SPECIAL-NOT-INCLUDED  VALUE '6'.                
+                       88  IACP-NEGATIVE-COST         VALUE '7'.                
+                       88  IACP-ACOP-NOT-DETERMINED   VALUE '1'                 
+                                                            '2'                 
+                                                            '3'                 
+                                                            '4'.                
+               10  IACP-RETURN-TEXT                   PIC X(70).                
+               10  IACP-ACOP-VSAM-STATUS-ICLCOP       PIC X(02).                
+               10  IACP-ACOP-VSAM-STATUS-ICLCOH       PIC X(02).                
+               10  IACP-COST-OVERRIDE-INFO OCCURS 10 TIMES                      
+                                           INDEXED BY IACP-COI-IDX.             
+                   15  IACP-ACOP-COUNTER              PIC 9.                    
+                   15  IACP-ACOP-TYPE                 PIC X.                    
+                       88  IACP-NON-PROGRAM           VALUE 'N'.                
+                       88  IACP-FULL-PROGRAM          VALUE 'F'.                
+                       88  IACP-PART-PROGRAM          VALUE 'P'.                
+                   15  IACP-FILE-IND                  PIC X(01).                
+                       88  IACP-HISTORY-FILE          VALUE 'H'.                
+                       88  IACP-CURRENT-FILE          VALUE 'P'.                
+                       88  IACP-NO-FILE               VALUE 'X'.                
+                   15  IACP-REC-KEY                   PIC X(32).                
+                       88  IACP-NO-KEY                VALUE SPACES.             
+                   15  IACP-ACOP-STATUS               PIC X(01).                
+                       88  IACP-ACOP-FOUND            VALUE 'F'.                
+                   15  IACP-COST-OVERRIDE-TYPE        PIC X(01).                
+                       88  IACP-ACOP-OVERRIDE         VALUE 'A'.                
+                       88  IACP-SPECIAL-COST          VALUE 'S'.                
+                       88  IACP-MANUAL-OVERRIDE       VALUE 'M'.                
+                   15  IACP-COST-OVERRIDE-AMT         PIC S9(14)V9(04)          
+                                                      COMP-3.                   
+                   15  IACP-ACOP-CURRENCY             PIC X(03).                
+                   15  IACP-COST-OVERRIDE-AMT-ACOP    PIC S9(14)V9(04)          
+                                                      COMP-3.                   
+                   15  IACP-EXCHANGE-RATE             PIC S9(07)V9(06)          
+                                                      COMP-3.                   
+                   15  IACP-COST-OVERRIDE-FIELDS-OUT.                           
+                       20  IACP-COST-OVERRIDE-IND-OUT     PIC X(01).            
+                       20  IACP-REPRICE-SW-OUT            PIC X(01).            
+                       20  IACP-PROGRAM-TYPE-OUT.                               
+                           25  IACP-PROGRAM-TYPE-1-OUT    PIC X(02).            
+                           25  IACP-PROGRAM-TYPE-2-OUT    PIC X(02).            
+                   15  IACP-REPRICE-OPTION-ACTIVE-OUT     PIC X.        MJB03070
+                       88  IACP-REPRICE-OPTION-ACTIVE     VALUE 'Y'.    MJB03070
+                   15  IACP-REPRICE-PRINT-COMMENT-OUT     PIC X.        MJB03070
+                       88  IACP-REPRICE-PRINT-COMMENT     VALUE 'Y'.    MJB03070
+               10  IACP-UNIT-COST-OUT                 PIC S9(13)V9(4)           
+                                                      COMP-3.                   
+               10  IACP-ADJUSTED-COST-OUT             PIC S9(15)V9(2)           
+                                                      COMP-3.                   
+               10  IACP-ADJ-COST-NO-IR-OUT            PIC S9(15)V9(2)           
+                                                      COMP-3.                   
+038900         10  IACP-ADJUSTED-COST-DATA-OUT.                                 
+039000             15  IACP-BTL-PCT                   PIC S9(3)V99              
+                                                      COMP-3.                   
+039100             15  IACP-FRT-RATE-1                PIC S9(3)V99              
+                                                      COMP-3.                   
+039200             15  IACP-FRT-RATE-2                PIC S9(3)V99              
+                                                      COMP-3.                   
+039300             15  IACP-FRT-RATE-3                PIC S9(3)V99              
+                                                      COMP-3.                   
+039400             15  IACP-SKU-SPECIFIC-BTL-IND                                
+                       REDEFINES IACP-FRT-RATE-3                                
+039500                                                PIC S9(3)V99              
+                                                      COMP-3.                   
+039900             15  IACP-DATE-CHG-AC               PIC S9(5)                 
+                                                      COMP-3.                   
+040000             15  IACP-EFF-DATE-AC               PIC S9(5)                 
+                                                      COMP-3.                   
+040100             15  IACP-EXP-DATE-AC               PIC S9(5)                 
+                                                      COMP-3.                   
+040200             15  IACP-BTL-STANDARD-PCT          PIC S9(3)V99              
+                                                      COMP-3.                   
+040300             15  IACP-BTL-REBATE-PCT            PIC S9(3)V99              
+                                                      COMP-3.                   
+040400             15  IACP-BTL-DISC-PCT              PIC S9(3)V99              
+                                                      COMP-3.                   
+040500             15  IACP-BTL2-STANDARD-PCT         PIC S9(3)V99              
+                                                      COMP-3.                   
+040600             15  IACP-BTL2-REBATE-PCT           PIC S9(3)V99              
+                                                      COMP-3.                   
+040700             15  IACP-BTL2-DISC-PCT             PIC S9(3)V99              
+                                                      COMP-3.                   
+               10  IACP-TOTAL-OVERRIDE-OUT            PIC S9(13)V9(4)           
+                                                      COMP-3.                   
+      *                                                               *         
+      *****************************************************************         
+      *                                                               *         
+      *  END OF COPYBOOK ICX837                                       *         
+      *                                                               *         
+      *****************************************************************         
+      *                                                               *         

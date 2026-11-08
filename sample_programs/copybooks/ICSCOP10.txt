@@ -1,0 +1,1178 @@
+      *****************************************************************         
+      *  ICSCOP10- PD CPYBOOK TO POPULATE ORDER_SKU_ACOP_TOTALS       *         
+      *            IN ORDER ENTRY PROGRAM AFTER IT RETURNS FROM ICPCOP*         
+      *            COST ROUTINE                                       *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 08/30/2024 UXK EVEREST: FETCH NEW COLUMN TOT_INVC_SHIP_QTY    * UXK24243
+      *                FROM ORDER_SKU_ACOP_TOTALS TABLE               * UXK24243
+      * 08/09/2024 GXN EVEREST: FIX TO NOT UPDATE TRACK NUMBER        * GXN24222
+      *                (ORTLPAS-ACOP-TRK-NBR) IN INP955, WHEN ORDER IS* GXN24222
+      *                NOT ELIGIBLE FOR TIER ACOP.                    * GXN24222
+      * 06/21/2024 CDL GDS TIER ADJUSTMENT FOR MIN QTY                * CDL24173
+      * 05/31/2024 AP3 LOGIC FOR GDS TIER                             * AP324152
+      * 08/07/2020 MXV BYPASS THE ENTIRE PROCESS FOR EXACT MIN QTY.   * MXV20220
+      * 10/06/2017 TGF CORRECTED TO LINE DELETE LOGIC TO PREVENT NEG  * TGF17279
+      *                VALUES                                         * TGF17279
+      * 05/12/2017 TGF CORRECTED TO BACK ORDER QTY                    * TGF17132
+      * 04/07/2017 TGF CORRECTED PROGRAM/OPID UPDATE                  * TGF17096
+      * 03/10/2017 TGF CONFIG UPDATE                                  * TGF17069
+      * 02/03/2017 TGF ADD CHECK ON BACK ORDERED QTY                  * TGF17034
+      * 10/14/2016 TGF NEW COPYBOOK FOR ACOP TIER PRICING             * TGF16288
+      *****************************************************************         
+      *                                                                         
+       C550-PREPARE-ACOP-MIN-QTY.                                               
+                                                                        MXV20220
+            IF ICWCOP-ACOP-MIN-QTY-EXACT                                MXV20220
+               MOVE ICWCOP-ACOP-MIN-QTY-IND                             MXV20220
+                                       TO ICWCOP10-ACOP-MIN-QTY-TYP-IND MXV20220
+               GO TO C550-EXIT                                          MXV20220
+            END-IF                                                      MXV20220
+                                                                                
+            MOVE ' '                   TO ICWCOP10-DATA-FOUND-SW                
+            MOVE ZEROES                TO ORTLPAS-ACOP-TRK-NBR                  
+                                          ORTLPAS-TOT-ORDR-QTY                  
+                                          ORTLPAS-TOT-BORDR-QTY                 
+                                          ORTLPAS-TOT-SHIP-QTY                  
+                                          ORTLPAS-ACOP-MIN-QTY.                 
+                                                                                
+            MOVE ORH-COMPANY           TO ORTLPAS-CO-CD.                        
+            MOVE ORH-BR-NBR            TO ORTLPAS-ORDR-BR-NBR.                  
+            MOVE ORH-ORDER-NBR         TO ORTLPAS-ORDR-NBR.                     
+            MOVE ORH-BILL-TO-BR-NBR    TO ORTLPAS-CUST-BR-NBR.                  
+            MOVE ORH-BILL-TO-CUST-NBR  TO ORTLPAS-CUST-NBR.                     
+                                                                                
+            INITIALIZE SY777-PARM-DATA.                                         
+            MOVE ORH-COMPANY           TO SY777-IN-COMPANY-CODE.                
+            MOVE ORH-ENTRY-DATE        TO SY777-IN-JUL-YYDDD.                   
+            CALL 'SYU777'           USING DFHEIBLK                              
+                                          DFHCOMMAREA                           
+                                          SY777-PARM-DATA.                      
+            IF SY777-OUT-ERR-SW = SPACE                                         
+               MOVE SY777-OUT-ISO-10   TO ORTLPAS-ORDR-DT                       
+            ELSE                                                                
+               MOVE ZEROS              TO ORTLPAS-ORDR-DT                       
+            END-IF.                                                             
+                                                                                
+            IF ICWCOP10-ACOP-MIN-QTY-TYP-IND > SPACE                            
+               MOVE ICWCOP10-ACOP-MIN-QTY-TYP-IND                               
+                                       TO ORTLPAS-ACOP-TIER-TYPE-CD             
+            ELSE                                                                
+               IF ICWCOP-VNH-GDS-DISCOUNT         AND                   AP324152
+                  ICWCOP-GDS-TIER-TRK-NBR NUMERIC AND                   AP324152
+                  ICWCOP-GDS-TIER-TRK-NBR = ZEROES                      AP324152
+                  CONTINUE                                              AP324152
+               ELSE                                                     AP324152
+                  PERFORM C700-ACOP-TIER-TYPE                           AP324152
+                     THRU C700-EXIT                                     AP324152
+                  MOVE ICWCOP10-ACOP-MIN-QTY-TYP-IND                    AP324152
+                                       TO ORTLPAS-ACOP-TIER-TYPE-CD     AP324152
+               END-IF                                                   AP324152
+            END-IF.                                                             
+                                                                        TGF17279
+            EVALUATE TRUE                                               TGF17279
+              WHEN ICWCOP10-ORDER-DELETE                                TGF17279
+              WHEN ICWCOP10-ORDER-CREATE                                TGF17279
+              WHEN ICWCOP10-ADD-LINE                                    TGF17279
+              WHEN ICWCOP10-LINE-CHANGE                                 TGF17279
+              WHEN ICWCOP10-LINE-DELETE                                 TGF17279
+               MOVE WRK-PROGRAM-NAME   TO ORTLPAS-LAST-CHG-PGM-ID       TGF17279
+               MOVE TC-OPER-ID         TO ORTLPAS-LAST-CHG-OPER-ID      TGF17279
+            END-EVALUATE.                                               TGF17279
+                                                                                
+            EVALUATE TRUE                                                       
+              WHEN ICWCOP10-ORDER-DELETE                                        
+               MOVE WRK-PROGRAM-NAME   TO ORTLPAS-LAST-CHG-PGM-ID               
+               MOVE TC-OPER-ID         TO ORTLPAS-LAST-CHG-OPER-ID              
+      * SET IN ORP320 FOR ORDER CREATE                                          
+              WHEN ICWCOP10-ORDER-CREATE                                        
+      * SET IN ORP320 FOR ORDER ADD LINE                                        
+              WHEN ICWCOP10-ADD-LINE                                            
+      * SET IN ORP572 FOR ORDER ADD LINE                                        
+              WHEN ICWCOP10-LINE-CHANGE                                         
+      * SET IN ORP472 FOR ORDER ADD LINE                                        
+              WHEN ICWCOP10-LINE-DELETE                                         
+      * SET IN EUP345 FOR ORDER ADD LINE                                        
+              WHEN ICWCOP10-END-ORDER-PROC                                      
+              WHEN ICWCOP10-ORDER-LINE-SELECT                           TGF17069
+               MOVE ORL-PART-NBR       TO ORTLPAS-IM-PART-NBR                   
+               MOVE ORL-VENDOR-NBR     TO ORTLPAS-VEND-NBR                      
+                                                                                
+               IF ICWCOP-ACOP-MIN-QTY NUMERIC                                   
+              AND ICWCOP-ACOP-MIN-QTY > 0                                       
+                  MOVE ICWCOP-ACOP-MIN-QTY                                      
+                                       TO ORTLPAS-ACOP-MIN-QTY                  
+               ELSE                                                             
+                  IF ICWCOP-MIN-QTY-REQ NUMERIC                                 
+                 AND ICWCOP-MIN-QTY-REQ > ZERO                                  
+                     MOVE ICWCOP-MIN-QTY-REQ                                    
+                                       TO ORTLPAS-ACOP-MIN-QTY                  
+                  END-IF                                                        
+               END-IF                                                           
+              WHEN ICWCOP10-END-ORDER-RE-EVAL2                                  
+               MOVE ICWCOP10-ACOP-MIN-QTY                                       
+                                       TO ORTLPAS-ACOP-MIN-QTY                  
+               MOVE ICWCOP10-IM-PART-NBR                                        
+                                       TO ORTLPAS-IM-PART-NBR                   
+               MOVE ICWCOP10-IM-VNDR-NBR                                        
+                                       TO ORTLPAS-VEND-NBR                      
+               MOVE ICWCOP10-ORIG-QTY-ORD                                       
+                                       TO ORTLPAS-TOT-ORDR-QTY                  
+               MOVE ICWCOP10-ORIG-QTY-SHP                                       
+                                       TO ORTLPAS-TOT-SHIP-QTY                  
+               MOVE ICWCOP10-ORIG-QTY-BORD                                      
+                                       TO ORTLPAS-TOT-BORDR-QTY                 
+               MOVE ICWCOP-TRK-NBR-MIN-QTY                                      
+                                       TO ORTLPAS-ACOP-TRK-NBR                  
+            END-EVALUATE.                                                       
+                                                                                
+      *     MOVE WRK-PROGRAM-NAME      TO ORTLPAS-LAST-CHG-PGM-ID       TGF17069
+      *     MOVE TC-OPER-ID            TO ORTLPAS-LAST-CHG-OPER-ID      TGF17069
+                                                                                
+            EVALUATE TRUE                                                       
+                 WHEN ICWCOP10-PART-DELETE                                      
+                      PERFORM C595-DELETE-ACOP-TOTALS                           
+                         THRU C595-EXIT                                         
+                      GO TO C550-EXIT                                           
+            END-EVALUATE.                                                       
+                                                                                
+      * SELECT BASED ON THE ABOVE DATA TO DETERMINE IF DATA IS PRESENT          
+            IF ICWCOP10-ORD-CHECK                                               
+               PERFORM C560-SELECT-ACOP-MIN-QTY                                 
+                  THRU C560-EXIT                                                
+            ELSE                                                                
+               PERFORM C565-SELECT-ACOP-MIN-QTY                                 
+                  THRU C565-EXIT.                                               
+                                                                                
+            IF ICWCOP10-ORDER-LINE-SELECT                                       
+               GO TO C550-EXIT.                                                 
+                                                                                
+            IF ICWCOP10-ORD-CHECK                                               
+               IF ICWCOP10-DATA-FOUND                                           
+                  PERFORM C590-CHECK-ORDERED                                    
+                     THRU C590-EXIT                                             
+                  IF ICWCOP10-END-DELETE                                        
+                 AND NOT ICWCOP10-POSSIBLE-ACOP                                 
+                     GO TO C550-EXIT                                            
+                  END-IF                                                        
+               ELSE                                                             
+                  GO TO C550-EXIT                                               
+               END-IF.                                                          
+                                                                                
+           IF ICWCOP-TRK-NBR-MIN-QTY NUMERIC AND                                
+              ICWCOP-TRK-NBR-MIN-QTY > ZERO  AND                        GXN24222
+              ICWCOP-ACOP-MIN-QTY    NUMERIC AND                        GXN24222
+              ICWCOP-ACOP-MIN-QTY    > ZERO                             GXN24222
+              IF (ICWCOP-TRK-NBR-MIN-QTY NOT EQUAL                      TGF17279
+                  ORTLPAS-ACOP-TRK-NBR)                                         
+                  SET ICWCOP10-ACOP-TRCK-NBR-CHG                                
+                                       TO TRUE                                  
+              END-IF                                                            
+              MOVE ORTLPAS-ACOP-TRK-NBR                                 TGF17279
+                                     TO ICWCOP10-HOLD-ACOP-TRK-NBR      TGF17279
+              MOVE ICWCOP-TRK-NBR-MIN-QTY                                       
+                                     TO ORTLPAS-ACOP-TRK-NBR                    
+           ELSE                                                                 
+              IF ICWCOP10-ORDER-CREATE AND                              TGF17279
+                (ICWCOP-TRK-NBR (1) NUMERIC AND                         TGF17279
+                 ICWCOP-TRK-NBR (1) > ZERO)                             TGF17279
+                 IF (ICWCOP-TRK-NBR (1) NOT EQUAL                               
+                     ORTLPAS-ACOP-TRK-NBR)                                      
+                     SET ICWCOP10-ACOP-TRCK-NBR-CHG                             
+                                       TO TRUE                                  
+                     MOVE ICWCOP-TRK-NBR (1)                                    
+                                     TO ORTLPAS-ACOP-TRK-NBR                    
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP10-DATA-FOUND                                               
+              EVALUATE TRUE                                                     
+                 WHEN ICWCOP10-END-ORDER-PROC                                   
+                 WHEN ICWCOP10-ORD-CHECK                                        
+                      IF ICWCOP10-ACOP-TRCK-NBR-CHG                             
+                         PERFORM C580-UPDATE-ACOP-TOTALS                        
+                            THRU C580-EXIT                                      
+                         MOVE ' '      TO ICWCOP10-ACOP-TRCK-CHANGE-SW          
+                      END-IF                                                    
+                      GO TO C550-EXIT                                           
+                 WHEN ICWCOP10-ORDER-CREATE                                     
+                 WHEN ICWCOP10-ADD-LINE                                         
+                      IF ICWCOP10-ACOP-TRCK-NBR-CHG                     TGF17279
+                         PERFORM C580-UPDATE-ACOP-TOTALS                TGF17279
+                            THRU C580-EXIT                              TGF17279
+                         MOVE ' '      TO ICWCOP10-ACOP-TRCK-CHANGE-SW  TGF17279
+                      END-IF                                            TGF17279
+                   PERFORM C552-ADD-QTY-ORDER-LINE                              
+                      THRU C552-EXIT                                            
+                 WHEN ICWCOP10-LINE-CHANGE                                      
+                 WHEN ICWCOP10-END-ORDER-RE-EVAL                                
+                   PERFORM C553-ADJUST-DB2-ORDER-LINE                           
+                      THRU C553-EXIT                                            
+                 WHEN ICWCOP10-END-ORDER-RE-EVAL2                               
+                   PERFORM C553A-ADJUST-DB2-ORDER-LINE                          
+                      THRU C553A-EXIT                                           
+                 WHEN ICWCOP10-LINE-DELETE                                      
+                   PERFORM C554-SUBTRACT-QTY-ORDER-LINE                         
+                      THRU C554-EXIT                                            
+               END-EVALUATE                                                     
+           ELSE                                                                 
+              IF ICWCOP10-DATA-NOT-FND                                          
+                 IF ICWCOP10-ORDER-CREATE                                       
+                 OR ICWCOP10-ADD-LINE                                           
+                 OR ICWCOP10-END-ORDER-RE-EVAL                                  
+                 OR ICWCOP10-END-ORDER-RE-EVAL2                                 
+                     PERFORM C551-CREATE-DB2-ORDER                              
+                        THRU C551-EXIT                                          
+                 END-IF                                                         
+              END-IF.                                                           
+                                                                                
+       C550-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       C551-CREATE-DB2-ORDER.                                                   
+                                                                                
+            MOVE WRK-PROGRAM-NAME      TO ORTLPAS-LAST-CHG-PGM-ID.      TGF17096
+            MOVE TC-OPER-ID            TO ORTLPAS-LAST-CHG-OPER-ID.     TGF17096
+                                                                                
+            IF ICWCOP10-ORDER-CREATE                                            
+            OR ICWCOP10-ADD-LINE                                                
+            OR ICWCOP10-END-ORDER-RE-EVAL                                       
+               ADD ORL-QTY-ORDERED     TO ORTLPAS-TOT-ORDR-QTY                  
+               ADD ORL-QTY-BACKORDERED TO ORTLPAS-TOT-BORDR-QTY                 
+               ADD ORL-QTY-SHIPPED     TO ORTLPAS-TOT-SHIP-QTY                  
+               PERFORM C570-INSERT-ACOP-TOTALS                                  
+                  THRU C570-EXIT                                                
+            ELSE                                                                
+               IF ICWCOP10-END-ORDER-RE-EVAL2                                   
+                  IF ICWCOP10-ORIG-QTY-ORD >=                           TGF17069
+                                          ICWCOP10-ACOP-MIN-QTY         TGF17069
+                     PERFORM C570-INSERT-ACOP-TOTALS                            
+                        THRU C570-EXIT.                                         
+                                                                                
+       C551-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       C552-ADD-QTY-ORDER-LINE.                                                 
+                                                                                
+            ADD ORL-QTY-ORDERED        TO ORTLPAS-TOT-ORDR-QTY                  
+            ADD ORL-QTY-BACKORDERED    TO ORTLPAS-TOT-BORDR-QTY                 
+            ADD ORL-QTY-SHIPPED        TO ORTLPAS-TOT-SHIP-QTY                  
+            PERFORM C580-UPDATE-ACOP-TOTALS                                     
+               THRU C580-EXIT.                                                  
+                                                                                
+       C552-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       C553-ADJUST-DB2-ORDER-LINE.                                              
+      * FIRST REMOVE THE LINE QTY'S -                                           
+            SUBTRACT ICWCOP10-ORIG-QTY-ORD                                      
+                                       FROM ORTLPAS-TOT-ORDR-QTY                
+            IF ICWCOP10-ORIG-QTY-SHP > ZERO                             TGF17069
+           AND ICWCOP10-ORIG-QTY-BORD = ZERO                            TGF17069
+               SUBTRACT ICWCOP10-ORIG-QTY-SHP                           TGF17069
+                                       FROM ORTLPAS-TOT-BORDR-QTY       TGF17069
+            ELSE                                                        TGF17069
+               SUBTRACT ICWCOP10-ORIG-QTY-BORD                          TGF17069
+                                       FROM ORTLPAS-TOT-BORDR-QTY       TGF17069
+            END-IF                                                      TGF17069
+            SUBTRACT ICWCOP10-ORIG-QTY-SHP                                      
+                                       FROM ORTLPAS-TOT-SHIP-QTY                
+            IF ORTLPAS-TOT-SHIP-QTY < ZERO                              TGF17069
+               MOVE ZERO               TO ORTLPAS-TOT-SHIP-QTY          TGF17069
+            END-IF                                                      TGF17069
+            IF ORTLPAS-TOT-BORDR-QTY < ZERO                             TGF17132
+               MOVE ZERO               TO ORTLPAS-TOT-BORDR-QTY         TGF17132
+            END-IF                                                      TGF17132
+            PERFORM C580-UPDATE-ACOP-TOTALS                                     
+               THRU C580-EXIT                                                   
+      * SECOND ADD IN THE UPDATED QTY'S                                         
+            ADD ORL-QTY-ORDERED        TO ORTLPAS-TOT-ORDR-QTY                  
+            ADD ORL-QTY-BACKORDERED                                             
+                                       TO ORTLPAS-TOT-BORDR-QTY                 
+            ADD ORL-QTY-SHIPPED        TO ORTLPAS-TOT-SHIP-QTY                  
+            IF ICWCOP10-END-ORDER-RE-EVAL                                       
+               IF ICWCOP-TRK-NBR-MIN-QTY > ZERO                                 
+                  MOVE ICWCOP-TRK-NBR-MIN-QTY                                   
+                                       TO ORTLPAS-ACOP-TRK-NBR                  
+               END-IF                                                           
+               IF ICWCOP10-ACOP-MIN-QTY > ZERO                                  
+                  MOVE ICWCOP10-ACOP-MIN-QTY                                    
+                                       TO ORTLPAS-ACOP-MIN-QTY                  
+               END-IF                                                           
+            END-IF                                                              
+            PERFORM C580-UPDATE-ACOP-TOTALS                                     
+               THRU C580-EXIT.                                                  
+                                                                                
+       C553-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       C553A-ADJUST-DB2-ORDER-LINE.                                             
+                                                                                
+            MOVE ICWCOP10-ORIG-QTY-ORD TO ORTLPAS-TOT-ORDR-QTY                  
+            MOVE ICWCOP10-ORIG-QTY-BORD                                         
+                                       TO ORTLPAS-TOT-BORDR-QTY                 
+            MOVE ICWCOP10-ORIG-QTY-SHP TO ORTLPAS-TOT-SHIP-QTY                  
+            IF ICWCOP10-ACOP-TRCK-NBR-CHG                                       
+               MOVE ICWCOP-TRK-NBR-MIN-QTY                                      
+                                       TO ORTLPAS-ACOP-TRK-NBR                  
+            END-IF                                                              
+            PERFORM C580-UPDATE-ACOP-TOTALS                                     
+               THRU C580-EXIT.                                                  
+                                                                                
+       C553A-EXIT.                                                              
+            EXIT.                                                               
+                                                                                
+       C554-SUBTRACT-QTY-ORDER-LINE.                                            
+                                                                                
+            IF ORL-QTY-ORDERED <= ORTLPAS-TOT-ORDR-QTY                  TGF17279
+               SUBTRACT ORL-QTY-ORDERED                                 TGF17279
+                                       FROM ORTLPAS-TOT-ORDR-QTY        TGF17279
+               SUBTRACT ORL-QTY-BACKORDERED                             TGF17279
+                                       FROM ORTLPAS-TOT-BORDR-QTY       TGF17279
+               SUBTRACT ORL-QTY-SHIPPED                                 TGF17279
+                                       FROM ORTLPAS-TOT-SHIP-QTY        TGF17279
+               PERFORM C580-UPDATE-ACOP-TOTALS                                  
+                  THRU C580-EXIT.                                               
+                                                                                
+            IF SQLCODE-NORESP                                                   
+               IF ORTLPAS-TOT-ORDR-QTY <= ZERO                          TGF17279
+                  PERFORM C590-CHECK-ORDERED                                    
+                     THRU C590-EXIT                                             
+               END-IF.                                                          
+                                                                                
+       C554-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       C560-SELECT-ACOP-MIN-QTY.                                                
+                                                                                
+           EXEC SQL OPEN                                                        
+                    ORDR_SKU_ACOP_TL_CURSOR                                     
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'C560'           TO WS-ABCODE                             
+                 MOVE 'C560-SELECT-ACOP-MIN-QTY'                                
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR OPEN ORDR_SKU_ACOP_TL_CURSOR'                      
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+           EXEC SQL                                                             
+                FETCH  ORDR_SKU_ACOP_TL_CURSOR                                  
+                 INTO  :ORTLPAS-IM-PART-NBR                                     
+                      ,:ORTLPAS-ACOP-TRK-NBR                                    
+                      ,:ORTLPAS-TOT-ORDR-QTY                                    
+                      ,:ORTLPAS-TOT-BORDR-QTY                                   
+                      ,:ORTLPAS-TOT-SHIP-QTY                                    
+                      ,:ORTLPAS-ACOP-MIN-QTY                                    
+                      ,:ORTLPAS-ACOP-TIER-TYPE-CD                               
+                      ,:ORTLPAS-VEND-NBR                                        
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    SET ICWCOP10-DATA-FOUND                                     
+                                       TO TRUE                                  
+               WHEN DB2-NOT-FOUND                                               
+                    SET ICWCOP10-DATA-NOT-FND                                   
+                                       TO TRUE                                  
+               WHEN OTHER                                                       
+                 MOVE 'C560'           TO WS-ABCODE                             
+                 MOVE 'C560-SELECT-ACOP-MIN-QTY'                                
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR FETCH ORDR_SKU_ACOP_TL_CURSOR'                     
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+           EXEC SQL CLOSE                                                       
+                    ORDR_SKU_ACOP_TL_CURSOR                                     
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'C560'           TO WS-ABCODE                             
+                 MOVE 'C560-SELECT-ACOP-MIN-QTY'                                
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR CLOSE ORDR_SKU_ACOP_TL_CURSOR'                     
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+       C560-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       C565-SELECT-ACOP-MIN-QTY.                                                
+                                                                                
+           IF ICWCOP10-END-ORDER-RE-EVAL                                        
+           OR ICWCOP10-END-ORDER-RE-EVAL2                                       
+              MOVE ICWCOP10-IM-PART-NBR                                         
+                                       TO ORTLPAS-IM-PART-NBR                   
+              MOVE ICWCOP10-IM-VNDR-NBR                                         
+                                       TO ORTLPAS-VEND-NBR                      
+           END-IF.                                                              
+                                                                                
+           EXEC SQL                                                             
+                 SELECT ACOP_TRK_NBR                                            
+                       ,TOT_ORDR_QTY                                            
+                       ,TOT_BORDR_QTY                                           
+                       ,TOT_SHIP_QTY                                            
+                       ,ACOP_MIN_QTY                                            
+                       ,ACOP_TIER_TYPE_CD                                       
+                       ,TOT_INVC_SHIP_QTY                               UXK24243
+                  INTO :ORTLPAS-ACOP-TRK-NBR                                    
+                      ,:ORTLPAS-TOT-ORDR-QTY                                    
+                      ,:ORTLPAS-TOT-BORDR-QTY                                   
+                      ,:ORTLPAS-TOT-SHIP-QTY                                    
+                      ,:ORTLPAS-ACOP-MIN-QTY                                    
+                      ,:ORTLPAS-ACOP-TIER-TYPE-CD                               
+                      ,:ORTLPAS-TOT-INVC-SHIP-QTY                       UXK24243
+                  FROM  ORDER_SKU_ACOP_TOTALS                                   
+                 WHERE CO_CD        = :ORTLPAS-CO-CD                            
+                   AND ORDR_BR_NBR  = :ORTLPAS-ORDR-BR-NBR                      
+                   AND ORDR_NBR     = :ORTLPAS-ORDR-NBR                         
+                   AND ORDR_DT      = :ORTLPAS-ORDR-DT                          
+                   AND CUST_BR_NBR  = :ORTLPAS-CUST-BR-NBR                      
+                   AND CUST_NBR     = :ORTLPAS-CUST-NBR                         
+                   AND IM_PART_NBR  = :ORTLPAS-IM-PART-NBR                      
+                   AND VEND_NBR     = :ORTLPAS-VEND-NBR                         
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    MOVE 'Y'           TO ICWCOP10-DATA-FOUND-SW                
+               WHEN DB2-NOT-FOUND                                               
+                    MOVE 'N'           TO ICWCOP10-DATA-FOUND-SW                
+               WHEN OTHER                                                       
+                 MOVE 'C565'           TO WS-ABCODE                             
+                 MOVE 'C565-SELECT-ACOP-MIN-QTY'                                
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE 'C565-SELECT-ACOP-MIN-QTY'                        UXK24243
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE ORTLPAS-CO-CD    TO ICWCOP10-DB2-ERROR-PARA2-CO           
+                 MOVE ORTLPAS-ORDR-BR-NBR                                       
+                                       TO ICWCOP10-DB2-ERROR-PARA2-BR           
+                 MOVE ORTLPAS-ORDR-NBR                                          
+                                       TO ICWCOP10-DB2-ERROR-PARA2-ORD          
+                 MOVE ORTLPAS-IM-PART-NBR                                       
+                                       TO ICWCOP10-DB2-ERROR-PARA2-PART         
+                 MOVE 'ERROR SELECT ORDER_SKU_ACOP_TOTALS'              UXK24243
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+           END-EVALUATE.                                                        
+                                                                                
+       C565-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       C570-INSERT-ACOP-TOTALS.                                                 
+                                                                                
+           MOVE -1                     TO ICWCOP10-NULL-1.                      
+                                                                                
+           EXEC SQL                                                             
+                INSERT INTO ORDER_SKU_ACOP_TOTALS                               
+                     ( CO_CD                                                    
+                      ,ORDR_BR_NBR                                              
+                      ,ORDR_NBR                                                 
+                      ,IM_PART_NBR                                              
+                      ,ACOP_TRK_NBR                                             
+                      ,TOT_ORDR_QTY                                             
+                      ,TOT_BORDR_QTY                                            
+                      ,TOT_SHIP_QTY                                             
+                      ,ACOP_MIN_QTY                                             
+                      ,VEND_NBR                                                 
+                      ,CUST_BR_NBR                                              
+                      ,CUST_NBR                                                 
+                      ,ORDR_DT                                                  
+                      ,LAST_CHG_TS                                              
+                      ,LAST_CHG_PGM_ID                                          
+                      ,LAST_CHG_OPER_ID                                         
+                      ,ACOP_TIER_TYPE_CD                                        
+                      ,INVC_DT)                                                 
+              VALUES ( :ORTLPAS-CO-CD                                           
+                      ,:ORTLPAS-ORDR-BR-NBR                                     
+                      ,:ORTLPAS-ORDR-NBR                                        
+                      ,:ORTLPAS-IM-PART-NBR                                     
+                      ,:ORTLPAS-ACOP-TRK-NBR                                    
+                      ,:ORTLPAS-TOT-ORDR-QTY                                    
+                      ,:ORTLPAS-TOT-BORDR-QTY                                   
+                      ,:ORTLPAS-TOT-SHIP-QTY                                    
+                      ,:ORTLPAS-ACOP-MIN-QTY                                    
+                      ,:ORTLPAS-VEND-NBR                                        
+                      ,:ORTLPAS-CUST-BR-NBR                                     
+                      ,:ORTLPAS-CUST-NBR                                        
+                      ,:ORTLPAS-ORDR-DT                                         
+                      , CURRENT_TIMESTAMP                                       
+                      ,:ORTLPAS-LAST-CHG-PGM-ID                                 
+                      ,:ORTLPAS-LAST-CHG-OPER-ID                                
+                      ,:ORTLPAS-ACOP-TIER-TYPE-CD                               
+                      ,:ORTLPAS-INVC-DT:ICWCOP10-NULL-1)                        
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+               WHEN DB2-NOT-FOUND                                               
+                    CONTINUE                                                    
+               WHEN DB2-DUPLICATE                                               
+                    PERFORM C580-UPDATE-ACOP-TOTALS                             
+                       THRU C580-EXIT                                           
+               WHEN OTHER                                                       
+                 MOVE 'C570'           TO WS-ABCODE                             
+                 MOVE 'C570-INSERT-ACOP-TOTALS'                                 
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE  ORTLPAS-CO-CD   TO ICWCOP10-DB2-ERROR-PARA2-CO           
+                 MOVE  ORTLPAS-ORDR-BR-NBR                                      
+                                       TO ICWCOP10-DB2-ERROR-PARA2-BR           
+                 MOVE  ORTLPAS-ORDR-NBR                                         
+                                       TO ICWCOP10-DB2-ERROR-PARA2-ORD          
+                 MOVE  ORTLPAS-IM-PART-NBR                                      
+                                       TO ICWCOP10-DB2-ERROR-PARA2-PART         
+                 MOVE  ICWCOP10-EXTRA-MESSAGE-2                                 
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+           END-EVALUATE.                                                        
+                                                                                
+       C570-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       C580-UPDATE-ACOP-TOTALS.                                                 
+                                                                                
+            MOVE WRK-PROGRAM-NAME      TO ORTLPAS-LAST-CHG-PGM-ID.              
+            MOVE TC-OPER-ID            TO ORTLPAS-LAST-CHG-OPER-ID.             
+                                                                                
+            IF ICWCOP10-ACOP-MIN-QTY-TYP-IND > SPACES OR                AP324152
+               (ICWCOP-VNH-GDS-DISCOUNT         AND                     AP324152
+                ICWCOP-GDS-TIER-TRK-NBR NUMERIC AND                     AP324152
+                ICWCOP-GDS-TIER-TRK-NBR = ZEROES)                       AP324152
+               NEXT SENTENCE                                                    
+            ELSE                                                                
+               PERFORM C700-ACOP-TIER-TYPE                                      
+                  THRU C700-EXIT.                                               
+                                                                                
+            MOVE ICWCOP10-ACOP-MIN-QTY-TYP-IND                                  
+                                       TO ORTLPAS-ACOP-TIER-TYPE-CD             
+                                                                                
+            IF ICWCOP-ACOP-MIN-QTY NUMERIC                                      
+               IF ICWCOP-ACOP-MIN-QTY > 0                                       
+                  MOVE ICWCOP-ACOP-MIN-QTY                                      
+                                       TO ORTLPAS-ACOP-MIN-QTY                  
+               ELSE                                                     TGF17279
+                  MOVE ICWCOP10-HOLD-ACOP-TRK-NBR                       TGF17279
+                                       TO ORTLPAS-ACOP-TRK-NBR          TGF17279
+               END-IF                                                           
+            ELSE                                                                
+               IF ICWCOP-MIN-QTY-REQ NUMERIC                                    
+                  IF ICWCOP-MIN-QTY-REQ > ZERO                                  
+                     MOVE ICWCOP-MIN-QTY-REQ                                    
+                                       TO ORTLPAS-ACOP-MIN-QTY                  
+                  ELSE                                                  TGF17279
+                     MOVE ICWCOP10-HOLD-ACOP-TRK-NBR                    TGF17279
+                                       TO ORTLPAS-ACOP-TRK-NBR          TGF17279
+                  END-IF                                                        
+               END-IF.                                                          
+                                                                                
+            IF ORTLPAS-ACOP-ADJ-UNIT-PRC-AMT NUMERIC                            
+               NEXT SENTENCE                                                    
+            ELSE                                                                
+               MOVE ZERO               TO ORTLPAS-ACOP-ADJ-UNIT-PRC-AMT         
+            END-IF.                                                             
+                                                                                
+            IF VNH-GDS-PROCESS     OR                                   AP324152
+               VNH-GDS-ORD-PROCESS OR                                   AP324152
+               WS-GDS-PRCS-WITH-TIER                                    AP324152
+               IF ORTLPAS-TOT-SHIP-QTY < ORTLPAS-ACOP-MIN-QTY           AP324152
+                  MOVE ZEROES          TO ORTLPAS-ACOP-TRK-NBR          AP324152
+                  MOVE ZEROES          TO ORTLPAS-ACOP-MIN-QTY          CDL24173
+               END-IF                                                   AP324152
+            END-IF.                                                     AP324152
+                                                                                
+             EXEC SQL                                                           
+                UPDATE ORDER_SKU_ACOP_TOTALS                                    
+                 SET LAST_CHG_TS       =  CURRENT_TIMESTAMP                     
+                    ,LAST_CHG_PGM_ID   = :ORTLPAS-LAST-CHG-PGM-ID               
+                    ,LAST_CHG_OPER_ID  = :ORTLPAS-LAST-CHG-OPER-ID              
+                    ,TOT_ORDR_QTY      = :ORTLPAS-TOT-ORDR-QTY                  
+                    ,TOT_BORDR_QTY     = :ORTLPAS-TOT-BORDR-QTY                 
+                    ,TOT_SHIP_QTY      = :ORTLPAS-TOT-SHIP-QTY                  
+                    ,ACOP_MIN_QTY      = :ORTLPAS-ACOP-MIN-QTY                  
+                    ,ACOP_TRK_NBR      = :ORTLPAS-ACOP-TRK-NBR                  
+                    ,ACOP_TIER_TYPE_CD = :ORTLPAS-ACOP-TIER-TYPE-CD             
+                    ,ACOP_ADJ_UNIT_PRC_AMT                                      
+                                    = :ORTLPAS-ACOP-ADJ-UNIT-PRC-AMT            
+                 WHERE CO_CD        = :ORTLPAS-CO-CD                            
+                   AND ORDR_BR_NBR  = :ORTLPAS-ORDR-BR-NBR                      
+                   AND ORDR_NBR     = :ORTLPAS-ORDR-NBR                         
+                   AND ORDR_DT      = :ORTLPAS-ORDR-DT                          
+                   AND CUST_BR_NBR  = :ORTLPAS-CUST-BR-NBR                      
+                   AND CUST_NBR     = :ORTLPAS-CUST-NBR                         
+                   AND IM_PART_NBR  = :ORTLPAS-IM-PART-NBR                      
+                   AND VEND_NBR     = :ORTLPAS-VEND-NBR                         
+             END-EXEC.                                                          
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+               WHEN DB2-NOT-FOUND                                               
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'C580'           TO WS-ABCODE                             
+                 MOVE 'C580-UPDATE-ACOP-TOTALS'                                 
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE ORTLPAS-CO-CD    TO ICWCOP10-DB2-ERROR-PARA2-CO           
+                 MOVE ORTLPAS-ORDR-BR-NBR                                       
+                                       TO ICWCOP10-DB2-ERROR-PARA2-BR           
+                 MOVE ORTLPAS-ORDR-NBR                                          
+                                       TO ICWCOP10-DB2-ERROR-PARA2-ORD          
+                 MOVE ORTLPAS-IM-PART-NBR                                       
+                                       TO ICWCOP10-DB2-ERROR-PARA2-PART         
+                 MOVE ICWCOP10-EXTRA-MESSAGE-2                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+           END-EVALUATE.                                                        
+                                                                                
+       C580-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       C585-UPDATE-ADJ-UNIT-PRICE.                                              
+                                                                                
+            MOVE WRK-PROGRAM-NAME      TO ORTLPAS-LAST-CHG-PGM-ID.              
+            MOVE TC-OPER-ID            TO ORTLPAS-LAST-CHG-OPER-ID.             
+                                                                                
+            EXEC SQL                                                            
+               UPDATE ORDER_SKU_ACOP_TOTALS                                     
+                 SET ACOP_ADJ_UNIT_PRC_AMT                                      
+                                    = :ORTLPAS-ACOP-ADJ-UNIT-PRC-AMT            
+                    ,LAST_CHG_TS       =  CURRENT_TIMESTAMP                     
+                    ,LAST_CHG_PGM_ID   = :ORTLPAS-LAST-CHG-PGM-ID               
+                    ,LAST_CHG_OPER_ID  = :ORTLPAS-LAST-CHG-OPER-ID              
+                 WHERE CO_CD        = :ORTLPAS-CO-CD                            
+                   AND ORDR_BR_NBR  = :ORTLPAS-ORDR-BR-NBR                      
+                   AND ORDR_NBR     = :ORTLPAS-ORDR-NBR                         
+                   AND ORDR_DT      = :ORTLPAS-ORDR-DT                          
+                   AND CUST_BR_NBR  = :ORTLPAS-CUST-BR-NBR                      
+                   AND CUST_NBR     = :ORTLPAS-CUST-NBR                         
+                   AND IM_PART_NBR  = :ORTLPAS-IM-PART-NBR                      
+                   AND VEND_NBR     = :ORTLPAS-VEND-NBR                         
+             END-EXEC.                                                          
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+               WHEN DB2-NOT-FOUND                                               
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'C585'           TO WS-ABCODE                             
+                 MOVE 'C585-UPDATE-ADJ-UNIT-PRICE'                              
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE  ORTLPAS-CO-CD   TO ICWCOP10-DB2-ERROR-PARA2-CO           
+                 MOVE  ORTLPAS-ORDR-BR-NBR                                      
+                                       TO ICWCOP10-DB2-ERROR-PARA2-BR           
+                 MOVE  ORTLPAS-ORDR-NBR                                         
+                                       TO ICWCOP10-DB2-ERROR-PARA2-ORD          
+                 MOVE  ORTLPAS-IM-PART-NBR                                      
+                                       TO ICWCOP10-DB2-ERROR-PARA2-PART         
+                 MOVE  ICWCOP10-EXTRA-MESSAGE-2                                 
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+           END-EVALUATE.                                                        
+                                                                                
+       C585-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       C586-UPDATE-TRACK-QTY.                                                   
+                                                                                
+            MOVE WRK-PROGRAM-NAME      TO ORTLPAS-LAST-CHG-PGM-ID.              
+            MOVE TC-OPER-ID            TO ORTLPAS-LAST-CHG-OPER-ID.             
+                                                                                
+            EXEC SQL                                                            
+               UPDATE ORDER_SKU_ACOP_TOTALS                                     
+                 SET ACOP_MIN_QTY   = :ORTLPAS-ACOP-MIN-QTY                     
+                    ,ACOP_TRK_NBR   = :ORTLPAS-ACOP-TRK-NBR                     
+                    ,LAST_CHG_TS       =  CURRENT_TIMESTAMP                     
+                    ,LAST_CHG_PGM_ID   = :ORTLPAS-LAST-CHG-PGM-ID               
+                    ,LAST_CHG_OPER_ID  = :ORTLPAS-LAST-CHG-OPER-ID              
+                 WHERE CO_CD        = :ORTLPAS-CO-CD                            
+                   AND ORDR_BR_NBR  = :ORTLPAS-ORDR-BR-NBR                      
+                   AND ORDR_NBR     = :ORTLPAS-ORDR-NBR                         
+                   AND ORDR_DT      = :ORTLPAS-ORDR-DT                          
+                   AND CUST_BR_NBR  = :ORTLPAS-CUST-BR-NBR                      
+                   AND CUST_NBR     = :ORTLPAS-CUST-NBR                         
+                   AND IM_PART_NBR  = :ORTLPAS-IM-PART-NBR                      
+                   AND VEND_NBR     = :ORTLPAS-VEND-NBR                         
+             END-EXEC.                                                          
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+               WHEN DB2-NOT-FOUND                                               
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'C586'           TO WS-ABCODE                             
+                 MOVE 'C586-UPDATE-TRACK-QTY'                                   
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE  ORTLPAS-CO-CD   TO ICWCOP10-DB2-ERROR-PARA2-CO           
+                 MOVE  ORTLPAS-ORDR-BR-NBR                                      
+                                       TO ICWCOP10-DB2-ERROR-PARA2-BR           
+                 MOVE  ORTLPAS-ORDR-NBR                                         
+                                       TO ICWCOP10-DB2-ERROR-PARA2-ORD          
+                 MOVE  ORTLPAS-IM-PART-NBR                                      
+                                       TO ICWCOP10-DB2-ERROR-PARA2-PART         
+                 MOVE  ICWCOP10-EXTRA-MESSAGE-2                                 
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+           END-EVALUATE.                                                        
+                                                                                
+       C586-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       C590-CHECK-ORDERED.                                                      
+                                                                                
+           EXEC SQL OPEN                                                        
+                    ORDR_ACOP_TL_CURSOR                                         
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'C590'              TO WS-ABCODE                          
+                 MOVE 'C590-DELETE-ACOP-TOTALS'                                 
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR OPEN ORDR_ACOP_TL_CURSOR'                          
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+           PERFORM C605-DELETE-ACOP-TOTALS                                      
+              THRU C605-EXIT                                                    
+             UNTIL ICWCOP10-END-DELETE.                                         
+                                                                                
+           EXEC SQL CLOSE                                                       
+                    ORDR_ACOP_TL_CURSOR                                         
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'C590'           TO WS-ABCODE                             
+                 MOVE 'C590-DELETE-ACOP-TOTALS'                                 
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR CLOSE ORDR_ACOP_TL_CURSOR'                         
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+       C590-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+       C595-DELETE-ACOP-TOTALS.                                                 
+                                                                                
+           EXEC SQL OPEN                                                        
+                    ORDR_SKU_ACOP_DELT_CURSOR                                   
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'C595'           TO WS-ABCODE                             
+                 MOVE 'C595-DELETE-ACOP-TOTALS'                                 
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR OPEN ORDR_SKU_ACOP_DELT_CURSOR'                    
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+           EXEC SQL                                                             
+             FETCH  ORDR_SKU_ACOP_DELT_CURSOR                                   
+              INTO :ORTLPAS-IM-PART-NBR                                         
+                  ,:ORTLPAS-VEND-NBR                                            
+                  ,:ORTLPAS-TOT-ORDR-QTY                                        
+                  ,:ORTLPAS-TOT-BORDR-QTY                                       
+                  ,:ORTLPAS-TOT-SHIP-QTY                                        
+                  ,:ORTLPAS-ACOP-MIN-QTY                                        
+                  ,:ORTLPAS-ACOP-TIER-TYPE-CD                                   
+                  ,:ORTLPAS-INVC-DT                                             
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN DB2-NOT-FOUND                                               
+                    MOVE 'Y'           TO ICWCOP10-END-DELETE-SW                
+               WHEN OTHER                                                       
+                 MOVE 'C595'           TO WS-ABCODE                             
+                 MOVE 'C595-DELETE-ACOP-TOTALS'                                 
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR FETCH ORDR_SKU_ACOP_DELT_CURSOR'                   
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+           EXEC SQL CLOSE                                                       
+                    ORDR_SKU_ACOP_DELT_CURSOR                                   
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'C595'           TO WS-ABCODE                             
+                 MOVE 'C595-DELETE-ACOP-TOTALS'                                 
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR CLOSE ORDR_SKU_ACOP_DELT_CURSOR'                   
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+           IF ICWCOP10-END-DELETE                                               
+              GO TO C595-EXIT                                                   
+           ELSE                                                                 
+              IF ORTLPAS-INVC-DT > ZERO                                         
+                 GO TO C595-EXIT                                        TGF17132
+              ELSE                                                              
+                 IF ICWCOP10-ORD-CHECK                                          
+                    IF (ORTLPAS-TOT-ORDR-QTY > ORTLPAS-ACOP-MIN-QTY)    TGF17034
+                    OR (ORTLPAS-TOT-SHIP-QTY > ORTLPAS-ACOP-MIN-QTY)    TGF17034
+                    OR (ORTLPAS-TOT-BORDR-QTY > ORTLPAS-ACOP-MIN-QTY)   TGF17034
+                       GO TO C600-EXIT                                  TGF17034
+                    ELSE                                                TGF17034
+                       PERFORM C600-DELETE-ORDER-DATA                           
+                          THRU C600-EXIT                                        
+                    END-IF                                                      
+                 ELSE                                                           
+                    IF (ORTLPAS-TOT-ORDR-QTY > ORTLPAS-ACOP-MIN-QTY)    TGF17034
+                    OR (ORTLPAS-TOT-SHIP-QTY > ORTLPAS-ACOP-MIN-QTY)    TGF17034
+                    OR (ORTLPAS-TOT-BORDR-QTY > ORTLPAS-ACOP-MIN-QTY)   TGF17034
+                       GO TO C595-EXIT                                  TGF17132
+                    ELSE                                                TGF17034
+                       PERFORM C600-DELETE-ORDER-DATA                           
+                          THRU C600-EXIT                                        
+                       END-IF.                                                  
+                                                                                
+       C595-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       C600-DELETE-ORDER-DATA.                                                  
+                                                                                
+      *FOR GDS TRANSACTION, DO NOT DELETE THE ENTRY. INSTEAD UPDATE     AP324152
+      *THE TRACKING DETAIL TO 0.                                        AP324152
+           IF VNH-GDS-PROCESS OR VNH-GDS-ORD-PROCESS                    AP324152
+              PERFORM C601-UPDATE-ORDER-DATA                            AP324152
+                 THRU C601-EXIT                                         AP324152
+              GO TO C600-EXIT                                           AP324152
+           END-IF.                                                      AP324152
+                                                                        AP324152
+           EXEC SQL                                                             
+                DELETE                                                          
+                FROM                                                            
+                    ORDER_SKU_ACOP_TOTALS                                       
+                WHERE                                                           
+                     CURRENT OF ORDR_SKU_ACOP_DELT_CURSOR                       
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN DB2-NOT-FOUND                                               
+                    MOVE 'N'           TO ICWCOP10-DATA-FOUND-SW                
+               WHEN OTHER                                                       
+                 MOVE 'C600'              TO WS-ABCODE                          
+                 MOVE 'C600-DELETE-ORDER-DATA'                                  
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR DELETE ORDER_SKU_ACOP_TOTALS'                      
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+       C600-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+      ****************************************************************  AP324152
+      *UPDATE ACOP-TRK NUMBER AS 0. THIS WILL BE FOR GDS TRANSACTION *  AP324152
+      ****************************************************************  AP324152
+       C601-UPDATE-ORDER-DATA.                                          AP324152
+                                                                        AP324152
+           EXEC SQL                                                     AP324152
+                UPDATE ORDER_SKU_ACOP_TOTALS                            AP324152
+                 SET ACOP_TRK_NBR      = 0                              AP324152
+                WHERE                                                   AP324152
+                     CURRENT OF ORDR_SKU_ACOP_DELT_CURSOR               AP324152
+           END-EXEC.                                                    AP324152
+                                                                        AP324152
+           MOVE SQLCODE                TO SQLCODE-STATUS.               AP324152
+                                                                        AP324152
+           EVALUATE SQLCODE                                             AP324152
+               WHEN DB2-NORESP                                          AP324152
+                    CONTINUE                                            AP324152
+                                                                        AP324152
+               WHEN DB2-NOT-FOUND                                       AP324152
+                    MOVE 'N'           TO ICWCOP10-DATA-FOUND-SW        AP324152
+                                                                        AP324152
+               WHEN OTHER                                               AP324152
+                    MOVE 'C601'        TO WS-ABCODE                     AP324152
+                    MOVE 'C601-UPDATE-ORDER-DATA'                       AP324152
+                                       TO ICWCOP10-DB2-ERROR-PARA       AP324152
+                    MOVE WRK-PROGRAM-NAME                               AP324152
+                                       TO ICWCOP10-DB2-PGM-ERROR        AP324152
+                    MOVE ICWCOP10-EXTRA-MESSAGE-1                       AP324152
+                                       TO SYWDB2-EXTRA-MESSAGE-1        AP324152
+                    MOVE 'ERROR UPDATE ORDER_SKU_ACOP_TOTALS'           AP324152
+                                       TO SYWDB2-EXTRA-MESSAGE-2        AP324152
+                    PERFORM 990-SQL-MESSAGE                             AP324152
+                    PERFORM 999-ABEND                                   AP324152
+           END-EVALUATE.                                                AP324152
+                                                                        AP324152
+       C601-EXIT.                                                       AP324152
+           EXIT.                                                        AP324152
+                                                                        AP324152
+       C605-DELETE-ACOP-TOTALS.                                                 
+                                                                                
+           EXEC SQL                                                             
+             FETCH  ORDR_ACOP_TL_CURSOR                                         
+              INTO :ORTLPAS-IM-PART-NBR                                         
+                  ,:ORTLPAS-VEND-NBR                                            
+                  ,:ORTLPAS-ACOP-TRK-NBR                                        
+                  ,:ORTLPAS-TOT-ORDR-QTY                                        
+                  ,:ORTLPAS-TOT-BORDR-QTY                                       
+                  ,:ORTLPAS-TOT-SHIP-QTY                                        
+                  ,:ORTLPAS-ACOP-MIN-QTY                                        
+                  ,:ORTLPAS-ACOP-TIER-TYPE-CD                                   
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN DB2-NOT-FOUND                                               
+                    MOVE 'Y'           TO ICWCOP10-END-DELETE-SW                
+               WHEN OTHER                                                       
+                 MOVE 'C605'           TO WS-ABCODE                             
+                 MOVE 'C605-DELETE-ACOP-TOTALS'                                 
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR FETCH ORDR_ACOP_TL_CURSOR'                         
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+           IF ICWCOP10-END-DELETE                                               
+              GO TO C605-EXIT                                                   
+           ELSE                                                                 
+              IF ORTLPAS-INVC-DT > ZERO                                         
+                 GO TO C605-EXIT                                                
+              ELSE                                                              
+                 IF (ORTLPAS-TOT-ORDR-QTY >= ORTLPAS-ACOP-MIN-QTY)      TGF17034
+                 OR (ORTLPAS-TOT-SHIP-QTY >= ORTLPAS-ACOP-MIN-QTY)      TGF17034
+                 OR (ORTLPAS-TOT-BORDR-QTY >= ORTLPAS-ACOP-MIN-QTY)     TGF17034
+                     MOVE 'Y'          TO ICWCOP10-POSSIBLE-ACOP-SW     TGF17034
+                     GO TO C605-EXIT                                    TGF17034
+                 ELSE                                                   TGF17034
+                    PERFORM C610-DELETE-ORDER-DATA                              
+                       THRU C610-EXIT                                           
+                 END-IF.                                                        
+                                                                                
+       C605-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       C610-DELETE-ORDER-DATA.                                                  
+                                                                                
+      *FOR GDS TRANSACTION, DO NOT DELETE THE ENTRY. INSTEAD UPDATE     AP324152
+      *THE TRACKING DETAIL TO 0.                                        AP324152
+           IF VNH-GDS-PROCESS OR VNH-GDS-ORD-PROCESS                    AP324152
+              PERFORM C611-UPDATE-ORDER-DATA                            AP324152
+                 THRU C611-EXIT                                         AP324152
+              GO TO C610-EXIT                                           AP324152
+           END-IF.                                                      AP324152
+                                                                        AP324152
+           EXEC SQL                                                             
+                DELETE                                                          
+                FROM                                                            
+                    ORDER_SKU_ACOP_TOTALS                                       
+                WHERE                                                           
+                     CURRENT OF ORDR_ACOP_TL_CURSOR                             
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN DB2-NOT-FOUND                                               
+                    MOVE 'Y'           TO ICWCOP10-END-DELETE-SW                
+               WHEN OTHER                                                       
+                 MOVE 'C610'           TO WS-ABCODE                             
+                 MOVE 'C610-DELETE-ORDER-DATA'                                  
+                                       TO ICWCOP10-DB2-ERROR-PARA               
+                 MOVE WRK-PROGRAM-NAME                                          
+                                       TO ICWCOP10-DB2-PGM-ERROR                
+                 MOVE ICWCOP10-EXTRA-MESSAGE-1                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR DELETE ORDER_SKU_ACOP_TOTALS'                      
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+       C610-EXIT.                                                               
+           EXIT.                                                                
+                                                                                
+      ****************************************************************  AP324152
+      *UPDATE ACOP-TRK-NBR AS 0 FOR GDS TRANSACTION.                 *  AP324152
+      ****************************************************************  AP324152
+       C611-UPDATE-ORDER-DATA.                                          AP324152
+                                                                        AP324152
+           EXEC SQL                                                     AP324152
+                UPDATE ORDER_SKU_ACOP_TOTALS                            AP324152
+                 SET ACOP_TRK_NBR      = 0                              AP324152
+                WHERE                                                   AP324152
+                     CURRENT OF ORDR_ACOP_TL_CURSOR                     AP324152
+           END-EXEC.                                                    AP324152
+                                                                        AP324152
+           MOVE SQLCODE                TO SQLCODE-STATUS.               AP324152
+                                                                        AP324152
+           EVALUATE SQLCODE                                             AP324152
+               WHEN DB2-NORESP                                          AP324152
+                    CONTINUE                                            AP324152
+                                                                        AP324152
+               WHEN DB2-NOT-FOUND                                       AP324152
+                    MOVE 'N'           TO ICWCOP10-DATA-FOUND-SW        AP324152
+                                                                        AP324152
+               WHEN OTHER                                               AP324152
+                    MOVE 'C611'        TO WS-ABCODE                     AP324152
+                    MOVE 'C611-UPDATE-ORDER-DATA'                       AP324152
+                                       TO ICWCOP10-DB2-ERROR-PARA       AP324152
+                    MOVE WRK-PROGRAM-NAME                               AP324152
+                                       TO ICWCOP10-DB2-PGM-ERROR        AP324152
+                    MOVE ICWCOP10-EXTRA-MESSAGE-1                       AP324152
+                                       TO SYWDB2-EXTRA-MESSAGE-1        AP324152
+                    MOVE 'ERROR UPDATE ORDER_SKU_ACOP_TOTALS'           AP324152
+                                       TO SYWDB2-EXTRA-MESSAGE-2        AP324152
+                    PERFORM 990-SQL-MESSAGE                             AP324152
+                    PERFORM 999-ABEND                                   AP324152
+           END-EVALUATE.                                                AP324152
+                                                                        AP324152
+       C611-EXIT.                                                       AP324152
+           EXIT.                                                        AP324152
+                                                                        AP324152
+       C700-ACOP-TIER-TYPE.                                                     
+                                                                                
+           IF ICWCOP-ACOP-MIN-QTY-IND <= SPACES                                 
+              MOVE SPACES              TO ICWCOP-ACOP-MIN-QTY-IND               
+           END-IF.                                                              
+                                                                                
+           EVALUATE TRUE                                                        
+             WHEN ICWCOP-ACOP-MIN-QTY-TIER                                      
+               IF ICWCOP10-ACOP-MIN-QTY-GATE                                    
+                  SET ICWCOP10-ACOP-MIN-QTY-MULTI TO TRUE                       
+               ELSE                                                             
+                  SET ICWCOP10-ACOP-MIN-QTY-TIER  TO TRUE                       
+               END-IF                                                           
+             WHEN ICWCOP-ACOP-MIN-QTY-GATE                                      
+               IF ICWCOP10-ACOP-MIN-QTY-TIER                                    
+                  SET ICWCOP10-ACOP-MIN-QTY-MULTI TO TRUE                       
+               ELSE                                                             
+                  SET ICWCOP10-ACOP-MIN-QTY-GATE  TO TRUE                       
+               END-IF                                                           
+           END-EVALUATE.                                                        
+                                                                        TGF17069
+      *IF WS-GDS-PRCS-WITH-TIER IS TRUE, THEN JUST CONTINUE WITHOUT     AP324152
+      *ENABLING THE ICWCOP10-ACOP-MIN-QTY-TIER FLAG. THIS IS BECAUSE    AP324152
+      *THE TRANSACTION DOES NOT REALLY HAVE TIER ACOP, BUT WE NEED      AP324152
+      *TO HAVE AN ENTRY IN TIER TABLE SO THAT THE TOTAL SHIP QTY        AP324152
+      *IS MAINTAINED AND SENT IN REQEUST TO GDS CORRECTLY.              AP324152
+           IF ICWCOP-ACOP-MIN-QTY-IND = ' '                             TGF17069
+              IF WS-GDS-PRCS-WITH-TIER                                  AP324152
+                 CONTINUE                                               AP324152
+              ELSE                                                      AP324152
+                 SET ICWCOP10-ACOP-MIN-QTY-TIER                         AP324152
+                                       TO TRUE                          AP324152
+              END-IF                                                    AP324152
+           END-IF.                                                      TGF17069
+                                                                        TGF17069
+       C700-EXIT.                                                               
+           EXIT.                                                                

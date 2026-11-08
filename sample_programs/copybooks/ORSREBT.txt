@@ -1,0 +1,138 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY9004
+      ******************************************************************        
+      *=================================================================        
+      *                                                                *        
+      *   INSTANT REBATE COPYBOOK:                                     *        
+      *   THIS IS USED TO CALCULATE THE LOCAL AND CUSTOMER REBATE AMT  *        
+      *   IF THE CURRENCY CODE(S) IS DIFFERENT FROM THE COMPANY        *        
+      *   CURRENCY CODE.                                               *        
+      *                                                                *        
+      *=================================================================        
+      * REVISIONS:                                                     *        
+      * 02/04/00 RDM ROUND CALC OF FOREIGN REBATE.                     *RDM00035
+      *              ADD A SPACE TO FIX COMPILE WARNING.               *RDM00035
+      * 08/27/99 EJL ADD TBACOP TABLE CHECK FOR PROPER MULTI-CURRENCY  *EJL99239
+      *              FOR INSTANT REBATES.                              *EJL99239
+      * 09/02/97 KLM INITIAL IMPLEMENTATION.                           *KLM97245
+      *                                                                *        
+      *=================================================================        
+      *                                                                         
+       6002-PROCESS-REBATE.                                                     
+      *                                                                         
+           IF NOT TB-CPO-US-MODEL-COMPANY                                       
+              IF WS-INM-COST-REBATE-AMT > +0                                    
+                 IF WS-INM-COST-REB-LOCAL-AMT > +0                              
+                    IF WS-INM-COST-REB-CUST-AMT > +0                            
+                       CONTINUE                                                 
+                    ELSE                                                        
+                    IF OET-CURRENCY-CODE = TB-CPO-CURRENCY-CODE                 
+                       MOVE WS-INM-COST-REB-LOCAL-AMT TO                        
+                              WS-INM-COST-REB-CUST-AMT                          
+                    ELSE                                                        
+                       IF OET-CURRENCY-CODE = INM-COST-REB-CURR-CODE            
+                       AND INM-COST-LOCAL-ENTERED = 'N'                         
+                          MOVE WS-INM-COST-REBATE-AMT TO                        
+                                 WS-INM-COST-REB-CUST-AMT                       
+                       ELSE                                                     
+                          PERFORM 6116-GET-CUSTOMER-REBATE-AMT                  
+                 ELSE                                                           
+                    PERFORM 6114-FINISH-CUST-REB-AMT                            
+              ELSE                                                              
+                 CONTINUE                                                       
+           ELSE                                                                 
+              IF WS-INM-COST-REBATE-AMT > +0                                    
+                 MOVE WS-INM-COST-REBATE-AMT TO                                 
+                                           WS-INM-COST-REB-CUST-AMT             
+                                            WS-INM-COST-REB-LOCAL-AMT           
+              ELSE                                                              
+                 MOVE +0 TO                 WS-INM-COST-REBATE-AMT              
+                                            WS-INM-COST-REB-CUST-AMT            
+                                            WS-INM-COST-REB-LOCAL-AMT.          
+      *                                                                         
+       6114-FINISH-CUST-REB-AMT.                                                
+      *                                                                         
+           PERFORM 6115-GET-LOCAL-REBATE-AMT.                                   
+           IF TB-CURR-NORESP                                                    
+              IF OET-CURRENCY-CODE = TB-CPO-CURRENCY-CODE                       
+                 MOVE WS-INM-COST-REB-LOCAL-AMT TO                              
+                                 WS-INM-COST-REB-CUST-AMT                       
+              ELSE                                                              
+                 PERFORM 6116-GET-CUSTOMER-REBATE-AMT.                          
+      *                                                                         
+       6115-GET-LOCAL-REBATE-AMT.                                               
+      *                                                                         
+           MOVE TC-COMPANY                TO TB-CURR-CO.                        
+           MOVE WS-INM-COST-REB-CURR-CODE TO TB-CURR-FROM-CURR-CODE.            
+           MOVE TB-CPO-CURRENCY-CODE      TO TB-CURR-TO-CURR-CODE.              
+      *                                                                         
+           CALL 'SYU510' USING TB-CURR-TABLE-IA.                                
+      *                                                                 EJL99239
+      *   THIS CALL READS THE TBXACOP TABLE TO OBTAIN THE CURRENCY RATE EJL99239
+      *   FOR INSTANT REBATES.                                          EJL99239
+      *                                                                 EJL99239
+           MOVE TC-COMPANY            TO TB-ACOP-COMPANY-CODE.          EJL99239
+           MOVE 'B'                   TO TB-ACOP-TYPE-CODE.             EJL99239
+           MOVE SPACES                TO TB-ACOP-GENERIC-CODE.          EJL99239
+           CALL 'SYU510'       USING TB-ACOP-PROC-IA.                   EJL99239
+      *                                                                 EJL99239
+           IF NOT TB-CURR-NORESP                                        EJL99239
+              MOVE 'Y'                          TO WS-ERROR-SW          EJL99239
+           ELSE                                                         EJL99239
+           IF TB-ACOP-NORESP                                            EJL99239
+              IF TB-ACOP-USE-CURR-RATE-OE                               EJL99239
+                 COMPUTE WS-INM-COST-REB-LOCAL-AMT ROUNDED =            RDM00035
+                         WS-INM-COST-REBATE-AMT * TB-CURR-RATE          EJL99239
+              ELSE                                                      EJL99239
+              IF TB-ACOP-USE-SELL-RATE-OE                               EJL99239
+                 COMPUTE WS-INM-COST-REB-LOCAL-AMT ROUNDED =            RDM00035
+                         WS-INM-COST-REBATE-AMT * TB-CURR-SELL-RATE     EJL99239
+              ELSE                                                      EJL99239
+              IF TB-ACOP-USE-GL-RATE-OE                                 EJL99239
+                 COMPUTE WS-INM-COST-REB-LOCAL-AMT ROUNDED =            RDM00035
+                         WS-INM-COST-REBATE-AMT * TB-CURR-GL-RATE       EJL99239
+              ELSE                                                      EJL99239
+                 COMPUTE WS-INM-COST-REB-LOCAL-AMT ROUNDED =            RDM00035
+                         WS-INM-COST-REBATE-AMT * TB-CURR-RATE          EJL99239
+           ELSE                                                         EJL99239
+              COMPUTE WS-INM-COST-REB-LOCAL-AMT ROUNDED =               RDM00035
+                      WS-INM-COST-REBATE-AMT * TB-CURR-RATE.            EJL99239
+      *                                                                         
+       6116-GET-CUSTOMER-REBATE-AMT.                                            
+      *                                                                         
+           MOVE TC-COMPANY           TO TB-CURR-CO.                             
+           MOVE OET-CURRENCY-CODE   TO TB-CURR-FROM-CURR-CODE.                  
+           MOVE TB-CPO-CURRENCY-CODE TO TB-CURR-TO-CURR-CODE.                   
+      *                                                                         
+           CALL 'SYU510' USING TB-CURR-TABLE-IA.                                
+      *                                                                 EJL99239
+      *   THIS CALL READS THE TBXACOP TABLE TO OBTAIN THE CURRENCY RATE EJL99239
+      *   FOR INSTANT REBATES.                                          EJL99239
+      *                                                                 EJL99239
+           MOVE TC-COMPANY            TO TB-ACOP-COMPANY-CODE.          EJL99239
+           MOVE 'B'                   TO TB-ACOP-TYPE-CODE.             EJL99239
+           MOVE SPACES                TO TB-ACOP-GENERIC-CODE.          EJL99239
+           CALL 'SYU510'       USING TB-ACOP-PROC-IA.                   EJL99239
+      *                                                                 EJL99239
+           IF NOT TB-CURR-NORESP                                        EJL99239
+              MOVE 'Y'                          TO WS-ERROR-SW          EJL99239
+           ELSE                                                         EJL99239
+           IF TB-ACOP-NORESP                                            EJL99239
+              IF TB-ACOP-USE-CURR-RATE-OE                               EJL99239
+                 COMPUTE WS-INM-COST-REB-CUST-AMT ROUNDED =             RDM00035
+                         WS-INM-COST-REB-LOCAL-AMT / TB-CURR-RATE       EJL99239
+              ELSE                                                      EJL99239
+              IF TB-ACOP-USE-SELL-RATE-OE                               EJL99239
+                 COMPUTE WS-INM-COST-REB-CUST-AMT ROUNDED =             RDM00035
+                         WS-INM-COST-REB-LOCAL-AMT / TB-CURR-SELL-RATE  RDM00035
+              ELSE                                                      EJL99239
+              IF TB-ACOP-USE-GL-RATE-OE                                 EJL99239
+                 COMPUTE WS-INM-COST-REB-CUST-AMT ROUNDED =             RDM00035
+                         WS-INM-COST-REB-LOCAL-AMT / TB-CURR-GL-RATE    EJL99239
+              ELSE                                                      EJL99239
+                 COMPUTE WS-INM-COST-REB-CUST-AMT ROUNDED =             RDM00035
+                         WS-INM-COST-REB-LOCAL-AMT / TB-CURR-RATE       EJL99239
+           ELSE                                                         EJL99239
+             COMPUTE WS-INM-COST-REB-CUST-AMT ROUNDED =                 RDM00035
+                     WS-INM-COST-REB-LOCAL-AMT / TB-CURR-RATE.          EJL99239
+      *                                                                         

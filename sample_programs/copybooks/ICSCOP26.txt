@@ -1,0 +1,51 @@
+      *****************************************************************         
+      *  ICSCOP26- PNA PROCEDURE LOGIC FOR BRAZIL NET PRICE MISC CALC *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 07/16/2021 TGF ADJUST COMPUTE ON INI-BASE                     * TGF21197
+      * 06/04/2021 SYJ GET CURRENCY RATE FROM TBXCONR ELSE BASELINE   * SYJ21155
+      * 04/16/2021 TGF HELLO WORLD                                    * TGF21106
+      *****************************************************************         
+       PROCESS-PNA-NET-P-MISC-COST.                                             
+                                                                                
+           IF ICWCOP-BR-MISC-COST NOT NUMERIC                                   
+              MOVE +0                  TO ICWCOP-BR-MISC-COST                   
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-BR-IMPORT-TAX NOT NUMERIC                                  
+              MOVE +0                  TO ICWCOP-BR-IMPORT-TAX                  
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-BR-MISC-RATE   NOT NUMERIC                                 
+              MOVE +0                  TO ICWCOP-BR-MISC-RATE                   
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-VEND-CURR-RATE NOT NUMERIC                                 
+           OR ICWCOP-VEND-CURR-RATE = ZERO                                      
+              IF TB-CURR-RATE NUMERIC AND                               SYJ21155
+                 TB-CURR-RATE NOT EQUAL ZERO                            SYJ21155
+                 MOVE TB-CURR-RATE     TO ICWCOP-VEND-CURR-RATE         SYJ21155
+              ELSE                                                      SYJ21155
+                 MOVE +1               TO ICWCOP-VEND-CURR-RATE         SYJ21155
+              END-IF                                                    SYJ21155
+           END-IF.                                                              
+                                                                                
+           MOVE INI-CONV-BASE-PRICE    TO WS-INI-CONV-BASE-PRICE.               
+                                                                                
+           IF ICWCOP-BR-MISC-COST > +0                                          
+              ADD ICWCOP-BR-MISC-COST                                           
+                                       TO WS-INI-CONV-BASE-PRICE                
+           ELSE                                                                 
+              COMPUTE ICWCOP-BR-MISC-COST   = (WS-INI-CONV-BASE-PRICE   TGF21197
+                                            * (ICWCOP-BR-MISC-RATE              
+                                            + ICWCOP-BR-IMPORT-TAX)             
+                                            * (ICWCOP-VEND-CURR-RATE))          
+              COMPUTE WS-INI-CONV-BASE-PRICE =                          TGF21197
+                                              (WS-INI-CONV-BASE-PRICE   TGF21197
+                                            *  ICWCOP-VEND-CURR-RATE)   TGF21197
+              COMPUTE ICWCOP-ADJUSTED-COST  = (WS-INI-CONV-BASE-PRICE + TGF21197
+                                               ICWCOP-BR-MISC-COST)             
+           END-IF.                                                              
+                                                                                
+       PROCESS-PNA-NET-P-MISC-EXIT.                                             
+           EXIT.                                                                

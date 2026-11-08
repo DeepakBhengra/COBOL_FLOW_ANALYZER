@@ -1,0 +1,87 @@
+﻿      ******************************************************************TLKY8337
+      *** YEAR 2000 READY                                              *TLKY8337
+      ******************************************************************TLKY8337
+      *                                                                         
+      *    COMPUTE DEALER PRICE                                                 
+      *                                                                         
+      ******************************************************************        
+      *06/08/94 MCV REMOVE FREIGHT FACTOR.                              MCV94159
+      *             VARIABLE DEALER ROUNDED AS FUNCTION OF COST BASIS.  MCV94159
+      *09/28/93 MCV ALLOW SYSTEMS ITEMS TO SET DEALER MARGIN & PRICE    MCV93271
+      *08/31/93 MCV SKIP 2% DECREASE RULE FOR MANUALLY ENTERED MARGINS  MCV93243
+      ******************************************************************        
+      *                                                                         
+      *    FIND COST BASIS                                                      
+      *                                                                         
+           PERFORM 9350-COST-BASIS                                              
+      *                                                                         
+      *    COMPUTE NEW DEALER PRICE AND DEALER MARGIN                           
+      *                                                                         
+           IF INI-DEALER-ACTUALLY-ENT                                           
+              PERFORM 9310-RECOMPUTE-MARGIN                                     
+           ELSE                                                                 
+              IF WS-COST-BASIS <= +0.01                                         
+                 PERFORM 9340-PROMOTIONAL-PRICE                                 
+              ELSE                                                              
+                 IF INI-DEALER-MARGIN-ENT                                       
+                    PERFORM 9320-SET-DEALER-PRICE THRU 9320-EXIT                
+                 ELSE                                                           
+                    PERFORM 9330-SET-DEALER-MARGIN                              
+                    PERFORM 9320-SET-DEALER-PRICE THRU 9320-EXIT.               
+      *                                                                         
+       9310-RECOMPUTE-MARGIN.                                                   
+      *                                                                         
+           COMPUTE INI-DEALER-MARGIN ROUNDED =                                  
+               ( INI-DEALER-PRICE - WS-COST-BASIS ) / INI-DEALER-PRICE          
+              ON SIZE ERROR                                                     
+                 IF INI-DEALER-PRICE > WS-COST-BASIS                            
+                    MOVE +99.99        TO  INI-DEALER-MARGIN                    
+                 ELSE                                                           
+                    MOVE -99.99        TO  INI-DEALER-MARGIN                    
+                 END-IF                                                         
+           END-COMPUTE.                                                         
+      *                                                                         
+       9320-SET-DEALER-PRICE.                                                   
+      *                                                                         
+           COMPUTE WS-NEW-DEALER-PRICE ROUNDED =                                
+                   WS-COST-BASIS / ( 1 - INI-DEALER-MARGIN )                    
+      *                                                                         
+           IF WS-COST-BASIS < +80.00                                    MCV94159
+              COMPUTE WS-ROUND-TO-QUARTER =                             MCV94159
+                      ( WS-NEW-DEALER-PRICE + 0.24 ) / 0.25             MCV94159
+              COMPUTE WS-NEW-DEALER-PRICE = WS-ROUND-TO-QUARTER         MCV94159
+                                          * 0.25                        MCV94159
+           ELSE                                                         MCV94159
+              IF WS-COST-BASIS < +500.00                                MCV94159
+                 COMPUTE WS-ROUND-TO-QUARTER =                          MCV94159
+                         ( WS-NEW-DEALER-PRICE + 0.49 ) / 0.50          MCV94159
+                 COMPUTE WS-NEW-DEALER-PRICE = WS-ROUND-TO-QUARTER      MCV94159
+                                             * 0.50                     MCV94159
+              ELSE                                                      MCV94159
+                 COMPUTE WS-ROUND-TO-QUARTER =                          MCV94159
+                         ( WS-NEW-DEALER-PRICE + 0.99 )                 MCV94159
+                 COMPUTE WS-NEW-DEALER-PRICE = WS-ROUND-TO-QUARTER.     MCV94159
+      *                                                                         
+           IF INI-DEALER-MARGIN-ENT                   OR                MCV93243
+              WS-NEW-DEALER-PRICE > INI-DEALER-PRICE  OR                MCV93243
+              WS-NEW-DEALER-PRICE <= 0.98 * INI-DEALER-PRICE                    
+                 MOVE WS-NEW-DEALER-PRICE TO  INI-DEALER-PRICE.                 
+      *                                                                         
+       9320-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       9330-SET-DEALER-MARGIN.                                                  
+      *                                                                         
+           PERFORM 9360-DEALER-PRICING-TABLE                                    
+      *                                                                         
+           IF WS-TBLIMD-NORESP                                                  
+              MOVE TB-IMD-CP-DEALER-MARGIN                                      
+                                       TO  INI-DEALER-MARGIN                    
+              ELSE                                                              
+                 MOVE ZERO             TO  INI-DEALER-MARGIN.                   
+      *                                                                         
+       9340-PROMOTIONAL-PRICE.                                                  
+      *                                                                         
+           SET INI-DEALER-VELOCITY     TO  TRUE                                 
+           MOVE INI-RETAIL-PRICE       TO  INI-DEALER-PRICE                     
+           MOVE ZERO                   TO  INI-DEALER-MARGIN.                   

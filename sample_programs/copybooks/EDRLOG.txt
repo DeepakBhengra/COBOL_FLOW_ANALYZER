@@ -1,0 +1,174 @@
+      ******************************************************************        
+      *      NAME: EDRLOG                                              *        
+      *----------------------------------------------------------------*        
+      *      PURPOSE: COPYBOOK USED TO LOG AND SEND EMAILS FOR         *        
+      *               EDI ORDER ENTRY TRANSACTIONS.                    *        
+      *================================================================*        
+      * REVISIONS:                                                     *        
+      * 04/04/07  PMN  INCLUDE VENDOR AUTHORISATION PROCESS            *PMN07094
+      *                MODIFICATION CHANGES                            *PMN07094
+      * 04/11/06  KWC  ADD WARNING FOR PO WITH NO LINES.               *JFH06101
+      * 11/01/05  KWC  NEW COPYBOOK                                    *KWC05305
+      ******************************************************************        
+      *** WRITE TO LOG TO SHOW EDP70X STARTED                        ***        
+      ******************************************************************        
+       E9100-LOG-PROG-STARTED.                                                  
+                                                                                
+           MOVE SPACES                      TO WS-LOG-MESSAGE1.                 
+           MOVE SPACES                      TO WS-LOG-MESSAGE2.                 
+           MOVE SPACES                      TO WS-LOG-MESSAGE3.                 
+           MOVE SPACES                      TO WS-LOG-MESSAGE4.                 
+           MOVE WS-PROGRAM-ID               TO WS-LOG-PROGRAM-ID1.              
+           MOVE EDR070-COUNTRY-CODE         TO WS-LOG-REGION-CD.                
+           MOVE EDR070-BATCH-NUMBER         TO WS-LOG-CMB-BATCH.                
+           MOVE EDR070-TSQNAME              TO WS-LOG-TSQ.                      
+           MOVE 'STARTED'                   TO WS-LOG-START-END.                
+           MOVE 'I'                      TO EDILOG-USER-ERROR-SEVERITY.         
+           MOVE 00                          TO EDILOG-USER-ERROR-LEVEL.         
+           PERFORM E9900-USER-LOG           THRU E9900-EXIT.                    
+                                                                                
+       E9100-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      *** WRITE TO LOG TO SHOW EDP70X ENDED                          ***        
+      ******************************************************************        
+       E9200-LOG-PROG-ENDED.                                                    
+           MOVE SPACES                   TO WS-LOG-MESSAGE1                     
+                                            WS-LOG-MESSAGE2                     
+                                            WS-LOG-MESSAGE3                     
+                                            WS-LOG-MESSAGE4.                    
+           MOVE WS-PROGRAM-ID            TO WS-LOG-PROGRAM-ID1.                 
+           MOVE WS-COMPANY-CODE          TO WS-LOG-REGION-CD.                   
+           MOVE EDR070-BATCH-NUMBER      TO WS-LOG-CMB-BATCH.                   
+           MOVE EDR070-TSQNAME           TO WS-LOG-TSQ.                         
+           MOVE 'ENDED  '                TO WS-LOG-START-END.                   
+           MOVE 'I'                      TO EDILOG-USER-ERROR-SEVERITY.         
+           MOVE 00                       TO EDILOG-USER-ERROR-LEVEL.            
+                                                                                
+           PERFORM E9900-USER-LOG        THRU E9900-EXIT.                       
+           IF WS-ABCODE = 'LOG1'                                                
+              GO TO 999-ABEND                                                   
+           END-IF.                                                              
+                                                                                
+       E9200-EXIT.                                                              
+           EXIT.                                                                
+      ******************************************************************        
+      *** WRITE TO LOG TO SHOW EDP70X ABENDED                        ***        
+      ******************************************************************        
+       E9300-LOG-PROG-ABENDED.                                                  
+           MOVE SPACES                   TO WS-LOG-MESSAGE1                     
+                                            WS-LOG-MESSAGE2                     
+                                            WS-LOG-MESSAGE3                     
+                                            WS-LOG-MESSAGE4.                    
+           MOVE WS-PROGRAM-ID            TO WS-LOG-PROGRAM-ID1.                 
+           MOVE 'ABENDED'                TO WS-LOG-ABEND1.                      
+           MOVE WS-ABCODE                TO WS-LOG-ABEND-CD.                    
+           MOVE EDR070-COUNTRY-CODE      TO WS-LOG-ABEND-CO-CD.                 
+           MOVE WS-CUST-BR               TO WS-LOG-ABEND-CUST-BR.               
+           MOVE WS-CUST-NBR              TO WS-LOG-ABEND-CUST-NUMBER.           
+           MOVE WS-CUST-SUFF             TO WS-LOG-ABEND-CUST-SFX.              
+           MOVE WS-PO-NBR                TO WS-LOG-ABEND-PO-NBR.                
+           MOVE EDV407-SDQ-SEQ-NBR       TO WS-LOG-ABEND-SDQ-SEQ-NBR.           
+           MOVE EDV407-CUST-PO-DT        TO WS-PO-DATE-CCYYMMDD.                
+           MOVE WS-PO-TODAY-MM           TO WS-ABEND-PO-MM.                     
+           MOVE WS-PO-TODAY-DD           TO WS-ABEND-PO-DD.                     
+           MOVE WS-PO-TODAY-YY           TO WS-ABEND-PO-YY.                     
+           MOVE WS-ABEND-PO-DATE         TO WS-LOG-ABEND-PO-DTE.                
+           MOVE EDV407-CUST-PO-SEQ-NBR   TO WS-LOG-ABEND-PO-SEQ-NBR.            
+                                                                                
+           MOVE WS-PROGRAM-ID            TO WS-LOG-PROGRAM-ID2.                 
+           MOVE 'ABENDED'                TO WS-LOG-ABEND2.                      
+           MOVE 'TAG NBR:  '             TO WS-LOG-ABEND-ERROR.                 
+           MOVE WS-TAG-NBR               TO WS-LOG-ABEND-MSG2.                  
+           MOVE 'PID:'                   TO WS-LOG-ABEND-MSG2 (28:4).           
+           MOVE WS-PARTNER-NBR           TO WS-LOG-ABEND-MSG2 (32:15).          
+           IF WS-IO-RETURN-CODE > SPACES                                        
+              MOVE 'IO:'                    TO WS-LOG-ABEND-MSG2 (47:3)         
+              MOVE WS-IO-RETURN-CODE        TO WS-LOG-ABEND-MSG2 (50:2)         
+           END-IF.                                                              
+           IF SYWDB2-EXTRA-MESSAGE-2 > SPACES                                   
+             MOVE WS-PROGRAM-ID          TO WS-LOG-PROGRAM-ID3                  
+             MOVE 'ABENDED'              TO WS-LOG-ABEND3                       
+             MOVE SYWDB2-EXTRA-MESSAGE-2 TO WS-LOG-ABEND-MSG3                   
+           END-IF.                                                              
+           IF WS-ABEND-MESSAGE > SPACES                                         
+              MOVE WS-PROGRAM-ID            TO WS-LOG-PROGRAM-ID4               
+              MOVE 'ABENDED'                TO WS-LOG-ABEND4                    
+              MOVE WS-ABEND-MESSAGE         TO WS-LOG-ABEND-MSG4                
+           END-IF.                                                              
+                                                                                
+           MOVE 'I'                      TO EDILOG-USER-ERROR-SEVERITY.         
+           MOVE 16                       TO EDILOG-USER-ERROR-LEVEL.            
+                                                                                
+           PERFORM E9800-SEND-EMAIL      THRU E9800-EXIT.                       
+           PERFORM E9900-USER-LOG        THRU E9900-EXIT.                       
+                                                                                
+       E9300-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      *** WRITE TO LOG TO SHOW EDP70X WARNING                        ***        
+      ******************************************************************        
+       E9400-LOG-PROG-WARNING.                                                  
+           MOVE SPACES                   TO WS-LOG-MESSAGE1                     
+                                            WS-LOG-MESSAGE2                     
+                                            WS-LOG-MESSAGE3                     
+                                            WS-LOG-MESSAGE4.                    
+           MOVE WS-PROGRAM-ID            TO WS-LOG-PROGRAM-ID1.                 
+           MOVE 'WARNING'                TO WS-LOG-ABEND1.                      
+           MOVE SPACES                   TO WS-LOG-ABEND-CD.                    
+           MOVE WS-COMPANY-CODE          TO WS-LOG-ABEND-CO-CD.                 
+                                                                                
+           MOVE WS-PROGRAM-ID            TO WS-LOG-PROGRAM-ID2.                 
+           MOVE 'WARNING'                TO WS-LOG-ABEND2.                      
+           MOVE 'WARNING:  '             TO WS-LOG-ABEND-ERROR                  
+           MOVE 'SUSPENSE DATA ADDED FOR '                                      
+                                         TO WS-LOG-ABEND-MSG2.                  
+           MOVE WS-PROGRAM-ID            TO WS-LOG-ABEND-MSG2 (25:8).           
+           MOVE 'PID:'                   TO WS-LOG-ABEND-MSG2 (32:4).           
+           MOVE WS-PARTNER-NBR           TO WS-LOG-ABEND-MSG2 (37:15).          
+           MOVE 'BATCH:'                 TO WS-LOG-ABEND-MSG3 (32:6).           
+           MOVE EDR070-BATCH-NUMBER      TO WS-LOG-ABEND-MSG3 (40:12).          
+                                                                                
+           IF WS-DUP-LINE-NBR OR WS-DETAILS-REC-SW = 'N'                JFH06101
+                              OR WS-SYXAUTH-CULVNA-ERROR                PMN07094
+             MOVE WS-CUST-BR     TO WS-LOG-ABEND-CUST-BR                        
+             MOVE WS-CUST-NBR    TO WS-LOG-ABEND-CUST-NUMBER                    
+             MOVE WS-CUST-SUFF   TO WS-LOG-ABEND-CUST-SFX                       
+             MOVE WS-PO-NBR      TO WS-LOG-ABEND-PO-NBR                         
+             MOVE 'TAG NBR:  '   TO WS-LOG-ABEND-ERROR                          
+             MOVE WS-TAG-NBR     TO WS-LOG-ABEND-MSG2                           
+             MOVE 'PID:'         TO WS-LOG-ABEND-MSG2(28:4)                     
+             MOVE WS-PARTNER-NBR TO WS-LOG-ABEND-MSG2(32:15)                    
+             MOVE WS-PROGRAM-ID  TO WS-LOG-PROGRAM-ID3                          
+             MOVE 'WARNING'      TO WS-LOG-ABEND3                               
+             MOVE SPACES         TO WS-LOG-ABEND-MSG3                           
+             IF WS-DUP-LINE-NBR                                         JFH06101
+                MOVE '2922'      TO WS-LOG-ABEND-CD                     JFH06101
+                MOVE 'INSERT INTO OR_PRT_DOC_DTL: DUPLICATE LINE NBR'   JFH06101
+                                 TO WS-LOG-ABEND-MSG3                   JFH06101
+             ELSE                                                       JFH06101
+                IF WS-DETAILS-REC-SW = 'N'                              JFH06101
+                   MOVE '2100'   TO WS-LOG-ABEND-CD                     JFH06101
+                   MOVE 'PO PROCESSED WITH NO DETAIL LINES             'JFH06101
+                                 TO WS-LOG-ABEND-MSG3                   JFH06101
+                ELSE                                                    PMN07094
+                   IF WS-SYXAUTH-CULVNA-ERROR                           PMN07094
+                   MOVE 'AUTH'   TO WS-LOG-ABEND-CD                     PMN07094
+                   MOVE 'CULVNA FILE IS CLOSED,AUTH CHECK NOT PERFORMED'PMN07094
+                                     TO WS-LOG-ABEND-MSG3               PMN07094
+                   END-IF                                               PMN07094
+                                                                        JFH06101
+                END-IF                                                  JFH06101
+             END-IF                                                     JFH06101
+           END-IF.                                                              
+                                                                                
+           MOVE 'I'                      TO EDILOG-USER-ERROR-SEVERITY.         
+           MOVE 00                       TO EDILOG-USER-ERROR-LEVEL.            
+                                                                                
+           PERFORM E9800-SEND-EMAIL      THRU E9800-EXIT.                       
+           PERFORM E9900-USER-LOG        THRU E9900-EXIT.                       
+                                                                                
+       E9400-EXIT.                                                              
+           EXIT.                                                                

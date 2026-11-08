@@ -1,0 +1,366 @@
+000100***************************************************************           
+000200*  LU6.2 ORDER ACTION (VESRION 5).                            *           
+000300*                                                             *           
+000500*  PURPOSE:  ALLOWS USER  TO SEND REQUEST TO EITHER                       
+000600*            CANCEL ORDER, FINALIZE ORDER (END ORDER),                    
+000610*            MODIFY ORDER ( AFTER FINALIZING) OR                          
+000700*            ORDER RELEASE (PRINT ORDER).                                 
+000800*                                                             *           
+      *  04/07/18 JZP  -  IM360 : ADDED NEW DSMF MISSING FIELDS         JZP18097
+      *           JZP  -  FIELDS ADDED TO BRING IT IN SYNC WITH CORORA  JZP18097
+      *           AM1  -  SUPPORT APPLE DEP PROJECT . ADDED EU DEP      ABM18097
+      *                -  ID AND DEP ORDER NBR FIELDS TO INPUT.         ABM18097
+      *  06/23/17 NXC  -  ADDED ERROR MESSAGE FOR INDIA GST             NXC17174
+      *  04/08/16 ROR  -  ADDED EU PO ID.                               ROR16099
+      *  10/09/15 ROR  -  TO SUPPORT DIRECTSHIP IMONLINE PROJECT-PHASE2 ROR15282
+      *  09/11/15 PZD  -  TO SUPPORT DIRECTSHIP IMONLINE PROJECT.       ROR15254
+      *  04/24/15 ROR  -  IMONLINE CH PROJECT                           ROR15114
+      *  01/09/15 ROR  -  SUPPORT SE#23445                              ROR15009
+      *  02/07/14 ROR  -  SUPPORT IMMOBILITY-UK PROJECT.                ROR14038
+      *  01/28/13 ROR  -  SUPPORT ESD PROJECT                           ROR13028
+      *  02/05/09 PKV  -  ADD FIELDS TO CA-ONSITE PROJECT               PKV09036
+      *  02/05/08 ROR  -  CREDIT CARD PROCESS-SMALL ENHANCEMENT         ROR08036
+      *                -  ADD MODIFIED CREDIT CARD RELATED FIELDS.      ROR08036
+      *  06/19/07 ROR  -  DAS PROJECT.                                  ROR07170
+      *  07/13/06 ROR  -  ADD PROMISE DATE FIELD IN THE RESP AREA.      ROR06194
+      *  03/16/06 ROR  -  ADD NEW WARNING AREA THAT LISTS ALL WARNINGS  ROR06075
+      *                   ISSUES INSIDE THE PROGRAM. CLEANUP UNUSED     ROR06075
+      *                   AND OBSOLETE WARNING CODES.                   ROR06075
+      *           -->  -  ADD ANOTHER 88 LEVEL "P" TO BACKORDER FLAG.   ROR06075
+001701*  10/04/05 ROR NEW COPYBOOK.                                     ROR05277
+001702***************************************************************           
+001703 01  LURITA5-LU62-ORDER-ACTION.                                           
+001704   02  LURITA5-OA-PRINT-CANCEL-AREA.                                      
+001705***************************************************************           
+001800    03  LURITA5-INTERNAL-AREA.                                            
+001900     05  LURITA5-FILLER-AREA             PIC X(12).                       
+002000     05  LURITA5-DATE-RECEIVED           PIC X(10).                       
+002100*************  FORMAT IS CCYY/MM/DD  **************************           
+002200     05  LURITA5-TIME-RECEIVED           PIC X(08).                       
+002300     05  LURITA5-TIME-SENT               PIC X(08).                       
+002400     05  LURITA5-TIME-SENT2              PIC X(08).                       
+002500    03  LURITA5-RECEIPT-AREA.                                             
+002600       05  LURITA5-TCH-AREA.                                              
+002700         10  LURITA5-SYSTEM-ID           PIC X(02).                       
+002800             88  LURITA5-INTERNET        VALUE 'I '.                      
+002900         10  LURITA5-ING-PGM-NAME        PIC X(08).                       
+003000         10  LURITA5-COMM-RET-CODE       PIC X(04).                       
+003100         10  LURITA5-CUSTOMER-BR         PIC X(02).                       
+003200         10  LURITA5-CUSTOMER-NBR        PIC X(06).                       
+003300         10  LURITA5-CUSTOMER-PSWD       PIC X(10).                       
+003400         10  LURITA5-VERSION-NBR         PIC X(01).                       
+003500         10  LURITA5-REQUEST-FUNCTION    PIC X(04).                       
+003600         10  LURITA5-COUNTRY-CODE        PIC X(02).                       
+003700         10  LURITA5-REGION-SELECT       PIC X(01).                       
+003800         10  LURITA5-TCH-ERROR-TYPE      PIC X(01).                       
+003900         10  LURITA5-SS-END-USER-BR      PIC X(02).                       
+004000         10  LURITA5-SS-END-USER-NBR     PIC X(06).                       
+004100         10  LURITA5-ALTERNATE-SYSTEM-SW PIC X(01).                       
+004200         10  LURITA5-TCH-FILLER          PIC X(09).                       
+004300    03  LURITA5-INPUT-DATA-AREA.                                          
+004400     05  LURITA5-RECORD-ID               PIC X(03).                       
+004500             88  LURITA5-REC-ID              VALUE 'ORA'.                 
+004600     05  LURITA5-INGRAM-ORDER.                                            
+004700         10  LURITA5-INGRAM-ORDER-BR        PIC X(02).                    
+004800         10  LURITA5-INGRAM-ORDER-NBR       PIC X(05).                    
+004900         10  LURITA5-INGRAM-ORDER-SUFFIX.                                 
+005000             88  LURITA5-ORDER-IN-PROGRESS   VALUE SPACES.                
+005100             15  LURITA5-INGRAM-ORDER-DIST  PIC X(01).                    
+005200             15  LURITA5-INGRAM-ORDER-SHIP  PIC X(01).                    
+005300     05  LURITA5-ACTION-CODE                PIC X(02).                    
+005400         88 LURITA5-ACTION-CANCEL            VALUE 'CC'.                  
+005500         88 LURITA5-ACTION-RELEASE           VALUE 'OR'.                  
+005600         88 LURITA5-ACTION-FINALIZE          VALUE 'FO'.                  
+005700         88 LURITA5-CHANGE-CARRIER           VALUE 'MA'.                  
+005800         88 LURITA5-FINALIZE-RELEASE         VALUE 'FR'.                  
+005900     05  LURITA5-SHIP-VIA-CODE           PIC X(02).                       
+006000     05  LURITA5-BCK-BACKORDER-FLAG      PIC X(01).                       
+006100         88  LURITA5-BCK-ALLOW-BACKORDERS    VALUE 'Y'.                   
+006200         88  LURITA5-BCK-NO-BACKORDERS       VALUE 'N'.                   
+006300         88  LURITA5-BCK-SHIP-COMPLETE       VALUE 'C'.                   
+               88  LURITA5-FILL-OR-BACKORDER-LINE  VALUE 'P'.           ROR06075
+006400     05  LURITA5-SHIP-TO-ADDRESS-1       PIC X(35).                       
+006500     05  LURITA5-SHIP-TO-ADDRESS-2       PIC X(35).                       
+006600     05  LURITA5-SHIP-TO-ADDRESS-3       PIC X(35).                       
+006700     05  LURITA5-SHIP-TO-CITY            PIC X(21).                       
+006800     05  LURITA5-SHIP-TO-CITY-AU    REDEFINES                             
+006900         LURITA5-SHIP-TO-CITY.                                            
+007000         10  LURITA5-SHIP-TO-CITY-AUS     PIC X(17).                      
+007100         10  LURITA5-SHIP-TO-CITY-FIL     PIC X(01).                      
+007101         10  LURITA5-SHIP-TO-STATE-AUS    PIC X(03).                      
+007102     05  LURITA5-SHIP-TO-STATE           PIC X(02).                       
+007103     05  LURITA5-SHIP-TO-ZIP             PIC X(09).                       
+007104     05  LURITA5-SHIP-TO-ATTN            PIC X(35).                       
+007105     05  LURITA5-CUST-TO-ING-PO-NBR      PIC X(18).                       
+007200     05  LURITA5-CUST-TO-CUST-PO-NBR     PIC X(18).                       
+007300     05  LURITA5-BILL-TO-SUFFIX          PIC X(03).                       
+007400     05  LURITA5-SHIP-TO-SUFFIX          PIC X(03).                       
+007500     05  LURITA5-THIRD-PARTY-FRT-ACCT    PIC X(12).                       
+007600     05  LURITA5-INTERNET-HOLD           PIC X(01).                       
+007700     05  LURITA5-SHIP-TO-CNTRY-CODE      PIC X(02).                       
+007800     05  LURITA5-SPLIT-INV-SW            PIC X(01).                       
+007900         88  LURITA5-SPLIT-INV-NO            VALUE ' '.                   
+008000         88  LURITA5-SPLIT-INV-YES           VALUE 'Y'.                   
+008010*   BELOW 2 FIELDS  ARE  USED  FOR  PRIME ACCESS  ***********             
+008100     05  LURITA5-END-CUST-NUM            PIC X(10).                       
+008200     05  LURITA5-END-CUST-ID             PIC X(25).                       
+008300     05  LURITA5-CARRIER-SELECTED        PIC X(01).                       
+008400         88 LURITA5-CARRIER-BASERATE         VALUE 'B'.                   
+008500         88 LURITA5-CARRIER-DEFAULT          VALUE 'D', ' '.              
+008600     05  LURITA5-TRANSIT-DAYS            PIC 9(01).                       
+008700     05  LURITA5-CARRIER-MODE            PIC X(03).                       
+008800     05  LURITA5-ADDRESS-OVERRIDE-FLAG   PIC X(01).                       
+008900         88  LURITA5-ADDRESS-OVERRIDE        VALUE 'Y'.                   
+009000         88  LURITA5-ADDRESS-NO-OVERRIDE     VALUE 'N'.                   
+009001**  BELOW FIELDS ARE USED FOR  DIRECT SHIP ORDERS ***********             
+009002     05  LURITA5-EU-DATA.                                                 
+010000         10  LURITA5-CON-AGR-FLAG        PIC X(01).                       
+010100             88  LURITA5-CONTRACT-ID-EXISTS  VALUE 'C'.                   
+010200             88  LURITA5-AGREEMENT-ID-EXISTS VALUE 'A'.                   
+010300             88  LURITA5-NO-CON-AGR-ID       VALUE 'N' SPACE.             
+010400         10  LURITA5-END-USER-ID         PIC X(10).                       
+010500         10  LURITA5-EU-AGREEMENT-ID     PIC X(10).                       
+010600         10  LURITA5-EU-CONTACT-ID       PIC X(10).                       
+010700         10  LURITA5-EU-ADDRESS-ID       PIC X(10).                       
+010800         10  LURITA5-EU-VEND-ORDR-CODE   PIC X(02).                       
+010801         10  LURITA5-EU-FILLER           PIC X(27).                       
+010802**  BELOW FIELDS ARE USED FOR  CREDIT CARD ORDERS ***********             
+010803     05  LURITA5-CC-DATA.                                                 
+010804         10  LURITA5-PAYMENT-CODE        PIC X(02).                       
+010805         10  LURITA5-CARD-TYPE           PIC X(01).                       
+010806         10  LURITA5-CREDIT-CARD-NO      PIC X(20).                       
+010807         10  LURITA5-EXPIRATION-MONTH    PIC X(02).                       
+010808         10  LURITA5-EXPIRATION-YEAR     PIC X(02).                       
+010809         10  LURITA5-AUTH-CO-CODE        PIC X(03).                       
+010810         10  LURITA5-SECURITY-CODE       PIC X(04).                       
+010811         10  LURITA5-AUTHORIZE-CODE      PIC X(19).                       
+010812         10  LURITA5-AUTHORIZED-AMT      PIC 9(13)V9(04).                 
+010813         10  LURITA5-LAST-NAME           PIC X(15).                       
+010814         10  LURITA5-FIRST-NAME-INITIAL  PIC X(01).                       
+010815         10  LURITA5-STREET-ADDRESS      PIC X(20).                       
+010816         10  LURITA5-CITY                PIC X(13).                       
+010817         10  LURITA5-STATE               PIC X(02).                       
+010818         10  LURITA5-ZIP                 PIC X(09).                       
+010819     05  LURITA5-US-CREDIT-CARD-SW       PIC X(01).                       
+010820     05  LURITA5-TERMS                   PIC X(003).                      
+010830     05  LURITA5-FIRM-NAME               PIC X(050).                      
+010840     05  LURITA5-CUST-GROUP              PIC X(10).                       
+010850     05  LURITA5-DV-FLAG                 PIC X(01).                       
+010860     05  LURITA5-OSA-AGENT-ID            PIC X(09).                       
+010870     05  LURITA5-OSA-ADDR-SEQ-NBR        PIC X(09).                       
+011702     05  LURITA5-RESIDENTIAL-SW          PIC X(01).                       
+      *** BELOW FIELDS ARE USED BY ORDERS FROM PCG        ********              
+           05  LURITA5-PROMISE-DATE            PIC X(08).                       
+           05  LURITA5-EU-DATA-PCG.                                             
+               10  LURITA5-EUCNT-NAME          PIC X(30).                       
+               10  LURITA5-EUCNT-PHONE         PIC X(15).                       
+               10  LURITA5-EUCNT-EXT           PIC X(05).                       
+               10  LURITA5-EUCNT-FAX           PIC X(15).                       
+               10  LURITA5-EUCNT-CNTRY-CODE    PIC X(02).                       
+               10  LURITA5-EU-COMPANY-NAME     PIC X(30).                       
+               10  LURITA5-EU-COMPANY-VATNBR   PIC X(14).                       
+               10  LURITA5-EU-AGREEMENT-ID1    PIC X(20).                       
+               10  LURITA5-EU-PRICING-LVL-CD   PIC X(01).                       
+           05  LURITA5-SHIP-CTAC-EMAIL         PIC X(95).                       
+           05  LURITA5-QUOTE-NBR               PIC X(25).                       
+           05  LURITA5-CC-LAST-NAME            PIC X(25).               ROR08036
+           05  LURITA5-CC-FIRST-NAME           PIC X(25).               ROR08036
+           05  LURITA5-CC-STREET-ADDRESS       PIC X(32).               ROR08036
+           05  LURITA5-RSLR-CTAC-EMAIL         PIC X(95).               ROR13028
+           05  LURITA5-DELI-NOTIF-EMAIL        PIC X(78).               ROR14038
+           05  LURITA5-SMS-NUMBER              PIC X(15).               ROR15009
+           05  LURITA5-FRT-OUT-CODE            PIC X(01).               ROR15114
+           05  LURITA5-DUP-PO-SW               PIC X(01).               ROR15254
+           05  LURITA5-WEB-VR-HOLD-IND-SW      PIC X(01).               ROR15282
+               88 LURITA5-KEEP-ON-VR-HLD-WEB   VALUE 'Y'.               ROR15282
+           05  LURITA5-EU-PO-ID                PIC X(20).               ROR16099
+           05  LURITA5-FINAL-MA-ACTION-CD-FLG  PIC X(01).               JZP18097
+               88 LURITA5-FINAL-MA-ACTION-CD   VALUE 'Y'.               JZP18097
+           05  LURITA5-WEB-WB-HOLD-IND-SW      PIC X(01).               JZP18097
+               88 LURITA5-KEEP-ON-WB-HLD-WEB   VALUE 'Y'.               JZP18097
+           05  LURITA5-EU-DATA-RAW-KEY-SW      PIC X(01).               JZP18097
+           05  LURITA5-EU-DEP-ID               PIC X(32).               ABM18097
+           05  LURITA5-DEP-ORDER-NBR           PIC X(32).               ABM18097
+           05  LURITA5-RSLR-G360-CTAC-NAME     PIC X(60).               JZP18097
+           05  LURITA5-RSLR-G360-CTAC-NBR      PIC X(15).               JZP18097
+           05  LURITA5-EU-SHIP-CTAC-NAME       PIC X(60).               JZP18097
+           05  LURITA5-REQUEST-FILLER          PIC X(1495).             JZPXX   
+011704***************************************************************           
+011705*    RESPONSE AREA.  THIS AREA IS ADDED ON TO DATA RECEIVED               
+011706***************************************************************           
+011707    03  LURITA5-RESPONSE-AREA.                                            
+011800     05  LURITA5-R-RECORD-RESPONSE.                                       
+011900     10  LURITA5-R-RECORD-RESPONSE-FLAG  PIC X(01).                       
+012000         88  LURITA5-R-RECORD-NO-ERRORS      VALUE ' '.                   
+012100         88  LURITA5-R-RECORD-ERRORS-FOUND   VALUE 'E'.                   
+012200     10  LURITA5-R-ERROR-TYPE            PIC X(01).                       
+012300         88  LURITA5-R-ERROR-NO-ERROR        VALUE ' '.                   
+012400         88  LURITA5-R-ERROR-ACTION-CODE     VALUE 'A'.                   
+012500         88  LURITA5-R-ERROR-BACKORDER-FLAG  VALUE 'B'.                   
+012600         88  LURITA5-R-ERROR-SHIP-COMPLETE   VALUE 'C'.                   
+012700         88  LURITA5-R-ERROR-ORDR-TAXED      VALUE 'G'.                   
+012800         88  LURITA5-R-ERROR-ORDR-NOT-TAXED  VALUE 'H'.                   
+012900         88  LURITA5-R-ERROR-BAD-ADDR-ACCPT  VALUE 'L'.                   
+013000         88  LURITA5-R-ERROR-AGENCY-NOTAX    VALUE 'M'.                   
+013100         88  LURITA5-R-ERROR-NEXUS           VALUE 'N'.                   
+013200         88  LURITA5-R-ERROR-ORDER-NOTFOUND  VALUE 'O'.                   
+013400         88  LURITA5-R-ERROR-NO-ADDRCHANGE   VALUE 'P'.                   
+013500         88  LURITA5-R-ERROR-INVALID-CITY    VALUE 'Q'.                   
+013600         88  LURITA5-R-ERROR-ORDER-RELEASED  VALUE 'R'.                   
+013700         88  LURITA5-R-ERROR-ORDER-STATUS    VALUE 'S'.                   
+013800         88  LURITA5-R-ERROR-SHIP-VIA        VALUE 'V'.                   
+013900         88  LURITA5-R-ERROR-ADDR-MODIFIED   VALUE 'Y'.                   
+014000         88  LURITA5-R-ERROR-COMPANY-CODE    VALUE 'Z'.                   
+014100         88  LURITA5-R-ERROR-G-AND-Y-ERRORS  VALUE '5'.                   
+014200         88  LURITA5-R-ERROR-G-AND-L-ERRORS  VALUE '8'.                   
+014300         88  LURITA5-R-ERROR-CUST-SPLITINV   VALUE '6'.                   
+014400         88  LURITA5-R-ERROR-FLOOR-SPLITINV  VALUE '7'.                   
+014500         88  LURITA5-R-ERROR-INV-CARRIER     VALUE 'I'.                   
+014510         88  LURITA5-R-WARN-BASERATE-ON      VALUE 'K'.                   
+014600     05  LURITA5-R-ERROR-TYPE-NEW   REDEFINES                             
+014700         LURITA5-R-RECORD-RESPONSE.                                       
+014800         10  LURITA5-R-ERROR-TYPE-NEW    PIC X(02).                       
+014900           88 LURITA5-R-ERROR-DENIED-NAME    VALUE 'B1'.                  
+015000           88 LURITA5-R-ERROR-DENIED-ADD1    VALUE 'B2'.                  
+015100           88 LURITA5-R-ERROR-DENIED-ADD2    VALUE 'B3'.                  
+015200           88 LURITA5-R-ERROR-DENIED-ADD3    VALUE 'B4'.                  
+015300           88 LURITA5-R-ERROR-DEN-BILL-ADD1  VALUE 'B5'.                  
+015400           88 LURITA5-R-ERROR-DEN-BILL-ADD2  VALUE 'B6'.                  
+015500           88 LURITA5-R-ERROR-DEN-BILL-ADD3  VALUE 'B7'.                  
+015600           88 LURITA5-R-ERROR-INV-DV-FLAG    VALUE 'Y1'.                  
+015601           88 LURITA5-R-ERROR-CANT-DECLINE   VALUE 'Y2'.                  
+014510           88  LURITA5-R-KILL-MULTI-DIST-ERR VALUE 'GC'.          PKV09036
+015602     05  LURITA5-R-ERROR-TYPE-D    REDEFINES                              
+015700         LURITA5-R-RECORD-RESPONSE.                                       
+015800         10  LURITA5-R-ERROR-TYPE-DIRECT PIC X(02).                       
+015900           88  LURITA5-R-NON-NUM-ENDUSER-ID  VALUE 'D1'.                  
+016000           88  LURITA5-R-NON-NUM-AGR-ID      VALUE 'D2'.                  
+016100           88  LURITA5-R-NON-NUM-ADDRESS-ID  VALUE 'D3'.                  
+016200           88  LURITA5-R-NON-NUM-CONTACT-ID  VALUE 'D4'.                  
+016300           88  LURITA5-R-ERROR-NO-ENDUSER-ID VALUE 'D5'.                  
+016400           88  LURITA5-R-ERROR-NO-AGREEMENT  VALUE 'D6'.                  
+016500           88  LURITA5-R-ERROR-FLAG-STATUS   VALUE 'D7'.                  
+016600           88  LURITA5-R-ERROR-INVALID-FLAG  VALUE 'D8'.                  
+016700           88  LURITA5-R-MISSING-EU-AGREEMENT VALUE 'D9'.                 
+016800           88  LURITA5-R-MISSING-EU-ADDRESS  VALUE 'DA'.                  
+016900           88  LURITA5-R-MISSING-EU-CONTACT  VALUE 'DB'.                  
+017000           88  LURITA5-R-ERROR-DB2-NOT-AVAIL VALUE 'DC'.                  
+017100           88  LURITA5-R-ERROR-INV-END-USER  VALUE 'DD'.                  
+017200           88  LURITA5-R-ERROR-INV-CONTRACT  VALUE 'DE'.                  
+017300           88  LURITA5-R-ERROR-INV-AGREEMENT VALUE 'DF'.                  
+017400           88  LURITA5-R-ERROR-INV-ADDRESS   VALUE 'DG'.                  
+017500           88  LURITA5-R-ERROR-INV-CONTACT   VALUE 'DH'.                  
+017600           88  LURITA5-R-ERROR-CALL-SY777    VALUE 'DI'.                  
+017700           88  LURITA5-R-DB2-TABLE-READ-FAIL VALUE 'DK'.                  
+017800           88  LURITA5-R-DB2-TABLE-ISRT-FAIL VALUE 'DL'.                  
+017900           88  LURITA5-R-DB2-TABLE-UPDT-FAIL VALUE 'DM'.                  
+018000           88  LURITA5-R-ERROR-OSA-INFO-BAD  VALUE 'DO'.                  
+018001           88  LURITA5-R-ERROR-OSA-INFO-MISS VALUE 'DP'.                  
+015602     05  LURITA5-R-ERROR-INDIA-GST   REDEFINES                    NXC17174
+015700         LURITA5-R-RECORD-RESPONSE.                               NXC17174
+015800         10  LURITA5-R-ERROR-TYPE-ADDR   PIC X(02).               NXC17174
+015900           88  LURITA5-R-ERROR-NO-ADDR-UPDT   VALUE 'IN'.         NXC17174
+015900           88  LURITA5-R-CUST-GST-LOCK        VALUE 'I1'.         NXC17174
+015900           88  LURITA5-R-CUSMSC-F-SEG-NOT-FND VALUE 'I2'.         NXC17174
+015900           88  LURITA5-R-NO-GST-TAX-NBR       VALUE 'I3'.         NXC17174
+015900           88  LURITA5-R-CUSMSC-I-SEG-NOT-FND VALUE 'I4'.         NXC17174
+           05  LURITA5-R-ERROR-APPLE-DEP   REDEFINES                    ABM18097
+               LURITA5-R-RECORD-RESPONSE.                               ABM18097
+               10  LURITA5-R-ERROR-APPLE-DEP   PIC X(02).               ABM18097
+                 88  LURITA5-R-ERR-NO-DEP-ORD-NBR   VALUE 'A1'.         ABM18097
+                 88  LURITA5-R-ERR-NO-RSLR-PO-NBR   VALUE 'A2'.         ABM18097
+018002     05  LURITA5-R-ADDRESS-LINE1         PIC X(35).                       
+018100     05  LURITA5-R-ADDRESS-LINE2         PIC X(35).                       
+018200     05  LURITA5-R-CITY                  PIC X(21).                       
+018300     05  LURITA5-R-STATE                 PIC X(02).                       
+018400     05  LURITA5-R-ZIP                   PIC X(09).                       
+018500     05  LURITA5-R-FIRM-NAME             PIC X(50).                       
+           05  LURITA5-R-WARNING-AREA.                                  ROR06075
+      *        88 A-W-OVER-ORDER-LMT               VALUE 'W1'.          ROR06075
+      *        88 A-W-BAD-ADDR-ACCEPT              VALUE 'WL'.          ROR06075
+      *        88 A-W-ADDR-MODIFIED-BY-GRP1        VALUE 'WY'.          ROR06075
+      *        88 A-W-TAXED-ORDER                  VALUE 'WG'.          ROR06075
+      *        88 A-W-AGENCY-NOTAX-ORDER           VALUE 'WM'.          ROR06075
+      *        88 A-W-TAX-NOTAX-ORDER              VALUE 'WH'.          ROR06075
+      *        88 A-W-EXPORT-HOLD-ORDER            VALUE 'W3'.          ROR06075
+      *        88 A-W-DENIED-SHIP-TO-ADDR          VALUE 'WD'.          ROR06075
+      *        88 A-W-BASERATE-ON                  VALUE 'WK'.          ROR06075
+      *        88 A-W-SFP500-CALL-PROBLEM          VALUE 'WX'.          ROR06075
+      *        88 A-W-DUPLICATE-PO-FND             VALUE 'A1'.          ROR06075
+      *        88 A-W-PROB-DUP-PO-PROCESS          VALUE 'A2'.          ROR06075
+      *        88 A-W-SOME-DISTS-NOT-SHIPPABLE     VALUE 'A3'.          ROR06075
+      *        88 A-W-PROBLEMS-BASRATE-CALL        VALUE 'A4'.          ROR06075
+               10 LURITA5-R-WARN-CODE-1        PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-2        PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-3        PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-4        PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-5        PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-6        PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-7        PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-8        PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-9        PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-10       PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-11       PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-12       PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-13       PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-14       PIC X(02).               ROR06075
+               10 LURITA5-R-WARN-CODE-15       PIC X(02).               ROR06075
+           05  LURITA5-R-ERROR-MESSAGE         PIC X(30).               ROR06194
+           05  LURITA5-R-KILL-ON-HOLD-ORDR-SW  PIC X(01).               PKV09036
+               88 LURITA5-R-KILL-ON-HOLD-ORD       VALUE 'Y'.           PKV09036
+           05  LURITA5-R-TRIGGERED-AUTH-SW     PIC X(01).               PKV09036
+               88 LURITA5-R-TRIGGERED-AUTH         VALUE 'Y'.           PKV09036
+               88 LURITA5-R-TRIGGERED-AUTH-NOT     VALUE 'N'.           PKV09036
+               88 LURITA5-R-TRIGGERED-GC-PGM-ERR   VALUE 'A'.           PKV09036
+               88 LURITA5-R-TRIGGERED-LINK-ERR     VALUE 'X'.           PKV09036
+           05  LURITA5-R-VOID-FAIL-SW          PIC X(01).               PKV09036
+               88 LURITA5-ORDER-SET-IN-PROGRESS    VALUE 'Y'.           PKV09036
+           05  LURITA5-R-FILLER                PIC X(937).              PKV09036
+018900   02  LURITA5-OA-FINALIZE-EXTRA-AREA.                                    
+019000     05  LURITA5-NBR-WHSE-TABLE-OCCURS   PIC 9(01).                       
+019100     05  LURITA5-WHSE-TABLE       OCCURS 0 TO 9 TIMES                     
+019200                       DEPENDING ON LURITA5-NBR-WHSE-TABLE-OCCURS.        
+019300         10  LURITA5-DS-ERROR-CODE       PIC X(01).                       
+019400             88  LURITA5-DS-NO-ERROR          VALUE ' '.                  
+019500             88  LURITA5-DS-ERROR-FOUND       VALUE 'E'.                  
+019600             88  LURITA5-DS-WARNING           VALUE 'W'.                  
+019700         10  LURITA5-DS-ERROR-TYPE       PIC X(02).                       
+019800             88  LURITA5-DS-INVALID-CARRIER   VALUE 'CA'.                 
+019900             88  LURITA5-DS-INVALID-ZIPCODE   VALUE 'ZI'.                 
+020000             88  LURITA5-DS-INVALID-DIST-SHIP VALUE 'DS'.                 
+020100             88  LURITA5-DS-INVALID-TRANSIT   VALUE 'TR'.                 
+020200             88  LURITA5-DS-INVALID-MODE      VALUE 'MO'.                 
+020300             88  LURITA5-DS-INVALID-BASERATE  VALUE 'BA'.                 
+020310             88  LURITA5-DS-WARN-NO-DV        VALUE 'D1'.                 
+020400         10  LURITA5-ORDER-SUFFIX        PIC X(02).                       
+020500         10  LURITA5-WHSE-ASSIGNED-NBR   PIC X(02).                       
+020600         10  LURITA5-R-TOTAL-WEIGHT      PIC 9(05).                       
+020700         10  LURITA5-R-CARRIER-CODE      PIC X(02).                       
+020800         10  LURITA5-R-SHIP-VIA          PIC X(12).                       
+020900         10  LURITA5-R-FRT-RATE          PIC 9(15)V99.                    
+021000         10  LURITA5-R-TRANSIT-DAYS      PIC 9(01).                       
+021100         10  LURITA5-R-CARRIER-MODE      PIC X(03).                       
+021200         10  LURITA5-R-EST-TAX           PIC 9(15)V9(02)                  
+021300                                              VALUE ZEROES.               
+021400         10  LURITA5-NBR-LINE-TABLE-OCCURS   PIC 9(03).                   
+021500         10  LURITA5-NBR-LINE-SUFFIX       OCCURS 50 TIMES.               
+021600             15  LURITA5-ING-LINE-NBR        PIC X(03).                   
+021700             15  LURITA5-ING-BILL-TO-SUFFIX  PIC X(03).                   
+021800         10  LURITA5-R-EST-FRT-AMT       PIC 9(15)V9(02)                  
+021900                                              VALUE ZEROES.               
+022000         10  LURITA5-R-EST-TAX-AMT       PIC 9(15)V9(02)                  
+022100                                              VALUE ZEROES.               
+022200         10  LURITA5-R-EST-CHG-AMT       PIC 9(15)V9(02)                  
+022300                                              VALUE ZEROES.               
+022400         10  LURITA5-R-DV-FEE            PIC 9(09)V9(02)                  
+022500                                              VALUE ZEROES.               
+022600         10  LURITA5-R-DV-ERROR          PIC X(004).                      
+022600         10  LURITA5-R-PROMISE-DATE      PIC X(08).               ROR06194
+               10  LURITA5-R-DAS-SW            PIC X(01).               ROR07170
+                   88 LURITA5-R-DAS-BY-ORDER      VALUE 'O'.            ROR07170
+                   88 LURITA5-R-DAS-BY-CARTON     VALUE 'C'.            ROR07170
+               10  LURITA5-R-HOLD-STATUS       PIC X(01).               PKV09036
+               10  LURITA5-R-HOLD-REASON       PIC X(02).               PKV09036
+               10  LURITA5-R-ESD-DIST-SW       PIC X(01).               ROR13028
+               10  LURITA5-R-WHSE-FILLER       PIC X(856).              ROR13028
+022602     05  LURITA5-R-RESPONSE-FILLER       PIC X(200).                      

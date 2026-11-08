@@ -1,0 +1,206 @@
+﻿      *           ARGENTINA SALES TAX CALCULATION ROUTINE                       
+      *****************************************************************         
+      * 06/22/07  KLM  CALCULATE IVA-NON TAXES USING IVA TAX AMT.       KLM07173
+      * 01/10/02  KLM  CALCULATE IVA TAXES CORRECTLY FOR RMA.           KLM02010
+      * 05/07/01  KLM  CALCULATE IVA TAXES USING ICMS CODE              KLM01127
+      * 09/14/00  KLM  CHECK SWITCH BEFORE COLLECTING GRS TAX           KLM00258
+      * 07/18/00  KLM  ADD CODE TO CALCULATE NEW GRS TAX                KLM00200
+      * 06/19/00  BXT  ADD ART-CUST-TAX-NO-IVA                          BXT00171
+      * 02/03/00  KLM  NEW COPYBOOK                                     KLM00034
+      *****************************************************************         
+                                                                                
+       ART100-TAX-ROUTINE.                                                      
+                                                                                
+           IF ART-PCT-PASSED                                                    
+              PERFORM ART700-COMPUTE-TAX-AMOUNTS THRU ART700-EXIT       KLM00200
+              PERFORM ART800-CALC-TOTAL-TAX      THRU ART800-EXIT       KLM00200
+              GO TO ART100-EXIT                                                 
+           ELSE                                                                 
+              IF ART-CUST-TAX-EXEMPT OR ART-CUST-TAX-NO-IVA             BXT00171
+                 GO TO ART100-EXIT.                                             
+                                                                                
+           MOVE ART-COMPANY-CODE       TO TB-CPO3-COMPANY-CODE.                 
+           CALL 'SYU510'            USING TB-CPO3-PROC-IA.                      
+                                                                                
+           MOVE ART-COMPANY-CODE       TO TB-ICMS-COMPANY-CODE.                 
+           MOVE ART-INTERNAL-CODE      TO TB-ICMS-CODE.                         
+           CALL 'SYU510'            USING TB-ICMS-TABLE-IA.                     
+                                                                                
+           IF TB-ICMS-NORESP                                            KLM01127
+              PERFORM ART200-CALC-IVA-TAX        THRU ART200-EXIT.              
+                                                                                
+           IF TB-ICMS-NORESP                                                    
+              PERFORM ART300-CALC-INTERNAL-TAX   THRU ART300-EXIT.              
+                                                                        KLM00200
+           IF ART-COLLECT-GRS-TAX                                       KLM00258
+              PERFORM ART400-CALC-GRS-TAX        THRU ART400-EXIT.      KLM00200
+                                                                                
+           PERFORM ART800-CALC-TOTAL-TAX         THRU ART800-EXIT.      KLM00200
+                                                                                
+       ART100-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       ART200-CALC-IVA-TAX.                                                     
+                                                                                
+           IF ART-CUST-IVA-REGISTERED          OR                               
+               ART-CUST-IVA-NON-REGISTERED     OR                               
+                ART-CUST-TAX-WITHHOLD                                           
+                                                                                
+              IF TB-ICMS-IVA-REG-RATE NUMERIC  AND                      KLM01127
+                 TB-ICMS-IVA-REG-RATE NOT = +0                          KLM01127
+                                                                                
+                 MOVE TB-ICMS-IVA-REG-RATE     TO  ART-IVA-REG-RATE     KLM01127
+                                                                                
+                 COMPUTE ART-EXT-IVA-REG-AMT ROUNDED =                          
+                         ART-TAXABLE-AMT * ART-IVA-REG-RATE             KLM01127
+              ELSE                                                      KLM01127
+                 MOVE +0                       TO  ART-IVA-REG-RATE.    KLM01127
+                                                                                
+           IF ART-CUST-IVA-NON-REGISTERED                                       
+              IF TB-ICMS-IVA-NONREG-RATE NUMERIC   AND                  KLM01127
+                 TB-ICMS-IVA-NONREG-RATE NOT = +0                       KLM01127
+                                                                                
+                 MOVE TB-ICMS-IVA-NONREG-RATE  TO  ART-IVA-NONREG-RATE  KLM01127
+                                                                        KLM01127
+                 COMPUTE ART-EXT-IVA-NONREG-AMT ROUNDED =                       
+                    (ART-TAXABLE-AMT + ART-EXT-IVA-REG-AMT)             KLM07173
+                        * ART-IVA-NONREG-RATE                           KLM07173
+              ELSE                                                      KLM01127
+                 MOVE +0                       TO  ART-IVA-NONREG-RATE. KLM01127
+                                                                                
+       ART200-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       ART300-CALC-INTERNAL-TAX.                                                
+                                                                                
+           IF TB-ICMS-NORESP                                                    
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              GO TO ART300-EXIT.                                                
+                                                                                
+           IF TB-ICMS-RATE NUMERIC  AND                                         
+              TB-ICMS-RATE NOT = +0                                             
+                                                                                
+              MOVE TB-ICMS-RATE        TO ART-INTERNAL-TAX-RATE                 
+              COMPUTE ART-EXT-INTERNAL-AMT ROUNDED =                            
+                      ART-TAXABLE-AMT * ART-INTERNAL-TAX-RATE.                  
+                                                                                
+       ART300-EXIT.                                                             
+           EXIT.                                                                
+                                                                        KLM00200
+       ART400-CALC-GRS-TAX.                                             KLM00200
+                                                                        KLM00200
+           IF ART-CUST-GRS-FLAG = 'C' OR 'M' OR 'B'                     KLM00200
+              NEXT SENTENCE                                             KLM00200
+           ELSE                                                         KLM00200
+              GO TO ART400-EXIT.                                        KLM00200
+                                                                        KLM00200
+           MOVE ART-COMPANY-CODE       TO TB-STATE-COMPANY-CODE.        KLM00200
+                                                                        KLM00200
+           IF ART-CARRIER-CODE = 'WC'                                   KLM00200
+              MOVE ART-SHIP-FR-BR      TO TB-STATE-SHIP-FR-BR           KLM00200
+              IF ART-CUST-GRS-FLAG = 'C'                                KLM00200
+                 MOVE 'CF' TO TB-STATE-CODE                             KLM00200
+              ELSE                                                      KLM00200
+                 IF ART-CUST-GRS-FLAG = 'M'                             KLM00200
+                    MOVE 'ME' TO TB-STATE-CODE                          KLM00200
+                 ELSE                                                   KLM00200
+                    IF ART-CUST-GRS-FLAG = 'B'                          KLM00200
+                       IF ART-SHIP-FR-BR = '10'                         KLM00200
+                          MOVE 'CF' TO TB-STATE-CODE                    KLM00200
+                       ELSE                                             KLM00200
+                          IF ART-SHIP-FR-BR = '20'                      KLM00200
+                             MOVE 'ME' TO TB-STATE-CODE                 KLM00200
+                          ELSE                                          KLM00200
+                             MOVE '  ' TO TB-STATE-CODE                 KLM00200
+                    ELSE                                                KLM00200
+                       MOVE '  ' TO TB-STATE-CODE                       KLM00200
+           ELSE                                                         KLM00200
+              MOVE ART-SHIP-TO-STATE TO TB-STATE-CODE                   KLM00200
+              IF ART-SHIP-TO-STATE = 'CF'                               KLM00200
+                 IF ART-CUST-GRS-FLAG = 'C' OR 'B'                      KLM00200
+                    MOVE '10'        TO TB-STATE-SHIP-FR-BR             KLM00200
+                 ELSE                                                   KLM00200
+                    MOVE '  '        TO TB-STATE-SHIP-FR-BR             KLM00200
+              ELSE                                                      KLM00200
+                 IF ART-SHIP-TO-STATE = 'ME'                            KLM00200
+                    IF ART-CUST-GRS-FLAG = 'M' OR 'B'                   KLM00200
+                       MOVE '20'     TO TB-STATE-SHIP-FR-BR             KLM00200
+                    ELSE                                                KLM00200
+                       MOVE '  '     TO TB-STATE-SHIP-FR-BR             KLM00200
+                 ELSE                                                   KLM00200
+                    MOVE '  '        TO TB-STATE-SHIP-FR-BR.            KLM00200
+                                                                        KLM00200
+           CALL 'SYU510'            USING TB-STATE-TABLE-IA.            KLM00200
+           IF TB-STATE-NORESP                                           KLM00200
+              MOVE TB-STATE-ICMS-RATE TO ART-GRS-TAX-RATE               KLM00200
+              COMPUTE ART-EXT-GRS-AMT ROUNDED =                         KLM00200
+                      ART-TAXABLE-AMT * ART-GRS-TAX-RATE.               KLM00200
+                                                                        KLM00200
+       ART400-EXIT.                                                     KLM00200
+           EXIT.                                                        KLM00200
+                                                                                
+       ART700-COMPUTE-TAX-AMOUNTS.                                      KLM00200
+                                                                                
+           IF ART-RMA AND ART-COMMENT-LINE                              KLM02010
+              IF ART-IVA-REG-RATE > +0 OR ART-IVA-NONREG-RATE > +0      KLM02010
+                 COMPUTE ART-EXT-IVA-REG-AMT ROUNDED =                  KLM02010
+                         ART-TAXABLE-AMT * ART-IVA-REG-RATE             KLM02010
+                 COMPUTE ART-EXT-IVA-NONREG-AMT ROUNDED =               KLM02010
+                         ART-TAXABLE-AMT * ART-IVA-NONREG-RATE          KLM02010
+              ELSE                                                      KLM02010
+                 PERFORM ART200-CALC-IVA-TAX THRU ART200-EXIT           KLM02010
+           ELSE                                                         KLM02010
+              COMPUTE ART-EXT-IVA-REG-AMT ROUNDED =                             
+                      ART-TAXABLE-AMT * ART-IVA-REG-RATE                KLM02010
+              COMPUTE ART-EXT-IVA-NONREG-AMT ROUNDED =                          
+                      ART-TAXABLE-AMT * ART-IVA-NONREG-RATE.                    
+                                                                        KLM00200
+           COMPUTE ART-EXT-GRS-AMT ROUNDED =                            KLM00200
+                   ART-TAXABLE-AMT * ART-GRS-TAX-RATE.                  KLM00200
+                                                                                
+           COMPUTE ART-EXT-INTERNAL-AMT ROUNDED =                               
+                   ART-TAXABLE-AMT * ART-INTERNAL-TAX-RATE.                     
+                                                                                
+       ART700-EXIT.                                                     KLM00200
+           EXIT.                                                                
+                                                                                
+       ART800-CALC-TOTAL-TAX.                                           KLM00200
+                                                                                
+           COMPUTE ART-TOTAL-IVA-REG-AMT =                                      
+                   ART-TOTAL-IVA-REG-AMT + ART-EXT-IVA-REG-AMT.                 
+                                                                                
+           COMPUTE ART-TOTAL-IVA-NONREG-AMT =                                   
+                   ART-TOTAL-IVA-NONREG-AMT + ART-EXT-IVA-NONREG-AMT.           
+                                                                        KLM00200
+           COMPUTE ART-TOTAL-GRS-AMT =                                  KLM00200
+                   ART-TOTAL-GRS-AMT + ART-EXT-GRS-AMT.                 KLM00200
+                                                                                
+           COMPUTE ART-TOTAL-INTERNAL-AMT =                                     
+                   ART-TOTAL-INTERNAL-AMT + ART-EXT-INTERNAL-AMT.               
+                                                                                
+           COMPUTE ART-TOTAL-TAX =                                              
+                   ART-TOTAL-IVA-REG-AMT +                                      
+                   ART-TOTAL-IVA-NONREG-AMT +                                   
+                   ART-TOTAL-GRS-AMT +                                  KLM00200
+                   ART-TOTAL-INTERNAL-AMT.                                      
+                                                                                
+       ART800-EXIT.                                                     KLM00200
+           EXIT.                                                                
+                                                                                
+       ART900-INITIALIZE-TAX-FIELDS.                                            
+                                                                                
+      *    MOVE ZEROES                 TO ART-IVA-REG-RATE                      
+      *                                   ART-IVA-NONREG-RATE                   
+      *                                   ART-INTERNAL-TAX-RATE                 
+           MOVE ZEROES                 TO ART-EXT-IVA-REG-AMT                   
+                                          ART-EXT-IVA-NONREG-AMT                
+                                          ART-EXT-GRS-AMT               KLM00200
+                                          ART-EXT-INTERNAL-AMT.                 
+                                                                                
+           MOVE SPACES                 TO ART-PCT-PASSED-SW.                    
+                                                                                
+                                                                                
+       ART900-EXIT.                                                             
+           EXIT.                                                                
+                                                                                

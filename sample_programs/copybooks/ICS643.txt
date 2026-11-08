@@ -1,0 +1,1018 @@
+      ******************************************************************        
+      *** YEAR 2016 READY                                              *        
+      ******************************************************************        
+      *================================================================*        
+      *   THIS COPYBOOK USED TO DO EU DETAIL LOOKUP USING BELOW        *        
+      *   INPUTS RECEIVED FROM CALLING PROGRAM.                        *        
+      *      ICR643-COUNTRY-CODE                                       *        
+      *      ICR643-CUST                                               *        
+      *      ICR643-CUST-BR                                            *        
+      *      ICR643-CUST-NBR                                           *        
+      *      ICR643-PART-NBR                                           *        
+      *      ICR643-BID-NBR                                            *        
+      *      ICR643-BID-VERSION                                        *        
+      *      ICR643-VEND-NBR                                           *        
+      *   AND WILL RETURN RESPONSE IN THE BELOW OUTPUT FIELDS IF       *        
+      *   LOOKUP IS SUCCESS                                            *        
+      *      ICR643-RSLR-EU-ID                                         *        
+      *      ICR643-RSLR-ADDR-SEQ-NBR                                  *        
+      *      ICR643-RSLR-EU-CTAC-ID                                    *        
+      *      ICR643-EU-MRKT-SGMT-TYP-CD                                *        
+      *      ICR643-EU-MRKT-SGMT-TYP-SRC                               *        
+      *      ICR643-INSTT-TYP-CD                                       *        
+      *      ICR643-ACOP-EU-ID                                         *        
+      *      ICR643-EU-HOLD-IND                                        *        
+      *      ICR643-EU-NAME                                            *        
+      *      ICR643-ACTUAL-BID-NBR                                     *        
+      *      ICR643-ACTUAL-BID-VERSION                                 *        
+      *   OR IT WILL RETURN ERROR RESPONSE IN THE BELOW FIELDS         *        
+      *      IF LOOKUP IS FAILED.                                      *        
+      *      ICR643-RESULT-FLG                                         *        
+      *      88  ICR643-ERRFND                                         *        
+      *      88  ICR643-NOERR                                          *        
+      *      ICR643-ERROR-CODE                                         *        
+      *      ICR643-ERROR-TEXT                                         *        
+      *                                                                *        
+      *   CURRENTLY THIS ROUTINE BEING USED BY EDI AND XML ORDER       *        
+      *   ENTRY PROCESS.                                               *        
+      *                                                                *        
+      * TO POPULATE THE EU FIELDS SUCH AS RSLR-EU-ID , ADDRESS SEQUENCE*        
+      * THE CALLING PROGRAM SHOULD INCLUDE THE BELOW DB2 TABLE'S       *        
+      * DCLGENS.                                                       *        
+      *                                                                *        
+      * SETATRK , SETACGP , SETGPVNX , SETOEIDX , SETRIEAD , SETRSEU   *        
+      * SETIMEU , SETRSECT , SETRSEHD                                  *        
+      *                                                                *        
+      * THE BELOW COPYBOOKS TO BE INCLUDED IN THE CALLING PROGRAM :    *        
+      * ICR643DB - DB2 CURSORS FOR ACOP TABLES                         *        
+      * ICR643   - INPUT\OUTPUT LAYOUT                                 *        
+      * ICR643WS - WORKING STORAGE VARIABLES                           *        
+      *                                                                *        
+      * MISCELLANEOUS DETAILS :                                        *        
+      * THE FOLLOWING PARAGRAPHS CONTAINS EITHER EXEC CICS STATEMENT   *        
+      * HENCE THEY ARE TO BE INCLUDED IN THE                           *        
+      * MAIN PROGRAM                                                   *        
+      *                                                                *        
+      * 820-READ-ICLCOP.                                               *        
+      *                                                                *        
+      * DECLARE THE WORKING STORAGE NULL INDICATORS AND THE WS-DB2-AREA*        
+      * IF THE CALLING PROGRAM IS NOT A DB2 PROGRAM, THEN THE FOLLOWING*        
+      * STATEMENT NEEDS TO BE INCLUDED.                                *        
+      * DB2STAT                                                        *        
+      * SYWDB2ER                                                       *        
+      *                                                                *        
+      * ERROR CODES :                                                  *        
+      * ICR643-RESULT-FLG WOULD BE SET TO 'N' IF THERE IS ANY ERROR    *        
+      * AND THE CORRESPONDING DESCRIPTION WOULD BE PRESENT IN THE      *        
+      * ERROR TEXT.                                                    *        
+      *                                                                *        
+      *================================================================*        
+      *                                                                *        
+      ******************************************************************        
+      * REVISIONS                                                      *        
+      * 05/04/24 CDL EVEREST ICLCOP KEY EXPANSION                      *CDL24125
+      * 07/14/23 SXT EVEREST MULTI-BID RESOLUTION FIX                  *SXT23195
+      * 04/07/17 RZS MOD TO FIX EU NAME CAPTURE AND RETURN LOOKUP FAIL *RZS17097
+      *              IF ANY MANDATORY EU INFORMATION IS MISSING.       *RZS17097
+      * 02/03/17 RZS MOD TO FIX BID CAPTURE ISSUE AND RESTRUCTURED THE *RZS17034
+      *              CODE FOR CLARITY.                                 *RZS17034
+      * 01/20/17 RZS TO STOP SQL FROM RETRIEVING EXPIRED ACOPS.        *RZS17020
+      * 01/13/17 SZR NEW SUB-ROUTINE TO RETURN ACOP-EU-ID AND OTHER    *SZR17013
+      *              DETAILS FOR SPECIAL PRICE EDI AUTOMATION.         *SZR17013
+      ******************************************************************        
+       000-SPL-PRICE.                                                           
+                                                                                
+           PERFORM 100-EVALUATE-DATA   THRU 100-EVALUATE-DATA-EXIT.             
+                                                                                
+                                                                                
+           IF ICR643-RESULT-FLG = SPACES                                        
+                                                                                
+              PERFORM 200-GET-ACTIVE-EU THRU 200-GET-ACTIVE-EU-EXIT             
+                                                                                
+           END-IF.                                                              
+                                                                                
+           IF ICR643-RESULT-FLG = SPACES                                RZS17034
+                                                                        RZS17034
+              PERFORM 300-GET-RSLR-EU THRU 300-GET-RSLR-EU-EXIT         RZS17034
+                                                                        RZS17097
+              IF ICR643-RSLR-EU-ID           <= ZEROES                  RZS17097
+              OR ICR643-RSLR-ADDR-SEQ-NBR    <= ZEROES                  RZS17097
+              OR ICR643-EU-MRKT-SGMT-TYP-CD  <= SPACES                  RZS17097
+              OR ICR643-EU-MRKT-SGMT-TYP-SRC <= SPACES                  RZS17097
+              OR ICR643-ACOP-EU-ID           <= ZEROES                  RZS17097
+              OR ICR643-EU-NAME              <= SPACES                  RZS17097
+                 MOVE 'Y'              TO ICR643-RESULT-FLG             RZS17097
+                 MOVE '000'            TO ICR643-ERROR-CODE             RZS17097
+                 MOVE 'MANDATORY EU DETAILS NOT FOUND'                  RZS17097
+                                       TO ICR643-ERROR-TEXT             RZS17097
+              END-IF                                                    RZS17097
+           END-IF.                                                      RZS17034
+                                                                                
+       000-MAIN-EXIT.                                                           
+           EXIT.                                                                
+                                                                                
+       100-EVALUATE-DATA.                                                       
+                                                                                
+           INITIALIZE ICR643-RESULT-FLG.                                        
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN ICR643-CUST-NBR <= SPACES                                   
+                  MOVE 'Y'                  TO ICR643-RESULT-FLG                
+                  MOVE '100'                TO ICR643-ERROR-CODE                
+                  MOVE 'CUSTOMER NUMBER INVALID'                                
+                                            TO ICR643-ERROR-TEXT                
+               WHEN ICR643-PART-NBR <= SPACES                                   
+                  MOVE 'Y'                  TO ICR643-RESULT-FLG                
+                  MOVE '100'                TO ICR643-ERROR-CODE                
+                  MOVE 'INVALID PART NUM'   TO ICR643-ERROR-TEXT                
+               WHEN ICR643-CUST-NBR <= SPACES                                   
+                  MOVE 'Y'                  TO ICR643-RESULT-FLG                
+                  MOVE '100'                TO ICR643-ERROR-CODE                
+                  MOVE 'INVALID PART NUM'   TO ICR643-ERROR-TEXT                
+               WHEN ICR643-BID-NBR  <= SPACES                                   
+                  MOVE 'Y'                  TO ICR643-RESULT-FLG                
+                  MOVE '100'                TO ICR643-ERROR-CODE                
+                  MOVE 'INVALID BID  NUM'   TO ICR643-ERROR-TEXT                
+           WHEN OTHER                                                           
+                CONTINUE                                                        
+           END-EVALUATE.                                                        
+                                                                                
+       100-EVALUATE-DATA-EXIT.                                                  
+           EXIT.                                                                
+                                                                                
+       200-GET-ACTIVE-EU.                                                       
+                                                                                
+           MOVE ICR643-COUNTRY-CODE TO ICR643WS-DB2-CO-CD               RZS17034
+           MOVE ICR643-COUNTRY-CODE TO SETATRK-CO-CD.                           
+           MOVE ICR643-CUST-NBR     TO ICR643WS-DB2-CUST-NBR.           RZS17034
+           MOVE ICR643-CUST-NBR     TO SETATRK-CUST-NBR.                        
+           MOVE ICR643-PART-NBR     TO ICR643WS-DB2-PART-NBR.           RZS17034
+           MOVE ICR643-PART-NBR     TO SETATRK-PART-NBR.                        
+           MOVE ICR643-CUST-BR      TO ICR643WS-DB2-BR-NBR              RZS17034
+           MOVE ICR643-CUST-BR      TO SETATRK-BR-NBR.                          
+           MOVE 'Y'                 TO SETATRK-ACOP-ACTV-FLG.                   
+           PERFORM 210-GET-BID-NUMBER THRU 210-GET-BID-NUMBER-EXIT.             
+                                                                                
+      *    IF ICR643WS-MATCH-COUNT = 0, BID NOT FOUND                   RZS17034
+      *    IF ICR643WS-MATCH-COUNT > 1, MUTLITPLE BID FOUND             RZS17034
+      *    IF ICR643WS-MATCH-COUNT = 1, ONLY ONE BID FOUND              RZS17034
+                                                                        RZS17034
+           IF ICR643WS-MATCH-COUNT = 0                                  RZS17034
+              SET ICR643-ERRFND        TO TRUE                          RZS17034
+              MOVE '200-'              TO ICR643-ERROR-CODE             RZS17034
+              MOVE 'BID NOT FOUND - LOOKUP FAIL'                        RZS17034
+                                       TO ICR643-ERROR-TEXT             RZS17034
+           ELSE                                                         RZS17034
+             IF ICR643WS-MATCH-COUNT > 1                                RZS17034
+                SET ICR643-NOERR       TO TRUE                          RZS17034
+                MOVE '200-'              TO ICR643-ERROR-CODE           RZS17034
+                MOVE 'MULTIPLE BID FOUND'                               RZS17034
+                                       TO ICR643-ERROR-TEXT             RZS17034
+             ELSE                                                       RZS17034
+               IF ICR643WS-MATCH-COUNT = 1                              RZS17034
+                  PERFORM 270-GET-BID-VERSION                           RZS17034
+                     THRU 270-GET-BID-VERSION-EXIT                      RZS17034
+             END-IF                                                     RZS17034
+           END-IF.                                                      RZS17034
+                                                                        RZS17097
+           MOVE +0                     TO ICR643-ACOP-EU-ID             RZS17097
+                                                                        RZS17034
+           IF ICR643-ERRFND                                             RZS17034
+              CONTINUE                                                  RZS17034
+           ELSE                                                         RZS17034
+             IF  COP-BID-VERSION    > SPACES                            RZS17034
+             AND ICR643-BID-VERSION > SPACES                            RZS17034
+             AND ICR643-BID-VERSION > COP-BID-VERSION                   RZS17034
+                 SET ICR643-ERRFND     TO TRUE                          RZS17034
+                 MOVE '200-'           TO ICR643-ERROR-CODE             RZS17034
+                 MOVE 'CUSTOMER BID VER > IM BID VER'                   RZS17034
+                                       TO ICR643-ERROR-TEXT             RZS17034
+             ELSE                                                       RZS17034
+                 MOVE ICR643WS-SETATRK-ACOP-EU-ID                       RZS17034
+                                       TO ICR643-ACOP-EU-ID             RZS17034
+                 MOVE ICR643WS-VEND-BID-NBR                             RZS17034
+                                       TO ICR643-ACTUAL-BID-NBR         RZS17034
+                 MOVE COP-BID-VERSION                                   RZS17034
+                                       TO ICR643-ACTUAL-BID-VERSION     RZS17034
+             END-IF                                                     RZS17034
+           END-IF.                                                      RZS17034
+                                                                        RZS17034
+       200-GET-ACTIVE-EU-EXIT.                                                  
+           EXIT.                                                                
+                                                                                
+       210-GET-BID-NUMBER.                                                      
+                                                                        RZS17020
+           PERFORM 215-SET-TODAY THRU 215-SET-TODAY-EXIT.               RZS17020
+      *                                                                         
+      *--- OPEN ACOP_TRK CURSOR                                                 
+           PERFORM 220-OPEN-ACOP-CURSOR                                         
+              THRU 220-OPEN-ACOP-CURSOR-EXIT.                                   
+                                                                        RZS17034
+           MOVE +0                     TO ICR643WS-MATCH-COUNT          RZS17034
+           MOVE 'N'                    TO ICR643WS-END-OF-ACOP-CURSOR-SW        
+                                                                        RZS17034
+           PERFORM UNTIL                                                        
+      *       ICR643WS-END-OF-ACOP-CURSOR                                       
+              ICR643WS-END-OF-ACOP-CURSOR OR                            SXT23195
+              (TB-CPO7-GDS-PROCESS        AND                           SXT23195
+               ICR643WS-MATCH-COUNT = 1   AND                           SXT23195
+               (VNH-GDS-PROCESS           OR                            SXT23195
+                VNH-GDS-ORD-PROCESS))                                   SXT23195
+                                                                                
+              PERFORM 230-FETCH-ACOP-CURSOR                                     
+                 THRU 230-FETCH-ACOP-CURSOR-EXIT                                
+                                                                                
+              IF ICR643WS-NOT-EOF-ACOP-CURSOR                                   
+                 PERFORM 240-COMPARE-BID                                        
+                    THRU 240-COMPARE-BID-EXIT                                   
+              END-IF                                                    RZS17034
+                                                                                
+           END-PERFORM.                                                         
+      *                                                                         
+           PERFORM 260-CLOSE-ACOP-CURSOR                                        
+              THRU 260-CLOSE-ACOP-CURSOR-EXIT.                          RZS17034
+                                                                                
+                                                                                
+       210-GET-BID-NUMBER-EXIT.                                                 
+           EXIT.                                                                
+                                                                        RZS17020
+       215-SET-TODAY.                                                   RZS17020
+                                                                        RZS17020
+      *--- TODAY'S DATE                                                 RZS17020
+      *--- MAY NEED TO BE CHANGED TO SYU777,                            BYA24125
+      *--- FOR NOW, SYV777 GIVES THE EXPECTED RESULT.                   BYA24125
+           INITIALIZE SY777-PARM-DATA.                                  RZS17020
+           MOVE TC-COMPANY             TO SY777-IN-COMPANY-CODE.        RZS17020
+           CALL 'SYV777' USING SY777-PARM-DATA.                         RZS17020
+           MOVE SY777-OUT-ISO-10       TO ICR643WS-DB2-TOD-DATE.        RZS17020
+      *                                                                 RZS17020
+       215-SET-TODAY-EXIT.                                              RZS17020
+           EXIT.                                                        RZS17020
+                                                                                
+      ** THE ACOP-EFF-DATE LOGIC IS NOT IMPLEMENTED FOR COUNTRIES       BYA24125
+      ** WHICH HAVE SWITCH TB-ACOP-PROD-GRP SET.                        BYA24125
+       220-OPEN-ACOP-CURSOR.                                                    
+                                                                                
+           IF TB-ACOP-PROD-GRP                                                  
+               MOVE ICR643WS-DB2-BROWSE-TRK-NBR                         RZS17034
+                                       TO SETATRK-ACOP-TRK-NBR                  
+               EXEC SQL                                                         
+                 OPEN PROD_GP_ACOP_CURS                                         
+               END-EXEC                                                         
+                                                                                
+               MOVE SQLCODE            TO SQLCODE-STATUS                        
+               EVALUATE TRUE                                                    
+                   WHEN SQLCODE-NORESP                                          
+                     CONTINUE                                                   
+                   WHEN OTHER                                                   
+                     MOVE '220-'       TO WS-ABCODE                             
+                     MOVE '220-OPEN-ACOP-CURSOR'                                
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                     MOVE 'OPEN CURSOR PROD_GP_ACOP_CURS'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                     PERFORM 990-SQL-MESSAGE                                    
+                     PERFORM 999-ABEND                                          
+               END-EVALUATE                                                     
+           ELSE                                                                 
+               EXEC SQL                                                         
+                 OPEN ACOP_TRK_CURS                                             
+               END-EXEC                                                         
+                                                                                
+               MOVE SQLCODE            TO SQLCODE-STATUS                        
+               EVALUATE TRUE                                                    
+                   WHEN SQLCODE-NORESP                                          
+                     CONTINUE                                                   
+                   WHEN OTHER                                                   
+                     MOVE '220-'       TO WS-ABCODE                             
+                     MOVE '220-OPEN-ACOP-CURSOR'                                
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                     MOVE 'OPEN CURSOR ACOP_TRK_CURS'                           
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                     PERFORM 990-SQL-MESSAGE                                    
+                     PERFORM 999-ABEND                                          
+               END-EVALUATE                                                     
+           END-IF.                                                              
+                                                                                
+       220-OPEN-ACOP-CURSOR-EXIT.                                               
+           EXIT.                                                                
+      **                                                                        
+       230-FETCH-ACOP-CURSOR.                                                   
+                                                                                
+           IF TB-ACOP-PROD-GRP                                                  
+               EXEC SQL                                                         
+                 FETCH PROD_GP_ACOP_CURS                                        
+                  INTO                                                          
+                       :SETATRK-ACOP-EU-ID:WS-ACOP-EU-ID-NULL-IND               
+                      ,:SETATRK-VEND-BID-NBR:WS-VEND-BID-NBR-NULL-IND           
+               END-EXEC                                                         
+                                                                                
+               MOVE SQLCODE            TO SQLCODE-STATUS                        
+               EVALUATE TRUE                                                    
+                  WHEN SQLCODE-NORESP                                           
+                       CONTINUE                                         RZS17034
+                  WHEN SQLCODE-NOT-FOUND                                        
+                       SET ICR643WS-END-OF-ACOP-CURSOR                  RZS17034
+                                       TO TRUE                                  
+                  WHEN OTHER                                                    
+                     MOVE '230-'       TO WS-ABCODE                             
+                     MOVE '230-FETCH-ACOP-CURSOR'                               
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                     MOVE 'FETCH CURSOR PROD_GP_ACOP_CURS'                      
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                     PERFORM 990-SQL-MESSAGE                                    
+                     PERFORM 999-ABEND                                          
+               END-EVALUATE                                                     
+           ELSE                                                                 
+               EXEC SQL                                                         
+                 FETCH ACOP_TRK_CURS                                            
+                  INTO                                                          
+                       :SETATRK-ACOP-EU-ID:WS-ACOP-EU-ID-NULL-IND               
+                      ,:SETATRK-VEND-BID-NBR:WS-VEND-BID-NBR-NULL-IND           
+                      ,:SETATRK-ACOP-TRK-NBR                                    
+                      ,:SETATRK-ACOP-SEQ-NBR                                    
+                      ,:SETATRK-ACOP-EFF-DT                             CDL24125
+               END-EXEC                                                         
+                                                                                
+               MOVE SQLCODE            TO SQLCODE-STATUS                        
+                                                                                
+               EVALUATE TRUE                                                    
+                  WHEN SQLCODE-NORESP                                           
+                       CONTINUE                                         RZS17034
+                  WHEN SQLCODE-NOT-FOUND                                        
+                       SET ICR643WS-END-OF-ACOP-CURSOR                  RZS17034
+                                       TO TRUE                                  
+                  WHEN OTHER                                                    
+                     MOVE '230-'       TO WS-ABCODE                             
+                     MOVE '230-FETCH-ACOP-CURSOR'                               
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                     MOVE 'ERROR FETCH ACOP_TRK_CURS'                   CDL24125
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                     PERFORM 990-SQL-MESSAGE                                    
+                     PERFORM 999-ABEND                                          
+               END-EVALUATE                                                     
+           END-IF.                                                              
+                                                                                
+       230-FETCH-ACOP-CURSOR-EXIT.                                              
+           EXIT.                                                                
+                                                                                
+       240-COMPARE-BID.                                                         
+                                                                                
+      * FIRST DO COMPARISON BY NOT STRIPPING THE CUSTOMER BID AND IM-BID        
+      * IF MATCH FOUND, THEN SET THE SWITCH AND GOTO EXIT                       
+                                                                                
+            MOVE SETATRK-VEND-BID-NBR  TO ICR643WS-VEND-BID-NBR-SPEZL           
+                                                                                
+            IF ICR643-BID-NBR > SPACES                                          
+              MOVE  ICR643-BID-NBR     TO ICS643WS-CONVERT-DATA         RZS17034
+              CALL 'SYU140IM'   USING ICS643WS-CONVERT-DATA             RZS17034
+              MOVE ICS643WS-CONVERT-DATA                                RZS17034
+                                       TO ICR643-BID-NBR                        
+            END-IF                                                              
+      *CHECK FOR SPECIAL CHARACTERS                                             
+            INSPECT  ICR643WS-VEND-BID-NBR-SPEZL                                
+            TALLYING ICR643WS-SPECIAL-CT1                                       
+            FOR ALL  '*' '(' ')' '!' '@' '¬' '$' '#' '&' '+'                    
+                     '=' '{' '}' '[' ']' ':' ';' '/' '\' '?' '>' '<'            
+                     '%' '`' '_' '|' '~' '.' '"'                                
+                                                                                
+            INSPECT  ICR643-BID-NBR                                             
+            TALLYING ICR643WS-SPECIAL-CT2                                       
+            FOR ALL  '*' '(' ')' '!' '@' '¬' '$' '#' '&' '+'                    
+                     '=' '{' '}' '[' ']' ':' ';' '/' '\' '?' '>' '<'            
+                     '%' '`' '_' '|' '~' '.' '"'                                
+                                                                                
+            IF ICR643-BID-NBR = ICR643WS-VEND-BID-NBR-SPEZL                     
+               MOVE SETATRK-ACOP-EU-ID TO ICR643WS-SETATRK-ACOP-EU-ID   RZS17034
+               MOVE SETATRK-VEND-BID-NBR                                        
+                                       TO ICR643WS-VEND-BID-NBR         RZS17034
+               MOVE SETATRK-ACOP-SEQ-NBR                                RZS17034
+                                       TO ICR643WS-SETATRK-ACOP-SEQ-NBR RZS17034
+               ADD +1                  TO ICR643WS-MATCH-COUNT                  
+            ELSE                                                                
+              IF ICR643WS-SPECIAL-CT1 > 0                                       
+              OR ICR643WS-SPECIAL-CT2 > 0                                       
+      * STRIPPING THE CUSTOMER BID AND IM-BID NUMBERS FOR SPECIAL CHARS         
+      * THEN COMPARE.                                                           
+                                                                                
+      * STRIP CUSTOMER BID                                                      
+                 INITIALIZE ICR643WS-ICR643-BID-NBR-SPEZL                       
+                            ICR643WS-STRING                                     
+                            ICR643WS-A                                          
+                            ICR643WS-B                                          
+                            ICR643WS-SPECIAL-CT1                                
+                            ICR643WS-SPECIAL-CT2                                
+                                                                                
+                 MOVE ICR643-BID-NBR   TO ICR643WS-ICR643-BID-NBR-SPEZL         
+                                                                                
+                 INSPECT ICR643WS-ICR643-BID-NBR-SPEZL                          
+                        CONVERTING  ICR643WS-ICR643-BID-NBR-SPEZC TO            
+                                    ICR643WS-ICR643-BID-NBR-SPEZS               
+                                                                                
+                 MOVE ICR643WS-ICR643-BID-NBR-SPEZL                             
+                                       TO ICR643WS-STRING                       
+                 MOVE ZERO             TO ICR643WS-SUB                          
+                 MOVE 1                TO ICR643WS-A                            
+                 MOVE SPACES           TO ICR643WS-WORK-STRING-CUST             
+                 COMPUTE ICR643WS-B = LENGTH OF ICR643WS-STRING                 
+                                                                                
+      * REMOVING EMBEDED SPACES IN THE STRING FOR COMPARISON                    
+                 PERFORM  UNTIL ICR643WS-A > ICR643WS-B                         
+                     IF ICR643WS-STRING (ICR643WS-A :1) NOT = SPACES            
+                        ADD 1          TO ICR643WS-SUB                          
+                        MOVE ICR643WS-STRING (ICR643WS-A:1)                     
+                           TO ICR643WS-WORK-STRING-CUST(ICR643WS-SUB:1)         
+                     END-IF                                                     
+                     ADD 1             TO ICR643WS-A                            
+                 END-PERFORM                                                    
+      * STRIP IM-BID                                                            
+                 INITIALIZE ICR643WS-VEND-BID-NBR-SPEZL                         
+                            ICR643WS-STRING                                     
+                            ICR643WS-A                                          
+                            ICR643WS-B                                          
+                                                                                
+                 MOVE SETATRK-VEND-BID-NBR                                      
+                                       TO ICR643WS-VEND-BID-NBR-SPEZL           
+                                                                                
+                 INSPECT ICR643WS-ICR643-BID-NBR-SPEZL                          
+                         CONVERTING  ICR643WS-ICR643-BID-NBR-SPEZC TO           
+                                     ICR643WS-ICR643-BID-NBR-SPEZS              
+                                                                                
+                 MOVE ICR643WS-VEND-BID-NBR-SPEZL                               
+                                       TO ICR643WS-STRING                       
+                 MOVE ZERO             TO ICR643WS-SUB                          
+                 MOVE 1                TO ICR643WS-A                            
+                 MOVE SPACES           TO ICR643WS-WORK-STRING-IMBID            
+                 COMPUTE ICR643WS-B = LENGTH OF ICR643WS-STRING                 
+                                                                                
+      * REMOVING EMBEDED SPACES IN THE STRING FOR COMPARISON                    
+                 PERFORM  UNTIL ICR643WS-A > ICR643WS-B                         
+                     IF ICR643WS-STRING (ICR643WS-A :1) NOT = SPACES            
+                        ADD 1          TO ICR643WS-SUB                          
+                        MOVE ICR643WS-STRING (ICR643WS-A:1)                     
+                           TO ICR643WS-WORK-STRING-IMBID(ICR643WS-SUB:1)        
+                     END-IF                                                     
+                     ADD 1             TO ICR643WS-A                            
+                 END-PERFORM                                                    
+                                                                                
+                 IF ICR643WS-WORK-STRING-CUST  > SPACES                         
+                    MOVE ICR643WS-WORK-STRING-CUST                              
+                                       TO ICS643WS-CONVERT-DATA         RZS17034
+                    CALL 'SYU140IM' USING ICS643WS-CONVERT-DATA         RZS17034
+                    MOVE ICS643WS-CONVERT-DATA                          RZS17034
+                                       TO ICR643WS-WORK-STRING-CUST             
+                 END-IF                                                         
+                                                                                
+                 IF ICR643WS-WORK-STRING-IMBID > SPACES                         
+                    MOVE ICR643WS-WORK-STRING-IMBID                             
+                                       TO ICS643WS-CONVERT-DATA         RZS17034
+                    CALL 'SYU140IM' USING ICS643WS-CONVERT-DATA         RZS17034
+                    MOVE ICS643WS-CONVERT-DATA                          RZS17034
+                                       TO ICR643WS-WORK-STRING-IMBID            
+                 END-IF                                                         
+      * COMPARE CUSTOMER AND IM-BID                                             
+      * STORE ACOP TRACKING NBR AND INCREMENT THE MATCHED COUNTER               
+                 IF ICR643WS-WORK-STRING-CUST =                                 
+                    ICR643WS-WORK-STRING-IMBID                                  
+                    MOVE SETATRK-ACOP-EU-ID                             RZS17034
+                                       TO ICR643WS-SETATRK-ACOP-EU-ID   RZS17034
+                    MOVE SETATRK-VEND-BID-NBR                                   
+                                       TO ICR643WS-VEND-BID-NBR         RZS17034
+                    MOVE SETATRK-ACOP-SEQ-NBR                           RZS17034
+                                       TO ICR643WS-SETATRK-ACOP-SEQ-NBR RZS17034
+                    ADD +1             TO ICR643WS-MATCH-COUNT                  
+                 ELSE                                                           
+                    GO TO 240-COMPARE-BID-EXIT                                  
+                 END-IF                                                         
+              ELSE                                                              
+                GO TO 240-COMPARE-BID-EXIT                                      
+              END-IF                                                    RZS17034
+            END-IF.                                                     RZS17034
+                                                                                
+       240-COMPARE-BID-EXIT.                                                    
+           EXIT.                                                                
+                                                                                
+       270-GET-BID-VERSION.                                             RZS17034
+                                                                                
+           INITIALIZE WS-COP-ICLCOP-KEY.                                        
+                                                                                
+           MOVE ICR643-COUNTRY-CODE    TO WS-COP-COMPANY.                       
+           MOVE '2'                    TO WS-COP-RECORD-TYPE.                   
+           MOVE ICR643-PART-NBR        TO WS-COP-PART-NBR.                      
+           MOVE '4'                    TO WS-COP-COST-OVERRIDE-TYPE.            
+           MOVE ICR643-CUST            TO WS-COP-GENERIC-CODE.                  
+           MOVE ICR643WS-SETATRK-ACOP-EU-ID                             RZS17034
+                                       TO WS-COP-EU-END-USER-NBR.               
+           MOVE ICR643WS-SETATRK-ACOP-SEQ-NBR                           RZS17034
+                                       TO WS-COP-SEQNO.                 RZS17034
+      *    MOVE WS-PROGRAM               TO  WS-CP1-FLOW                CDL24125
+      *REMOVED ICP276 FLOW SINCE THAT WOULD NOT HAVE VALUE FOR BOTH EDI CDL24125
+      *AND INSIDELINE EXECUTION                                         CDL24125
+           IF SETATRK-ACOP-EFF-DT > SPACES                              CDL24125
+              INITIALIZE SY777-PARM-DATA                                CDL24125
+              MOVE SETATRK-ACOP-EFF-DT                                  CDL24125
+                                      TO SY777-IN-ISO-10                CDL24125
+              IF ICWCOP-PGM-BATCH                                       CDL24125
+                 CALL 'SYV777'         USING SY777-PARM-DATA            CDL24125
+              ELSE                                                      CDL24125
+                 CALL 'SYU777'         USING DFHEIBLK                   CDL24125
+                                          DFHCOMMAREA                   CDL24125
+                                          SY777-PARM-DATA               CDL24125
+              END-IF                                                    CDL24125
+              IF SY777-OUT-ERR-SW = SPACES                              CDL24125
+                 MOVE SY777-OUT-JUL-YYDDD                               CDL24125
+                                      TO ICWCOP-COP-EFF-DATE            CDL24125
+              END-IF                                                    CDL24125
+              IF ICWCOP-COP-EFF-DATE IS NUMERIC AND                     CDL24125
+                 ICWCOP-COP-EFF-DATE > 0                                CDL24125
+                 MOVE ICWCOP-COP-EFF-DATE                               CDL24125
+                                      TO WS-COP-EFF-DATE                CDL24125
+              ELSE                                                      CDL24125
+                 MOVE ZEROES             TO WS-COP-EFF-DATE             CDL24125
+              END-IF                                                    CDL24125
+           ELSE                                                         CDL24125
+              MOVE ZEROES                TO WS-COP-EFF-DATE             CDL24125
+           END-IF.                                                      CDL24125
+      * BELOW PARA SHOULD BE INCLUDED IN THE CALLING PROGRAM                    
+           PERFORM 820-READ-ICLCOP.                                             
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              CONTINUE                                                          
+           ELSE                                                                 
+              SET ICR643-ERRFND        TO TRUE                          RZS17034
+              MOVE '270'               TO ICR643-ERROR-CODE             RZS17034
+              MOVE 'ACOP NOT FOUND IN ICLCOP'                                   
+                                       TO ICR643-ERROR-TEXT                     
+           END-IF.                                                              
+                                                                                
+       270-GET-BID-VERSION-EXIT.                                        RZS17034
+           EXIT.                                                        RZS17034
+      *                                                                         
+       260-CLOSE-ACOP-CURSOR.                                                   
+                                                                                
+           IF TB-ACOP-PROD-GRP                                                  
+               EXEC SQL                                                         
+                    CLOSE PROD_GP_ACOP_CURS                                     
+               END-EXEC                                                         
+                                                                                
+               MOVE SQLCODE            TO SQLCODE-STATUS                        
+               EVALUATE TRUE                                                    
+                   WHEN SQLCODE-NORESP                                          
+                     CONTINUE                                                   
+                   WHEN OTHER                                                   
+                     MOVE '260-'       TO WS-ABCODE                             
+                     MOVE '260-CLOSE-ACOP-CURSOR'                               
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                     MOVE 'CLOSE CURSOR PROD_GP_ACOP_CURS'                      
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                     PERFORM 990-SQL-MESSAGE                                    
+                     PERFORM 999-ABEND                                          
+               END-EVALUATE                                                     
+           ELSE                                                                 
+               EXEC SQL                                                         
+                    CLOSE ACOP_TRK_CURS                                         
+               END-EXEC                                                         
+                                                                                
+               MOVE SQLCODE            TO SQLCODE-STATUS                        
+               EVALUATE TRUE                                                    
+                   WHEN SQLCODE-NORESP                                          
+                     CONTINUE                                                   
+                   WHEN OTHER                                                   
+                     MOVE '260-'       TO WS-ABCODE                             
+                     MOVE '260-CLOSE-ACOP-CURSOR'                               
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                     MOVE 'CLOSE CURSOR ACOP_TRK_CURS'                          
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                     PERFORM 990-SQL-MESSAGE                                    
+                     PERFORM 999-ABEND                                          
+               END-EVALUATE                                                     
+           END-IF.                                                              
+                                                                                
+       260-CLOSE-ACOP-CURSOR-EXIT.                                              
+           EXIT.                                                        RZS17034
+                                                                                
+       300-GET-RSLR-EU.                                                         
+                                                                                
+           INITIALIZE ICR643WS-VEND-MRKT-SGMT-TYP-CD.                           
+           INITIALIZE ICR643WS-IM-MRKT-SGMT-TYP-CD.                             
+           INITIALIZE ICR643WS-RSLR-MRKT-SGMT-TYP-CD.                           
+           INITIALIZE ICR643WS-EDI-MRKT-SGMT-TYP-CD.                            
+           INITIALIZE ICR643WS-VEND-NBR.                                        
+                                                                                
+           MOVE ICR643-COUNTRY-CODE    TO SETOEIDX-CO-CD                        
+           MOVE ICR643-ACOP-EU-ID      TO SETOEIDX-ACOP-EU-ID                   
+                                                                                
+           EXEC SQL                                                             
+               SELECT                                                           
+                   CO_CD,                                                       
+                   ACOP_EU_ID,                                                  
+                   IM_EU_ID,                                                    
+                   ADDR_SEQ_NBR                                                 
+               INTO                                                             
+                   :SETOEIDX-CO-CD,                                             
+                   :SETOEIDX-ACOP-EU-ID,                                        
+                   :SETOEIDX-IM-EU-ID,                                          
+                   :SETOEIDX-ADDR-SEQ-NBR                                       
+               FROM                                                             
+                   ACOP_EU_ID_XREF                                              
+               WHERE                                                            
+                   CO_CD           = :SETOEIDX-CO-CD                            
+               AND ACOP_EU_ID      = :SETOEIDX-ACOP-EU-ID                       
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS                        
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    PERFORM 310-RSLR-ADD-SEQ THRU 310-RSLR-ADD-SEQ-EXIT         
+               WHEN SQLCODE-NOT-FOUND                                           
+                    MOVE 'RESELLER NOT FOUND'                                   
+                                       TO ICR643-ERROR-CODE                     
+               WHEN OTHER                                                       
+                    MOVE '300-'        TO WS-ABCODE                             
+                    MOVE '300-GET-RSLR-EU'                                      
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                    MOVE 'SELECT ACOP_EU_ID_XREF'                               
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                    PERFORM 990-SQL-MESSAGE                                     
+                    PERFORM 999-ABEND                                           
+           END-EVALUATE.                                                        
+                                                                                
+       300-GET-RSLR-EU-EXIT.                                                    
+           EXIT.                                                                
+                                                                                
+       310-RSLR-ADD-SEQ.                                                        
+                                                                                
+           MOVE ICR643-COUNTRY-CODE    TO SETRIEAD-CO-CD                        
+           MOVE ICR643-CUST-BR         TO SETRIEAD-BR-NBR                       
+           MOVE ICR643-CUST-NBR        TO SETRIEAD-CUST-NBR                     
+           MOVE 'N'                    TO ICR643WS-FOUND-IM-EU-SW               
+                                                                                
+           EXEC SQL                                                             
+               SELECT                                                           
+                   RSLR_EU_ID,                                                  
+                   RSLR_EU_ADDR_NBR                                             
+               INTO                                                             
+                   :SETRIEAD-RSLR-EU-ID,                                        
+                   :SETRIEAD-RSLR-EU-ADDR-NBR                                   
+               FROM                                                             
+                   RSLR_IM_EU_ADDR                                              
+               WHERE                                                            
+                   CO_CD           = :SETRIEAD-CO-CD                            
+               AND BR_NBR          = :SETRIEAD-BR-NBR                           
+               AND CUST_NBR        = :SETRIEAD-CUST-NBR                         
+               AND IM_EU_ID        = :SETOEIDX-IM-EU-ID                         
+               AND IM_ADDR_SEQ_NBR = :SETOEIDX-ADDR-SEQ-NBR                     
+               ORDER BY RSLR_EU_ADDR_NBR DESC                                   
+               FETCH FIRST 1 ROW ONLY                                           
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS                        
+                                                                                
+           MOVE +0                     TO ICR643-RSLR-EU-ID             RZS17097
+           MOVE +0                     TO ICR643-RSLR-ADDR-SEQ-NBR      RZS17097
+                                                                        RZS17097
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    SET  ICR643WS-FOUND-IM-EU TO TRUE                           
+                    MOVE SETRIEAD-RSLR-EU-ID                                    
+                                       TO ICR643-RSLR-EU-ID                     
+                    MOVE SETRIEAD-RSLR-EU-ADDR-NBR                              
+                                       TO ICR643-RSLR-ADDR-SEQ-NBR              
+                    PERFORM 320-RSLR-CNT-SEQ THRU 320-RSLR-CNT-SEQ-EXIT         
+                    PERFORM 330-RSLR-EU-NAME THRU 330-RSLR-EU-NAME-EXIT RZS17097
+               WHEN SQLCODE-NOT-FOUND                                           
+                    MOVE 'RSLR ADDRESS NOT FOUND'                               
+                                       TO ICR643-ERROR-CODE                     
+               WHEN OTHER                                                       
+                    MOVE '310-'        TO WS-ABCODE                             
+                    MOVE '310-RSLR-ADD-SEQ'                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                    MOVE 'SELECT RSLR_IM_EU_ADDR'                               
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                    PERFORM 990-SQL-MESSAGE                                     
+                    PERFORM 999-ABEND                                           
+           END-EVALUATE.                                                        
+                                                                                
+       310-RSLR-ADD-SEQ-EXIT.                                                   
+           EXIT.                                                                
+                                                                                
+       320-RSLR-CNT-SEQ.                                                        
+                                                                                
+           MOVE ICR643-COUNTRY-CODE    TO     SETRSECT-CO-CD                    
+           MOVE ICR643-CUST-BR         TO     SETRSECT-BR-NBR                   
+           MOVE ICR643-CUST-NBR        TO     SETRSECT-CUST-NBR                 
+                                                                                
+           EXEC SQL                                                             
+               SELECT                                                           
+                   RSLR_EU_CTAC_ID                                              
+               INTO                                                             
+                   :SETRSECT-RSLR-EU-CTAC-ID                                    
+               FROM                                                             
+                   RSLR_EU_CTAC                                                 
+               WHERE                                                            
+                   CO_CD           = :SETRSECT-CO-CD                            
+               AND BR_NBR          = :SETRSECT-BR-NBR                           
+               AND CUST_NBR        = :SETRSECT-CUST-NBR                         
+               AND RSLR_EU_ID      = :SETRIEAD-RSLR-EU-ID                       
+               ORDER BY RSLR_EU_CTAC_ID                                         
+               FETCH FIRST 1 ROW ONLY                                           
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS                        
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    MOVE SETRSECT-RSLR-EU-CTAC-ID                               
+                                       TO ICR643-RSLR-EU-CTAC-ID                
+                                                                                
+               WHEN SQLCODE-NOT-FOUND                                           
+                    MOVE 'RSLR ADDRESS NOT FOUND'                               
+                                       TO ICR643-ERROR-CODE                     
+               WHEN OTHER                                                       
+                    MOVE '320-'        TO WS-ABCODE                             
+                    MOVE '320-RSLR-CNT-SEQ'                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                    MOVE 'FETCH CURSOR PROD_GP_ACOP_CURS'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                    PERFORM 990-SQL-MESSAGE                                     
+                    PERFORM 999-ABEND                                           
+           END-EVALUATE.                                                        
+                                                                                
+       320-RSLR-CNT-SEQ-EXIT.                                                   
+           EXIT.                                                                
+                                                                                
+       330-RSLR-EU-NAME.                                                        
+                                                                                
+           MOVE ICR643-COUNTRY-CODE    TO SETRSEU-CO-CD                         
+           MOVE ICR643-CUST-BR         TO SETRSEU-BR-NBR                        
+           MOVE ICR643-CUST-NBR        TO SETRSEU-CUST-NBR                      
+                                                                                
+           EXEC SQL                                                             
+               SELECT                                                           
+                   RSLR_EU_NAM,                                                 
+                   MRKT_SGMT_TYP_CD,                                            
+                   EU_DATA_SRC_CD,                                              
+                   INSTT_TYP_CD                                                 
+               INTO                                                             
+                   :SETRSEU-RSLR-EU-NAM,                                        
+                   :SETRSEU-MRKT-SGMT-TYP-CD                                    
+                   :WS-NULL-IND-MKTSEG,                                         
+                   :SETRSEU-EU-DATA-SRC-CD,                                     
+                   :SETRSEU-INSTT-TYP-CD  :WS-NULL-IND-INSTYP                   
+               FROM                                                             
+                   RSLR_EU                                                      
+               WHERE                                                            
+                   CO_CD           = :SETRSEU-CO-CD                             
+               AND BR_NBR          = :SETRSEU-BR-NBR                            
+               AND CUST_NBR        = :SETRSEU-CUST-NBR                          
+               AND RSLR_EU_ID      = :SETRIEAD-RSLR-EU-ID                       
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS                        
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    MOVE SETRSEU-RSLR-EU-NAM                                    
+                                       TO ICR643-EU-NAME                        
+                    MOVE SETRSEU-MRKT-SGMT-TYP-CD                               
+                                       TO ICR643WS-RSLR-MRKT-SGMT-TYP-CD        
+                    MOVE SETRSEU-INSTT-TYP-CD                                   
+                                       TO ICR643-INSTT-TYP-CD                   
+                    PERFORM 340-MOVE-OUTPUT                                     
+                       THRU 340-MOVE-OUTPUT-EXIT                                
+               WHEN SQLCODE-NOT-FOUND                                           
+                    MOVE 'RSLR ADDRESS NOT FOUND'                               
+                                       TO  ICR643-ERROR-CODE                    
+               WHEN OTHER                                                       
+                    MOVE '330-'        TO WS-ABCODE                             
+                    MOVE '330-RSLR-EU-NAME'                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                    MOVE 'SELECT RSLR_EU'                                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                    PERFORM 990-SQL-MESSAGE                                     
+                    PERFORM 999-ABEND                                           
+           END-EVALUATE.                                                        
+                                                                                
+       330-RSLR-EU-NAME-EXIT.                                                   
+           EXIT.                                                                
+                                                                                
+       340-MOVE-OUTPUT.                                                         
+                                                                                
+           MOVE ICR643-COUNTRY-CODE    TO SETIMEU-CO-CD.                        
+           MOVE SETOEIDX-IM-EU-ID      TO SETIMEU-IM-EU-ID.                     
+                                                                                
+           IF ICR643-VEND-NBR > SPACES                                          
+              MOVE ICR643-VEND-NBR     TO ICR643WS-VEND-NBR                     
+           END-IF.                                                              
+                                                                                
+           EXEC SQL                                                             
+              SELECT                                                            
+                  MRKT_SGMT_TYP_CD                                              
+              INTO                                                              
+                  :SETIMEU-MRKT-SGMT-TYP-CD                                     
+               FROM                                                             
+                  IM_EU                                                         
+               WHERE                                                            
+                  CO_CD            = :SETIMEU-CO-CD          AND                
+                  IM_EU_ID         = :SETIMEU-IM-EU-ID                          
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS                        
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    MOVE SETIMEU-MRKT-SGMT-TYP-CD                               
+                                       TO ICR643WS-IM-MRKT-SGMT-TYP-CD          
+                    PERFORM 350-CHECK-VEND-EU                                   
+                       THRU 350-CHECK-VEND-EU-EXIT                              
+                    PERFORM 360-SELECT-WW-VENDOR                                
+                       THRU 360-SELECT-WW-VENDOR-EXIT                           
+                    PERFORM 370-RSLR-EU-HOLD                                    
+                       THRU 370-RSLR-EU-HOLD-EXIT                               
+                    PERFORM 380-EU-MRKT-SGMT                                    
+                       THRU 380-EU-MRKT-SGMT-EXIT                               
+               WHEN SQLCODE-NOT-FOUND                                           
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                    MOVE '340-'        TO WS-ABCODE                             
+                    MOVE '340-MOVE-OUTPUT'                                      
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                    MOVE 'SELECT IM_EU'                                         
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                    PERFORM 990-SQL-MESSAGE                                     
+                    PERFORM 999-ABEND                                           
+           END-EVALUATE.                                                        
+                                                                                
+           IF ICR643WS-EU-HOLD-IND    > SPACES                                  
+              MOVE ICR643WS-EU-HOLD-IND                                         
+                                       TO ICR643-EU-HOLD-IND                    
+           END-IF.                                                              
+                                                                                
+       340-MOVE-OUTPUT-EXIT.                                                    
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      *** CHECK TO SEE IF THIS IM_EU_ID HAS AN ENTRY ON VEND_EU      ***        
+      ******************************************************************        
+       350-CHECK-VEND-EU.                                                       
+      *                                                                         
+           MOVE ICR643-COUNTRY-CODE    TO SETVENEU-CO-CD                        
+                                                                                
+           EXEC SQL                                                             
+             SELECT   'Y'                                                       
+               INTO  :WS-EXISTENCE-CHECK                                        
+               FROM   VEND_EU                                                   
+              WHERE   CO_CD           = :SETVENEU-CO-CD       AND               
+                      IM_EU_ID        = :SETIMEU-IM-EU-ID                       
+             FETCH FIRST 1 ROW ONLY                                             
+           END-EXEC.                                                            
+      *                                                                         
+           MOVE SQLCODE                TO SQLCODE-STATUS                        
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    CONTINUE                                                    
+               WHEN SQLCODE = DB2-MULTIPLE-ROWS-RETURNED                        
+                    CONTINUE                                                    
+               WHEN SQLCODE-NOT-FOUND                                           
+                    MOVE 'N'           TO ICR643WS-VEND-EU-EXISTS-SW            
+               WHEN OTHER                                                       
+                    MOVE 'Y'           TO ICR643-RESULT-FLG                     
+                    MOVE '350'         TO ICR643-ERROR-CODE                     
+           END-EVALUATE.                                                        
+                                                                                
+       350-CHECK-VEND-EU-EXIT.                                                  
+           EXIT.                                                                
+                                                                                
+                                                                                
+      ******************************************************************        
+      *** SELECT FROM THE WW_VENDOR TABLE TO GET THE PAYE_VEND_NBR   ***        
+      ******************************************************************        
+       360-SELECT-WW-VENDOR.                                                    
+                                                                                
+            MOVE ICR643-COUNTRY-CODE   TO WWVN-CO-CD.                           
+            MOVE ICR643WS-VEND-NBR     TO WWVN-CO-CD.                           
+                                                                                
+           EXEC SQL                                                             
+             SELECT   PAYE_VEND_NBR                                             
+               INTO  :WWVN-PAYE-VEND-NBR                                        
+               FROM   WW_VENDOR                                                 
+              WHERE   CO_CD           = :WWVN-CO-CD           AND               
+                      VEND_NBR        = :WWVN-VEND-NBR                          
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS                        
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    PERFORM 390-SELECT-VEND-EU                                  
+                       THRU 390-SELECT-VEND-EU-EXIT                             
+               WHEN SQLCODE-NOT-FOUND                                           
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'Y'              TO ICR643-RESULT-FLG                     
+                 MOVE '360'            TO ICR643-ERROR-CODE                     
+           END-EVALUATE.                                                        
+                                                                                
+       360-SELECT-WW-VENDOR-EXIT.                                               
+           EXIT.                                                                
+                                                                                
+       370-RSLR-EU-HOLD.                                                        
+      *                                                                         
+           MOVE ICR643-COUNTRY-CODE    TO SETRSEHD-CO-CD.                       
+           MOVE ICR643-CUST-BR         TO SETRSEHD-BR-NBR.                      
+           MOVE ICR643-CUST-NBR        TO SETRSEHD-CUST-NBR.                    
+           MOVE ICR643-RSLR-EU-ID      TO SETRSEHD-RSLR-EU-ID.                  
+           MOVE ICR643-RSLR-ADDR-SEQ-NBR                                        
+                                       TO SETRSEHD-ADDR-SEQ-NBR.                
+                                                                                
+           EXEC SQL                                                             
+             SELECT   EU_HOLD_CD                                                
+               INTO  :SETRSEHD-EU-HOLD-CD                                       
+               FROM   RSLR_EU_HOLD                                              
+              WHERE   CO_CD           = :SETRSEHD-CO-CD       AND               
+                      BR_NBR          = :SETRSEHD-BR-NBR      AND               
+                      CUST_NBR        = :SETRSEHD-CUST-NBR    AND               
+                      RSLR_EU_ID      = :SETRSEHD-RSLR-EU-ID  AND               
+                      ADDR_SEQ_NBR    = :SETRSEHD-ADDR-SEQ-NBR                  
+           END-EXEC.                                                            
+      *                                                                         
+           MOVE SQLCODE                TO SQLCODE-STATUS                        
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    MOVE SETRSEHD-EU-HOLD-CD                                    
+                                       TO ICR643-EU-HOLD-IND                    
+                    MOVE SETRSEHD-EU-HOLD-CD                                    
+                                       TO ICR643WS-EU-HOLD-IND                  
+                    MOVE 'Y'           TO ICR643WS-RSLR-EU-HOLD-SW              
+               WHEN SQLCODE-NOT-FOUND                                           
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                    MOVE '370-'        TO WS-ABCODE                             
+                    MOVE '370-RSLR-EU-HOLD'                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                    MOVE 'SELECT RSLR_EU_HOLD'                                  
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                    PERFORM 990-SQL-MESSAGE                                     
+                    PERFORM 999-ABEND                                           
+           END-EVALUATE.                                                        
+                                                                                
+       370-RSLR-EU-HOLD-EXIT.                                                   
+           EXIT.                                                                
+                                                                                
+       380-EU-MRKT-SGMT.                                                        
+                                                                                
+           IF ICR643WS-VEND-MRKT-SGMT-TYP-CD > SPACES                           
+              MOVE 'V'                 TO ICR643-EU-MRKT-SGMT-TYP-SRC           
+              MOVE ICR643WS-VEND-MRKT-SGMT-TYP-CD                               
+                                       TO ICR643-EU-MRKT-SGMT-TYP-CD            
+           ELSE                                                                 
+             IF ICR643WS-IM-MRKT-SGMT-TYP-CD > SPACES                           
+                MOVE 'I'               TO ICR643-EU-MRKT-SGMT-TYP-SRC           
+                MOVE ICR643WS-IM-MRKT-SGMT-TYP-CD                               
+                                       TO ICR643-EU-MRKT-SGMT-TYP-CD            
+             ELSE                                                               
+               IF ICR643WS-RSLR-MRKT-SGMT-TYP-CD > SPACES                       
+                  MOVE 'R'             TO ICR643-EU-MRKT-SGMT-TYP-SRC           
+                  MOVE ICR643WS-RSLR-MRKT-SGMT-TYP-CD                           
+                                       TO ICR643-EU-MRKT-SGMT-TYP-CD            
+               END-IF                                                           
+             END-IF                                                             
+           END-IF.                                                              
+                                                                                
+       380-EU-MRKT-SGMT-EXIT.                                                   
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      *** SELECT FROM THE VEND_EU TABLE TO GET MRKT_SGMT_TYP_CD      ***        
+      ******************************************************************        
+       390-SELECT-VEND-EU.                                                      
+      *                                                                         
+           MOVE ICR643-COUNTRY-CODE    TO SETVENEU-CO-CD.                       
+           MOVE ICR643WS-PAYE-VEND-NBR TO SETVENEU-PAYE-VEND-NBR.               
+                                                                                
+           EXEC SQL                                                             
+             SELECT   MRKT_SGMT_TYP_CD                                          
+               INTO  :SETVENEU-MRKT-SGMT-TYP-CD:WS-NULL-IND-MKTSEG              
+               FROM   VEND_EU                                                   
+              WHERE   CO_CD           = :SETVENEU-CO-CD       AND               
+                      PAYE_VEND_NBR   = :SETVENEU-PAYE-VEND-NBR  AND            
+                      IM_EU_ID        = :SETIMEU-IM-EU-ID                       
+           END-EXEC.                                                            
+      *                                                                         
+           MOVE SQLCODE                TO SQLCODE-STATUS                        
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    MOVE SETVENEU-MRKT-SGMT-TYP-CD                              
+                                       TO ICR643WS-VEND-MRKT-SGMT-TYP-CD        
+               WHEN SQLCODE-NOT-FOUND                                           
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'Y'              TO ICR643-RESULT-FLG                     
+                 MOVE '390'            TO ICR643-ERROR-CODE                     
+           END-EVALUATE.                                                        
+      *                                                                         
+       390-SELECT-VEND-EU-EXIT.                                                 
+           EXIT.                                                                

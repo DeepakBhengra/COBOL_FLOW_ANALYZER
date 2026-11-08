@@ -1,0 +1,138 @@
+      ***********************************************************               
+      * WORKING STORAGE VARIABLE FOR SYXSER                                     
+      ***********************************************************               
+      * 05/07/21 CYR ADD FULFILL SWITCH                                 CYR21127
+      * 04/03/20 CYR INITIAL CODE                                       CYR20094
+      ***********************************************************               
+                                                                                
+      ***********************************************************               
+      * WORKING STORAGE DECLARATION FOLLOWS                                     
+      ***********************************************************               
+       01 SYWSER-WORKING-STORAGE.                                               
+          05 SYWSER-EXTRA-MESSAGE.                                              
+             10 FILLER                    PIC  X(07)                            
+                                               VALUE 'ERROR: '.                 
+             10 SYWSER-DB2-ERROR-PARA     PIC  X(20).                           
+             10 FILLER                    PIC  X(10)                            
+                                               VALUE ' SQLCODE: '.              
+             10 SYWSER-SQLCODE            PIC S9(05) VALUE ZEROES.              
+          05 SYWSER-HWRE-PURC-DT-IND      PIC S9(04) COMP VALUE ZEROES.         
+          05 SYWSER-WARTY-COVG-DT-IND     PIC S9(04) COMP VALUE ZEROES.         
+          05 SYWSER-HWRE-SHIP-DT-IND      PIC S9(04) COMP VALUE ZEROES.         
+          05 SYWSER-MAX-SEQ-NBR           PIC S9(04) COMP VALUE ZEROES.         
+                                                                                
+       01 SYWSER-NULLS.                                                         
+          05 SYWSER-SERL-ITEM-SEQ-NULL    PIC S9(04) COMP VALUE -1.             
+                                                                                
+      ***********************************************************               
+      * CURSOR DECLARATION FOLLOWS                                              
+      ***********************************************************               
+            EXEC SQL                                                            
+               DECLARE SYWSER-LN-SERIAL-CSR  CURSOR FOR                         
+                   SELECT SERL_ITEM_SEQ_NBR                                     
+                         ,VEND_PROD_SERL_NBR                                    
+                         ,IM_ASET_TAG_NBR                                       
+                         ,HWRE_PURC_DT                                          
+                         ,HWRE_SHIP_DT                                          
+                         ,ROLL_FLG                                              
+                         ,SERL_TYPE_FLG                                         
+                         ,SERL_PROCS_FLG                                        
+                         ,LAST_CHG_TS                                           
+                         ,LAST_UPD_PGM_ID                                       
+                         ,LAST_CHG_OPER_ID                                      
+                         ,FULFILL_SW                                    CYR21127
+                   FROM ESD_WARR_SERIALS                                        
+                   WHERE CO_CD          = :ORTESDWS-CO-CD                       
+                     AND BR_NBR         = :ORTESDWS-BR-NBR                      
+                     AND ORDR_DT        = :ORTESDWS-ORDR-DT                     
+                     AND ORDR_NBR       = :ORTESDWS-ORDR-NBR                    
+                     AND DIST_NBR       = :ORTESDWS-DIST-NBR                    
+                     AND SHIP_NBR       = :ORTESDWS-SHIP-NBR                    
+                     AND ORDR_LINE_NBR  = :ORTESDWS-ORDR-LINE-NBR               
+                   ORDER BY FULFILL_SW                                  CYR21127
+                          , SERL_PROCS_FLG                              CYR21127
+                          , SERL_ITEM_SEQ_NBR                           CYR21127
+                   FOR FETCH ONLY                                               
+                   OPTIMIZE FOR 1 ROWS                                          
+            END-EXEC.                                                           
+                                                                                
+            EXEC SQL                                                            
+               DECLARE SYWSER-DS-SERIAL-CSR  CURSOR FOR                         
+                   SELECT ORDR_LINE_NBR                                         
+                         ,SERL_ITEM_SEQ_NBR                                     
+                         ,VEND_PROD_SERL_NBR                                    
+                         ,IM_ASET_TAG_NBR                                       
+                         ,HWRE_PURC_DT                                          
+                         ,HWRE_SHIP_DT                                          
+                         ,ROLL_FLG                                              
+                         ,SERL_TYPE_FLG                                         
+                         ,SERL_PROCS_FLG                                        
+                         ,LAST_CHG_TS                                           
+                         ,LAST_UPD_PGM_ID                                       
+                         ,LAST_CHG_OPER_ID                                      
+                         ,FULFILL_SW                                    CYR21127
+                   FROM ESD_WARR_SERIALS                                        
+                   WHERE CO_CD          = :ORTESDWS-CO-CD                       
+                     AND BR_NBR         = :ORTESDWS-BR-NBR                      
+                     AND ORDR_DT        = :ORTESDWS-ORDR-DT                     
+                     AND ORDR_NBR       = :ORTESDWS-ORDR-NBR                    
+                     AND DIST_NBR       = :ORTESDWS-DIST-NBR                    
+                     AND SHIP_NBR       = :ORTESDWS-SHIP-NBR                    
+                   ORDER BY ORDR_LINE_NBR                                       
+                          , FULFILL_SW                                  CYR21127
+                          , SERL_PROCS_FLG                                      
+                          , SERL_ITEM_SEQ_NBR                                   
+                   FOR FETCH ONLY                                               
+                   OPTIMIZE FOR 1 ROWS                                          
+            END-EXEC.                                                           
+                                                                                
+            EXEC SQL                                                            
+               DECLARE SYWSER-PRI-SERIAL-CSR  CURSOR FOR                        
+                   SELECT SERL_ITEM_SEQ_NBR                                     
+                         ,VEND_PROD_SERL_NBR                                    
+                         ,HWRE_PURC_DT                                          
+                         ,HWRE_SHIP_DT                                          
+                         ,ROLL_FLG                                              
+                         ,SERL_PROCS_FLG                                        
+                         ,FULFILL_SW                                    CYR21127
+                   FROM ESD_WARR_SERIALS                                        
+                   WHERE CO_CD          = :ORTESDWS-CO-CD                       
+                     AND BR_NBR         = :ORTESDWS-BR-NBR                      
+                     AND ORDR_DT        = :ORTESDWS-ORDR-DT                     
+                     AND ORDR_NBR       = :ORTESDWS-ORDR-NBR                    
+                     AND DIST_NBR       = :ORTESDWS-DIST-NBR                    
+                     AND SHIP_NBR       = :ORTESDWS-SHIP-NBR                    
+                     AND ORDR_LINE_NBR  = :ORTESDWS-ORDR-LINE-NBR               
+                     AND SERL_TYPE_FLG  = 'P'                                   
+                   ORDER BY FULFILL_SW                                  CYR21127
+                          , SERL_PROCS_FLG                              CYR21127
+                          , SERL_ITEM_SEQ_NBR                           CYR21127
+                   FOR FETCH ONLY                                               
+                   OPTIMIZE FOR 1 ROWS                                          
+            END-EXEC.                                                           
+                                                                                
+            EXEC SQL                                                            
+               DECLARE SYWSER-ACCS-SERIAL-CSR  CURSOR FOR                       
+                   SELECT SERL_ITEM_SEQ_NBR                                     
+                         ,VEND_PROD_SERL_NBR                                    
+                         ,HWRE_PURC_DT                                          
+                         ,HWRE_SHIP_DT                                          
+                         ,ROLL_FLG                                              
+                         ,SERL_PROCS_FLG                                        
+                         ,FULFILL_SW                                    CYR21127
+                   FROM ESD_WARR_SERIALS                                        
+                   WHERE CO_CD           = :ORTESDWS-CO-CD                      
+                     AND BR_NBR          = :ORTESDWS-BR-NBR                     
+                     AND ORDR_DT         = :ORTESDWS-ORDR-DT                    
+                     AND ORDR_NBR        = :ORTESDWS-ORDR-NBR                   
+                     AND DIST_NBR        = :ORTESDWS-DIST-NBR                   
+                     AND SHIP_NBR        = :ORTESDWS-SHIP-NBR                   
+                     AND ORDR_LINE_NBR   = :ORTESDWS-ORDR-LINE-NBR              
+                     AND SERL_TYPE_FLG   = 'S'                                  
+                     AND IM_ASET_TAG_NBR = :ORTESDWS-IM-ASET-TAG-NBR            
+                   ORDER BY FULFILL_SW                                  CYR21127
+                          , SERL_PROCS_FLG                              CYR21127
+                          , SERL_ITEM_SEQ_NBR                           CYR21127
+                   FOR FETCH ONLY                                               
+                   OPTIMIZE FOR 1 ROWS                                          
+            END-EXEC.                                                           

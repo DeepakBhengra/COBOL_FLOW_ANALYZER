@@ -1,0 +1,243 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8350
+      ******************************************************************        
+000100*                                                                 DDR96054
+000200* 07-21-06 MEP  ADDED CODE FOR RECXS7  RESHED DATABASE.           MEP06199
+000200* 11-05-96 PLB  ADDED CODE FOR OTDMST DATABASE.                   PLB96260
+000200* 05-31-96 MCS  ADDED CODE FOR RESHED DATABASE.                   MCS96152
+000200* 02-16-96 DDR  ADDED CODE FOR END USER DATABASE.                 DDR96054
+000300*                                                                 DDR96054
+000400 8888-SETUP-DLI-CALL.                                                     
+000500                                                                          
+000600* SET UP PCB POINTERS TO ALLOW ACCESS TO A DATABASE IN A                  
+000700* REMOTE CICS REGION.                                                     
+000800                                                                          
+000900* SKIP THIS ROUTINE IF THE COMPANY IS NOT ALLOWED TO ACCESS               
+001000*  DATABASES IN OTHER REGIONS.                                            
+001100                                                                          
+001200     IF TB-CPO-ALT-INVENTORY-ALLOWED  OR                          JWO93362
+001300        TB-CPO-INVENTORY-IS-SHARED                                JWO93362
+001400         CONTINUE                                                 JWO93362
+001500     ELSE                                                         JWO93362
+001600         GO TO 8888-SETUP-DLI-CALL-EXIT.                          JWO93362
+001700                                                                          
+001800                                                                          
+001900* SEE IF THIS IS A SPECIAL PSB THAT HAS ONLY THE PCB'S NEEDED FOR         
+002000*  1 FREQUENTLY USED PROGRAM. THESE PSB'S DO NOT HAVE THE SAME            
+002100*  NUMBER OF PCB'S FOR ALL PCB TYPES IN THE PSB. EX : 1 PCB               
+002200*  TYPE MAY BE REQUIRED FOR ALL REGIONS, WHILE THE OTHER PCB TYPES        
+002300*  ARE ONLY NEEDED FOR THE LOCAL REGION.                                  
+002400*  IN THIS CASE USE THE HARDCODED POINTER CALCULATION ROUTINE             
+002500*  WHICH USES THE TYPE-REGION-POSITION FORMAT OF TBIPSBTY AND             
+002600*  SKIP THE USUAL SUPERPSB POINTER CALCULATION ROUTINE                    
+002700*  WHICH USES THE TYPE-ROW FORMAT OF TBIPSBTY.                            
+002800                                                                          
+002900     IF TB-PSB-TY-NUM-OF-TYPES  = 00                              MSC90219
+003000     PERFORM 8888-SPECIAL-DLI-SETUP                                       
+003100        THRU 8888-SPECIAL-DLI-SETUP-EXIT                                  
+003200         GO TO 8888-SETUP-DLI-CALL-CONTINUE2.                             
+003300                                                                          
+003400*                                                                         
+003500                                                                          
+003600 8888-SETUP-DLI-CALL-CONTINUE1.                                           
+003700                                                                          
+003800*  TYPE-ROW METHOD :                                                      
+003900*                                                                         
+004000* FIND ROW THAT CONTAINS PCB'S OF THE REQUIRED TYPE                       
+004100*                                                                         
+004200     MOVE 'N'            TO WS-PCB-FOUND-SW.                      MSC90219
+004300*                                                                         
+004400     PERFORM  VARYING WS-PCB-SUB                                  MSC90219
+004500              FROM 1 BY 1                                         MSC90219
+004600              UNTIL (WS-PCB-SUB > TB-PSB-TY-NUM-OF-TYPES)         MSC90219
+004700                 OR (WS-PCB-FOUND-SW  = 'Y')                      MSC90219
+004800                 OR (WS-PCB-SUB > WS-PCB-TYPE-ROW-LIMIT)          MSC90219
+004900                                                                          
+005000         IF WS-PCB-TYPE = TB-PSB-TY-TYPE ( WS-PCB-SUB )           MSC90219
+005100             MOVE TB-PSB-TY-ROW ( WS-PCB-SUB ) TO WS-PCB-ROW      MSC90219
+005200             MOVE 'Y' TO WS-PCB-FOUND-SW                          MSC90219
+005300         END-IF                                                   MSC90219
+005400                                                                          
+005500     END-PERFORM.                                                 MSC90219
+005600*                                                                         
+005700     IF WS-PCB-NOT-FOUND                                          MSC90219
+005800         MOVE 'SETT' TO  WS-ABCODE                                        
+005900         PERFORM 999-ABEND                                        MSC90219
+006000     END-IF.                                                              
+006100                                                                          
+006200                                                                          
+006300* FIND COLUMN THAT CONTAINS PCB'S OF THE REQUIRED REGION                  
+006400*                                                                         
+006500     MOVE 'N'            TO WS-PCB-FOUND-SW.                      MSC90219
+006600*                                                                         
+006700     PERFORM  VARYING WS-PCB-SUB                                  MSC90219
+006800              FROM 1 BY 1                                         MSC90219
+006900              UNTIL (WS-PCB-SUB > TB-PSB-RG-NUM-OF-REGIONS)       MSC90219
+007000                 OR (WS-PCB-FOUND-SW  = 'Y')                      MSC90219
+007100                 OR (WS-PCB-SUB > WS-PCB-REGION-COL-LIMIT)        MSC90219
+007200                                                                          
+007300         IF WS-PCB-REGION = TB-PSB-RG-REGION ( WS-PCB-SUB )       MSC90219
+007400             MOVE TB-PSB-RG-COL ( WS-PCB-SUB ) TO WS-PCB-COL      MSC90219
+007500             MOVE 'Y' TO WS-PCB-FOUND-SW                          MSC90219
+007600         END-IF                                                   MSC90219
+007700                                                                          
+007800     END-PERFORM.                                                 MSC90219
+007900*                                                                         
+008000     IF WS-PCB-NOT-FOUND                                          MSC90219
+008100         MOVE 'SETR' TO  WS-ABCODE                                        
+008200         PERFORM 999-ABEND                                        MSC90219
+008300     END-IF.                                                              
+008400                                                                          
+008500                                                                          
+008600* CALCULATE RELATIVE POSITION OF THE PCB                                  
+008700*                                                                         
+008800                                                                          
+008900     COMPUTE WS-PCB-SUB =                                                 
+009000                  WS-PCB-COL +                                            
+009100               (( WS-PCB-ROW - 1 ) * TB-PSB-RG-NUM-OF-REGIONS).           
+009200                                                                          
+009300                                                                          
+009400 8888-SETUP-DLI-CALL-CONTINUE2.                                           
+009500                                                                          
+009600                                                                          
+009700* MATCH THE PCB WITH THE PROPER PCB FIELD NAMES                           
+009800*                                                                         
+009900     MOVE WS-PCB-TYPE TO WS-PCB-TYPE-CHECK.                               
+010000     IF     WS-PCB-TYPE-APPCB                                             
+010100               SET ADDRESS OF APPCB                                       
+010200                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+010300     ELSE                                                                 
+010400         IF WS-PCB-TYPE-APPCB-PAYEE                                       
+010500               SET ADDRESS OF APPCB-PAYEE                                 
+010600                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+010700     ELSE                                                                 
+010800         IF WS-PCB-TYPE-CUPCB                                             
+010900               SET ADDRESS OF CUPCB                                       
+011000                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+011100     ELSE                                                                 
+011200         IF WS-PCB-TYPE-EMPCB                                             
+011300               SET ADDRESS OF EMPCB                                       
+011400                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+011500     ELSE                                                                 
+011600         IF WS-PCB-TYPE-EMPCB-NAME                                        
+011700               SET ADDRESS OF EMPCB-NAME                                  
+011800                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+011900     ELSE                                                                 
+012000         IF WS-PCB-TYPE-EMPCB-SLM                                         
+012100               SET ADDRESS OF EMPCB-SLM                                   
+012200                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+012300     ELSE                                                         DDR96054
+012400         IF WS-PCB-TYPE-EUPCB                                     DDR96054
+012500               SET ADDRESS OF EUPCB                               DDR96054
+012600                        TO SUPER-PCB-PTR ( WS-PCB-SUB)            DDR96054
+012700     ELSE                                                         DDR96054
+012800         IF WS-PCB-TYPE-EUPCB2                                    DDR96054
+012900               SET ADDRESS OF EUPCB2                              DDR96054
+013000                        TO SUPER-PCB-PTR ( WS-PCB-SUB)            DDR96054
+013100     ELSE                                                         DDR96054
+013200         IF WS-PCB-TYPE-EUPCB-EUNAME                              DDR96054
+013300               SET ADDRESS OF EUPCB-EUNAME                        DDR96054
+013400                        TO SUPER-PCB-PTR ( WS-PCB-SUB)            DDR96054
+013500     ELSE                                                         DDR96054
+013600         IF WS-PCB-TYPE-EUPCB-CONTACT                             DDR96054
+013700               SET ADDRESS OF EUPCB-CONTACT                       DDR96054
+013800                        TO SUPER-PCB-PTR ( WS-PCB-SUB)            DDR96054
+013900     ELSE                                                         DDR96054
+014000         IF WS-PCB-TYPE-EUPCB-VENDOR                              DDR96054
+014100               SET ADDRESS OF EUPCB-VENDOR                        DDR96054
+014200                        TO SUPER-PCB-PTR ( WS-PCB-SUB)            DDR96054
+014300     ELSE                                                         DDR96054
+014400         IF WS-PCB-TYPE-EUPCB-ORDER                               DDR96054
+014500               SET ADDRESS OF EUPCB-ORDER                         DDR96054
+014600                        TO SUPER-PCB-PTR ( WS-PCB-SUB)            DDR96054
+014700     ELSE                                                                 
+014800         IF WS-PCB-TYPE-INPCB                                             
+014900               SET ADDRESS OF INPCB                                       
+015000                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+015100     ELSE                                                                 
+015200         IF WS-PCB-TYPE-INPCB-PART                                        
+015300               SET ADDRESS OF INPCB-PART                                  
+015400                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+015500     ELSE                                                                 
+015600         IF WS-PCB-TYPE-ORPCB                                             
+015700               SET ADDRESS OF ORPCB                                       
+015800                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+015900     ELSE                                                                 
+016000         IF WS-PCB-TYPE-ORPCBU                                            
+016100               SET ADDRESS OF ORPCBU                                      
+016200                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+016300     ELSE                                                                 
+016400         IF WS-PCB-TYPE-ORPCB2                                            
+016500               SET ADDRESS OF ORPCB2                                      
+016600                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+016700     ELSE                                                                 
+016800         IF WS-PCB-TYPE-ORPCB-CUST-ORD-NBR                                
+016900               SET ADDRESS OF ORPCB-CUST-ORD-NBR                          
+017000                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+017100     ELSE                                                                 
+017200         IF WS-PCB-TYPE-ORPCB-PART                                        
+017300               SET ADDRESS OF ORPCB-PART                                  
+017400                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+017500     ELSE                                                                 
+017600         IF WS-PCB-TYPE-ORPCB-SHIP                                        
+017700               SET ADDRESS OF ORPCB-SHIP                                  
+017800                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+017500     ELSE                                                         PLB96260
+017600         IF WS-PCB-TYPE-OTPCB                                     PLB96260
+017700               SET ADDRESS OF OTPCB                               PLB96260
+017800                        TO SUPER-PCB-PTR ( WS-PCB-SUB)            PLB96260
+017900     ELSE                                                                 
+018000         IF WS-PCB-TYPE-PUPCB                                             
+018100               SET ADDRESS OF PUPCB                                       
+018200                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+018300     ELSE                                                                 
+018400         IF WS-PCB-TYPE-PUPCB-VEND                                        
+018500               SET ADDRESS OF PUPCB-VEND                                  
+018600                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+018700     ELSE                                                                 
+018800         IF WS-PCB-TYPE-PUPCB-PART                                        
+018900               SET ADDRESS OF PUPCB-PART                                  
+019000                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+019100     ELSE                                                                 
+019200         IF WS-PCB-TYPE-PUPCB-BO                                          
+019300               SET ADDRESS OF PUPCB-BO                                    
+019400                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+019500     ELSE                                                                 
+019600         IF WS-PCB-TYPE-VNPCB                                             
+019700               SET ADDRESS OF VNPCB                                       
+019800                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+019900     ELSE                                                                 
+020000         IF WS-PCB-TYPE-VNPCB-SORT                                        
+020100               SET ADDRESS OF VNPCB-SORT                                  
+020200                        TO SUPER-PCB-PTR ( WS-PCB-SUB)                    
+020300     ELSE                                                                 
+020400         IF WS-PCB-TYPE-INPCB-INRMT                                       
+020500               SET ADDRESS OF INRMT-PART                                  
+021000                        TO SUPER-PCB-PTR ( WS-PCB-SUB)            MCS96152
+           ELSE                                                         MCS96152
+               IF WS-PCB-TYPE-REPCB                                     MCS96152
+                     SET ADDRESS OF REPCB                               MCS96152
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             MCS96152
+           ELSE                                                         MCS96152
+               IF WS-PCB-TYPE-REPCB-ISLM                                MCS96152
+                     SET ADDRESS OF REPCB-SALESMAN                      MCS96152
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             MCS96152
+           ELSE                                                         MCS96152
+               IF WS-PCB-TYPE-REPCB-CUST                                MCS96152
+                     SET ADDRESS OF REPCB-CUSTOMER                      MCS96152
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             MCS96152
+           ELSE                                                         MCS96152
+               IF WS-PCB-TYPE-REPCB-REASON                              MCS96152
+                     SET ADDRESS OF REPCB-REASON                        MCS96152
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             MCS96152
+           ELSE                                                         MCS96152
+               IF WS-PCB-TYPE-REPCB-GSN                                 MCS96152
+                     SET ADDRESS OF REPCB-GSN                           MCS96152
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             MEP06202
+           ELSE                                                         MEP06202
+               IF WS-PCB-TYPE-REPCB-ORD                                 MEP06202
+                     SET ADDRESS OF REPCB-ORD                           MEP06202
+                              TO SUPER-PCB-PTR (WS-PCB-SUB).            MEP06202
+020700                                                                          
+020800 8888-SETUP-DLI-CALL-EXIT.                                                
+020900     EXIT.                                                                

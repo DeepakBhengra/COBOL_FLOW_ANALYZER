@@ -1,0 +1,253 @@
+      *                                                                *        
+      ******************************************************************        
+      ***                                                            ***        
+      ***  START OF COPYBOOK ICSCRI2                                 ***        
+      ***                                                            ***        
+      ******************************************************************        
+      *                                                                *        
+      *================================================================*        
+      *                                                                *        
+      * PURPOSE:                                                       *        
+      *                                                                *        
+      *  THIS COPYBOOK CONTAINS THE MISCELLANEOUS REGIONALIZED         *        
+      *  INVENTORY UTILITY MODULES.  THE PARGRAPHS DO NOT CONTROL THE  *        
+      *  RI COST CONVERSION LOGIC.  RATHER, THIS COPYBOOK IS DESIGNED  *        
+      *  TO ACT AS A TOOLKIT FOR THE REGIONALIZED INVENTORY PROCESSING.*        
+      *                                                                *        
+      * REVISION INFO:                                                 *        
+      * 07/30/01  WFP  NEW COPYBOOK.                                   *WFP01211
+      *                                                                *        
+      *================================================================*        
+      *                                                                *        
+      ***                                                         ***           
+      ***  ENSURE THAT THE WORK FIELDS ARE SET TO INITIAL VALUES. ***           
+      ***                                                         ***           
+                                                                                
+       8200-ICRI-INIT-COST-CONV-DATA.                                           
+                                                                                
+           MOVE WS-INAL2-PART                                                   
+             TO ICRI-INV-OWNING-PART                                            
+                ICRI-LOC-PART.                                                  
+                                                                                
+      *===>  THESE INSHED FIELDS SHOULD BE FROM THE LOCAL                       
+      *===>  (SALES OWNING) DATABASE, NOT THE REMOTE                            
+      *===>  (REGIONALIZED INVENTORY) DATABASE.                                 
+                                                                                
+           IF ICRI-USE-SUPPLIED-DATA                                            
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              MOVE INI-COMPONENT-BUSINESS-SW                                    
+                TO ICRI-COMPONENT-BUSINESS-SW                                   
+              MOVE INI-PRICE-CONV-DATA                                          
+                TO ICRI-PRICE-CONV-DATA                                         
+              MOVE INI-ADJUSTED-COST-DATA                                       
+                TO ICRI-ADJUSTED-COST-DATA-SLS                                  
+              MOVE INI-ITEM-CONSIGNED-SW                                        
+                TO ICRI-ITEM-CONSIGNED-SW                                       
+              MOVE INI-ADJUSTED-COST-FLAG                                       
+                TO ICRI-ADJUSTED-COST-FLAG-SLS                                  
+              PERFORM 8220-ICRI-SET-LOC-COSTS                                   
+                 THRU 8220-EXIT.                                                
+                                                                                
+      *===>  CALL THE COST CONVERSION SUBROUTINE IN                             
+      *===>  "INITIALIZATION" MODE                                              
+                                                                                
+           MOVE 'I'                                                             
+             TO ICRI-REQ-CODE.                                                  
+           PERFORM 8300-ICRI-CALL-COST-CONV-PROG                                
+              THRU 8300-ICRI-EXIT.                                              
+                                                                                
+       8200-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+       8220-ICRI-SET-LOC-COSTS.                                                 
+                                                                                
+           IF INI-ADJUSTED-COST NUMERIC                                         
+              MOVE INI-ADJUSTED-COST                                            
+                TO ICRI-ADJUSTED-COST-SLS                                       
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ADJUSTED-COST-SLS.                                      
+                                                                                
+           IF INI-REPLACEMENT-COST NUMERIC                                      
+              MOVE INI-REPLACEMENT-COST                                         
+                TO ICRI-REPLACEMENT-COST-SLS                                    
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-REPLACEMENT-COST-SLS.                                   
+                                                                                
+           IF INI-WEIGHT NUMERIC                                                
+              MOVE INI-WEIGHT                                                   
+                TO ICRI-SKU-WEIGHT                                              
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-SKU-WEIGHT.                                             
+                                                                                
+       8220-EXIT.                                                               
+                                                                                
+           EXIT.                                                                
+                                                                                
+      ***                                                         ***           
+      ***  CONVERT THE INPUT COST DATA TO LOCAL CURRENCY.         ***           
+      ***                                                         ***           
+                                                                                
+       8400-ICRI-CONV-COST-DATA.                                                
+                                                                                
+      *===>  CLEAR THE OUTPUT (CONVERTED) FINANCIAL FIELDS.                     
+                                                                                
+           INITIALIZE ICRI-FIN-FIELDS.                                          
+                                                                                
+      *===>  THE DEFAULT IS TO USE THE FINANCIAL FIELDS FROM                    
+      *===>  INSHED AS INPUT TO THE SUBROUTINE.  THE USER CAN                   
+      *===>  OVERRIDE THIS, HOWEVER, AND USE THEIR OWN INPUT FIELDS.            
+                                                                                
+           IF ICRI-USE-DATABASE-DATA                                            
+              PERFORM 8600-ICRI-INSHED-FIELDS-TO-IH                             
+                 THRU 8600-ICRI-EXIT.                                           
+                                                                                
+           MOVE 'C'                                                             
+             TO ICRI-REQ-CODE.                                                  
+           PERFORM 8300-ICRI-CALL-COST-CONV-PROG                                
+              THRU 8300-ICRI-EXIT.                                              
+                                                                                
+       8400-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+      ***                                                         ***           
+      ***  RESET THE INSHED COST FIELDS TO THEIR ORIGINAL VALUES. ***           
+      ***                                                         ***           
+                                                                                
+       8500-ICRI-RESET-INSHED-COSTS.                                            
+                                                                                
+           MOVE ICRI-ORIG-AVG-COST                                              
+             TO INI-AVG-COST.                                                   
+                                                                                
+           MOVE ICRI-ORIG-REPL-COST                                             
+             TO INI-REPLACEMENT-COST.                                           
+                                                                                
+           MOVE ICRI-ORIG-ADJ-COST                                              
+             TO INI-ADJUSTED-COST.                                              
+                                                                                
+           MOVE ICRI-ORIG-INGRAM-COST                                           
+             TO INI-INGRAM-COST.                                                
+                                                                                
+           MOVE ICRI-ORIG-LANDED-COST                                           
+             TO INI-LANDED-COST.                                                
+                                                                                
+           MOVE ICRI-ORIG-DEALER-PRICE                                          
+             TO INI-DEALER-PRICE.                                               
+                                                                                
+           MOVE ICRI-ORIG-NEW-PO-COST                                           
+             TO INI-NEW-PO-COST.                                                
+                                                                                
+           MOVE ICRI-ORIG-PO-COST                                               
+             TO INI-PO-COST.                                                    
+                                                                                
+       8500-ICCRI-EXIT.                                                         
+                                                                                
+           EXIT.                                                                
+                                                                                
+      ***                                                         ***           
+      ***  SAVE THE INSHED COST DATA IN THE WORK FIELDS.          ***           
+      ***                                                         ***           
+                                                                                
+       8600-ICRI-INSHED-FIELDS-TO-IH.                                           
+                                                                                
+           IF INI-AVG-COST NUMERIC                                              
+              MOVE INI-AVG-COST                                                 
+                TO ICRI-ORIG-AVG-COST                                           
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ORIG-AVG-COST.                                          
+                                                                                
+           IF INI-REPLACEMENT-COST NUMERIC                                      
+              MOVE INI-REPLACEMENT-COST                                         
+                TO ICRI-ORIG-REPL-COST                                          
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ORIG-REPL-COST.                                         
+                                                                                
+           IF INI-ADJUSTED-COST NUMERIC                                         
+              MOVE INI-ADJUSTED-COST                                            
+                TO ICRI-ORIG-ADJ-COST                                           
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ORIG-ADJ-COST.                                          
+                                                                                
+           IF INI-INGRAM-COST NUMERIC                                           
+              MOVE INI-INGRAM-COST                                              
+                TO ICRI-ORIG-INGRAM-COST                                        
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ORIG-INGRAM-COST.                                       
+                                                                                
+           IF INI-LANDED-COST NUMERIC                                           
+              MOVE INI-LANDED-COST                                              
+                TO ICRI-ORIG-LANDED-COST                                        
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ORIG-LANDED-COST.                                       
+                                                                                
+           IF INI-DEALER-PRICE NUMERIC                                          
+              MOVE INI-DEALER-PRICE                                             
+                TO ICRI-ORIG-DEALER-PRICE                                       
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ORIG-DEALER-PRICE.                                      
+                                                                                
+           IF INI-NEW-PO-COST NUMERIC                                           
+              MOVE INI-NEW-PO-COST                                              
+                TO ICRI-ORIG-NEW-PO-COST                                        
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ORIG-NEW-PO-COST.                                       
+                                                                                
+           IF INI-PO-COST NUMERIC                                               
+              MOVE INI-PO-COST                                                  
+                TO ICRI-ORIG-PO-COST                                            
+           ELSE                                                                 
+              MOVE 0                                                            
+                TO ICRI-ORIG-PO-COST.                                           
+                                                                                
+           MOVE INI-VENDOR-NBR                                                  
+             TO ICRI-INV-OWNING-VENDOR-NBR.                                     
+                                                                                
+           MOVE INI-ADJUSTED-COST-DATA                                          
+             TO ICRI-ADJUSTED-COST-DATA-OWN.                                    
+                                                                                
+           MOVE INI-ADJUSTED-COST-FLAG                                          
+             TO ICRI-ADJUSTED-COST-FLAG-OWN.                                    
+                                                                                
+       8600-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+      ***                                                         ***           
+      ***  OVERLAY THE INSHED COST FIELDS WITH THE CONVERTED      ***           
+      ***  VALUES.                                                ***           
+      ***                                                         ***           
+                                                                                
+       8700-ICRI-IH-COSTS-TO-INSHED.                                            
+                                                                                
+           IF ICRI-DATA-FOUND                                                   
+            AND (ICRI-SKU-STATUS-RI-SEG                                         
+                 OR ICRI-FORCE-PROCESSING)                                      
+              MOVE ICRI-AVG-COST                                                
+                TO INI-AVG-COST                                                 
+              MOVE ICRI-ADJ-COST                                                
+                TO INI-ADJUSTED-COST.                                           
+                                                                                
+                                                                                
+       8700-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+      *                                                                *        
+      ******************************************************************        
+      ***                                                            ***        
+      ***  END OF COPYBOOK ICSCRI2                                   ***        
+      ***                                                            ***        
+      ******************************************************************        
+      *                                                                *        

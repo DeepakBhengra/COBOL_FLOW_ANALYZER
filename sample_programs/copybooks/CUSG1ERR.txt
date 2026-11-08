@@ -1,0 +1,239 @@
+000100******************************************************************        
+000200*** YEAR 2000 READY                                              *PWLY8307
+000300******************************************************************        
+000400******************************************************************        
+000500*  THIS COPYBOOK IS USED TO DETERMINE THE SUCCESS OF AN ADDRESS  *        
+000600*  MATCH VALIDATION THROUGH GROUP1 VENDOR SOFTWARE.              *        
+000700*                                                                *        
+000800*  USED IN CONJUNCTION WITH COPYBOOK CUWG1ERR.                   *        
+000900*                                                                *        
+001000* REVISION INFO:                                                 *        
+      * 01/10/12 RAL ADD RDI DATA                                       RAL12010
+001010* 03/05/04 MXK FIXED PROBLEM WITH DROPPING APT NBR FROM ADDRESS  *MXK04065
+001011* 08/21/02 CJK ADDED FRM NAME FOR SINGLE SOURCE PROJ             *CJK02233
+001020* 05/31/02 TEH ADDED LOGIC TO MOVE P.O. BOX INDICATOR.           *TEH02140
+001100* 10/04/00 LNJ ADDED LOGIC TO DEFAULT TO 'R' FOR FIRM/RES CODE   *LNJ00278
+001200* 09/13/00 LNJ ADDED LOGIC TO MOVE FIRM/RES CODE TO OUTPUT       *LNJ00257
+001300* 03/10/98 LLS NEW COPYBOOK                                      *LLS98069
+001400******************************************************************        
+001500* CHECK THE 'OVERALL' RETURN VALUES.                             *        
+001600******************************************************************        
+001700     INITIALIZE CUWG1ERR-WORK-AREA.                                       
+001800*                                                                 LNJ00278
+001900      MOVE 'R'            TO  CUWG1ERR-GRP1-USPS-CODE.            LNJ00278
+002000*                                                                 LNJ00278
+002100* GROUP 1 - GENERAL RETURN CODE                                           
+002200     EVALUATE P9OGRC                                                      
+002300                                                                          
+002400     WHEN SPACE                                                           
+002500          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+002600          MOVE 'SUCCESSFUL ADDRESS MATCH'                                 
+002700                                 TO CUWG1ERR-MSG-RETURNED                 
+002800     WHEN 'Z'                                                             
+002900          MOVE 'Z' TO CUWG1ERR-RETURN-CODE                                
+003000          MOVE 'ERROR: INVALID ZIPCODE'                                   
+003100                                  TO CUWG1ERR-MSG-RETURNED                
+003200                                                                          
+003300     WHEN 'B'                                                             
+003400          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+003500          MOVE 'ERROR: NEED MORE ADDR INFO'                               
+003600                                 TO CUWG1ERR-MSG-RETURNED                 
+003700     WHEN 'S'                                                             
+003800          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+003900          MOVE 'ERROR: STREET NOT FOUND IN ZIP'                           
+004000                                 TO CUWG1ERR-MSG-RETURNED                 
+004100     WHEN 'H'                                                             
+004200          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+004300          MOVE 'ERROR: HOUSE/POBOX NOT ON STREET'                         
+004400                                 TO CUWG1ERR-MSG-RETURNED                 
+004500     WHEN 'A'                                                             
+004600          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+004700          MOVE 'ERROR: UNIT# MISSING/NOT FOUND'                           
+004800                                 TO CUWG1ERR-MSG-RETURNED                 
+004900     WHEN 'M'                                                             
+005000          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+005100          MOVE 'WARNING: MULTI ADDRS FND - VERIFY'                        
+005200                                 TO CUWG1ERR-MSG-RETURNED                 
+005300     WHEN 'X'                                                             
+005400          MOVE 'N' TO CUWG1ERR-RETURN-CODE                                
+005500          MOVE 'ERROR: GROUP1 DATABASE EXPIRED'                           
+005600                                 TO CUWG1ERR-MSG-RETURNED                 
+005700     WHEN OTHER                                                           
+005800          MOVE 'N' TO CUWG1ERR-RETURN-CODE                                
+005900          MOVE 'ERROR: UNEXPECTED RETURN CODE'                            
+006000                                 TO CUWG1ERR-MSG-RETURNED.                
+006100******************************************************************        
+006200* CHECK THE 'PROBABILITY' RETURN VALUES.                         *        
+006300******************************************************************        
+006400                                                                          
+006500* GROUP 1 - GENERAL AND OVERALL PROBALILITY RETURN CODE                   
+006600     EVALUATE P9OGRC ALSO P9OPRB                                          
+006700                                                                          
+006800     WHEN SPACE ALSO 0 THRU 4                                             
+006900          CONTINUE                                                        
+007000                                                                          
+007100     WHEN SPACE ALSO 5 THRU 9                                             
+007200          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+007300          MOVE 'WARNING: ADDR CHANGED - VERIFY'                           
+007400                                 TO CUWG1ERR-MSG-RETURNED.                
+007500******************************************************************        
+007600* CHECK THE 'SUFFIX' RETURN CODE                                 *        
+007700******************************************************************        
+007800                                                                          
+007900* GROUP 1 - GENERAL AND SUFFIX RETURN CODES                               
+008000     EVALUATE P9OGRC ALSO P9OSRC                                          
+008100                                                                          
+008200     WHEN SPACE ALSO SPACE                                                
+008300          CONTINUE                                                        
+008400                                                                          
+008500     WHEN SPACE ALSO 'N'                                                  
+008600          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+008700          MOVE 'WARNING: SUFFIX HAS BEEN ADDED'                           
+008800                                 TO CUWG1ERR-MSG-RETURNED                 
+008900                                                                          
+009000     WHEN SPACE ALSO 'S'                                                  
+009100          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+009200          MOVE 'WARNING: SUFFIX CHANGED -VERIFY'                          
+009300                                 TO CUWG1ERR-MSG-RETURNED.                
+009400******************************************************************        
+009500* CHECK THE 'DIRECTIONAL' RETURN CODE                            *        
+009600******************************************************************        
+009700                                                                          
+009800* GROUP 1 - GENERAL AND DIRECTIONAL RETURN CODES                          
+009900     EVALUATE P9OGRC ALSO P9ODRC                                          
+010000                                                                          
+010100     WHEN SPACE ALSO SPACE                                                
+010200          CONTINUE                                                        
+010300                                                                          
+010400     WHEN SPACE ALSO 'N'                                                  
+010500          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+010600          MOVE 'WARNING: DIRECTIONAL ADDED -VERIFY'                       
+010700                                 TO CUWG1ERR-MSG-RETURNED                 
+010800                                                                          
+010900     WHEN SPACE ALSO 'D'                                                  
+011000          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+011100          MOVE 'WARNING: DIRECTIONAL CHGD -VERIFY'                        
+011200                                 TO CUWG1ERR-MSG-RETURNED.                
+011300******************************************************************        
+011400* CHECK THE 'UNIT' RETURN VALUES.                                *        
+011500******************************************************************        
+011600                                                                          
+011700* GROUP 1 - GENERAL AND UNIT RETURN CODES                                 
+011800     EVALUATE P9OGRC ALSO P9OARC                                          
+011900                                                                          
+012000     WHEN SPACE ALSO SPACE                                                
+012100          CONTINUE                                                        
+012200                                                                          
+012300     WHEN SPACE ALSO 'N'                                                  
+012400          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+012500          MOVE 'WARNING: MISSING UNIT #'                                  
+012600                                 TO CUWG1ERR-MSG-RETURNED                 
+012700                                                                          
+012800     WHEN SPACE ALSO 'A'                                                  
+012900          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+013000          MOVE 'ERROR: INVALID UNIT # - VERIFY'                           
+013100                                 TO CUWG1ERR-MSG-RETURNED.                
+013200******************************************************************        
+013300* MOVE STREET ADDRESS HOUSE/DIRECTIONAL/STREET/SUFFIX/UNIT ETC.. *        
+013400* MOVE CITY STATE AND ZIP+4.                                     *        
+013500******************************************************************        
+013600     IF P9OGRC = SPACE                                                    
+013700*   APT/STE # DETECTED AND APT/STE # > SPACE                              
+013800        IF  P9OAPR = 'Y'                                                  
+013900        AND P9OAP-LB > SPACE                                              
+014000*   MOVES STREET ADDRESS TO WS TABLE                                      
+014100            MOVE P9OSTH TO CUWG1ERR-STREET-TABLE                          
+014200            PERFORM VARYING CSB FROM 50 BY -1                             
+014300              UNTIL CSB = 0                                               
+014400                 OR CUWG1ERR-STREET-BYTE (CSB) > SPACE                    
+014500            END-PERFORM                                                   
+014600            ADD 1 TO CSB                                                  
+014700*   MOVES APT/STE # TO WS TABLE                                           
+014800            MOVE P9OAT-LB TO CUWG1ERR-APT-TABLE                           
+014900            PERFORM VARYING APT FROM 13 BY -1                             
+015000              UNTIL APT = 0                                               
+015100                 OR CUWG1ERR-APT-BYTE (APT) > SPACE                       
+015200            END-PERFORM                                                   
+015300            IF (CSB + APT) < 36                                           
+015400               STRING P9OSTH(1:CSB) P9OAT-LB(1:APT)                       
+015500               DELIMITED BY SIZE INTO P9OSTH                      MXK04065
+015700               IF P9IAD2 = P9OAT-LB                                       
+015800                  MOVE SPACE TO P9IAD2                                    
+015900               END-IF                                                     
+016110            END-IF                                                        
+016120        END-IF                                                            
+016200*   ADDRESS TAKEN FROM PRIMARY LINE                                       
+016300        IF P9OSMA = 'P'                                                   
+016301           MOVE P9OSTH TO CUWG1ERR-ADDR1                                  
+016310           IF  P9OAPR = 'Y'                                       MXK04065
+016320           AND P9OAP-LB > SPACE                                   MXK04065
+016330           AND (CSB + APT) >= 36                                  MXK04065
+016331              MOVE P9IAD2 TO CUWG1ERR-STREET-TABLE                MXK04065
+016332              PERFORM VARYING CSB FROM 50 BY -1                   MXK04065
+016333                UNTIL CSB = 0                                     MXK04065
+016334                   OR CUWG1ERR-STREET-BYTE (CSB) > SPACE          MXK04065
+016335              END-PERFORM                                         MXK04065
+016336              ADD 1 TO CSB                                        MXK04065
+016337              ADD 1 TO APT                                        MXK04065
+016338              IF (APT + CSB) < 36                                 MXK04065
+016340                  STRING P9OAT-LB(1:APT) P9IAD2(1:CSB)            MXK04065
+016341                   DELIMITED BY SIZE INTO CUWG1ERR-ADDR2          MXK04065
+016346              ELSE                                                MXK04065
+016347                  MOVE P9OAT-LB TO CUWG1ERR-ADDR2                 MXK04065
+016350           ELSE                                                   MXK04065
+016500              MOVE P9IAD2 TO CUWG1ERR-ADDR2                               
+016600           END-IF                                                 MXK04065
+016610        END-IF                                                            
+016700*   ADDRESS TAKEN FROM BOTH PRIMARY AND SECONDARY LINES                   
+016800        IF P9OSMA = 'M'                                                   
+016900           MOVE P9OSTH TO CUWG1ERR-ADDR1                                  
+016901           IF  P9OAPR = 'Y'                                       MXK04065
+016902           AND P9OAP-LB > SPACE                                   MXK04065
+016903           AND (CSB + APT) <  36                                  MXK04065
+016904              MOVE SPACES TO CUWG1ERR-ADDR2                               
+016930           ELSE                                                   MXK04065
+016940              MOVE P9IAD2   TO CUWG1ERR-ADDR2                     MXK04065
+017100           END-IF                                                 MXK04065
+017110        END-IF                                                            
+017200*   ADDRESS TAKEN FROM SECONDARY LINE                                     
+017300        IF P9OSMA = 'S'                                                   
+017400           MOVE P9OSTH TO CUWG1ERR-ADDR2                                  
+017500           MOVE P9IAD1 TO CUWG1ERR-ADDR1                                  
+017600        END-IF                                                            
+017700*   MOVES SHORT CITY NAME                                                 
+017800        MOVE P9OCTS TO CUWG1ERR-CITY                                      
+017900*   MOVES USPS STANDARD STATE ABBREVIATION                                
+018000        MOVE P9OSTA TO CUWG1ERR-STATE                                     
+018100*   STRING ZIP PLUS FIRST 4 OF BYTES OF DPBC (ZIP+4)                      
+018200        STRING P9OCZP P9ODPBC(1:4)                                        
+018300        DELIMITED BY SIZE INTO CUWG1ERR-ZIP                               
+018400*   MOVE DPBC, CHECK DIGIT, CARRIER ROUTE.                                
+018500        MOVE P9ODPBC TO CUWG1ERR-DP-BARCODE                               
+018600        MOVE P9ODPC TO CUWG1ERR-DP-CHECKD                                 
+018700        MOVE P9OCRT TO CUWG1ERR-CARRIER-ROUTE                     LNJ00257
+018800*   MOVE RTP.                                                     LNJ00257
+018900        IF P9ORTP   EQUAL TO 'F' OR                               LNJ00257
+019000           P9OFRC   EQUAL TO 'F'                                  LNJ00257
+019100          MOVE 'F'        TO  CUWG1ERR-GRP1-USPS-CODE             LNJ00257
+019200        ELSE                                                      LNJ00257
+019300          MOVE 'R'        TO  CUWG1ERR-GRP1-USPS-CODE.            LNJ00257
+      *   MOVE RDI (RESIDENTIALLY DELIVERY INDICATOR).                  RAL12010
+018900        IF P9ORDI   EQUAL TO 'B' OR 'M'                           RAL12010
+019100          MOVE 'F'        TO  CUWG1ERR-GRP1-USPS-CODE             RAL12010
+019200        ELSE                                                      RAL12010
+                IF P9ORDI   EQUAL TO 'R'                                RAL12010
+019300            MOVE 'R'      TO  CUWG1ERR-GRP1-USPS-CODE.            RAL12010
+019400*   MOVE P.O. BOX INDICATOR.                                      TEH02140
+019500        IF P9O-A1-STD-BOX = 'P' OR                                TEH02140
+019510           P9O-A2-STD-BOX = 'P'                                   TEH02140
+019600           MOVE 'P'            TO CUWG1ERR-GRP1-PO-BOX-IND        TEH02140
+019700        ELSE                                                      TEH02140
+020100           MOVE 'N'            TO CUWG1ERR-GRP1-PO-BOX-IND        TEH02140
+020300        END-IF.                                                   TEH02140
+020400*   MOVE FIRM NAME                                                CJK02233
+020401        MOVE CUW-GRP1-FIRM  TO CUWG1ERR-GRP1-FIRM.                CJK02233
+020402        IF P9OFRM-LN NUMERIC                                      CJK02233
+020403           IF P9OFRM-LN > 00                                      CJK02233
+020404              MOVE P9OFRM      TO CUWG1ERR-GRP1-FIRM              CJK02233
+020405           END-IF                                                 CJK02233
+020406        END-IF.                                                   CJK02233

@@ -1,0 +1,218 @@
+      ******************************************************************        
+      *** YEAR 2000 REMEDIATED                                         *TLKY8315
+      ******************************************************************        
+      ******************************************************************        
+      *         NAME: SYSBUSD2                                         *        
+      *================================================================*        
+      *  THIS COPYBOOK IS USED WITH SYWBUSD2 TO CALCULATE A FUTURE OR  *        
+      *    PREVIOUS BUSINESS DATE.                                     *        
+      *                                                                *        
+      *  COPYBOOK SYSBUSD2 WILL CALCULATE THE BUSINESS DATE (+/-)      *        
+      *    FROM THE INPUTTED DATE EXCLUDING NON BUSINESS DAYS OF WEEK  *        
+      *    DEFINED IN TBICORP AND DATES CONTAINED IN THE HOLIDAY TABLE.*        
+      *                                                                *        
+      *  WILL CALCULATE WITH BOTH CICS AND BATCH PROGRAMS.             *        
+      *                                                                *        
+      *  THE OUTPUT DATE WILL BE IN SYWBUSD2-COMP-DATE.                *        
+      *                                                                *        
+      *  FIELD "SYWBUSD2-RETURN-CODE" WILL CONTAIN A CODE INDICATING   *        
+      *    THE RESULTS OF THE CONVERSION. ("Y" IS A NORMAL RESPONSE).  *        
+      *                                                                *        
+      *  YOU WILL NEED TO COPY TBIHDAY, TBICORP AND SYRDATE INTO       *        
+      *  WORKING-STORAGE                                               *        
+      *                                                                *        
+      *  INITIALIZE THE FOLLOWING FIELDS.                              *        
+      *     COMPANY CODE ..................... SYWBUSD2-COMPANY        *        
+      *     NUMBER OF DAYS (+/-) ............. SYWBUSD2-DAYS           *        
+      *     JULIAN DATE TO BEGIN CALCULATION . SYWBUSD2-COMP-DATE      *        
+      *                                                                *        
+      * USAGE:                                                         *        
+      *  BATCH                                                         *        
+      *   COPY SYSBUSD2   REPLACING ==SYUXXX== BY =='SYU500'==.        *        
+      *                   OR                                           *        
+      *  ONLINE                                                        *        
+      *   COPY SYSBUSD2   REPLACING ==SYUXXX== BY =='SYU510'==.        *        
+      *================================================================*        
+      * REVISION:                                                      *        
+      *  DATE   PGR   DESCRIPTION                                      *        
+      *-------- ---  --------------------------------------------------*        
+      *02/02/18 AZL  FIX OF LOGIC TO PROVIDE THE CORRECT JULIAN DATE   *AZL18033
+      *              FOR THE COMPUTATION NEEDED FOR THE RELEASE DATE.  *AZL18033
+      *09/28/99 MCV  REMOVE TBLMST CLOSE                                MCV99271
+      *11/11/98 RXD  Y2K REMEDIATION                                   *RXDY8315
+      *08/12/97 DDR  ADDED BUSINESS DAYS TABLE TO SYWBUSD2 WORKING STG.*DDR97224
+      *02/18/97 DDR  DEFAULT THE BUSINESS DAYS TABLE TO NYYYYYN        *DDR97049
+      *01/07/97 DDR  COPYBOOK CREATED                                  *DDR97007
+      ******************************************************************        
+                                                                                
+       6200-SYSBUSD2-DATE.                                                      
+           MOVE 'Y' TO SYWBUSD2-RETURN-CODE.                                    
+                                                                                
+           IF  SYWBUSD2-COMPANY NOT = SYWBUSD2-PREV-COMPANY                     
+               PERFORM 6220-SYSBUSD2-TABLE.                                     
+                                                                                
+           IF  SYWBUSD2-NORESP                                                  
+               IF  SYWBUSD2-COMP-DATE IS NUMERIC                                
+               AND SYWBUSD2-COMP-DATE > ZERO                                    
+                   IF  SYWBUSD2-DAYS NOT NUMERIC                                
+                       MOVE '3' TO SYWBUSD2-RETURN-CODE                         
+                   END-IF                                                       
+               ELSE                                                             
+                   IF SYWBUSD2-COMP-DATE NOT NUMERIC                            
+                       MOVE '1' TO SYWBUSD2-RETURN-CODE                         
+                   ELSE                                                         
+                       MOVE '2' TO SYWBUSD2-RETURN-CODE.                        
+                                                                                
+      * CALCULATE BUSINESS DATE                                                 
+           IF  SYWBUSD2-NORESP                                                  
+               MOVE ZERO TO SYWBUSD2-COUNT                                      
+               MOVE SPACES TO WS-DATE-PARAMETER-1                               
+               MOVE SYWBUSD2-COMP-DATE TO WS-DATE-JULIAN                        
+               CALL 'SYU015' USING WS-DATE-PARAMETER-1                          
+               IF  NOT WS-DATE-OK                                               
+                   MOVE '4' TO SYWBUSD2-RETURN-CODE.                            
+                                                                                
+           IF  SYWBUSD2-NORESP                                                  
+               MOVE 'N' TO SYWBUSD2-ZERO-ADD-SW                                 
+               MOVE 'Y' TO SYWBUSD2-FOUND-SW                                    
+               IF  SYWBUSD2-DAYS = ZERO                                         
+                   PERFORM 6210-SYSBUSD2-CALCULATE                              
+                     UNTIL NOT SYWBUSD2-FOUND                                   
+               ELSE                                                             
+                   PERFORM 6210-SYSBUSD2-CALCULATE                              
+                     UNTIL SYWBUSD2-DAYS = SYWBUSD2-COUNT                       
+                       AND (NOT SYWBUSD2-FOUND).                                
+                                                                                
+       6210-SYSBUSD2-CALCULATE.                                                 
+           MOVE 'Y' TO SYWBUSD2-FOUND-SW.                                       
+           IF  SYWBUSD2-DAYS = ZERO                                             
+               IF  SYWBUSD2-ZERO-ADD                                            
+                   ADD 1 TO SYWBUSD2-COMP-DATE                                  
+               ELSE                                                             
+                   MOVE 'Y' TO SYWBUSD2-ZERO-ADD-SW                             
+               END-IF                                                           
+           ELSE                                                                 
+               IF  SYWBUSD2-DAYS < ZERO                                         
+      *Y2K********************************************************Y2K*  RXDY8315
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8315
+      *Y2K********************************************************Y2K*  RXDY8315
+                   CALL 'CAWINUP'                                       RXDY8315
+                       USING SYWBUSD2-COMP-DATE                         RXDY8315
+                             SYWBUSD2-DEFAULT-WINDOW-SPEC               RXDY8315
+                             SYWBUSD2-DISPLAY5-TYPE                     RXDY8315
+                             SYWBUSD2-COMP-DATE-Y2K                     RXDY8315
+                             SYWBUSD2-THIS-YEAR-Y2K                     RXDY8315
+      *Y2K********************************************************Y2K*  RXDY8315
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8315
+      *Y2K********************************************************Y2K*  RXDY8315
+      *            ADD -1 TO SYWBUSD2-COMP-DATE                         RXDY8315
+                   ADD -1 TO SYWBUSD2-COMP-DATE-Y2K                     RXDY8315
+      *Y2K********************************************************Y2K*  RXDY8315
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8315
+      *Y2K********************************************************Y2K*  RXDY8315
+                   MOVE SYWBUSD2-COMP-DATE-Y2K TO SYWBUSD2-COMP-DATE    RXDY8315
+               ELSE                                                             
+                   ADD 1 TO SYWBUSD2-COMP-DATE.                                 
+           MOVE SPACES TO WS-DATE-PARAMETER-1.                                  
+           MOVE SYWBUSD2-COMP-DATE TO WS-DATE-JULIAN.                           
+           CALL 'SYU015' USING WS-DATE-PARAMETER-1.                             
+                                                                        AZL18033
+           IF WS-DATE-RETURN-CODE = '5'                                 AZL18033
+              IF SYWBUSD2-DAYS < ZERO                                   AZL18033
+                 ADD -1 TO SYWBUSD2-COMP-DATE-Y2K                       AZL18033
+                 MOVE SYWBUSD2-COMP-DATE-Y2K TO SYWBUSD2-COMP-DATE      AZL18033
+                 MOVE SYWBUSD2-COMP-DATE TO WS-DATE-JULIAN              AZL18033
+                 CALL 'SYU015' USING WS-DATE-PARAMETER-1                AZL18033
+              END-IF                                                    AZL18033
+           END-IF                                                       AZL18033
+                                                                                
+           IF  NOT WS-DATE-OK                                                   
+               IF  SYWBUSD2-DAYS < ZERO                                         
+                   MOVE 367 TO SYWBUSD2-COMP-DAY                                
+      *Y2K********************************************************Y2K*  RXDY8315
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8315
+      *Y2K********************************************************Y2K*  RXDY8315
+                   CALL 'CAWINUP'                                       RXDY8315
+                       USING SYWBUSD2-COMP-YR                           RXDY8315
+                             SYWBUSD2-DEFAULT-WINDOW-SPEC               RXDY8315
+                             SYWBUSD2-DISPLAY2-TYPE                     RXDY8315
+                             SYWBUSD2-COMP-YR-Y2K                       RXDY8315
+                             SYWBUSD2-THIS-YEAR-Y2K                     RXDY8315
+      *Y2K********************************************************Y2K*  RXDY8315
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8315
+      *Y2K********************************************************Y2K*  RXDY8315
+      *            ADD -1 TO SYWBUSD2-COMP-YR                           RXDY8315
+                 IF WS-DATE-RETURN-CODE NOT = '5'                       AZL18033
+                   ADD -1 TO SYWBUSD2-COMP-YR-Y2K                       RXDY8315
+                 END-IF                                                 AZL18033
+      *Y2K********************************************************Y2K*  RXDY8315
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8315
+      *Y2K********************************************************Y2K*  RXDY8315
+                   MOVE SYWBUSD2-COMP-YR-Y2K TO SYWBUSD2-COMP-YR        RXDY8315
+               ELSE                                                             
+                   MOVE 0 TO SYWBUSD2-COMP-DAY                                  
+                   ADD 1 TO SYWBUSD2-COMP-YR.                                   
+      *    'NEXT DAY' IS A HOLIDAY OR WEEKEND DON'T COUNT IT                    
+           IF  WS-DATE-OK                                                       
+               MOVE WS-DATE-DAY-OF-WEEK TO SYWBUSD2-DOW                         
+               IF  SYWBUSD2-BUSINESS-DAY (SYWBUSD2-DOW) = 'Y'           DDR97224
+                   SET SYWBUSD2-INDEX TO +1                                     
+                   SEARCH SYWBUSD2-ENTRY                                        
+                       AT END                                                   
+                           MOVE 'N' TO SYWBUSD2-FOUND-SW                        
+                       WHEN SYWBUSD2-DATE (SYWBUSD2-INDEX) = 0                  
+                           MOVE 'N' TO SYWBUSD2-FOUND-SW                        
+                       WHEN SYWBUSD2-DATE (SYWBUSD2-INDEX) =                    
+                                                  SYWBUSD2-COMP-DATE            
+                           NEXT SENTENCE                                        
+                   END-SEARCH.                                                  
+                                                                                
+           IF  NOT SYWBUSD2-FOUND                                               
+               IF  SYWBUSD2-DAYS = ZERO                                         
+                   NEXT SENTENCE                                                
+               ELSE                                                             
+                   IF  SYWBUSD2-DAYS < ZERO                                     
+                       ADD -1 TO SYWBUSD2-COUNT                                 
+                   ELSE                                                         
+                       ADD  1 TO SYWBUSD2-COUNT.                                
+                                                                                
+       6220-SYSBUSD2-TABLE.                                                     
+           INITIALIZE SYWBUSD2-TABLE.                                           
+                                                                                
+           MOVE LOW-VALUES         TO TB-HDAY-ENTRY                     MCV99271
+           MOVE SYWBUSD2-COMPANY   TO TB-HDAY-COMPANY-CODE                      
+                                      SYWBUSD2-PREV-COMPANY                     
+                                      TB-CPO-COMPANY-CODE.                      
+      *****READ TBICORP                                                         
+           CALL SYUXXX USING TB-CORP-PROC-IA.                                   
+           IF  TB-CPO-NORESP                                            DDR97049
+               MOVE 0 TO SYWBUSD2-DOW                                   DDR97049
+               INSPECT TB-CPO-BUSINESS-DAYS TALLYING SYWBUSD2-DOW       DDR97049
+                   FOR ALL 'Y'                                          DDR97049
+               IF  SYWBUSD2-DOW = 0                                     DDR97049
+                   MOVE 'NYYYYYN' TO SYWBUSD2-BUSINESS-DAYS             DDR97224
+               ELSE                                                     DDR97224
+                   MOVE TB-CPO-BUSINESS-DAYS TO SYWBUSD2-BUSINESS-DAYS  DDR97224
+               END-IF                                                   DDR97049
+           ELSE                                                         DDR97049
+               MOVE '5' TO SYWBUSD2-RETURN-CODE.                                
+      *****READ TBIHDAY                                                         
+           IF  SYWBUSD2-NORESP                                                  
+               MOVE 'N' TO TB-HDAY-REQUEST-CODE                                 
+               MOVE ' ' TO SYWBUSD2-TBL-SW                                      
+               PERFORM VARYING SYWBUSD2-INDEX FROM 1 BY 1                       
+                 UNTIL END-OF-SYWBUSD2-TABLE                                    
+                    OR SYWBUSD2-INDEX > 100                                     
+                       CALL SYUXXX USING TB-HOLIDAY-TABLE-IA                    
+                       IF  TB-HDAY-NORESP                                       
+                           IF  TB-HDAY-COMPANY-CODE = SYWBUSD2-COMPANY          
+                               MOVE TB-HDAY-DATE TO                             
+                                          SYWBUSD2-DATE (SYWBUSD2-INDEX)        
+                           ELSE                                                 
+                               MOVE 'Y' TO SYWBUSD2-TBL-SW                      
+                           END-IF                                               
+                       ELSE                                                     
+                           MOVE 'Y' TO SYWBUSD2-TBL-SW                          
+                       END-IF                                                   
+               END-PERFORM.                                                     
+                                                                                

@@ -1,0 +1,180 @@
+      *                                                                         
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      * 06/07/23 MXV ALWAYS RETURN DB2 AVAILABILE                       MXV23158
+      * 05/29/20 TGF ADDED MESSAGE-3/MESSAGE-4                          TGF20150
+      * 07/19/17 SAS CICS UPGRADE PHASE II -                            SAS17200
+      *              DELETED THE CICS TRANSLATED CODE AND               SAS17200
+      *              UNCOMMENTED THE EXEC CICS STATEMENTS.              SAS17200
+      * 04/01/99 MCV REWRITE:DB2 FORMATTED MESSAGE WRITTEN TO CICS LOG  MCV99091
+      *                                                                         
+      *    SYXDB2EC -- CICS DB2 UTILITY COPYBOOK.                               
+      *                                                                         
+      * !!!  THIS ROUTINE MUST BE TRANSLATED                                    
+      *                                                                         
+      *       FUNCTIONS: CHECK DB2 AVAILABILITY, FORMAT DB2 SQL ERRORS          
+      *    NOTE: REQUIRES WORKING-STORAGE COPYBOOK SYWDB2ER.                    
+      *                                                                         
+      * A)    CHECK DB2 AVAILABILITY.                                           
+      *                                                                         
+      *       ALL CICS DB2 PROGRAMS MUST VERIFY THAT THE DB2 SYSTEM IS          
+      *    AVAILABLE AT PROGRAM INITIATION.  THIS  PROCEDURAL COPYBOOK          
+      *    WILL CALL PROGRAM SYU090 AND RETURN THE STATUS OF THE DB2            
+      *    SYSTEM.                                                              
+      *       THE STATUS IS CHECKED BY INTERROGATING THE WS-DB2-RESP            
+      *    CONDITION NAMES:                                                     
+      *                                                                         
+      *            WS-DB2-AVAIL   - DB2 IS AVAILABLE;                           
+      *            WS-DB2-UNAVAIL - DB2 IS NOT AVAILABLE.                       
+      *                                                                         
+      *       IF DB2 IS UNAVAILABLE, THEN THE STANDARD MESSAGE,                 
+      *    WS-DB2-RESP-MSG, SHOULD DISPLAYED TO THE USER AND THE TASK           
+      *    IMMEDIATELY TERMINATED.  THE TASK SHOULD NOT ABEND UNLESS            
+      *    IT'S RUNNING IN THE BACKGROUND AND THERE IS NO METHOD OF             
+      *    INFORMING THE USER OF DB2'S UNAVAILABILITY.                          
+      *       NOTE, IF THE TASK IS STARTED, THEN THE DFHCOMMAREA IS             
+      *    REPLACED BY RETRIEVED WORKING-STORAGE COMMAREA VARIABLE,             
+      *    E.G., TC-SYXCOM.  CICS DB2 ERROR HANDLER:                            
+      *                                                                         
+      *                                                                         
+      * B)   FORMAT DB2 SQL ERRORS.                                             
+      *                                                                         
+      *       EXECUTE THIS COPYBOOK BEFORE ABENDING THE TASK DUE TO A           
+      *    SQL ERROR TO FORMAT THE SQL COMMUNICATION AREA INTO A TEXT           
+      *    ERROR MESSAGE AND WRITE THE MESSAGE TO THE CICS LOG.                 
+      *    THE FORMATTING PARAGRAPH CAN BE EXECUTED DIRECTLY WITHOUT            
+      *    WRITING TO THE LOG IF DESIRED.                                       
+      *                                                                         
+      * !! NOTE: STARTED TASKS MUST REPLACE DFHCOMMAREA BY THE THE              
+      * !!       APPROPRIATE WORKING-STORAGE COMMAREA VARIABLE, E.G.,           
+      * !!       TC-SYXCOM.                                                     
+      *                                                                         
+      * PROGRAM EXAMPLE:                                                        
+      *    .                                                                    
+      * WORKING-STORAGE.                                                        
+      *    COPY SYWDB2ER.                                                       
+      *    .                                                                    
+      *    .                                                                    
+      * PROCEDURE DIVISION.                                                     
+      *    .                                                                    
+      *     PERFORM 990-DB2-AVAILABILITY.                                       
+      *    .                                                                    
+      *    IF WS-DB2-UNAVAIL                                                    
+      *       MOVE WS-DB2-RESP-MSG        TO  MAP-MESSAGE-OUT                   
+      *       SET WS-ERROR-FOUND          TO  TRUE                              
+      *       PERFORM 960-EXIT-ROUTINE.                                         
+      *    .                                                                    
+      *    .                                                                    
+      *    .                                                                    
+      *    EXEC SQL XXXXXXX    END-EXEC                                         
+      *    .                                                                    
+      *    IF BIG-TROUBLE                                                       
+      *       PERFORM 990-SQL-MESSAGE                                           
+      *       PERFORM 999-ABEND.                                                
+      *    .                                                                    
+      *                             COPY SYXDB2EC.                              
+      *    .                                                                    
+      ******************************************************************        
+      *                                                                         
+      *    SYXDB2EC                                                             
+      *                                                                         
+      *                                                                         
+       990-DB2-AVAILABILITY.                                                    
+      *                                                                         
+      *    CHECK DB2 AVAILABILITY                                               
+      *                                                                         
+           MOVE SPACES                        TO  WS-DB2-RESP-MSG       MXV23158
+           SET WS-DB2-AVAIL                   TO  TRUE.                 MXV23158
+      *                                                                         
+       990-SQL-MESSAGE.                                                         
+      *                                                                         
+      *    FORMAT SQL ERROR                                                     
+      *                                                                         
+      *    CICS DB2 ERROR HANDLER:                                              
+      *       1)  CONVERT SQL RETURN CODE INTO A TEXT MESSAGE.                  
+      *       2)  WRITE THE TEXT MESSAGE TO CICS LOG.                           
+      *                                                                         
+           MOVE '++ DB2 ERROR IN TRANSACTION' TO  SYWDB2-ERROR-TEXT (01)        
+           MOVE EIBTRNID                      TO  SYWDB2-ERROR-TEXT (01)        
+                                                      (30 : 04)                 
+             EXEC CICS ASSIGN                                                   
+                 PROGRAM(SYWDB2-PROGRAM)                                        
+             END-EXEC                                                           
+             MOVE ' PROGRAM '            TO  SYWDB2-ERROR-TEXT (01)     TGF20150
+                                               (35 : 09)                TGF20150
+             MOVE SYWDB2-PROGRAM         TO  SYWDB2-ERROR-TEXT (01)     TGF20150
+                                               (45 : 08)                TGF20150
+             MOVE ' DATE LAST COMPILED ' TO  SYWDB2-ERROR-TEXT (01)     TGF20150
+                                               (54 : 20)                TGF20150
+             MOVE WHEN-COMPILED          TO  SYWDB2-WHEN-COMPILED       TGF20150
+             MOVE SYWDB2-WHEN-COMPILED   TO  SYWDB2-ERROR-TEXT (01)     TGF20150
+                                               (75 : 21)                TGF20150
+      *                                                                         
+              EXEC CICS WRITEQ TD                                       SAS17200
+                 QUEUE  ('CSSL')                                        SAS17200
+                 FROM   (SYWDB2-ERROR-TEXT (01))                        SAS17200
+                 LENGTH (SYWDB2-ERROR-TEXT-LENH)                        SAS17200
+                 NOHANDLE                                               SAS17200
+              END-EXEC                                                  SAS17200
+      *                                                                         
+      *    EXTRA MESSAGE LINES                                                  
+      *                                                                         
+           IF SYWDB2-EXTRA-MESSAGE-1 > SPACES                                   
+              EXEC CICS WRITEQ TD                                       SAS17200
+                 QUEUE  ('CSSL')                                        SAS17200
+                 FROM   (SYWDB2-EXTRA-MESSAGE-1)                        SAS17200
+                 LENGTH (SYWDB2-ERROR-TEXT-LENH)                        SAS17200
+                 NOHANDLE                                               SAS17200
+              END-EXEC.                                                 SAS17200
+      *                                                                         
+           IF SYWDB2-EXTRA-MESSAGE-2 > SPACES                                   
+              EXEC CICS WRITEQ TD                                       SAS17200
+                 QUEUE  ('CSSL')                                        SAS17200
+                 FROM   (SYWDB2-EXTRA-MESSAGE-2)                        SAS17200
+                 LENGTH (SYWDB2-ERROR-TEXT-LENH)                        SAS17200
+                 NOHANDLE                                               SAS17200
+              END-EXEC.                                                 SAS17200
+                                                                        TGF20150
+           IF SYWDB2-EXTRA-MESSAGE-3 > SPACES                           TGF20150
+              EXEC CICS WRITEQ TD                                       TGF20150
+                 QUEUE  ('CSSL')                                        TGF20150
+                 FROM   (SYWDB2-EXTRA-MESSAGE-3)                        TGF20150
+                 LENGTH (SYWDB2-ERROR-TEXT-LENH)                        TGF20150
+                 NOHANDLE                                               TGF20150
+              END-EXEC                                                  TGF20150
+           END-IF.                                                      TGF20150
+                                                                        TGF20150
+           IF SYWDB2-EXTRA-MESSAGE-4 > SPACES                           TGF20150
+              EXEC CICS WRITEQ TD                                       TGF20150
+                 QUEUE  ('CSSL')                                        TGF20150
+                 FROM   (SYWDB2-EXTRA-MESSAGE-4)                        TGF20150
+                 LENGTH (SYWDB2-ERROR-TEXT-LENH)                        TGF20150
+                 NOHANDLE                                               TGF20150
+              END-EXEC                                                  TGF20150
+           END-IF.                                                      TGF20150
+      *                                                                         
+           PERFORM 990-FORMAT-SQL-MESSAGE.                                      
+      *                                                                         
+           PERFORM VARYING SYWDB2-ERROR-INDEX                                   
+              FROM    +1                                                        
+              BY      +1                                                        
+              UNTIL   SYWDB2-ERROR-INDEX > +10                                  
+                 OR   SYWDB2-ERROR-TEXT (SYWDB2-ERROR-INDEX) = SPACES           
+              EXEC CICS WRITEQ TD                                       SAS17200
+                 QUEUE  ('CSSL')                                        SAS17200
+                 FROM   (SYWDB2-ERROR-TEXT (SYWDB2-ERROR-INDEX))        SAS17200
+                 LENGTH (SYWDB2-ERROR-TEXT-LENH)                        SAS17200
+                 NOHANDLE                                               SAS17200
+              END-EXEC                                                  SAS17200
+                                                                                
+                                                                                
+           END-PERFORM.                                                         
+      *                                                                         
+       990-FORMAT-SQL-MESSAGE.                                                  
+      *                                                                         
+           CALL 'DSNTIAC'           USING  DFHEIBLK                             
+                                           DFHCOMMAREA                          
+                                           SQLCA                                
+                                           SYWDB2-ERROR-MESSAGE                 
+                                           SYWDB2-ERROR-TEXT-LEN.               

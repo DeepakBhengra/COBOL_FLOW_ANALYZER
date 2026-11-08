@@ -1,0 +1,85 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8338
+      ******************************************************************        
+000400*================================================================*        
+000500*  COPYBOOK NAME: SYSBRSEQ                                       *        
+000600*  THIS COPYBOOK WILL PROCESS THE TBXBRSEQ OR TBXAGSEQ TABLES    *        
+000700*  DEPENDING ON THE TYPE OF ORDER (NON-AGENCY OR AGENCY) AND     *        
+000800*  BUILDS A GENERIC BRANCH SEQUENCE TABLE.                       *        
+000900*                                                                *        
+001000*  KEY FIELDS WHICH MUST BE POPULATED PRIOR TO THE EXECUTION OF  *        
+001100*  THIS ROUTINE ARE:                                             *        
+001200*  1.  WS-COMPANY-CODE                                           *        
+001300*  2.  WS-BR-NBR-INV                                             *        
+001400*  3.  WS-AGENCY-ORDER-SW (IF AGENCY SWITCH IS SET TO ANYTHING   *        
+001500*                          OTHER THAN AN 'A', THE TBXBRSEQ TABLE *        
+001600*                          WILL BE PROCESSED)                    *        
+001700*                                                                *        
+001800*  THE FOLLOWING COPYBOOKS ARE USED BY THIS ROUTINE AND MUST BE  *        
+001900*  COPIED INTO WORKING STORAGE.                                  *        
+002000*  1.  SYWBRSEQ                                                  *        
+002100*  2.  TBIBRSEQ                                                  *        
+002200*  3.  TBIAGSEQ                                                  *        
+002300*                                                                *        
+002400*================================================================*        
+002500* REVISION INFO:                                                 *        
+      * 03/09/99 MCS INITIALIZE WS-BRANCH-AGCY-IND AND SET UP FIELD    *MCS99068
+002600* 12/04/98 MEP NEW COPYBOOK                                      *MEP98338
+002700*================================================================*        
+002800 9905-BRANCH-SEQ-ROUTINE.                                                 
+002900                                                                          
+003000     PERFORM 9910-INIT-WS-BRANCH-SEQ-TBL                                  
+003100             VARYING WS-SEQ-IDX FROM 1 BY 1                               
+003200             UNTIL WS-SEQ-IDX > WS-ENTRY-TOT.                             
+003300                                                                          
+003400     MOVE 1 TO WS-SEQ-IDX.                                                
+003500                                                                          
+003600     IF AGENCY-ORDER                                                      
+003700        MOVE WS-COMPANY-CODE      TO  TB-AGSEQ-COMPANY-CODE               
+003800        MOVE WS-BR-NBR-INV        TO  TB-AGSEQ-BR                         
+003900        MOVE WS-BR-REQUEST-CODE   TO  TB-AGSEQ-REQUEST-CODE               
+004000        CALL 'SYU510'      USING  TB-AGSEQ-TABLE-IA                       
+004100        IF TB-AGSEQ-NORESP                                                
+004200           PERFORM 9920-LOAD-AGENCY-TBL                                   
+004300                   UNTIL WS-SEQ-IDX > WS-ENTRY-TOT                        
+004400        END-IF                                                            
+004500     ELSE                                                                 
+004600        MOVE WS-COMPANY-CODE      TO  TB-BS-COMPANY-CODE                  
+004700        MOVE WS-BR-NBR-INV        TO  TB-BS-BR                            
+004800        MOVE WS-BR-REQUEST-CODE   TO  TB-BS-REQUEST-CODE                  
+004900        CALL 'SYU510'      USING  TB-BRANCH-SEQ-IA                        
+005000        IF TB-BS-NORESP                                                   
+005100           PERFORM 9930-LOAD-INB-SEQ-BRANCH-TBL                           
+005200                   UNTIL WS-SEQ-IDX > WS-ENTRY-TOT                        
+005300        END-IF                                                            
+005400     END-IF.                                                              
+005500                                                                          
+005600*                                                                         
+005700 9910-INIT-WS-BRANCH-SEQ-TBL.                                             
+005800                                                                          
+005900     MOVE SPACES TO WS-BRANCH-SEQ-NBR (WS-SEQ-IDX).                       
+005900     MOVE SPACES TO WS-BRANCH-AGCY-IND (WS-SEQ-IDX).              MCS99068
+006000                                                                          
+006100*                                                                         
+006200 9920-LOAD-AGENCY-TBL.                                                    
+006300                                                                          
+006400     IF TB-AGSEQ-BR-NBR (WS-SEQ-IDX) <= SPACES                            
+006500        MOVE WS-MAX-CNT TO WS-SEQ-IDX                                     
+006600     ELSE                                                                 
+006700        MOVE TB-AGSEQ-BR-NBR (WS-SEQ-IDX)                                 
+006800               TO WS-BRANCH-SEQ-NBR (WS-SEQ-IDX)                          
+              MOVE '*'  TO WS-BRANCH-AGCY-IND (WS-SEQ-IDX)              MCS99068
+006900        ADD 1  TO WS-SEQ-IDX                                              
+007000     END-IF.                                                              
+007100                                                                          
+007200*                                                                         
+007300 9930-LOAD-INB-SEQ-BRANCH-TBL.                                            
+007400                                                                          
+007500     IF TB-BS-BR-NBR (WS-SEQ-IDX) <= SPACES                               
+007600        MOVE WS-MAX-CNT TO WS-SEQ-IDX                                     
+007700     ELSE                                                                 
+007800        MOVE TB-BS-BR-NBR (WS-SEQ-IDX)                                    
+007900               TO WS-BRANCH-SEQ-NBR (WS-SEQ-IDX)                          
+008000        ADD 1  TO WS-SEQ-IDX                                              
+008100     END-IF.                                                              
+008200                                                                          

@@ -1,0 +1,130 @@
+       ID DIVISION.
+       PROGRAM-ID.                 INP389.
+       AUTHOR.                     ARTI KUMARI.
+      *----------------------------------------------------------------*
+      *DATE-COMPILED.
+      *
+      *      COMPILE = C   CICS SUBROUTINE
+      *
+      *      PROGRAM NAME: INP389
+      *
+      *      THIS TRANSACTION IS STARTED FROM ICP276 TO DEACTIVATE THE
+      *      ACOP IN ACOP_TRK TABLE BY SETTING ACOP-ACTIVE-FLAG TO 'N'
+      *      WHEN THE ACOP-CREATE REQUEST FROM SBO ROUTE ERRORS OUT.
+      *
+      *----------------------------------------------------------------*
+      * 07/19/24 AK1  NEW PROGRAM CREATED                               AK124201
+      *----------------------------------------------------------------*
+
+       ENVIRONMENT DIVISION.
+      *----------------------------------------------------------------*
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+      *----------------------------------------------------------------*
+
+       01 WS-REVISION-LEVEL-STAMP        PIC X(8)  VALUE 'AK124201'.
+       01 WS-LAST-CONTAINER-CHANGE       PIC X(10) VALUE 'IM00008801'.
+       01 WS-PROGRAM                     PIC X(08) VALUE 'INP389'.
+
+      ****************************************************************
+      * COPYBOOKS                                                    *
+      ****************************************************************
+      *01  WS-COMMON-SKA.
+           COPY SYKCOM.
+
+      *01  WS-EIBRESP.
+           COPY SYWEIB.
+
+           COPY INR389.
+           COPY SYWDB2ER.
+           COPY DB2STAT.
+      *
+           EXEC SQL
+                INCLUDE SQLCA
+           END-EXEC.
+      *
+      * ------------------------------------------------------------- *
+      * DB2 - DECLARATION FOR ACOP_TRK - ACOP TRACKING TABLE          *
+      * ------------------------------------------------------------- *
+           EXEC SQL
+                INCLUDE SETATRK
+           END-EXEC.
+      *----------------------------------------------------------------*
+       LINKAGE SECTION.
+      *----------------------------------------------------------------*
+
+       01  DFHCOMMAREA.  COPY CSWCFWS REPLACING
+                         ==01  WS-COMM-AREA.==   BY ====.
+      *
+      *----------------------------------------------------------------*
+       PROCEDURE DIVISION.
+       000-MAINLINE.
+      *----------------------------------------------------------------*
+      *
+           IF EIBCALEN = ZERO
+              MOVE LENGTH OF INP389-TRANSACTION-AREA
+                                       TO WS-COMM-AREA-LENGTH
+              EXEC CICS RETRIEVE
+                   INTO   (INP389-TRANSACTION-AREA)
+                   LENGTH (WS-COMM-AREA-LENGTH)
+              END-EXEC
+           ELSE
+              MOVE EIBCALEN            TO WS-COMM-AREA-LENGTH
+              MOVE DFHCOMMAREA (1:EIBCALEN)
+                                       TO INP389-TRANSACTION-AREA
+           END-IF.
+      *
+           PERFORM 1000-UPDATE-ACOP-TRK
+              THRU 1000-EXIT.
+
+           GOBACK.
+      *----------------------------------------------------------------*
+       1000-UPDATE-ACOP-TRK.
+      *----------------------------------------------------------------*
+      *
+           MOVE INP389-ACOP-CO         TO SETATRK-CO-CD.
+           MOVE INP389-OPER-ID         TO SETATRK-LAST-UPD-ID.
+           MOVE INP389-SAV-TRACKING-NBR
+                                       TO SETATRK-ACOP-TRK-NBR.
+           MOVE 'N'                    TO SETATRK-ACOP-ACTV-FLG.
+
+           EXEC SQL
+              UPDATE ACOP_TRK
+                 SET ACOP_ACTV_FLG     =  :SETATRK-ACOP-ACTV-FLG
+                    ,LAST_UPD_ID       =  :SETATRK-LAST-UPD-ID
+                    ,LAST_UPD_TS       =  CURRENT TIMESTAMP
+                 WHERE CO_CD           =  :SETATRK-CO-CD
+                   AND ACOP_TRK_NBR    =  :SETATRK-ACOP-TRK-NBR
+           END-EXEC.
+      *
+           MOVE SQLCODE                TO SQLCODE-STATUS.
+
+           EVALUATE TRUE
+              WHEN SQLCODE-NORESP
+              WHEN SQLCODE-NOT-FOUND
+                   CONTINUE
+              WHEN OTHER
+                   MOVE '1000'         TO WS-ABCODE
+                   MOVE '1000-UPDATE-ACOP-TRK'
+                                       TO SYWDB2-EXTRA-MESSAGE-1
+                   MOVE 'ERROR UPDATE ACOP_TRK'
+                                       TO  SYWDB2-EXTRA-MESSAGE-2
+                   PERFORM 990-SQL-MESSAGE
+                   PERFORM 999-ABEND
+           END-EVALUATE.
+       1000-EXIT.
+            EXIT.
+      *----------------------------------------------------------------*
+      *990-DB2-AVAILABILITY.
+      *990-SQL-MESSAGE.
+      *----------------------------------------------------------------*
+
+       COPY SYXDB2EC.
+
+      *----------------------------------------------------------------*
+       999-ABEND.
+      *----------------------------------------------------------------*
+
+           EXEC CICS ABEND
+               ABCODE (WS-ABCODE)
+           END-EXEC.

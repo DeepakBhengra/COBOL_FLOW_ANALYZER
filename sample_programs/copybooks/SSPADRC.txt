@@ -1,0 +1,116 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *                                                                         
+      *    *************************************************************        
+      *    *                                                           *        
+      *    * THIS PROGRAM IS A COPYBOOK ROUTINE THAT TRANSLATES THE    *        
+      *    *   ADDRESS DATA IN CUSADR AS FOLLOWS:                      *        
+      *    *      REMOVES ANY BLANK LINES                              *        
+      *    *      COLLAPSES THE 4TH LINE CITY,STATE ZIP DATA           *        
+      *    *                                                           *        
+      *    *   THIS ROUTINE REQIRES COPYBOOK 'SSPADRWS'                *        
+      *    *                                                           *        
+      *    *   WS-ZADDR-DATA IS THE CALL ARGUMENT                      *        
+      *    *                                                           *        
+      *    *************************************************************        
+      *    *                                                           *        
+      *  02/24/93  MCV STANDARDIZE SSPADRC USAGE.                       MCV93055
+      *  05/22/89  NOT MOVING LAST DIGIT OF 9 DIGIT ZIP CODE            MCV89142
+      *  05/11/89  MAKE THIS ROUTINE A COPYBOOK                         MCV89131
+      *  02/07/89  IF STATE OR ZIP EQUAL ZEROES, SPACE THEM             RHL89038
+      *                                                                         
+       S899-SSPADR.                                                             
+      *                                                                         
+           MOVE SPACES             TO  WS-ZADDR-DATA-OTA                        
+                                       WS-ZADDR-FIX-INA                         
+                                       WS-ZADDR-FIX-OTA                         
+           MOVE '-'                TO  WS-ZZIP-DASH                             
+           MOVE WS-ZADDR-DATA      TO  WS-ZADDR-DATA-INA                        
+      *                                                                         
+           INSPECT WS-ZADDR-DATA-INA REPLACING ALL '_' BY SPACES.               
+      *                                                                         
+           IF WS-ZADDR-STATE = '00'                                     RHL89038
+               MOVE SPACES         TO  WS-ZADDR-STATE.                  RHL89038
+      *                                                                         
+           MOVE WS-ZADDR-ZIP       TO  WS-ZZIP.                                 
+      *                                                                         
+           IF   WS-ZZIP-1 = ' '                                                 
+                MOVE '0'           TO  WS-ZZIP-1.                               
+      *                                                                         
+           IF WS-ZZIP = '000000000'                                     RHL89038
+               MOVE SPACES         TO  WS-ZZIP, WS-ZADDR-ZIP.           RHL89038
+      *                                                                         
+           IF  WS-ZZIP-5 NUMERIC                                                
+               MOVE WS-ZZIP-1      TO  WS-ZZIP-A1                               
+               MOVE WS-ZZIP-4      TO  WS-ZZIP-A4                               
+               MOVE '-'            TO  WS-ZZIP-DASH                             
+               MOVE WS-ZZIP40      TO  WS-ZZIP-A40                              
+               IF   WS-ZZIP-A40 = '0000'                                        
+                    MOVE SPACES    TO   WS-ZZIP-L4.                             
+      *                                                                         
+           IF  WS-ZZIP NUMERIC                                                  
+               MOVE WS-ZZIP-A      TO  WS-ZADDR-ZIP-A                           
+           ELSE                                                                 
+               MOVE WS-ZADDR-ZIP   TO  WS-ZADDR-ZIP-A.                          
+      *                                                                         
+           IF WS-ZADDR-DATA-INA = SPACES                                        
+              GO TO S899-SSPADR-EXIT.                                           
+      *                                                                         
+      *    COMPRESS LINES UPWARDS                                               
+      *                                                                         
+           MOVE +0                 TO  WS-ZADDRDO.                              
+      *                                                                         
+           IF WS-ZADDR-DI (1) NOT = SPACES                                      
+              ADD +1               TO  WS-ZADDRDO                               
+              MOVE WS-ZADDR-DI (1) TO  WS-ZADDR-DO(WS-ZADDRDO).                 
+      *                                                                         
+           IF WS-ZADDR-DI (2) NOT = SPACES                                      
+              ADD +1               TO  WS-ZADDRDO                               
+              MOVE WS-ZADDR-DI (2) TO  WS-ZADDR-DO(WS-ZADDRDO).                 
+      *                                                                         
+           IF WS-ZADDR-DI (3) NOT = SPACES                                      
+              ADD +1               TO  WS-ZADDRDO                               
+              MOVE WS-ZADDR-DI (3) TO  WS-ZADDR-DO(WS-ZADDRDO).                 
+      *                                                                         
+           IF WS-ZADDR-DI (4) NOT = SPACES                                      
+              ADD +1               TO  WS-ZADDRDO                               
+              MOVE WS-ZADDR-DI (4) TO  WS-ZADDR-FIX-INA                         
+              MOVE +0              TO  WS-ZADDRFI                               
+                                       WS-ZADDRFO                               
+              MOVE 'N'             TO  WS-ZADDR-SW1                             
+              PERFORM S899-ADDRESS-FIX THRU S899-AF-EXIT                        
+              MOVE WS-ZADDR-FIX-OTA TO WS-ZADDR-DO(WS-ZADDRDO).                 
+      *                                                                         
+           MOVE WS-ZADDR-DATA-OTA  TO  WS-ZADDR-DATA.                           
+      *                                                                         
+       S899-SSPADR-EXIT.                                                        
+           EXIT.                                                                
+      *                                                                         
+       S899-ADDRESS-FIX.                                                        
+      *                                                                         
+      *    COMPRESS 4'TH ADDRESS LINE: MULTIPLE BLANKS -> ONE BLANK             
+      *                                                                         
+           ADD +1                  TO  WS-ZADDRFI.                              
+      *                                                                         
+           IF 2 * WS-ZADDRFI > LENGTH OF WS-ZADDR-FIX-IN                MCV93055
+              GO TO S899-AF-EXIT.                                               
+      *                                                                         
+           IF WS-ZADDR-FIXDI(WS-ZADDRFI) = SPACES                               
+              PERFORM S899-CHK-FIRST                                            
+              GO TO S899-ADDRESS-FIX.                                           
+      *                                                                         
+           ADD +1                  TO  WS-ZADDRFO.                              
+           MOVE  WS-ZADDR-FIXDI (WS-ZADDRFI)                                    
+                                   TO  WS-ZADDR-FIXDO (WS-ZADDRFO).             
+           MOVE 'Y'                TO  WS-ZADDR-SW1.                            
+           GO TO S899-ADDRESS-FIX.                                              
+      *                                                                         
+       S899-AF-EXIT.                                                            
+           EXIT.                                                                
+      *                                                                         
+       S899-CHK-FIRST.                                                          
+      *                                                                         
+           IF WS-ZADDR-SW1 = 'Y'                                                
+              MOVE 'N'             TO  WS-ZADDR-SW1                             
+              ADD +1               TO  WS-ZADDRFO.                              

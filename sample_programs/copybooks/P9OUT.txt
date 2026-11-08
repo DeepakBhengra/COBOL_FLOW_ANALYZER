@@ -1,0 +1,1257 @@
+000001                                                                  GROUP1  
+000002** =========================================================== ** GROUP1  
+000003*                                                               * GROUP1  
+000004*                          CODE-1 PLUS                          * GROUP1  
+000005*                       RELEASE 5.0 MOD 00                      * GROUP1  
+000006*                                                               * GROUP1  
+000007*  AUTHOR.                                                      * GROUP1  
+000008*     PRECISELY                                                 * GROUP1  
+000009*     ALL RIGHTS RESERVED.                                      * GROUP1  
+000010*     2 BLUE HILL PLZ FL 3 # 1563                               * GROUP1  
+000011*     PEARL RIVER NY  10965-3113                                * GROUP1  
+000012*                                                               * GROUP1  
+000013*     PROGRAMS AND DESIGN (C) COPYRIGHT 1990, 2024              * GROUP1  
+000014*     PRECISELY                                                 * GROUP1  
+000015*                                                               * GROUP1  
+000016*  THE FOLLOWING MATERIAL CONTAINS TRADE SECRETS AND            * GROUP1  
+000017*  CONFIDENTIAL INFORMATION AND REPRESENTS THE PROPERTY OF      * GROUP1  
+000018*  PRECISELY AND SHOULD BE MAINTAINED IN                        * GROUP1  
+000019*  STRICT CONFIDENCE.                                           * GROUP1  
+000020*                                                               * GROUP1  
+000021** =========================================================== ** GROUP1  
+000022                                                                  GROUP1  
+000023                                                                       GP1
+000024*   PARAMETER LENGTH IS 5,000 BYTES.                                   GP1
+000025                                                                       GP1
+000026                                                                  MATPARMO
+000027 01  P9OUT.                                                       MATPARMO
+000028                                                                  MATPARMO
+000029* RESULT INDICATORS:                                              MATPARMO
+000030     05  P9ORSI.                                                  MATPARMO
+000031                                                                  MATPARMO
+000032* GENERAL ADDRESS-MATCH RETURN CODE, P9OGRC:                      MATPARMO
+000033*   BLANK = MATCH SUCCESSFUL                                      MATPARMO
+000034*       Z = ZIP CODE NOT FOUND IN MASTER FILE                     MATPARMO
+000035*       B = INSUFFICIENT ADDRESS INFORMATION FOR MATCH            MATPARMO
+000036*       S = STREET NAME NOT FOUND IN ZIP CODE                     MATPARMO
+000037*       H = HOUSE/BOX RANGE NOT FOUND ON STREET                   MATPARMO
+000038*       A = APT RANGE NOT FOUND FOR HOUSE AND APT MATCH REQUIRED  MATPARMO
+000039*       M = MULTIPLE MATCHES FOUND                                MATPARMO
+000040*       N = ADDRESS MATCH NOT ATTEMPTED - AUXILIARY PROCESSING    MATPARMO
+000041*       C = CRITIAL ERROR (CICS AND IMS ONLY)                     MATPARMO
+000042*       E = EXTERNAL MATCH - AUXILIARY FILE PROCESSING            MATPARMO
+000043*       X = ABORT PROCESSING--A PROBLEM WITH THE CODE-1 PLUS      MATPARMO
+000044*           MASTER FILE WAS DETECTED (SEE FIELD P9OXRC)           MATPARMO
+000045         10  P9OGRC              PIC X.                           MATPARMO
+000046                                                                  MATPARMO
+000047* OVERALL CORRECTNESS INDICATOR (0=MOST LIKELY TO BE CORRECT)     MATPARMO
+000048         10  P9OPRB.                                              MATPARMO
+000049             15  P9OPRB-N        PIC 9.                           MATPARMO
+000050                                                                  MATPARMO
+000051* STREET-NAME MATCH SCORE (0=EQUAL, 9=BAD)                        MATPARMO
+000052         10  P9OSSC.                                              MATPARMO
+000053             15  P9OSSC-N        PIC 9.                           MATPARMO
+000054                                                                  MATPARMO
+000055* DIRECTIONAL AND SUFFIX RC'S AS A TWO-CHARACTER FIELD:           MATPARMO
+000056         10  P9ODSF.                                              MATPARMO
+000057                                                                  MATPARMO
+000058* DIRECTIONAL MATCHING RETURN CODE, P9ODRC:                       MATPARMO
+000059*   BLANK = DIRECTIONALS ON INPUT MATCH MASTER FILE               MATPARMO
+000060*       F = DIRECTIONALS PARTIALLY MATCH                          MATPARMO
+000061*       D = DIRECTIONALS DO NOT MATCH                             MATPARMO
+000062*       N = NO DIRECTIONAL(S) ON INPUT BUT PRESENT ON MATCH ENTRY MATPARMO
+000063             15  P9ODRC          PIC X.                           MATPARMO
+000064                                                                  MATPARMO
+000065* SUFFIX MATCHING RETURN CODE, P9OSRC:                            MATPARMO
+000066*   BLANK = SUFFIX ON INPUT MATCHES MASTER FILE                   MATPARMO
+000067*       S = SUFFIX DOES NOT MATCH                                 MATPARMO
+000068*       N = NO SUFFIX ON INPUT BUT PRESENT ON MATCH ENTRY         MATPARMO
+000069             15  P9OSRC          PIC X.                           MATPARMO
+000070                                                                  MATPARMO
+000071* APARTMENT MATCHING RETURN CODE, P9OARC:                         MATPARMO
+000072*   BLANK = APT MATCHES, OR NO APT PRESENT AND NONE REQUIRED      MATPARMO
+000073*       A = APT ON INPUT DOES NOT MATCH MASTER FILE (IGNORED)     MATPARMO
+000074*       F = APT APPENDED DUE TO FIRM NAME MATCH                   MATPARMO
+000075*       N = NO APT ON INPUT BUT APT'S PRESENT AT STREET ADDRESS   MATPARMO
+000076         10  P9OARC              PIC X.                           MATPARMO
+000077                                                                  MATPARMO
+000078* # OF TIMES ADDRESS-MATCH ATTEMPTED                              MATPARMO
+000079         10  P9O-LB-AM.                                           MATPARMO
+000080             15  P9O-LB-AM-N     PIC ZZZ9.                        MATPARMO
+000081                                                                  MATPARMO
+000082* APARTMENT PRESENT IN MATCHING ADDRESS (Y/N)                     MATPARMO
+000083         10  P9OAPR              PIC X.                           MATPARMO
+000084                                                                  MATPARMO
+000085* ADDRESS CORRECTNESS INDICATOR (0=MOST LIKELY TO BE CORRECT)     MATPARMO
+000086         10  P9OPRA.                                              MATPARMO
+000087             15  P9OPRA-N        PIC 9.                           MATPARMO
+000088                                                                  MATPARMO
+000089* FIRM MATCHING RETURN CODE, P9OFRC:                              MATPARMO
+000090*   BLANK = FIRM MATCHES, OR NO FIRM PRESENT ON INPUT             MATPARMO
+000091*       F = FIRM ON INPUT DOES NOT MATCH MASTER FILE FOR ADDRESS  MATPARMO
+000092*       M = NO FIRMS ON MASTER FILE FOR MATCHES ADDRESS           MATPARMO
+000093         10  P9OFRC              PIC X.                           MATPARMO
+000094                                                                  MATPARMO
+000095* FIRM-NAME MATCH SCORE (0=EQUAL, 9=BAD)                          MATPARMO
+000096         10  P9OFSC.                                              MATPARMO
+000097             15  P9OFSC-N        PIC 9.                           MATPARMO
+000098                                                                  MATPARMO
+000099* SOURCE OF MATCHED ADDRESS: P/S/M                                MATPARMO
+000100         10  P9OSMA              PIC X.                           MATPARMO
+000101                                                                  MATPARMO
+000102* DROPPED INFORMATION TYPE: R/A/W                                 MATPARMO
+000103         10  P9ODIT              PIC X.                           MATPARMO
+000104                                                                  MATPARMO
+000105* DEFAULT RECORD INDICATION:                                      MATPARMO
+000106*   BLANK = RECORD MATCHED WAS NOT "DEFAULT", OR NO MATCH         MATPARMO
+000107*       R = RECORD MATCHED WAS A RR PO HC                         MATPARMO
+000108*       H = RECORD MATCHED WAS A HIGH RISE                        MATPARMO
+000109*       M = RECORD MATCHED WAS A MILITARY ZIP                     MATPARMO
+000110*       S = RECORD MATCHED WAS A STREET DEFAULT                   MATPARMO
+000111         10  P9ODFR              PIC X.                           MATPARMO
+000112                                                                  MATPARMO
+000113* ALTERNATE ADDRESSING SCHEME INDICATOR:                          MATPARMO
+000114*   BLANK = NO ALTERNATE ADDRESSING SCHEME USED                   MATPARMO
+000115*       S = SMALL TOWN DEFAULT LOGIC USED                         MATPARMO
+000116*       D = DELIVERY POINT ALTERNATE LOGIC USED                   MATPARMO
+000117*       U = UNIQUE ZIP CODE LOGIC USED                            MATPARMO
+000118*       E = ENHANCED HIGH-RISE ALTERNATE MATCH LOGIC USED         MATPARMO
+000119         10  P9OALT-ADDR          PIC X.                          MATPARMO
+000120                                                                  MATPARMO
+000121* MULTIPLE SECONDARY COMPONENT MATCHING RETURN CODE               MATPARMO
+000122*   BLANK = NOT PERFORMED                                         MATPARMO
+000123*       E = EXACT MATCH TO SECONDARY COMPONENT                    MATPARMO
+000124*       S = MULTIPLE SECONDARY COMPONENT LOGIC USED               MATPARMO
+000125         10  P9OSCM              PIC X.                           MATPARMO
+000126                                                                  MATPARMO
+000127* BASE/ALTERNATE INDICATOR:                                       MATPARMO
+000128*      B = MATCHED TO A ZIP+4 BASE RECORD                         MATPARMO
+000129*      A = MATCHED TO A ZIP+4 ALTERNATE RECORD                    MATPARMO
+000130         10  P9OALT              PIC X.                           MATPARMO
+000131                                                                  MATPARMO
+000132* ZIP+4 RETURN CODE, P9O9RC:                                      MATPARMO
+000133*   BLANK = MATCH SUCCESSFUL                                      MATPARMO
+000134*       7 = +4 SUPPRESSED - MATCHED TO R777 (PHANTOM) CRRT        MATPARMO
+000135*       A = APT ON RECORD DOES NOT MATCH AND APT MATCH REQUIRED   MATPARMO
+000136*           OR, APT NOT ON RECORD AND APT MATCH REQUIRED          MATPARMO
+000137*       B = INSUFFICIENT ADDRESS INFORMATION FOR MATCH            MATPARMO
+000138*       H = HOUSE/BOX RANGE NOT FOUND ON STREET                   MATPARMO
+000139*       M = MULTIPLE MATCHES FOUND                                MATPARMO
+000140*       S = STREET NAME NOT FOUND IN ZIP CODE                     MATPARMO
+000141*       U = UNAVAILABLE - AUXILIARY FILE PROCESSING               MATPARMO
+000142*       V = RECORD MATCHED A NON-DELIVERABLE ADDRESS.             MATPARMO
+000143*       Z = ZIP CODE NOT FOUND IN MASTER FILE                     MATPARMO
+000144         10  P9O9RC              PIC X.                           MATPARMO
+000145                                                                  MATPARMO
+000146* CARRIER ROUTE RETURN CODE, P9OCRC:                              MATPARMO
+000147*   BLANK = MATCH SUCCESSFUL                                      MATPARMO
+000148*       Z = ZIP CODE NOT FOUND IN MASTER FILE                     MATPARMO
+000149*       B = INSUFFICIENT ADDRESS INFORMATION FOR MATCH            MATPARMO
+000150*       S = STREET NAME NOT FOUND IN ZIP CODE                     MATPARMO
+000151*       H = HOUSE/BOX RANGE NOT FOUND ON STREET                   MATPARMO
+000152*       A = APT ON RECORD DOES NOT MATCH AND APT MATCH REQUIRED   MATPARMO
+000153*           OR, APT NOT ON RECORD AND APT MATCH REQUIRED          MATPARMO
+000154*       M = MULTIPLE MATCHES FOUND                                MATPARMO
+000155*       U = UNAVAILABLE - AUXILIARY FILE PROCESSING               MATPARMO
+000156         10  P9OCRC              PIC X.                           MATPARMO
+000157                                                                  MATPARMO
+000158* # OF "GOOD" ERRORS IN STREET MATCH (INTERNAL USE ONLY)          MATPARMO
+000159         10  P9OGER.                                              MATPARMO
+000160             15  P9OGER-N        PIC 9.                           MATPARMO
+000161                                                                  MATPARMO
+000162* CITY STANDARDIZATION:                                           MATPARMO
+000163*   BLANK = STANDARD CITY NAME (ONE FORM) SAME AS INPUT           MATPARMO
+000164*       C = CITY NAME STANDARDIZED                                MATPARMO
+000165*       I = SHORT CITY NAME EQUALS INPUT CITY NAME                MATPARMO
+000166         10  P9OCIT              PIC X.                           MATPARMO
+000167                                                                  MATPARMO
+000168* STATE STANDARDIZATION:                                          MATPARMO
+000169*   BLANK = STANDARD STATE ABBREVIATION SAME AS INPUT             MATPARMO
+000170*       S = STATE NAME STANDARDIZED TO USPS STANDARD ABBREVIATION MATPARMO
+000171         10  P9OSAB              PIC X.                           MATPARMO
+000172                                                                  MATPARMO
+000173* URBANIZATION RETURN CODE                                        MATPARMO
+000174*       M = MULTIPLE MATCHES                                      MATPARMO
+000175         10  P9OURC              PIC X.                           MATPARMO
+000176                                                                  MATPARMO
+000177* MATCHED "ALIAS STREET NAME" TYPE INDICATION:                    MATPARMO
+000178*  BLANK = STREET RECORD MATCHED WAS NOT AN "ALIAS STREET",OR NO  MATPARMO
+000179*          MATCH                                                  MATPARMO
+000180*      A = STREET RECORD MATCHED WAS A USPS "ABBREVIATED" ALIAS   MATPARMO
+000181*      C = STREET RECORD MATCHED WAS A USPS "COMMUNITY STREET     MATPARMO
+000182*          NAME CHANGE" ALIAS                                     MATPARMO
+000183*      O = STREET RECORD MATCHED WAS A USPS "OTHER" (NICKNAME)    MATPARMO
+000184*          ALIAS                                                  MATPARMO
+000185*      P = STREET RECORD MATCHED WAS A USPS "PREFERRED" ALIAS     MATPARMO
+000186         10  P9ONTP              PIC X.                           MATPARMO
+000187                                                                  MATPARMO
+000188* CHECK-DIGIT FOR 11-DIGIT DELIVERY-POINT BAR CODE                MATPARMO
+000189         10  P9ODPC.                                              MATPARMO
+000190             15  P9ODPC-N        PIC 9.                           MATPARMO
+000191                                                                  MATPARMO
+000192* DELIVERY POINT BAR-CODE, OR ZIP+6                               MATPARMO
+000193         10  P9ODPBC.                                             MATPARMO
+000194                                                                  MATPARMO
+000195*  ZIP+4 CODE FOR MATCH, BLANK IF NONE                            MATPARMO
+000196             15  P9OZP4.                                          MATPARMO
+000197                 20  P9OZP2      PIC X(2).                        MATPARMO
+000198                 20  FILLER      PIC X(2).                        MATPARMO
+000199             15  P9OZP4-N REDEFINES P9OZP4 PIC 9(4).              MATPARMO
+000200             15  P9ODPBC-ADD-ON.                                  MATPARMO
+000201                 20  P9ODPBC-ADD-ON-N PIC 9(2).                   MATPARMO
+000202                                                                  MATPARMO
+000203*  CARRIER ROUTE CODE FOR MATCH (Cnnn FORM), BLANK IF NONE        MATPARMO
+000204         10  P9OCRT.                                              MATPARMO
+000205             15  P9OCTP          PIC X.                           MATPARMO
+000206             15  FILLER          PIC X(3).                        MATPARMO
+000207                                                                  MATPARMO
+000208* USPS RECORD TYPE OF RECORD MATCHED                              MATPARMO
+000209         10  P9ORTP              PIC X.                           MATPARMO
+000210                                                                  MATPARMO
+000211* MATCHED "ALIAS STREET NAME" INDICATION:                         MATPARMO
+000212*  BLANK = STREET RECORD MATCHED WAS NOT AN "ALIAS STREET",OR NO  MATPARMO
+000213*          MATCH                                                  MATPARMO
+000214*      A = STREET RECORD MATCHED WAS AN "ALIAS STREET" RECORD     MATPARMO
+000215         10  P9OSNA              PIC X.                           MATPARMO
+000216                                                                  MATPARMO
+000217* MATCHED ADDRESS LACS INDICATOR                                  MATPARMO
+000218*                (LOCATABLE ADDRESS CONVERSION SERVICE)           MATPARMO
+000219*  BLANK = NOT LACS CONVERTED                                     MATPARMO
+000220*      L = LACS CONVERTED                                         MATPARMO
+000221         10  P9OLACS             PIC X.                           MATPARMO
+000222                                                                  MATPARMO
+000223* AUXILARY FILE PROCESSING RETURN CODE                            MATPARMO
+000224*  BLANK = NO MATCH OR NOT PERFORMED                              MATPARMO
+000225*      1 = EWS FILE                                               MATPARMO
+000226         10  P9OAUX-M            PIC X.                           MATPARMO
+000227                                                                  MATPARMO
+000228* LEVEL OF MATCH TO DPV DATABASE                                  MATPARMO
+000229*  BLANK = NOT ATTEMPTED OR                                       MATPARMO
+000230*      E = EXPIRED DATABASE                                       MATPARMO
+000231*      F = OPEN/READ FAILURE ON DPV DATABASE                      MATPARMO
+000232*      S = SEED RECORD ENCOUNTERED                                MATPARMO
+000233*      V = SOFTWARE NOT COMPATIBLE WITH ZIP+4 SOFTWARE            MATPARMO
+000234*      X = DPV SOFTWARE/DATABSE INCOMPATIBLE                      MATPARMO
+000235         10  P9ODPV-RC           PIC X.                           MATPARMO
+000236                                                                  MATPARMO
+000237* DPV RETURN CODE                                                 MATPARMO
+000238*    (DELIVERY POINT VALIDATION)                                  MATPARMO
+000239*  BLANK = NOT ATTEMPTED                                          MATPARMO
+000240*      N = NO DELIVERY POINT VALIDATION                           MATPARMO
+000241*      Y = DELIVERY POINT VALIDATED                               MATPARMO
+000242*          PRIMARY VALID AND SECONDARY NUMBER (WHEN PRESENT) VALIDMATPARMO
+000243*      S = VALID PRIMARY                                          MATPARMO
+000244*          BUT SECONDARY (PRIMARY FOR RR) PRESENT AND IS NOT CONFIMATPARMO
+000245*      D = VALID PRIMARY                                          MATPARMO
+000246*          INPUT MISSING SECONDARY (PRIMARY RR)                   MATPARMO
+000247*      M = UNABLE TO DPV CONFIRM MULTIPLE CONDITION               MATPARMO
+000248*                                                                 MATPARMO
+000249         10  P9ODPV              PIC X.                           MATPARMO
+000250                                                                  MATPARMO
+000251* DPV CMRA FLAG                                                   MATPARMO
+000252*    (COMMERCIAL MAIL RECEIVING AGENCY)                           MATPARMO
+000253*  BLANK = NOT PRESENT                                            MATPARMO
+000254*      Y = YES CMRA                                               MATPARMO
+000255*      N = NO CMRA                                                MATPARMO
+000256         10  P9ODPVC             PIC X.                           MATPARMO
+000257                                                                  MATPARMO
+000258* DPV FALSE/POSITIVE FLAG                                         MATPARMO
+000259*  BLANK = NOT PRESENT                                            MATPARMO
+000260*      Y = YES FALSE                                              MATPARMO
+000261*      N = NOT FALSE                                              MATPARMO
+000262         10  P9ODPVF             PIC X.                           MATPARMO
+000263                                                                  MATPARMO
+000264* MATCHING SOFTWARE MOD LEVEL                                     MATPARMO
+000265     05  P9OSWM                  PIC X(2).                        MATPARMO
+000266                                                                  MATPARMO
+000267* MATCHING SOFTWARE RELEASE NUMBER                                MATPARMO
+000268     05  P9OSWV                  PIC X(4).                        MATPARMO
+000269                                                                  MATPARMO
+000270* MATCHING SOFTWARE INSTALLATION DATE (MM/DD/YYYY)                MATPARMO
+000271     05  P9OSWD                  PIC X(10).                       MATPARMO
+000272                                                                  MATPARMO
+000273* CODE-1 PLUS DATABASE VERSION IDENTIFICATION STRING              MATPARMO
+000274     05  P9ODBV                  PIC X(20).                       MATPARMO
+000275                                                                  MATPARMO
+000276* VERSION OF CODE-1 PLUS SOFTWARE WHICH CREATED THE DATABASE      MATPARMO
+000277     05  P9OCSV                  PIC X(20).                       MATPARMO
+000278                                                                  MATPARMO
+000279                                                                  MATPARMO
+000280* RESERVED                                                        MATPARMO
+000281     05  FILLER                  PIC X(100).                      MATPARMO
+000282                                                                  MATPARMO
+000283* RESERVED                                                        MATPARMO
+000284     05 FILLER                   PIC X(100).                      MATPARMO
+000285                                                                  MATPARMO
+000286* "CARE OF" STRING DROPPED FROM LINE 1 BY C1ANZADR                MATPARMO
+000287     05  P9OCO1                  PIC X(100).                      MATPARMO
+000288                                                                  MATPARMO
+000289                                                                  MATPARMO
+000290* RESERVED                                                        MATPARMO
+000291     05  FILLER                  PIC X(100).                      MATPARMO
+000292                                                                  MATPARMO
+000293* RESERVED                                                        MATPARMO
+000294     05  FILLER                  PIC X(100).                      MATPARMO
+000295                                                                  MATPARMO
+000296* "CARE OF" STRING DROPPED FROM LINE 2 BY C1ANZADR                MATPARMO
+000297     05  P9OCO2                  PIC X(100).                      MATPARMO
+000298                                                                  MATPARMO
+000299* STANDARDIZED ADDRESS INFORMATION                                MATPARMO
+000300*    COMPLETE STANDARDIZED ADDRESS (INCL APT INFO)                MATPARMO
+000301*      # OF BYTES USED                                            MATPARMO
+000302     05  P9OSAL                  PIC 9(2).                        MATPARMO
+000303                                                                  MATPARMO
+000304* ADDRESS INFO                                                    MATPARMO
+000305     05  P9OSAD                  PIC X(98).                       MATPARMO
+000306                                                                  MATPARMO
+000307                                                                  STDHSENR
+000308* HOUSE NUMBER                                                    STDHSENR
+000309                                                                  STDHSENR
+000310       05  P9OHS-LB.                                              STDHSENR
+000311           10  P9OH-GRP.                                          STDHSENR
+000312               15  P9OH             PIC X OCCURS 10 TIMES.        STDHSENR
+000313       05  FILLER REDEFINES P9OHS-LB.                             STDHSENR
+000314           10  P9OHF4               PIC X(4).                     STDHSENR
+000315           10  FILLER               PIC X(6).                     STDHSENR
+000316                                                                  STDHSENR
+000317                                                                  MATPARMO
+000318* COMPLETE STREET NAME, AS ELEMENTS                               MATPARMO
+000319     05  P9OSNE.                                                  MATPARMO
+000320                                                                  MATPARMO
+000321* LEADING DIRECTIONAL                                             MATPARMO
+000322         10  P9ODI1              PIC X(2).                        MATPARMO
+000323                                                                  MATPARMO
+000324* STREET ROOT NAME                                                MATPARMO
+000325         10  P9OSTR              PIC X(28).                       MATPARMO
+000326                                                                  MATPARMO
+000327* STREET SUFFIX                                                   MATPARMO
+000328         10  P9OSFX              PIC X(4).                        MATPARMO
+000329                                                                  MATPARMO
+000330* TRAILING DIRECTIONAL                                            MATPARMO
+000331         10  P9ODI2              PIC X(2).                        MATPARMO
+000332                                                                  MATPARMO
+000333* COMPLETE STREET NAME                                            MATPARMO
+000334     05  P9OSTN                  PIC X(39).                       MATPARMO
+000335                                                                  MATPARMO
+000336* STREET ADDRESS COMPLETE EXCEPT FOR APT INFO                     MATPARMO
+000337     05  P9OSTH                  PIC X(50).                       MATPARMO
+000338                                                                  MATPARMO
+000339* APARTMENT TYPE                                                  MATPARMO
+000340     05  P9OATP                  PIC X(4).                        MATPARMO
+000341                                                                  MATPARMO
+000342                                                                  STDAPTNR
+000343* APARTMENT NUMBER                                                STDAPTNR
+000344                                                                  STDAPTNR
+000345       05  P9OAP-LB                    PIC X(8).                  STDAPTNR
+000346       05  AP-LB-GRP REDEFINES P9OAP-LB.                          STDAPTNR
+000347           10  AP-LB                   PIC X OCCURS 8 TIMES.      STDAPTNR
+000348                                                                  STDAPTNR
+000349                                                                  MATPARMO
+000350* APARTMENT TYPE AND NUMBER                                       MATPARMO
+000351     05  P9OAT-LB                PIC X(13).                       MATPARMO
+000352                                                                  MATPARMO
+000353* RURAL ROUTE (AS "RR N" OR "RR NN" OR "RR NNN")                  MATPARMO
+000354     05  P9ORR-LB                PIC X(6).                        MATPARMO
+000355                                                                  MATPARMO
+000356* RURAL ROUTE BOX                                                 MATPARMO
+000357     05  P9ORB-LB                PIC X(10).                       MATPARMO
+000358                                                                  MATPARMO
+000359                                                                  STDBOXNR
+000360* POST OFFICE BOX                                                 STDBOXNR
+000361                                                                  STDBOXNR
+000362       05  P9OBX-LB.                                              STDBOXNR
+000363           10  P9OB                     PIC X OCCURS 10 TIMES.    STDBOXNR
+000364       05  FILLER REDEFINES P9OBX-LB.                             STDBOXNR
+000365           10  P9OBF4                   PIC X(4).                 STDBOXNR
+000366           10  FILLER                   PIC X(6).                 STDBOXNR
+000367                                                                  STDBOXNR
+000368                                                                  MATPARMO
+000369* COMPLETE STANDARDIZED ADDRESS (INCL APT INFO) USING ALIAS BASE  MATPARMO
+000370*      # OF BYTES USED                                            MATPARMO
+000371     05  P9OSAL-BASE             PIC 9(2).                        MATPARMO
+000372                                                                  MATPARMO
+000373* BASE ADDRESS INFO                                               MATPARMO
+000374     05  P9OSAD-BASE             PIC X(98).                       MATPARMO
+000375                                                                  MATPARMO
+000376* COMPLETE BASE STREET NAME, AS ELEMENTS                          MATPARMO
+000377     05  P9OSNE-BASE.                                             MATPARMO
+000378                                                                  MATPARMO
+000379* BASE LEADING DIRECTIONAL                                        MATPARMO
+000380         10  P9ODI1-BASE         PIC X(2).                        MATPARMO
+000381                                                                  MATPARMO
+000382* BASE STREET ROOT NAME                                           MATPARMO
+000383         10  P9OSTR-BASE         PIC X(28).                       MATPARMO
+000384                                                                  MATPARMO
+000385* BASE STREET SUFFIX                                              MATPARMO
+000386         10  P9OSFX-BASE         PIC X(4).                        MATPARMO
+000387                                                                  MATPARMO
+000388* BASE TRAILING DIRECTIONAL                                       MATPARMO
+000389         10  P9ODI2-BASE         PIC X(2).                        MATPARMO
+000390                                                                  MATPARMO
+000391* COMPLETE BASE STREET NAME                                       MATPARMO
+000392     05  P9OSTN-BASE             PIC X(39).                       MATPARMO
+000393                                                                  MATPARMO
+000394* BASE STREET ADDRESS COMPLETE EXCEPT FOR APT INFO                MATPARMO
+000395     05  P9OSTH-BASE             PIC X(50).                       MATPARMO
+000396                                                                  MATPARMO
+000397*                                                                 MATPARMO
+000398* INPUT CITY TYPE                                                 MATPARMO
+000399*    P = PRIMARY CITY NAME                                        MATPARMO
+000400*    S = SECONDARY CITY NAME                                      MATPARMO
+000401*    V = VANITY CITY NAME                                         MATPARMO
+000402     05 P9OCITY-TYPE-IN         PIC X(1).                         MATPARMO
+000403                                                                  MATPARMO
+000404* LACSLINK PROCESSING INDICATOR                                   MATPARMO
+000405*    Not processed by LACSLink                    Space           MATPARMO
+000406*    Successfully converted by LACSLink           Y               MATPARMO
+000407*    Not converted by LACSLink                    N               MATPARMO
+000408*    MATCH OCCURRED USING PRIMARY INFORMATION                     MATPARMO
+000409*    NOT SECONDARY INFORMATION FROM INPUT         S               MATPARMO
+000410*    False Positive (Seed)                        F               MATPARMO
+000411     05  P9OLACSLINK-IND        PIC X(1).                         MATPARMO
+000412*                                                                 MATPARMO
+000413* LACSLINK PROCESSING FLAG                                        MATPARMO
+000414*    NO LACSLINK PROCESSING OCCURRED              SPACE           MATPARMO
+000415*    SUCCESSFUL LACSLINK CONVERSION               A               MATPARMO
+000416*    NO LACSLINK MATCH                            00              MATPARMO
+000417*    LACSLINK ADDRESS FOUND BUT NOT RETURNED      09              MATPARMO
+000418*    LACSLINK ADDRESS FOUND BUT WOULD NOT CONVERT 14              MATPARMO
+000419*    LACSLINK MATCH WITH SECONDARY INFORMATION    92              MATPARMO
+000420     05  P9OLACSLINK-RC         PIC X(2).                         MATPARMO
+000421*                                                                 MATPARMO
+000422* LACSLink database date or error messages                        MATPARMO
+000423*    LACS DB EXPIRATION                           20120           MATPARMO
+000424*    CAN'T OPEN SECURITY FILE                     20121           MATPARMO
+000425*    CORRUPTED SECURITY FILE                      20122           MATPARMO
+000426*    CHECK DIGIT VIOLATION ON SECURITY KEY        20123           MATPARMO
+000427*    PREVIOUS SEED VIOLATION, SYSTEM LOCKED       20124           MATPARMO
+000428*    RESTART KEY OR SECURITY FILE NOT CORRECT     20126           MATPARMO
+000429*    UNKNOWN                                      20127           MATPARMO
+000430*    LACS SEED VIOLATION                          30000           MATPARMO
+000431*    LACS SYSTEM ERROR                            31000           MATPARMO
+000432     05  P9OLACSLINK-DB-INFO    PIC X(9).                         MATPARMO
+000433*                                                                 MATPARMO
+000434* LACSLink database version                                       MATPARMO
+000435     05  P9OLACSLINK-VERSION    PIC X(13).                        MATPARMO
+000436* DPV database type                                               MATPARMO
+000437     05  P9ODPV-DB-TY           PIC X(5).                         MATPARMO
+000438*                                                                 MATPARMO
+000439* Valid ZIP Code flag                                             MATPARMO
+000440*      Y = Valid ZIP Code                                         MATPARMO
+000441*      N = Invalid ZIP Code                                       MATPARMO
+000442*                                                                 MATPARMO
+000443     05  P9OVALID-ZIP           PIC X.                            MATPARMO
+000444*                                                                 MATPARMO
+000445* DPV PBSA flag                                                   MATPARMO
+000446*      Y = PBSA found on DPV                                      MATPARMO
+000447*      N = PBSA not found on DPV                                  MATPARMO
+000448*                                                                 MATPARMO
+000449     05  P9ODPV-PBSA              PIC X.                          MATPARMO
+000450*                                                                 MATPARMO
+000451* Post Office Box ZIP Code flag                                   MATPARMO
+000452*      Y = PO Box Only ZIP Code                                   MATPARMO
+000453*  BLANK = NOT PO Box Only ZIP                                    MATPARMO
+000454*                                                                 MATPARMO
+000455     05  P9OPOBZIP              PIC X.                            MATPARMO
+000456*                                                                 MATPARMO
+000457* Seasonal Delivery Flags - 1 per month                           MATPARMO
+000458*                                                                 MATPARMO
+000459     05  P9OSEASONAL             PIC X(12).                       MATPARMO
+000460                                                                  MATPARMO
+000461* DPV Vacant FLAG                                                 MATPARMO
+000462*  BLANK = NOT PRESENT                                            MATPARMO
+000463*      Y = Vacant ADDRESS                                         MATPARMO
+000464*      N = NOT Vacant ADDRESS                                     MATPARMO
+000465     05  P9ODPV-VACT          PIC X.                              MATPARMO
+000466                                                                  MATPARMO
+000467                                                                  MATPARMO
+000468* DPV NO STAT FLAG                                                MATPARMO
+000469*  BLANK = NOT PRESENT                                            MATPARMO
+000470*      Y = NO STAT ADDRESS                                        MATPARMO
+000471*      N = NOT NO STAT ADDRESS                                    MATPARMO
+000472     05  P9ODPV-NOST             PIC X.                           MATPARMO
+000473                                                                  MATPARMO
+000474* RDI RESIDENTIAL FLAG                                            MATPARMO
+000475*  BLANK = NOT ATTEMPTED OR                                       MATPARMO
+000476*      R = RESIDENTIAL                                            MATPARMO
+000477*      B = BUSINESS                                               MATPARMO
+000478*      M = MIXED                                                  MATPARMO
+000479     05  P9ORDI                  PIC X.                           MATPARMO
+000480                                                                  MATPARMO
+000481* RDI RETURN CODE                                                 MATPARMO
+000482*  BLANK = NOT ATTEMPTED OR                                       MATPARMO
+000483*      E = EXPIRED DATABASE                                       MATPARMO
+000484*      F = OPEN/READ FAILURE ON DPV DATABASE                      MATPARMO
+000485*      V = SOFTWARE NOT COMPATIBLE WITH ZIP+4 SOFTWARE            MATPARMO
+000486*      S = EXECUTING DPV040 - TABLE(S) > 8MB                      MATPARMO
+000487     05  P9ORDI-RC               PIC X.                           MATPARMO
+000488                                                                  MATPARMO
+000489* ADDRESS STANDARDIZATION RETURN CODE:                            MATPARMO
+000490*       Z = ZIP CODE NOT FOUND IN MASTER FILE                     MATPARMO
+000491*       B = INSUFFICIENT ADDRESS INFORMATION FOR MATCH            MATPARMO
+000492*       S = STREET NAME NOT FOUND IN ZIP CODE                     MATPARMO
+000493*       H = HOUSE/BOX RANGE NOT FOUND ON STREET                   MATPARMO
+000494*       A = APT RANGE NOT FOUND FOR HOUSE AND APT MATCH REQD      MATPARMO
+000495*       U = STANDARDIZATION NOT ATTEMPTED - AUXILIARY PROCESSING  MATPARMO
+000496*       M = MULTIPLE ADDRESSES FOUND FOR INPUT ADDRESS            MATPARMO
+000497     05  P9OSAR                  PIC X.                           MATPARMO
+000498                                                                  MATPARMO
+000499* ADDRESS ELEMENT RETURN CODES, EACH AS FOLLOWS:                  MATPARMO
+000500*   " " = ONLY ONE VALUE FOUND FOR THIS ELEMENT                   MATPARMO
+000501*   "M" = MULTIPLE VALUES FOUND FOR THIS ELEMENT                  MATPARMO
+000502     05  P9OD1R                  PIC X.                           MATPARMO
+000503     05  P9OSNR                  PIC X.                           MATPARMO
+000504     05  P9OSFR                  PIC X.                           MATPARMO
+000505     05  P9OD2R                  PIC X.                           MATPARMO
+000506                                                                  MATPARMO
+000507* STANDARDIZED FIRM NAME INFORMATION IF A FIRM NAME MATCH,        MATPARMO
+000508* OTHERWISE THE UPPER CASED INPUT FIRM NAME                       MATPARMO
+000509*                                                                 MATPARMO
+000510*  LENGTH OF STD FIRM NAME                                        MATPARMO
+000511     05  P9OFRM-LN               PIC 9(2).                        MATPARMO
+000512*  FIRM NAME                                                      MATPARMO
+000513     05  P9OFRM                  PIC X(40).                       MATPARMO
+000514                                                                  MATPARMO
+000515* NORMALIZED ADDRESS ELEMENTS FOR ADDRESS LINE 1                  MATPARMO
+000516                                                                  MATPARMO
+000517                                                                  NRMLADDR
+000518*---------------------------------------------------------------* NRMLADDR
+000519*                                                               * NRMLADDR
+000520* OUTPUT NORMALIZED ADDRESS ELEMENTS                            * NRMLADDR
+000521*                                                               * NRMLADDR
+000522*---------------------------------------------------------------* NRMLADDR
+000523     05  P9O-A1-NORMALIZED-ELEMENTS.                              NRMLADDR
+000524                                                                  NRMLADDR
+000525* HOUSE NR, LEFT-JUSTIFIED                                        NRMLADDR
+000526         10  P9O-A1-HOUSE-NR              PIC  X(10).             NRMLADDR
+000527                                                                  NRMLADDR
+000528* PRE-DIRECTIONAL                                                 NRMLADDR
+000529         10  P9O-A1-PRE-DIR               PIC  X(2).              NRMLADDR
+000530                                                                  NRMLADDR
+000531* STREET NAME (IE, WHAT'S LEFT)                                   NRMLADDR
+000532         10  P9O-A1-STREET-NAME           PIC  X(45).             NRMLADDR
+000533                                                                  NRMLADDR
+000534* STREET SUFFIX                                                   NRMLADDR
+000535         10  P9O-A1-SUFFIX                PIC  X(4).              NRMLADDR
+000536                                                                  NRMLADDR
+000537* POST DIRECTIONAL                                                NRMLADDR
+000538         10  P9O-A1-POST-DIR              PIC  X(2).              NRMLADDR
+000539                                                                  NRMLADDR
+000540* APARTMENT TYPE (DESIGNATOR)                                     NRMLADDR
+000541         10  P9O-A1-APT-TYPE              PIC  X(4).              NRMLADDR
+000542                                                                  NRMLADDR
+000543* APARTMENT STRING, LEFT-JUSTIFIED                                NRMLADDR
+000544         10  P9O-A1-APT-NR                PIC  X(8).              NRMLADDR
+000545                                                                  NRMLADDR
+000546* RR/HC TYPE ("RR" OR "HC", OR BLANK)                             NRMLADDR
+000547         10  P9O-A1-RR-TYPE               PIC  X(2).              NRMLADDR
+000548                                                                  NRMLADDR
+000549* RR/HC ROUTE NUMBER, LEFT-JUSTIFIED                              NRMLADDR
+000550         10  P9O-A1-RRT-NR                PIC  X(3).              NRMLADDR
+000551                                                                  NRMLADDR
+000552* BOX NUMBER, LEFT-JUSTIFIED                                      NRMLADDR
+000553         10  P9O-A1-BOX-NR                PIC  X(10).             NRMLADDR
+000554                                                                  NRMLADDR
+000555* PRIVATE MAIL BOX (PMB) WITH DESIGNATOR                          NRMLADDR
+000556         10  P9O-A1-PMB-STRING.                                   NRMLADDR
+000557                                                                  NRMLADDR
+000558* PRIVATE MAIL BOX (PMB) DESIGNATOR (EITHER # OR LETTERS PMB)     NRMLADDR
+000559           15  P9O-A1-PMB-D               PIC  X(04).             NRMLADDR
+000560                                                                  NRMLADDR
+000561* PRIVATE MAIL BOX (PMB) STRING, without pmb designator           NRMLADDR
+000562           15  P9O-A1-PMB-NR              PIC  X(16).             NRMLADDR
+000563                                                                  NRMLADDR
+000564* LENGTH OF STREET NAME                                           NRMLADDR
+000565         10  P9O-A1-STREET-LEN            PIC  9(2).              NRMLADDR
+000566                                                                  NRMLADDR
+000567* RESERVED AREA                                                   NRMLADDR
+000568         10  FILLER                       PIC  X(21).             NRMLADDR
+000569                                                                  NRMLADDR
+000570                                                                  NRMLADDR
+000571* INPUT-IN-STANDARD-FORMAT INDICATORS:                            NRMLADDR
+000572* FOR EACH INDICATOR, S INDICATES INPUT WAS IN STANDARD FORMAT    NRMLADDR
+000573*                     N INDICATES INPUT WAS IN NON-STD FORMAT     NRMLADDR
+000574*                 BLANK INDICATES ELEMENT NOT PRESENT IN INPUT    NRMLADDR
+000575                                                                  NRMLADDR
+000576*   PRE-DIRECTIONAL                                               NRMLADDR
+000577         10  P9O-A1-STD-PRE-DIR           PIC  X.                 NRMLADDR
+000578                                                                  NRMLADDR
+000579*   STREET SUFFIX                                                 NRMLADDR
+000580         10  P9O-A1-STD-SUFFIX            PIC  X.                 NRMLADDR
+000581                                                                  NRMLADDR
+000582*   POST-DIRECTIONAL                                              NRMLADDR
+000583         10  P9O-A1-STD-POST-DIR          PIC  X.                 NRMLADDR
+000584                                                                  NRMLADDR
+000585*   RR/HC TYPE                                                    NRMLADDR
+000586         10  P9O-A1-STD-RR-TYPE           PIC  X.                 NRMLADDR
+000587                                                                  NRMLADDR
+000588*   GENERAL DELIVERY STRING                                       NRMLADDR
+000589         10  P9O-A1-STD-GD                PIC  X.                 NRMLADDR
+000590                                                                  NRMLADDR
+000591*   APARTMENT TYPE (DESIGNATOR)                                   NRMLADDR
+000592         10  P9O-A1-STD-APT-TYPE          PIC  X.                 NRMLADDR
+000593                                                                  NRMLADDR
+000594*   PRIVATE MAIL BOX STRING                                       NRMLADDR
+000595         10  P9O-A1-STD-PMB               PIC  X.                 NRMLADDR
+000596                                                                  NRMLADDR
+000597* INPUT BOX TYPE FORMAT:                                          NRMLADDR
+000598*       B = INPUT WAS "BOX"                                       NRMLADDR
+000599*       P = INPUT WAS "PO BOX"                                    NRMLADDR
+000600*       N = INPUT WAS PRESENT, NEITHER OF ABOVE                   NRMLADDR
+000601*   BLANK = NO INPUT BOX NUMBER PRESENT                           NRMLADDR
+000602         10  P9O-A1-STD-BOX               PIC  X.                 NRMLADDR
+000603                                                                  NRMLADDR
+000604* RESERVED AREA                                                   NRMLADDR
+000605         10  FILLER                       PIC  X(9).              NRMLADDR
+000606                                                                  NRMLADDR
+000607                                                                  MATPARMO
+000608* NORMALIZED ADDRESS ELEMENTS FOR ADDRESS LINE 2                  MATPARMO
+000609                                                                  MATPARMO
+000610                                                                  NRMLADDR
+000611*---------------------------------------------------------------* NRMLADDR
+000612*                                                               * NRMLADDR
+000613* OUTPUT NORMALIZED ADDRESS ELEMENTS                            * NRMLADDR
+000614*                                                               * NRMLADDR
+000615*---------------------------------------------------------------* NRMLADDR
+000616     05  P9O-A2-NORMALIZED-ELEMENTS.                              NRMLADDR
+000617                                                                  NRMLADDR
+000618* HOUSE NR, LEFT-JUSTIFIED                                        NRMLADDR
+000619         10  P9O-A2-HOUSE-NR              PIC  X(10).             NRMLADDR
+000620                                                                  NRMLADDR
+000621* PRE-DIRECTIONAL                                                 NRMLADDR
+000622         10  P9O-A2-PRE-DIR               PIC  X(2).              NRMLADDR
+000623                                                                  NRMLADDR
+000624* STREET NAME (IE, WHAT'S LEFT)                                   NRMLADDR
+000625         10  P9O-A2-STREET-NAME           PIC  X(45).             NRMLADDR
+000626                                                                  NRMLADDR
+000627* STREET SUFFIX                                                   NRMLADDR
+000628         10  P9O-A2-SUFFIX                PIC  X(4).              NRMLADDR
+000629                                                                  NRMLADDR
+000630* POST DIRECTIONAL                                                NRMLADDR
+000631         10  P9O-A2-POST-DIR              PIC  X(2).              NRMLADDR
+000632                                                                  NRMLADDR
+000633* APARTMENT TYPE (DESIGNATOR)                                     NRMLADDR
+000634         10  P9O-A2-APT-TYPE              PIC  X(4).              NRMLADDR
+000635                                                                  NRMLADDR
+000636* APARTMENT STRING, LEFT-JUSTIFIED                                NRMLADDR
+000637         10  P9O-A2-APT-NR                PIC  X(8).              NRMLADDR
+000638                                                                  NRMLADDR
+000639* RR/HC TYPE ("RR" OR "HC", OR BLANK)                             NRMLADDR
+000640         10  P9O-A2-RR-TYPE               PIC  X(2).              NRMLADDR
+000641                                                                  NRMLADDR
+000642* RR/HC ROUTE NUMBER, LEFT-JUSTIFIED                              NRMLADDR
+000643         10  P9O-A2-RRT-NR                PIC  X(3).              NRMLADDR
+000644                                                                  NRMLADDR
+000645* BOX NUMBER, LEFT-JUSTIFIED                                      NRMLADDR
+000646         10  P9O-A2-BOX-NR                PIC  X(10).             NRMLADDR
+000647                                                                  NRMLADDR
+000648* PRIVATE MAIL BOX (PMB) WITH DESIGNATOR                          NRMLADDR
+000649         10  P9O-A2-PMB-STRING.                                   NRMLADDR
+000650                                                                  NRMLADDR
+000651* PRIVATE MAIL BOX (PMB) DESIGNATOR (EITHER # OR LETTERS PMB)     NRMLADDR
+000652           15  P9O-A2-PMB-D               PIC  X(04).             NRMLADDR
+000653                                                                  NRMLADDR
+000654* PRIVATE MAIL BOX (PMB) STRING, without pmb designator           NRMLADDR
+000655           15  P9O-A2-PMB-NR              PIC  X(16).             NRMLADDR
+000656                                                                  NRMLADDR
+000657* LENGTH OF STREET NAME                                           NRMLADDR
+000658         10  P9O-A2-STREET-LEN            PIC  9(2).              NRMLADDR
+000659                                                                  NRMLADDR
+000660* RESERVED AREA                                                   NRMLADDR
+000661         10  FILLER                       PIC  X(21).             NRMLADDR
+000662                                                                  NRMLADDR
+000663                                                                  NRMLADDR
+000664* INPUT-IN-STANDARD-FORMAT INDICATORS:                            NRMLADDR
+000665* FOR EACH INDICATOR, S INDICATES INPUT WAS IN STANDARD FORMAT    NRMLADDR
+000666*                     N INDICATES INPUT WAS IN NON-STD FORMAT     NRMLADDR
+000667*                 BLANK INDICATES ELEMENT NOT PRESENT IN INPUT    NRMLADDR
+000668                                                                  NRMLADDR
+000669*   PRE-DIRECTIONAL                                               NRMLADDR
+000670         10  P9O-A2-STD-PRE-DIR           PIC  X.                 NRMLADDR
+000671                                                                  NRMLADDR
+000672*   STREET SUFFIX                                                 NRMLADDR
+000673         10  P9O-A2-STD-SUFFIX            PIC  X.                 NRMLADDR
+000674                                                                  NRMLADDR
+000675*   POST-DIRECTIONAL                                              NRMLADDR
+000676         10  P9O-A2-STD-POST-DIR          PIC  X.                 NRMLADDR
+000677                                                                  NRMLADDR
+000678*   RR/HC TYPE                                                    NRMLADDR
+000679         10  P9O-A2-STD-RR-TYPE           PIC  X.                 NRMLADDR
+000680                                                                  NRMLADDR
+000681*   GENERAL DELIVERY STRING                                       NRMLADDR
+000682         10  P9O-A2-STD-GD                PIC  X.                 NRMLADDR
+000683                                                                  NRMLADDR
+000684*   APARTMENT TYPE (DESIGNATOR)                                   NRMLADDR
+000685         10  P9O-A2-STD-APT-TYPE          PIC  X.                 NRMLADDR
+000686                                                                  NRMLADDR
+000687*   PRIVATE MAIL BOX STRING                                       NRMLADDR
+000688         10  P9O-A2-STD-PMB               PIC  X.                 NRMLADDR
+000689                                                                  NRMLADDR
+000690* INPUT BOX TYPE FORMAT:                                          NRMLADDR
+000691*       B = INPUT WAS "BOX"                                       NRMLADDR
+000692*       P = INPUT WAS "PO BOX"                                    NRMLADDR
+000693*       N = INPUT WAS PRESENT, NEITHER OF ABOVE                   NRMLADDR
+000694*   BLANK = NO INPUT BOX NUMBER PRESENT                           NRMLADDR
+000695         10  P9O-A2-STD-BOX               PIC  X.                 NRMLADDR
+000696                                                                  NRMLADDR
+000697* RESERVED AREA                                                   NRMLADDR
+000698         10  FILLER                       PIC  X(9).              NRMLADDR
+000699                                                                  NRMLADDR
+000700                                                                  MATPARMO
+000701                                                                  MATPARMO
+000702* MATCHING ZIP+4 RECORD RANGE (LOW/HIGH/PARITY)                   MATPARMO
+000703*                                                                 MATPARMO
+000704*  PRIMARY RANGE                                                  MATPARMO
+000705     05  P9OPRG.                                                  MATPARMO
+000706         10  P9OPRG-LOW          PIC X(10).                       MATPARMO
+000707         10  P9OPRG-HIGH         PIC X(10).                       MATPARMO
+000708         10  P9OPRG-PARITY       PIC X.                           MATPARMO
+000709*  SECONDARY RANGE                                                MATPARMO
+000710     05  P9OSRG.                                                  MATPARMO
+000711         10  P9OSRG-LOW          PIC X(8).                        MATPARMO
+000712         10  P9OSRG-HIGH         PIC X(8).                        MATPARMO
+000713         10  P9OSRG-PARITY       PIC X.                           MATPARMO
+000714                                                                  MATPARMO
+000715                                                                  MATPARMO
+000716* ZIP-CORRECTION OUTPUT FIELDS                                    MATPARMO
+000717     05  P9OZ5O.                                                  MATPARMO
+000718                                                                  MATPARMO
+000719* ZIP-CORRECTION RETURN CODE:                                     MATPARMO
+000720*   BLANK = MATCH SUCCESSFUL                                      MATPARMO
+000721*       Z = ZIP CODE NOT FOUND IN MASTER FILE                     MATPARMO
+000722*       B = INSUFFICIENT ADDRESS INFORMATION FOR MATCH            MATPARMO
+000723*       S = STREET NAME NOT FOUND IN ZIP CODE                     MATPARMO
+000724*       H = HOUSE/BOX RANGE NOT FOUND ON STREET                   MATPARMO
+000725*       A = APT RANGE NOT FOUND FOR HOUSE AND APT MATCH REQD      MATPARMO
+000726*       E = EXTERNAL MATCH - AUXILIARY FILE PROCESSING            MATPARMO
+000727*       M = MULTIPLE ZIP CODES SCORE SAME AS BEST MATCH           MATPARMO
+000728         10  P9O5RC              PIC X.                           MATPARMO
+000729                                                                  MATPARMO
+000730* # OF ZIP CODES WITH SCORE EQUAL TO THE ANSWER RETURNED          MATPARMO
+000731         10  P9O-LB-ZL.                                           MATPARMO
+000732             15  P9O-LB-ZL-N     PIC Z9.                          MATPARMO
+000733         10  FILLER REDEFINES    P9O-LB-ZL.                       MATPARMO
+000734             15  P9O-LB-ZL-N1    PIC 9.                           MATPARMO
+000735             15  P9O-LB-ZL-N2    PIC 9.                           MATPARMO
+000736                                                                  MATPARMO
+000737* INITIAL (INPUT SIDE) CITY-MATCH RETURN CODE:                    MATPARMO
+000738*       N = NOT USED                                              MATPARMO
+000739*       B = INPUT CITY IS BLANK (COULD NOT BE FOUND)              MATPARMO
+000740*       C = CITY/STATE MISMATCH                                   MATPARMO
+000741*   BLANK = CITY/STATE MATCH SUCCESSFUL                           MATPARMO
+000742         10  P9OICR              PIC X.                           MATPARMO
+000743                                                                  MATPARMO
+000744* FINAL (OUTPUT SIDE) CITY-MATCH RETURN CODE                      MATPARMO
+000745*       N = NOT USED                                              MATPARMO
+000746*       B = INPUT CITY IS BLANK (COULD NOT BE FOUND)              MATPARMO
+000747*       C = CITY/STATE MISMATCH                                   MATPARMO
+000748*       I = INPUT CITY/STATE USED, NO NAMES AVAIL FOR ZIP         MATPARMO
+000749*       S = SPELLING CORRECTED BY MATCH TO CITIES FOR ZIP         MATPARMO
+000750*   BLANK = CITY/STATE MATCH SUCCESSFUL                           MATPARMO
+000751         10  P9OOCR              PIC X.                           MATPARMO
+000752                                                                  MATPARMO
+000753* STATUS OF P9OCZP:                                               MATPARMO
+000754*       C = ORIGINAL ZIP CONFIRMED                                MATPARMO
+000755*       A = ORIGINAL ZIP ALTERED                                  MATPARMO
+000756*       I = BLANK (ORIGINAL ZIP INVALID; NO MATCH)                MATPARMO
+000757*       O = ORIGINAL ZIP SUPPLIED DUE TO NON-MATCH                MATPARMO
+000758*       B = BLANK (ORIGINAL ZIP BLANK, NO MATCH)                  MATPARMO
+000759*       U = BLANK (ORIGINAL ZIP UNIQUE AND DID NOT MATCH          MATPARMO
+000760*                  CITY/STATE ON A NO MATCH)                      MATPARMO
+000761*                                                                 MATPARMO
+000762         10  P9OCAO              PIC X.                           MATPARMO
+000763                                                                  MATPARMO
+000764* ZIP+4 OVERRIDE CITY NAME INDICATOR                              MATPARMO
+000765*  BLANK = NOT STORED                                             MATPARMO
+000766*      O = ZIP+4 OVERRIDE CITY NAME STORED                        MATPARMO
+000767         10  P9OOVC              PIC X.                           MATPARMO
+000768                                                                  MATPARMO
+000769* SOURCE OF FINAL ZIP CODE:                                       MATPARMO
+000770*       B = NO ZIP CODE OBTAINED                                  MATPARMO
+000771*       F = ZIP CODE FROM FINANCE NUMBER LOCALITY                 MATPARMO
+000772*       Z = ORIGINAL ZIP CODE                                     MATPARMO
+000773*       M = ZIP CODE FROM ZIPMOVE                                 MATPARMO
+000774         10  P9OSFZ              PIC X.                           MATPARMO
+000775                                                                  MATPARMO
+000776* RESULT OF ORIGINAL-ZIP MATCH ATTEMPT:                           MATPARMO
+000777*   BLANK = NOT ATTEMPTED                                         MATPARMO
+000778*       N = ATTEMPTED, NO MATCH OBTAINED                          MATPARMO
+000779*       I = ATTEMPTED, MATCHED OBTAINED                           MATPARMO
+000780         10  P9OOZA              PIC X.                           MATPARMO
+000781                                                                  MATPARMO
+000782* RESULT OF CITY-BASED MATCH ATTEMPT:                             MATPARMO
+000783*   BLANK = NOT ATTEMPTED                                         MATPARMO
+000784*       N = ATTEMPTED, NO IMPROVEMENT OBTAINED                    MATPARMO
+000785*       I = ATTEMPTED, IMPROVED RESULT OBTAINED                   MATPARMO
+000786         10  P9OCBA              PIC X.                           MATPARMO
+000787                                                                  MATPARMO
+000788* RESULT OF FINANCE#-BASED MATCH ATTEMPT:                         MATPARMO
+000789*   BLANK = NOT ATTEMPTED                                         MATPARMO
+000790*       N = ATTEMPTED, NO IMPROVEMENT OBTAINED                    MATPARMO
+000791*       I = ATTEMPTED, IMPROVED RESULT OBTAINED                   MATPARMO
+000792         10  P9OFBA              PIC X.                           MATPARMO
+000793                                                                  MATPARMO
+000794* DPV FOOTNOTES                                                   MATPARMO
+000795*   AA - INPUT ADDRESS MATCHED TO ZIP+4 FILE                      MATPARMO
+000796*   A1 - INPUT ADDRESS NOT MATCHED TO THE ZIP+4 FILE              MATPARMO
+000797*   BB - INPUT ADDRESS MATCHED TO DPV (ALL COMPONENTS)            MATPARMO
+000798*   CC - INPUT ADDRESS PRIMARY NUMBER MATCHED TO DPV BUT          MATPARMO
+000799*        SECONDARY NUMBER NOT MATCHED (PRESENT BUT INVALID)       MATPARMO
+000800*   F1 - INPUT ADDRESS IS MILITARY, DPV BYPASSED                  MATPARMO
+000801*   G1 - INPUT ADDRESS IS GENERAL DELIVERY, DPV BYPASSED          MATPARMO
+000802*   M1 - INPUT ADDRESS PRIMARY NUMBER MISSING                     MATPARMO
+000803*   M3 - INPUT ADDRESS PRIMARY NUMBER INVALID                     MATPARMO
+000804*   N1 - INPUT ADDRESS PRIMARY NUMBER MATCHED TO DPV BUT          MATPARMO
+000805*        HIGHRISE ADDRESS MISSING SECONDARY NUMBER                MATPARMO
+000806*   PB - INPUT ADDRESS MATCHES TO A PBSA                          MATPARMO
+000807*   P1 - INPUT ADDRESS MISSING PO, RR OR HC BOX NUMBER            MATPARMO
+000808*   P3 - INPUT ADDRESS INVALID PO, RR OR HC BOX NUMBER            MATPARMO
+000809*   RR - INPUT ADDRESS MATCHED TO CMRA                            MATPARMO
+000810*   R1 - INPUT ADDRESS MATCHED TO CMRA BUT SECONDARY NUMBER       MATPARMO
+000811*        NOT PRESENT                                              MATPARMO
+000812*   R7 - INPUT ADDRESS MATCHED TO PHANTOM CARRIER ROUTE R777      MATPARMO
+000813*        WHICH IS NOT ELIGIBLE FOR STREET DELIVERY                MATPARMO
+000814*   U1 - INPUT ADDRESS IS UNIQUE ZIP, DPV BYPASSED                MATPARMO
+000815*                                                                 MATPARMO
+000816         10  P9OFNT-DPV-GRP.                                      MATPARMO
+000817             15  P9OFNT-DPV      PIC X(2) OCCURS 10 TIMES.        MATPARMO
+000818                                                                  MATPARMO
+000819*  LM RETURN CODE                                                 MATPARMO
+000820*   BLANK - SUCCESSFUL                                            MATPARMO
+000821*   F1 - LICENSE FILE NOT FOUND                                   MATPARMO
+000822*   F2 - CLIENT RECORD MISSING                                    MATPARMO
+000823*   F9 - UNKNOWN FUNCTION REQUESTED                               MATPARMO
+000824*   GI - GENERIC I/O FAILED.                                      MATPARMO
+000825*                                                                 MATPARMO
+000826         10  P9OLIA-RC           PIC X(2).                        MATPARMO
+000827                                                                  MATPARMO
+000828*  LM STATUS RETURN CODE                                          MATPARMO
+000829*    BLANK - PRODUCT/KEY COMBINATION IS GOOD                      MATPARMO
+000830*    XX    - PRODUCT KEY COMBINATION NOT GOOD                     MATPARMO
+000831*                                                                 MATPARMO
+000832         10  P9OLIA-STATUS-RC    PIC X(2).                        MATPARMO
+000833                                                                  MATPARMO
+000834*  LM PRODUCT KEY STATUS                                          MATPARMO
+000835*    BLANK - PRODUCT/KEY COMBINATION IS GOOD                      MATPARMO
+000836*    B     - PRODUCT KEY IS MARKED BAD                            MATPARMO
+000837*    N     - PRODUCT KEY NOT FOUND                                MATPARMO
+000838*    S     - LICENSE ID DOES NOT MATCH SYSTEM                     MATPARMO
+000839*    X     - PRODUCT KEY EXPIRED                                  MATPARMO
+000840*                                                                 MATPARMO
+000841         10  P9OLIA-KEY-STATUS   PIC X.                           MATPARMO
+000842                                                                  MATPARMO
+000843*  LM EXPIRATION DATE STATUS                                      MATPARMO
+000844*    BLANK - PRODUCT/DATE COMBINATION IS GOOD                     MATPARMO
+000845*    T     - PRODUCT EXPIRATION DATE THRESHOLD HAS BEEN REACHED   MATPARMO
+000846*    X     - PRODUCT EXPIRATION DATE HAS BEEN EXCEEDED            MATPARMO
+000847*                                                                 MATPARMO
+000848         10  P9OLIA-EXP-STATUS   PIC X.                           MATPARMO
+000849                                                                  MATPARMO
+000850* RESERVED AREA                                                   MATPARMO
+000851         10  FILLER              PIC X(1).                        MATPARMO
+000852*  A 1-CHARACTER STATUS CODE FOR THE OUTPUT CITY STATE            MATPARMO
+000853*  FIELDS - P9OCL9 P9OCS9 P9OCTL P9OCTS AND P9OSTA                MATPARMO
+000854*    BLANK - NO INFORMATION AVAILABLE                             MATPARMO
+000855*    M     - MATCH TO DATABASE                                    MATPARMO
+000856*    Z     - NO MATCH TO DATABASE; DETERMINED BY                  MATPARMO
+000857*            INPUT ZIP                                            MATPARMO
+000858         10  P9OCSS              PIC X.                           MATPARMO
+000859                                                                  MATPARMO
+000860* USPS FINANCE NUMBER FROM OUTPUT CITY MATCH                      MATPARMO
+000861         10  P9OFIN.                                              MATPARMO
+000862             15  P9OFIN-N        PIC 9(6).                        MATPARMO
+000863                                                                  MATPARMO
+000864* USPS LAST LINE NUMBER FROM THE MATCHED ZIP+4 RECORD             MATPARMO
+000865         10  P9OLLN              PIC X(6).                        MATPARMO
+000866                                                                  MATPARMO
+000867* FIRST FOUR ADDITIONAL ZIPS (IF MULTIPLE)...EACH 0 IF N/A        MATPARMO
+000868         10  P9OZ-GRP.                                            MATPARMO
+000869             15  P9OZ            PIC 9(5) OCCURS 4 TIMES.         MATPARMO
+000870                                                                  MATPARMO
+000871* CORRECTED (OR ORIGINAL) ZIP CODE                                MATPARMO
+000872         10  P9OCZP              PIC 9(5).                        MATPARMO
+000873         10  P9OCZP-X REDEFINES P9OCZP.                           MATPARMO
+000874             15  P9O3DG          PIC X(3).                        MATPARMO
+000875             15  P9OZL2          PIC X(2).                        MATPARMO
+000876                                                                  MATPARMO
+000877* STANDARDIZED (LONG) CITY-STATE-ZIP (-PLUS-4)                    MATPARMO
+000878         10  P9OCL9              PIC X(43).                       MATPARMO
+000879                                                                  MATPARMO
+000880* STANDARDIZED (SHORT) CITY-STATE-ZIP (-PLUS-4)                   MATPARMO
+000881         10  P9OCS9              PIC X(28).                       MATPARMO
+000882                                                                  MATPARMO
+000883* STANDARDIZED CITY-STATE ELEMENTS                                MATPARMO
+000884         10  P9OCSE.                                              MATPARMO
+000885                                                                  MATPARMO
+000886* CITY NAME (LONG FORM)                                           MATPARMO
+000887             15  P9OCTL          PIC X(28).                       MATPARMO
+000888                                                                  MATPARMO
+000889* CITY NAME (13-BYTE FORM)                                        MATPARMO
+000890             15  P9OCTS          PIC X(13).                       MATPARMO
+000891                                                                  MATPARMO
+000892* STATE ABBREVIATION                                              MATPARMO
+000893             15  P9OSTA          PIC X(2).                        MATPARMO
+000894                                                                  MATPARMO
+000895* STANDARDIZED CITY NAME TYPE:                                    MATPARMO
+000896*   P = PRIMARY, PREFERRED MAILING NAME (USPS LAST LINE NAME)     MATPARMO
+000897*   S = SECONDARY, OK MAILING NAME (NOT THE USPS LAST LINE NAME)  MATPARMO
+000898*   V = VANITY, NON-MAILING NAME                                  MATPARMO
+000899         10  P9OCITY-TYPE        PIC X.                           MATPARMO
+000900                                                                  MATPARMO
+000901* FORMATTED PRIVATE MAIL BOX (FROM INPUT)                         MATPARMO
+000902     05  P9OPMB                  PIC X(20).                       MATPARMO
+000903                                                                  MATPARMO
+000904* PMB TYPE                                                        MATPARMO
+000905*   S = STANDARD PMB NUMBER                                       MATPARMO
+000906*   N = NON-STANDARD PMB NUMBER                                   MATPARMO
+000907*   # = NON-STANDARD BUT POUND SIGN PMB NUMBER                    MATPARMO
+000908     05  P9OPMB-TYP              PIC X(1).                        MATPARMO
+000909                                                                  MATPARMO
+000910*                                                                 MATPARMO
+000911* ZIP CLASS                                                       MATPARMO
+000912*   M = MILITARY ZIP                                              MATPARMO
+000913*   P = POBOX ZIP                                                 MATPARMO
+000914*   U = UNIQUE ZIP                                                MATPARMO
+000915*   BLANK = NON-UNIQUE ZIP                                        MATPARMO
+000916     05  P9OZIP-CLASS            PIC X(1).                        MATPARMO
+000917*                                                                 MATPARMO
+000918* ESM INDICATOR                                                   MATPARMO
+000919*   A = MATCHED USING ESM FOR ALL STREETS IN LOCALITY (ASM)       MATPARMO
+000920*   F = ASM PERFORMED BUT NO MATCH                                MATPARMO
+000921*   M = MATCHED USING ESM                                         MATPARMO
+000922*   P = ESM PERFORMED BUT NO MATCH                                MATPARMO
+000923*   BLANK = NO ESM PERFORMED                                      MATPARMO
+000924     05  P9OESM-FLAG             PIC X(1).                        MATPARMO
+000925                                                                  MATPARMO
+000926*   SUITELINK RETURN CODE                                         MATPARMO
+000927*   A  - BUSINESS NAME MATCHED                                    MATPARMO
+000928*   00 - NO MATCH                                                 MATPARMO
+000929     05  P9OSTELNK-RC            PIC X(2).                        MATPARMO
+000930                                                                  MATPARMO
+000931*   SUITELINK MATCH CODE                                          MATPARMO
+000932*   A       MATCH                                                 MATPARMO
+000933*   B       NO MATCH                                              MATPARMO
+000934*   C       BUSINESS NAME WAS ALL NOISE                           MATPARMO
+000935*   D       HIGH RISE DEFAULT NOT FOUND                           MATPARMO
+000936*   E       DATA IS EXPIRED                                       MATPARMO
+000937     05  P9OSTELNK-MATCH-CODE    PIC X(1).                        MATPARMO
+000938                                                                  MATPARMO
+000939*   SUITELINK MATCH FIDELITY                                      MATPARMO
+000940*   1       EXACT MATCH                                           MATPARMO
+000941*   2       GOOD MATCH (ALL BUT ONE WORD MATCHED)                 MATPARMO
+000942*   3       POOR MATCH (AT LEAST ONE WORD MATCHED)                MATPARMO
+000943     05  P9OSTELNK-MATCH-FID     PIC X(1).                        MATPARMO
+000944                                                                  MATPARMO
+000945*   SUITELINK RELEASE NUMBER                                      MATPARMO
+000946     05  P9OSTELNK-RLS-NUM       PIC X(12).                       MATPARMO
+000947                                                                  MATPARMO
+000948* PMB or APMB poputaled in matcher or not                         MATPARMO
+000949     05  P9OPMB-POPUL            PIC X(1).                        MATPARMO
+000950*                                                                 MATPARMO
+000951                                                                  MATPARMO
+000952* LINE OF TRAVEL OUTPUT FIELDS                                    MATPARMO
+000953     05  P9OLOT-RESULTS.                                          MATPARMO
+000954                                                                  MATPARMO
+000955* SINGLE CHARACTER DENOTING THE LEVEL OF MATCH OBTAINED AGAINST   MATPARMO
+000956* LINE OF TRAVEL MASTER FILE, AS FOLLOWS:                         MATPARMO
+000957*     F = MASTER FILE OPEN/READ FAILURE                           MATPARMO
+000958*     V = MASTER FILE NOT COMPATIBLE WITH THE SOFTWARE            MATPARMO
+000959*     C = CALL TO LOT MATCHER FAILED                              MATPARMO
+000960*     9 = 9-DIGIT ZIP+4 MATCH WAS SUCCESSFUL                      MATPARMO
+000961*     D = UNSUCCESSFUL 9-DIGIT MATCH, DEFAULT CODED               MATPARMO
+000962* BLANK = INVALID INPUT (ZERO OR NON-NUMERIC ZIP/ZIP+4 ADD-ON)    MATPARMO
+000963         10  P9OLOT-RC           PIC X.                           MATPARMO
+000964                                                                  MATPARMO
+000965* ENTIRE FIVE BYTE LINE OF TRAVEL CODE                            MATPARMO
+000966         10  P9OLOT-CODE.                                         MATPARMO
+000967                                                                  MATPARMO
+000968* NUMERIC PORTION OF LINE-OF-TRAVEL CODE                          MATPARMO
+000969             15  P9OLOT-CODE-NUM PIC X(4).                        MATPARMO
+000970                                                                  MATPARMO
+000971* LINE-OF-TRAVEL SEQUENCE CODE (A/D)                              MATPARMO
+000972* SINGLE CHARACTER DENOTING USPS LOT SEQUENCE, AS FOLLOWS:        MATPARMO
+000973*  BLANK - NO LOT NUMBER COULD BE DETERMINED.                     MATPARMO
+000974*   A = ASCENDING                                                 MATPARMO
+000975*   D = DESCENDING                                                MATPARMO
+000976             15  P9OLOT-CODE-SEQ PIC X.                           MATPARMO
+000977                                                                  MATPARMO
+000978* TWO-BYTE ALTERNATE SEQUENCE CODE (A0-T9)                        MATPARMO
+000979         10  P9OLOT-ALT-SEQ      PIC X(2).                        MATPARMO
+000980                                                                  MATPARMO
+000981* ONE-BYTE ALTERNATE SEQUENCE CODE (X"21"-X"E8")                  MATPARMO
+000982         10  P9OLOT-ALT-HEX      PIC X.                           MATPARMO
+000983                                                                  MATPARMO
+000984* USPS REQUIRED MASTER FILE EXPIRATION RELATED FIELDS:            MATPARMO
+000985     05  P9OEXP.                                                  MATPARMO
+000986                                                                  MATPARMO
+000987* MASTER FILE EXPIRATION RETURN CODE                              MATPARMO
+000988*   BLANK = MASTER FILE IS OK (WITHIN USPS FILE LIFE-CYCLE)       MATPARMO
+000989*       W = MASTER FILE HAS EXCEEDED ITS LIFE-CYCLE AND IS WITHIN MATPARMO
+000990*            THE USPS GRACE PERIOD (CHECK P9OMFX FOR DAYS LEFT    MATPARMO
+000991*            UNTIL THE END OF THE GRACE PERIOD)                   MATPARMO
+000992*       B = MASTER FILE EXPIRATION BYPASSED                       MATPARMO
+000993*       X = MASTER FILE HAS EXPIRED (GRACE PERIOD EXCEEDED)       MATPARMO
+000994         10  P9OXRC              PIC X.                           MATPARMO
+000995                                                                  MATPARMO
+000996* NR OF DAYS UNTIL MASTER FILE EXPIRES (END OF GRACE PERIOD)      MATPARMO
+000997         10  P9OMFX              PIC  9(3).                       MATPARMO
+000998                                                                  MATPARMO
+000999* DATE MASTER FILE WILL EXPIRE (MM/DD/YYYY)                       MATPARMO
+001000         10  P9OMFD              PIC X(10).                       MATPARMO
+001001                                                                  MATPARMO
+001002* USPS VINTAGE OF MASTER FILE DATA (MM/DD/YYYY)                   MATPARMO
+001003         10  P9OMFV              PIC X(10).                       MATPARMO
+001004                                                                  MATPARMO
+001005* CODE-1 PLUS CASS CYCLE EXPIRATION RETURN CODE                   MATPARMO
+001006*   BLANK = CODE-1 PLUS IS CERTIFIED FOR THE CURRENT CASS CYCLE   MATPARMO
+001007*       C = THE CASS CYCLE THAT CERTIFIED THIS VERSION OF         MATPARMO
+001008*           CODE-1 PLUS HAS EXPIRED                               MATPARMO
+001009*                                                                 MATPARMO
+001010* NOTE: P9OXRC WILL BE SET TO "B" WHEN P9OCASS IS "C" AND THE DATEMATPARMO
+001011*       IS LESS THAN FEBRUARY 1 OF THE YEAR FOLLOWING THE         MATPARMO
+001012*       EXPIRATION OF THE CASS CYCLE (OR APPROXIMATELY 6 MONTHS   MATPARMO
+001013*       AFTER THE CASS CYCLE EXPIRATION).                         MATPARMO
+001014*                                                                 MATPARMO
+001015*       P9OXRC WILL BE SET TO "X" WHEN P9OCASS IS "C" AND THE DATEMATPARMO
+001016*       IS FEBRUARY 1 OR GREATER OF THE YEAR FOLLOWING THE        MATPARMO
+001017*       EXPIRATION OF THE CASS CYCLE (OR APPROXIMATELY 6 MONTHS   MATPARMO
+001018*       AFTER THE CASS CYCLE EXPIRATION).                         MATPARMO
+001019*                                                                 MATPARMO
+001020         10  P9OCASS             PIC X.                           MATPARMO
+001021                                                                  MATPARMO
+001022* CODE-1 PLUS YEAR 2000 TEST OPTION WAS REMOVED WITH REL 2.4      MATPARMO
+001023*                                                                 MATPARMO
+001024* NOTE: THIS SPACE IS AVAILABLE FOR USE                           MATPARMO
+001025         10  P9OTEST             PIC X.                           MATPARMO
+001026                                                                  MATPARMO
+001027* USPS CASS CYCLE EXPIRATION DATE (BYPASS POSSIBLE)               MATPARMO
+001028*                                                                 MATPARMO
+001029* NOTE: THIS IS THE DATE THAT CODE-1 PLUS WILL STOP PROVIDING     MATPARMO
+001030*       A USPS FORM 3553 FOR THIS CASS CYCLE (SOFTWARE VERSION)   MATPARMO
+001031         10  P9OCASS-X-DATE      PIC X(10).                       MATPARMO
+001032                                                                  MATPARMO
+001033*                                                                 MATPARMO
+001034* DATABASE FILE ERROR RETURN CODES                                MATPARMO
+001035* A - LTMASTR                                                     MATPARMO
+001036* Z - ZIPIDX                                                      MATPARMO
+001037* L - LCLDB                                                       MATPARMO
+001038* D - DTLDB                                                       MATPARMO
+001039* U - Urbanization load error (cannot load                        MATPARMO
+001040*     the Puerto Rican URB names from the CIYTDB                  MATPARMO
+001041*     database file)                                              MATPARMO
+001042* C - CITYDB                                                      MATPARMO
+001043* N - COUNTY                                                      MATPARMO
+001044* S - C1STRDB                                                     MATPARMO
+001045* V - DPV                                                         MATPARMO
+001046* O - SEASONAL                                                    MATPARMO
+001047* F - SUITELINK                                                   MATPARMO
+001048* 2 - C1PAL2                                                      MATPARMO
+001049* R - RDI                                                         MATPARMO
+001050*                                                                 MATPARMO
+001051         10  P9OERR              PIC X(1).                        MATPARMO
+001052*                                                                 MATPARMO
+001053* C - Close                                                       MATPARMO
+001054* O - Open                                                        MATPARMO
+001055* R - Read                                                        MATPARMO
+001056* N - Record Number                                               MATPARMO
+001057*                                                                 MATPARMO
+001058         10  P9OERR-TYPE         PIC X(1).                        MATPARMO
+001059*                                                                 MATPARMO
+001060* FILE STATUS CODE                                                MATPARMO
+001061*                                                                 MATPARMO
+001062         10  P9OFST              PIC X(2).                        MATPARMO
+001063                                                                  MATPARMO
+001064* RESERVED                                                        MATPARMO
+001065         10  FILLER              PIC X(6).                        MATPARMO
+001066                                                                  MATPARMO
+001067* DPV DATABASE DATE                                               MATPARMO
+001068     05  P9ODPV-DB-VINTAGE.                                       MATPARMO
+001069         10  P9ODPV-DB-MONTH     PIC X(02).                       MATPARMO
+001070         10  P9ODPV-DB-YEAR      PIC X(04).                       MATPARMO
+001071                                                                  MATPARMO
+001072* SOFTWARE VERSION USED TO CREATE DPV FILE                        MATPARMO
+001073*  VV.RR FORMAT                                                   MATPARMO
+001074     05  P9ODPV-DBSFW            PIC X(05).                       MATPARMO
+001075                                                                  MATPARMO
+001076* RDI DATABASE DATE                                               MATPARMO
+001077     05  P9ORDI-DB-VINTAGE.                                       MATPARMO
+001078         10  P9ORDI-DB-MONTH     PIC X(02).                       MATPARMO
+001079         10  P9ORDI-DB-YEAR      PIC X(04).                       MATPARMO
+001080                                                                  MATPARMO
+001081* SOFTWARE VERSION USED TO CREATE RDI FILE                        MATPARMO
+001082*  VV.RR FORMAT                                                   MATPARMO
+001083     05  P9ORDI-DBSFW            PIC X(05).                       MATPARMO
+001084                                                                  MATPARMO
+001085* DATABASE VERSION                                                MATPARMO
+001086* VV.RR FORMAT                                                    MATPARMO
+001087     05  P9ODB-VERS              PIC X(05).                       MATPARMO
+001088                                                                  MATPARMO
+001089* RESERVED AREA                                                   MATPARMO
+001090     05  FILLER                  PIC X(01).                       MATPARMO
+001091                                                                  MATPARMO
+001092                                                                  MATPARMO
+001093* USPS URBANIZATION NAME IF MATCHED, OTHERWISE THE UPPER CASED    MATPARMO
+001094* INPUT URBANIZATION NAME                                         MATPARMO
+001095     05  P9OURB                  PIC X(28).                       MATPARMO
+001096                                                                  MATPARMO
+001097* FIPS COUNTY NUMBER                                              MATPARMO
+001098     05  P9OCOUNTY-NR.                                            MATPARMO
+001099         10  P9OCOUNTY-NR-N      PIC 9(3).                        MATPARMO
+001100* COUNTY NAME                                                     MATPARMO
+001101     05  P9OCOUNTY               PIC X(25).                       MATPARMO
+001102                                                                  MATPARMO
+001103* CONGRESSIONAL DISTRICT                                          MATPARMO
+001104     05  P9OCONGRESS.                                             MATPARMO
+001105         10  P9OCONGRESS-N       PIC 9(2).                        MATPARMO
+001106                                                                  MATPARMO
+001107* DSF FOOTNOTES                                                   MATPARMO
+001108     05  P9OFNT-GRP.                                              MATPARMO
+001109         10  P9OFNT              PIC X(2) OCCURS 50 TIMES.        MATPARMO
+001110                                                                  MATPARMO
+001111*   SUITELINK RELEASE NAME                                        MATPARMO
+001112     05  P9OSTELNK-RLS-NAME      PIC X(30).                       MATPARMO
+001113                                                                  MATPARMO
+001114*   SUITELINK DB DATE (MM/DD/YYYY)                                MATPARMO
+001115     05  P9OSTELNK-DB-DATE       PIC X(10).                       MATPARMO
+001116                                                                  MATPARMO
+001117*   SUITELINK EXPIRATION DATE (MM/DD/YYYY)                        MATPARMO
+001118     05  P9OSTELNK-DB-EXP-DATE   PIC X(10).                       MATPARMO
+001119                                                                  MATPARMO
+001120*   PREFERRED ALIAS RETURN CODE                                   MATPARMO
+001121*   " " = NO PREFERRED ALIAS PROCESSING ATTEMPTED                 MATPARMO
+001122*   "A" = INPUT ADDRESS MATCHED TO AN ALIAS (PREFERRED ALIAS      MATPARMO
+001123*         PROCESSING IS ONLY ATTEMPTED FOR BASE ADDRESSES)        MATPARMO
+001124*   "N" = PREFERRED ALIAS NOT FOUND FOR INPUT ADDRESS             MATPARMO
+001125*   "Y" = PREFERRED ALIAS FOUND FOR INPUT ADDRESS AND USED IN     MATPARMO
+001126*         OUTPUT STANDARDIZED ADDRESS                             MATPARMO
+001127     05  P9OMATAL2-PREFER-RC     PIC X(1).                        MATPARMO
+001128*                                                                 MATPARMO
+001129*   ABBREVIATED ALIAS RETURN CODE                                 MATPARMO
+001130*   " " = NO ABBREVIATED ALIAS PROCESSING ATTEMPTED               MATPARMO
+001131*   "B" = OUTPUT ADDRESS SET TO BASE ADDRESS                      MATPARMO
+001132*   "L" = ORIGINAL STANDARDIZED ADDRESS LENGTH ALREADY <= MAX     MATPARMO
+001133*   "N" = ABBREVIATED ALIAS NOT FOUND FOR INPUT ADDRESS           MATPARMO
+001134*   "Y" = ABBREVIATED ALIAS FOUND FOR INPUT ADDRESS AND USED IN   MATPARMO
+001135*         OUTPUT STANDARDIZED ADDRESS                             MATPARMO
+001136     05  P9OMATAL2-ABBREV-RC     PIC X(1).                        MATPARMO
+001137* FORMATTED ALTERNATE PRIVATE MAIL BOX (FROM INPUT)               MATPARMO
+001138     05  P9OAPMB                  PIC X(20).                      MATPARMO
+001139* ALTERNATE PMB TYPE                                              MATPARMO
+001140*   S = STANDARD PMB NUMBER                                       MATPARMO
+001141*   N = NON-STANDARD PMB NUMBER                                   MATPARMO
+001142*   # = NON-STANDARD BUT POUND SIGN PMB NUMBER                    MATPARMO
+001143     05  P9OAPMB-TYP              PIC X(1).                       MATPARMO
+001144* DOOR NOT ACCESSIBLE FLAG                                        MATPARMO
+001145     05  P9ODPV-DNA               PIC X(1).                       MATPARMO
+001146* THROWBACK FLAG                                                  MATPARMO
+001147     05  P9ODPV-THROW             PIC X(1).                       MATPARMO
+001148* NO SECURE LOCATION FLAG                                         MATPARMO
+001149     05  P9ODPV-NSL               PIC X(1).                       MATPARMO
+001150* NON-DELIVERY DAYS FLAG                                          MATPARMO
+001151     05  P9ODPV-NDD               PIC X(1).                       MATPARMO
+001152* NON-DELIVERY DAYS INDICATORS                                    MATPARMO
+001153     05  P9ODPV-NDD-DAYS          PIC X(7).                       MATPARMO
+001154* NO STAT REASON CODE                                             MATPARMO
+001155*  1-IDA, 2-CDS, 3-COLLISION, 4-CMZ, 5-REGULAR                    MATPARMO
+001156     05  P9ODPV-NSR               PIC X(2).                       MATPARMO
+001157* DPV DROP FLAG                                                   MATPARMO
+001158     05  P9ODPV-DROP              PIC X(1).                       MATPARMO
+001159* DPV ENHANCED RC                                                 MATPARMO
+001160     05  P9ODPV-ENH-RC            PIC X(1).                       MATPARMO
+001161* DPV TOTAL DPS FLAG                                              MATPARMO
+001162     05  P9ODPV-TOTDPS            PIC X(1).                       MATPARMO
+001163* RESERVED AREA                                                   MATPARMO
+001164     05  FILLER                   PIC X(11).                      MATPARMO
+001165                                                                  MATPARMO
+001166*--------------------------------------------------------------   MATPARMO
+001167* MULTIPLE ANSWER STACK INFORMATION, BLANK IF P9OGRC NOT "M"      MATPARMO
+001168*--------------------------------------------------------------   MATPARMO
+001169     05  P9OSTACK-INFO.                                           MATPARMO
+001170                                                                  MATPARMO
+001171*   NUMBER OF ENTRIES ON THE STACK                                MATPARMO
+001172         10  P9OSTACK-USED       PIC 9(2).                        MATPARMO
+001173                                                                  MATPARMO
+001174                                                                  MATSTACK
+001175*   10 STACK ENTRIES                                              MATSTACK
+001176         10  P9OSTACK-GRP OCCURS 10 TIMES.                        MATSTACK
+001177*      RETURN CODE                                                MATSTACK
+001178             15  P9OAS-RC             PIC X.                      MATSTACK
+001179*      OVERALL PROBABILITY OF CORRECTNESS (0-9)                   MATSTACK
+001180             15  P9OAS-OPRB           PIC X.                      MATSTACK
+001181*      USPS RECORD TYPE                                           MATSTACK
+001182             15  P9OAS-RTP            PIC X.                      MATSTACK
+001183*      "DEFAULT" MATCH (X OR BLANK)                               MATSTACK
+001184             15  P9OAS-DFR            PIC X.                      MATSTACK
+001185*      FORMATTED STANDARDIZED ADDRESS                             MATSTACK
+001186             15  P9OAS-SAD            PIC X(64).                  MATSTACK
+001187*      LENGTH OF STANDARDIZED ADDRESS                             MATSTACK
+001188             15  P9OAS-SAL            PIC 9(2).                   MATSTACK
+001189*      PRIMARY RANGE INFORMATION                                  MATSTACK
+001190             15  P9OAS-PRG.                                       MATSTACK
+001191*           LOW                                                   MATSTACK
+001192                 20  P9OAS-PRG-LOW    PIC X(10).                  MATSTACK
+001193*           HIGH                                                  MATSTACK
+001194                 20  P9OAS-PRG-HIGH   PIC X(10).                  MATSTACK
+001195*           PARITY (EVEN/ODD/BOTH)                                MATSTACK
+001196                 20  P9OAS-PRG-PARITY PIC X.                      MATSTACK
+001197*      SECONDARY RANGE INFORMATION                                MATSTACK
+001198             15  P9OAS-SRG.                                       MATSTACK
+001199*           LOW                                                   MATSTACK
+001200                 20  P9OAS-SRG-LOW    PIC X(8).                   MATSTACK
+001201*           HIGH                                                  MATSTACK
+001202                 20  P9OAS-SRG-HIGH   PIC X(8).                   MATSTACK
+001203*           PARITY (EVEN/ODD/BOTH)                                MATSTACK
+001204                 20  P9OAS-SRG-PARITY PIC X.                      MATSTACK
+001205*      FIRM NAME                                                  MATSTACK
+001206             15  P9OAS-FIRM           PIC X(40).                  MATSTACK
+001207*      LONG CITY NAME                                             MATSTACK
+001208             15  P9OAS-CTL            PIC X(28).                  MATSTACK
+001209*      SHORT CITY NAME                                            MATSTACK
+001210             15  P9OAS-CTS            PIC X(13).                  MATSTACK
+001211*      PUERTO RICO URBANIZATION NAME                              MATSTACK
+001212             15  P9OAS-URB            PIC X(28).                  MATSTACK
+001213*      STATE ABBREVIATION                                         MATSTACK
+001214             15  P9OAS-STA            PIC X(2).                   MATSTACK
+001215*      ZIP CODE                                                   MATSTACK
+001216             15  P9OAS-ZIP            PIC X(5).                   MATSTACK
+001217*      DELIVER POINT BAR CODE, ZIP+6                              MATSTACK
+001218             15  P9OAS-DPBC.                                      MATSTACK
+001219*       ZIP+4 ADD-ON                                              MATSTACK
+001220                 20  P9OAS-ZP4        PIC X(4).                   MATSTACK
+001221*       DELIVER POINT ADD-ON                                      MATSTACK
+001222                 20  P9OAS-DP         PIC X(2).                   MATSTACK
+001223*      DELIVER POINT CHECK-DIGIT                                  MATSTACK
+001224             15  P9OAS-DPC            PIC X.                      MATSTACK
+001225*      CARRIER ROUTE                                              MATSTACK
+001226             15  P9OAS-CRT            PIC X(4).                   MATSTACK
+001227*      COUNTY NUMBER                                              MATSTACK
+001228             15  P9OAS-COUNTY         PIC X(3).                   MATSTACK
+001229*      CONGRESSIONAL DISTRICT                                     MATSTACK
+001230             15  P9OAS-CONGRESS       PIC X(2).                   MATSTACK
+001231*      LAST LINE NUMBER                                           MATSTACK
+001232             15  P9OAS-LL             PIC X(6).                   MATSTACK
+001233*      FINANCE NUMBER                                             MATSTACK
+001234             15  P9OAS-FIN            PIC X(6).                   MATSTACK
+001235*      SCORE 0-9 (0 IS THE BEST)                                  MATSTACK
+001236             15  P9OAS-SCORE          PIC X.                      MATSTACK
+001237                                                                  MATSTACK
+001238                                                                  MATPARMO
+001239     05  P9OFDPV-RETURN.                                          MATPARMO
+001240         10  P9OFDPV-DPV-ERR-NO       PIC 9(005).                 MATPARMO
+001241         10  P9OFDPV-DPV-ERR-MSG      PIC X(125).                 MATPARMO
+001242                                                                  MATPARMO
+001243* MODIFIED FILLER WHICH WAS EARLIER PIC X(118) TO ADD PRECISELYID MATPARMO
+001244* VARIABLES AS PART OF CODEPLUS - 4501                            MATPARMO
+001245     05  P9OPRECISELYID-INFO.                                     MATPARMO
+001246         10  P9OPRECISELYID-STATUS          PIC X.                MATPARMO
+001247         10  P9OPRECISELYID-RELEASE-NAME    PIC X(18).            MATPARMO
+001248         10  P9OPRECISELYID-RELEASE-NUM     PIC X(04).            MATPARMO
+001249         10  P9OPRECISELYID-RELEASE-DATE    PIC X(10).            MATPARMO
+001250         10  P9OPRECISELYID-PBKEY           PIC X(12).            MATPARMO
+001251                                                                  MATPARMO
+001252* ORIGINAL DPBC (BEFORE TOTALDPS CALC) - CYCLE O REQMT            MATPARMO
+001253     05  P9ODPBC-ORIGINAL                   PIC X(2).             MATPARMO
+001254                                                                  MATPARMO
+001255* RESERVED AREA                                                   MATPARMO
+001256     05  FILLER                   PIC X(71).                      MATPARMO
+001257                                                                  MATPARMO

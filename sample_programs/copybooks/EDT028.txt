@@ -1,0 +1,174 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT028                                           *          
+      * 04/19/05 TMH ADD COMPANY CODE FOR MULTI BRANCH SEQ           *  TMH05109
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV028 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV028-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV028-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV028-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV028-CO-CD                                  *          
+      *              - EDV028-PARTNER-ID                             *          
+      *              - EDV028-CREDIT-MEMO-FLG                        *          
+      *              - EDV028-ASSET-TAG-FLG                          *          
+      *              - EDV028-EDI-PO-FLG                             *          
+      *              - EDV028-ZERO-VALUE-FLG                         *          
+      *              - EDV028-REFUSAL-FLG                            *          
+      *              - EDV028-COMPONENTS-FLG                         *          
+      *              - EDV028-INTEREST-INV-FLG                       *          
+      *              - EDV028-LST-CHG-TS                             *          
+      *              - EDV028-LST-CHG-NAM                            *          
+      *                                                              *          
+      *    OUTPUT: EDV028-OUTPUT-DATA                                *          
+      *          - EDV028-ROW-COUNT                                  *          
+      *          - EDV028-MODULE-RESULT-CD                           *          
+      *          - EDV028-MODULE-MESSAGE                             *          
+      *          - EDV028-DATABASE-RESULT-CODES:                     *          
+      *              - EDV028-SQLCA VALUES                           *          
+      *              - EDV028-SQLCODE                                *          
+      *              - EDV028-SQLSTATE                               *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV028 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV028-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV028-PARTNER-ID.                *          
+      *     MOVE 'S ' TO EDV028-ACTION-CD.     .                     *          
+      *     MOVE 'IE_BRANCH_SEQ' TO EDV028-OBJECT-ID.                *          
+      *                                                              *          
+      *     CALL 'EDV028' USING EDV028-COMMUNICATIONS-AREA.          *          
+      *     IF EDV028-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV028 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDR001 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                11/20/01  KXR   ORIGINAL.                     *  KXR01324
+      ****************************************************************          
+                                                                                
+       01  EDV028-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV028-ACTION-CD                     PIC  X(002).                
+               88  EDV028-SELECT                    VALUE 'S '.                 
+               88  EDV028-INSERT                    VALUE 'I '.                 
+               88  EDV028-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV028-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV028-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV028-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV028-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV028-COUNT                     VALUE 'C '.                 
+               88  EDV028-MAX                       VALUE 'MX'.                 
+               88  EDV028-MIN                       VALUE 'MN'.                 
+               88  EDV028-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV028-CL-MASS-DELETE            VALUE 'MC'.                 
+               88  EDV028-MASS-UPDATE               VALUE 'MU'.                 
+               88  EDV028-MASS-INSERT               VALUE 'MI'.                 
+               88  EDV028-RESEQUENCE-INSERT         VALUE 'RI'.                 
+               88  EDV028-RESEQUENCE-DELETE         VALUE 'RD'.                 
+           05  EDV028-USER-ID                       PIC  X(010).                
+           05  EDV028-KEY-AREA.                                                 
+               10  EDV028-KEY-CO-CD                 PIC  X(002).                
+               10  EDV028-KEY-PARTNER-ID            PIC  X(015).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV028-INPUT-OUTPUT-AREA.                                        
+               10  EDV028-OBJECT-ID                 PIC  X(030).                
+                   88  EDV028-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV028-IE-BRANCH-SEQ         VALUE                       
+                                  'IE_BRANCH_SEQ                 '.             
+                   88  EDV028-CURSOR1               VALUE                       
+                                  'CURSOR1                       '.             
+                   88  EDV028-CURSOR2               VALUE                       
+                                  'CURSOR2                       '.             
+                   88  EDV028-CURSOR3               VALUE                       
+                                  'CURSOR3                       '.             
+               10  EDV028-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV028-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV028-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV028-CO-CD                 PIC  X(002).                
+                   15  EDV028-PARTNER-ID            PIC  X(015).                
+                   15  EDV028-BR-SEQ-TYPE-ID        PIC  X(010).                
+                   15  EDV028-DEMAND-BR-CD          PIC  X(002).                
+                   15  EDV028-TOD-TM                PIC  X(008).                
+                   15  EDV028-SEQ-NBR               PIC  S9(009).               
+                   15  EDV028-SHIP-FROM-BR-CD       PIC  X(002).                
+                   15  EDV028-LST-CHG-TS            PIC  X(026).                
+                   15  EDV028-LST-CHG-NAM           PIC  X(015).                
+                   15  EDV028-SHIP-FROM-CO-CD       PIC  X(002).        TMH05109
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV028-OUTPUT-DATA.                                              
+               10  EDV028-ROW-COUNT                 PIC  S9(009).               
+               10  EDV028-MODULE-RESULT-CD          PIC  X(002).                
+                   88  EDV028-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV028-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV028-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV028-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV028-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV028-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV028-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV028-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV028-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV028-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV028-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV028-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV028-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV028-EXCEPTION-MESSAGE.                                    
+                   15  EDV028-MSG-OBJECT            PIC  X(030).                
+                   15  EDV028-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV028-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV028-SQLCA.                                            
+                       20  EDV028-SQLCAID           PIC  X(008).                
+                       20  EDV028-SQLCABC           PIC  S9(009).               
+                       20  EDV028-SQLCODE           PIC  S9(009).               
+                       20  EDV028-SQLERRM.                                      
+                           25  EDV028-SQLERRML      PIC  S9(004).               
+                           25  EDV028-SQLERRMC      PIC  X(070).                
+                       20  EDV028-SQLERRP           PIC  X(008).                
+                       20  EDV028-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV028-SQLWARN.                                      
+                           25  EDV028-SQLWARN0      PIC  X(001).                
+                           25  EDV028-SQLWARN1      PIC  X(001).                
+                           25  EDV028-SQLWARN2      PIC  X(001).                
+                           25  EDV028-SQLWARN3      PIC  X(001).                
+                           25  EDV028-SQLWARN4      PIC  X(001).                
+                           25  EDV028-SQLWARN5      PIC  X(001).                
+                           25  EDV028-SQLWARN6      PIC  X(001).                
+                           25  EDV028-SQLWARN7      PIC  X(001).                
+                       20  EDV028-SQLEXT.                                       
+                           25  EDV028-SQLWARN8      PIC  X(001).                
+                           25  EDV028-SQLWARN9      PIC  X(001).                
+                           25  EDV028-SQLWARNA      PIC  X(001).                
+                           25  EDV028-SQLSTATE      PIC  X(005).                

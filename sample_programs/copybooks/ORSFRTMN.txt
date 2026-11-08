@@ -1,0 +1,47 @@
+      *=================================================================        
+      *                                                                *        
+      *   FREIGHT/MINIMUM FREIGHT LIMIT PROCESS COPYBOOK.              *        
+      *   THE COPY MEMBER ORWORDMN (WORKING STORAGE VARIABLES)         *        
+      *   IS NEEDED FOR THE USE OF THIS COPY MEMBER                    *        
+      *                                                                *        
+      *=================================================================        
+      * REVISIONS:                                                     *        
+      * 09/12/00 EDR INITIAL IMPLEMENTATION.                           *EDR00275
+      * 19/21/00 EDR ADD TEST FOR WS-CAPS-ENTRY                        *EDR00293
+      *                                                                *        
+      *=================================================================        
+                                                                                
+       MIN00-FRT-LIMIT-AMT.                                                     
+           MOVE ZERO                                TO WS-FRT-LIMIT-AMT.        
+           IF (CU-FRT-LIMIT-AMT IS NUMERIC                                      
+           AND CU-FRT-LIMIT-AMT > 999999)                                       
+               MOVE CU-FRT-LIMIT-AMT                TO WS-FRT-LIMIT-AMT         
+           ELSE                                                                 
+                MOVE ORH-TERM-ID TO WS-ORH-TERM-ID                              
+                IF (ORH-CAPS-ENTRY                                              
+                OR  WS-CAPS-ENTRY                                       EDR00293
+                OR (ORH-ENTRY-VIA-LU62 AND WS-ORH-TERM-ID-WEB))                 
+                   IF (TB-CPO3-FRT-LIMIT-AMT NUMERIC)                           
+                      IF (CU-FRT-LIMIT-AMT NUMERIC                              
+                      AND CU-FRT-LIMIT-AMT > 0                                  
+                      AND CU-FRT-LIMIT-AMT < TB-CPO3-FRT-LIMIT-AMT)             
+                          MOVE CU-FRT-LIMIT-AMT     TO WS-FRT-LIMIT-AMT         
+                      ELSE                                                      
+                          MOVE TB-CPO3-FRT-LIMIT-AMT                            
+                                                    TO WS-FRT-LIMIT-AMT         
+                      END-IF                                                    
+                   END-IF                                                       
+                ELSE                                                            
+                   IF (CU-FRT-LIMIT-AMT NUMERIC                                 
+                   AND CU-FRT-LIMIT-AMT > 0)                                    
+                       MOVE CU-FRT-LIMIT-AMT        TO WS-FRT-LIMIT-AMT         
+                   ELSE                                                         
+                       IF (TB-CPO-FRT-LIMIT-AMT NUMERIC                         
+                       AND TB-CPO-FRT-LIMIT-AMT > ZERO)                         
+                          MOVE TB-CPO-FRT-LIMIT-AMT TO WS-FRT-LIMIT-AMT         
+                      END-IF                                                    
+                   END-IF                                                       
+                END-IF                                                          
+           END-IF.                                                              
+       MIN00-FRT-LIMIT-EXIT.                                                    
+           EXIT.                                                                

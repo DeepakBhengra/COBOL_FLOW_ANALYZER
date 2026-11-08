@@ -1,0 +1,44 @@
+      ****************************************************************          
+      *  SWITZERLAND CONVERSION; ROUND TOTAL INVOICE AMOUNT;                    
+      *    ROUND THE AMOUT TO THE NEAREST MULTIPLE OF 5                         
+      *    SINCE THIS IS THE SMALLEST SWISS FRANC UNIT.                         
+      *                                                                         
+      *    IF LAST DECIMAL POINT NUMBER IS 1 THRU 2, THEN IT IS 0               
+      *    IF LAST DECIMAL POINT NUMBER IS 3 THRU 7, THEN IT IS 5               
+      *    IF LAST DECIMAL POINT NUMBER IS 8 THRU 9, THEN ROUND UP TO           
+      *            1ST DECIMAL POINT.                                           
+      ****************************************************************          
+      *  REVISIONS  *                                                           
+      *  09/08/99  YLM NEW FOR SWITZERLAND CONVERSION.                  YLM99251
+      ****************************************************************          
+       998-CALC-INVOICE-AMT.                                                    
+           IF WS-TOTAL-INVOICE-AMT-CAL < 0                                      
+              MOVE 'N'              TO WS-AMOUNT-SIGN                           
+           ELSE                                                                 
+              MOVE ' '              TO WS-AMOUNT-SIGN.                          
+                                                                                
+           MOVE WS-TOTAL-INVOICE-AMT-CAL TO WS-AMT-RECALC.                      
+                                                                                
+           IF WS-AMT-RECALC-LAST-DIGIT = 0                                      
+              GO TO 998-EXIT.                                                   
+                                                                                
+           IF WS-AMT-RECALC-LAST-DIGIT = 1 OR 2                                 
+              MOVE 0                    TO WS-AMT-RECALC-LAST-DIGIT             
+              MOVE WS-AMT-RECALC-REDEF  TO WS-TOTAL-INVOICE-AMT-CAL             
+              IF WS-NEG-AMOUNT                                                  
+                 COMPUTE WS-TOTAL-INVOICE-AMT-CAL ROUNDED =                     
+                                 (WS-TOTAL-INVOICE-AMT-CAL * -1).               
+                                                                                
+           IF WS-AMT-RECALC-LAST-DIGIT = 3 OR 4 OR 5 OR 6 OR 7                  
+              MOVE 5                    TO WS-AMT-RECALC-LAST-DIGIT             
+              MOVE WS-AMT-RECALC-REDEF  TO WS-TOTAL-INVOICE-AMT-CAL             
+              IF WS-NEG-AMOUNT                                                  
+                 COMPUTE WS-TOTAL-INVOICE-AMT-CAL ROUNDED =                     
+                                 (WS-TOTAL-INVOICE-AMT-CAL * -1).               
+                                                                                
+           IF WS-AMT-RECALC-LAST-DIGIT = 8 OR 9                                 
+              COMPUTE WS-TOTAL-AMT-DEC1 ROUNDED =                               
+                               WS-TOTAL-INVOICE-AMT-CAL * 1                     
+              MOVE WS-TOTAL-AMT-DEC1 TO WS-TOTAL-INVOICE-AMT-CAL.               
+       998-EXIT.                                                                
+           EXIT.                                                                

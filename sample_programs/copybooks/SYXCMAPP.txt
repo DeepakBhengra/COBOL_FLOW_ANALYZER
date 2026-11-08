@@ -1,0 +1,365 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *                                                                         
+      *     07/19/17   SAS   CICS UPGRADE PHASE II -                    SAS17200
+      *                      DELETED THE CICS TRANSLATED CODE AND       SAS17200
+      *                      UNCOMMENTED THE EXEC CICS STATEMENTS.      SAS17200
+      *     02/03/97   TFM   REMOVE FRT-IN-AMT.                         TFM97034
+      *     03/17/95   MCV   REMOVE HANDLE CONDITION                    MCV95076
+      *     10/21/94   JJD   ADD LOGIC TO HANDLE LINE BILLING           JJD94294
+      *     06/25/93   KAC   INCLUDE TAXES IN ORDER TOTAL CALCULATION   KAC93176
+      *                      FOR CREDIT MEMO APPLICATION                KAC93176
+      *     02/22/92   JVG   USE LEVEL 88 ORH-FLOOR-SUF INSTEAD OF      JVG93053
+      *                      HARD CODED ORH-BILL-TO-SUFFIX = '111'      JVG93053
+      *     10/02/92   KMB   SKIP APPLICATION FOR FLOORING ORDERS       KMB92275
+      *     12/06/90   MCV   SKIP APPLICATION FOR SALES TERMS 998       MCV90340
+      *     06/18/90   MCV   CHECK BILL-TO SUFFIX                       MCV90168
+      *     04/27/90   MCV   CLEAR CM ENTRY NOT FOUND DURING UNAPPLY    MCV90107
+      *     01/24/90   MCV   SKIP APPLICATION FOR SALES TERMS 992       MCV90024
+      *                                                                         
+      *     SYXCMAPP = TRANSLATED CREDIT MEMO APPLICATION ROUTINE               
+      *                                                                         
+      *205-CREDIT-MEMO-APPLICATION.                                             
+      *                                                                         
+      *    COPYBOOKS REQUIRED : ORSHED    --- ORDER HEADER                      
+      *                       : ORSSHH    --- ORDER SHIPMENT HEADER             
+      *                       : CMKMST    --- CREDIT MEMO SKA                   
+      *                       : CMRMST    --- CREDIT MEMO                       
+      *                                                                         
+      *    DLI DATA REQUIRED  : ORSHED    --- ORDER HEADER                      
+      *                       : ORSSHH    --- ORDER SHIPMENT HEADER             
+      *                                                                         
+      *    VARIABLE DEFINITION:                                                 
+      *                                                                         
+      * SUB                   : POINTER INTO ORDER SHIPMENT HEADER              
+      *                       : CREDIT MEMO APPLICATIONS VECTOR                 
+      *                                                                         
+      * WS-ABCODE             : ABEND CODE                                      
+      *                                                                         
+      * WS-CREDIT-APPLIED     : CREDIT MEMO APPLICATION AMOUNT                  
+      *                                                                         
+      * WS-CREDIT-AVAILABLE   : CREDIT MEMO UNAPPLIED CREDIT BALANCE            
+      *                                                                         
+      * WS-REC-LENGTH         : I/O RECORD LENGTH                               
+      *                                                                         
+      * WS-TOT-SALES-BAL-LEFT : RUNNING TOTAL OF THE ORDER VALUE LESS           
+      *                       : ANY CREDIT MEMO APPLICATION AMOUNTS             
+      *                                                                         
+      * WS-TOT-SALES-ORIGINAL : TOTAL OF ORDER VALUE BEFORE ORDER               
+      *                       : HEADER/LINE CHANGES                             
+      *                                                                         
+      *    SKIP CREDIT MEMOS AND ORDERS NOT ELIGIBLE FOR CREDIT                 
+      *                                                                         
+           IF ORSH-LINE-BILL-SW = ' '                                   JJD94294
+              IF ORSH-CREDIT-MEMO                                               
+                 OR ORSH-CM-APP-FLAG NOT = 'Y'                                  
+                 GO TO 205-EXIT.                                                
+      *                                                                         
+      *    FIND ORDER'S CURRENT TOTAL SALES AMOUNT                              
+      *                                                                         
+           IF ORSH-LINE-BILL-SW = ' '                                   JJD94294
+              PERFORM 206-CREDIT-MEMO-SALES-TOTAL.                              
+      *                                                                         
+      *    SKIP ORDERS WHICH HAVE BOTH INTEGRITY AND NO CHANGE IN               
+      *    THEIR TOTAL SALES AMOUNT                                             
+      *                                                                         
+           IF ORSH-LINE-BILL-SW = ' '                                   JJD94294
+              IF ORSH-INTEGRITY-FLAG = 'Y' AND                                  
+                 WS-TOT-SALES-BAL-LEFT = WS-TOT-SALES-ORIGINAL                  
+                 GO TO 205-EXIT.                                                
+      *                                                                         
+      *    UNAPPLY PREVIOUS CREDIT MEMO APPLICATIONS                            
+      *                                                                         
+           PERFORM 207-UNAPPLY-CREDIT-MEMOS.                                    
+      *                                                                         
+      *    APPLY CREDIT TO ORDERS WITH A POSITIVE TOTAL SALES AMOUNT            
+      *    AND WHICH ARE NOT TERMS 992 OR 998                                   
+      *                                                                         
+           IF WS-TOT-SALES-BAL-LEFT NOT > ZERO                                  
+              OR ORH-TERMS = +992                                       MCV90024
+              OR ORH-TERMS = +998                                       MCV90340
+              OR ORH-FLOOR-SUF                                          JVG93053
+                 GO TO 205-EXIT.                                                
+      *                                                                         
+      *    INITIALIZE CREDIT MEMO HEADER KEY                                    
+      *                                                                         
+           MOVE LOW-VALUES             TO  CMM-KEY-CMRHDR                       
+           MOVE ORH-COMPANY            TO  CMM-COMPANY                          
+           MOVE ORH-BILL-TO-BR-NBR     TO  CMM-BR-NBR                           
+           MOVE ORH-BILL-TO-CUST-NBR   TO  CMM-CUST-NBR                         
+           MOVE 'H'                    TO  CMM-REC-ID                           
+           MOVE ZERO                   TO  SUB.                         MCV95076
+      *                                                                         
+       205-FIND-HEADER.                                                         
+      *                                                                         
+      *    GET CUSTOMER'S NEXT CREDIT MEMO HEADER                               
+      *                                                                         
+           MOVE HIGH-VALUES            TO  CMM-INV-NBR                          
+           MOVE WS-CMHD-REC-LENGTH     TO  WS-REC-LENGTH                        
+      *                                                                         
+       EXEC CICS READ                                                   SAS17200
+            FILE   (WS-CMHD-FILE-NAME)                                  SAS17200
+            LENGTH (WS-REC-LENGTH)                                      SAS17200
+            INTO   (CMM-CMRHDR)                                         SAS17200
+            RIDFLD (CMM-KEY-CMRHDR)                                     SAS17200
+            RESP   (WS-EIBRESP)                                         SAS17200
+            UPDATE                                                      SAS17200
+            GTEQ                                                        SAS17200
+            END-EXEC                                                    SAS17200
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+      *                                                                         
+           IF NOT WS-EIB-NORESP                                         MCV95076
+              GO TO 205-EXIT.                                           MCV95076
+      *                                                                         
+      *    ORDER AND CREDIT MEMO CUSTOMERS THE SAME ?                           
+      *                                                                         
+           IF CMM-BR-NBR   = ORH-BILL-TO-BR-NBR    AND                          
+              CMM-CUST-NBR = ORH-BILL-TO-CUST-NBR                               
+                 NEXT SENTENCE                                                  
+              ELSE                                                              
+       EXEC CICS UNLOCK                                                 SAS17200
+            FILE   (WS-CMHD-FILE-NAME)                                  SAS17200
+            END-EXEC                                                    SAS17200
+                                                                                
+                 GO TO 205-EXIT.                                                
+      *                                                                         
+      *    COMPUTE AVAILABLE CREDIT                                             
+      *                                                                         
+           COMPUTE WS-CREDIT-AVAILABLE =      CMM-CM-ORIG-AMT                   
+                                           -  CMM-APPLIED-PRIOR                 
+                                           -  CMM-APPLIED-TODAY                 
+      *                                                                         
+      *    IF THE CREDIT MEMO IS COMPLETELY USED OR                             
+      *    THE BILL-TO SUFFIXES ARE NOT THE EQUAL , THEN                        
+      *    GET THE CUSTOMER'S NEXT CREDIT MEMO HEADER                           
+      *                                                                         
+           IF WS-CREDIT-AVAILABLE > ZERO   AND                                  
+              CMM-SUFFIX = ORH-BILL-TO-SUFFIX                           MCV90168
+                 NEXT SENTENCE                                                  
+           ELSE                                                                 
+       EXEC CICS UNLOCK                                                 SAS17200
+            FILE   (WS-CMHD-FILE-NAME)                                  SAS17200
+            END-EXEC                                                    SAS17200
+                                                                                
+              GO TO 205-FIND-HEADER.                                            
+      *                                                                         
+      *    COMPUTE APPLICATION AMOUNT AND REMAINING SALES BALANCE               
+      *                                                                         
+           IF WS-CREDIT-AVAILABLE < WS-TOT-SALES-BAL-LEFT                       
+              MOVE WS-CREDIT-AVAILABLE     TO  WS-CREDIT-APPLIED                
+              SUBTRACT WS-CREDIT-AVAILABLE FROM WS-TOT-SALES-BAL-LEFT           
+           ELSE                                                                 
+              MOVE WS-TOT-SALES-BAL-LEFT   TO  WS-CREDIT-APPLIED                
+              MOVE ZERO                    TO  WS-TOT-SALES-BAL-LEFT.           
+      *                                                                         
+      *    UPDATE CREDIT APPLIED TODAY AND DATE LAST UPDATED                    
+      *                                                                         
+           ADD WS-CREDIT-APPLIED           TO  CMM-APPLIED-TODAY                
+           MOVE EIBDATE                    TO  CMM-LAST-UPDATE-DATE             
+      *                                                                         
+      *    REWRITE CREDIT MEMO HEADER RECORD                                    
+      *                                                                         
+           MOVE WS-CMHD-REC-LENGTH         TO  WS-REC-LENGTH                    
+      *                                                                         
+       EXEC CICS REWRITE                                                SAS17200
+            FILE   (WS-CMHD-FILE-NAME)                                  SAS17200
+            LENGTH (WS-REC-LENGTH)                                      SAS17200
+            FROM   (CMM-CMRHDR)                                         SAS17200
+            END-EXEC.                                                   SAS17200
+                                                                                
+                                                                                
+      *                                                                         
+      *    INIT. CREDIT MEMO APPLICATION RECORD                                 
+      *                                                                         
+           MOVE SPACES                    TO  CMM-DETAIL-REC                    
+           MOVE ORH-BR-NBR                TO  CMM-INV-BR-NBR                    
+           MOVE ORH-ORDER-NBR             TO  CMM-INV-ORD-NBR                   
+           MOVE ORSH-DIST-NBR             TO  CMM-INV-DIST-NBR                  
+           MOVE ORSH-SHIP-NBR             TO  CMM-INV-SHIP-NBR                  
+           MOVE 'D'                       TO  CMM-REC-ID                        
+           MOVE EIBDATE                   TO  CMM-APP-DATE                      
+           MOVE WS-CREDIT-APPLIED         TO  CMM-APP-AMT                       
+           MOVE WS-CREDIT-AVAILABLE       TO  CMM-CM-BAL-PRIOR-TO-APP           
+           COMPUTE CMM-CM-BAL-AFTER-APP    =  WS-CREDIT-AVAILABLE               
+                                           -  WS-CREDIT-APPLIED                 
+           MOVE ORH-ENTRY-DATE            TO  CMM-INV-DATE                      
+           MOVE 'I'                       TO  CMM-SOURCE                        
+           MOVE WS-CMHD-REC-LENGTH        TO  WS-REC-LENGTH                     
+      *                                                                         
+      *    WRITE CREDIT MEMO APPLICATION RECORD                                 
+      *                                                                         
+       EXEC CICS WRITE                                                  SAS17200
+            FILE   (WS-CMHD-FILE-NAME)                                  SAS17200
+            LENGTH (WS-REC-LENGTH)                                      SAS17200
+            FROM   (CMM-CMRHDR)                                         SAS17200
+            RIDFLD (CMM-KEY-CMRHDR)                                     SAS17200
+            END-EXEC                                                    SAS17200
+                                                                                
+                                                                                
+                                                                                
+      *                                                                         
+      *    UPDATE ORDER'S CREDIT MEMO FIELDS                                    
+      *                                                                         
+           MOVE 'Y'                        TO  ORSH-CREDITS-APPLIED             
+           ADD 1                           TO  SUB                              
+           MOVE CMM-APP-AMT                TO  ORSH-CM-AMOUNT      (SUB)        
+           MOVE CMM-CM-ORD-NBR             TO  ORSH-CM-NUMBER      (SUB)        
+           MOVE CMM-CM-DIST-NBR            TO  ORSH-CM-NUMBER-DIST (SUB)        
+           MOVE CMM-CM-SHIP-NBR            TO  ORSH-CM-NUMBER-SHIP (SUB)        
+      *                                                                         
+      *    GET NEXT CREDIT MEMO IF LESS THAN 3 CREDIT MEMO APPLICATIONS         
+      *    AND THERE'S A POSITIVE SALES BALANCE REMAINING                       
+      *                                                                         
+           IF SUB < 3 AND WS-TOT-SALES-BAL-LEFT > ZERO                          
+              GO TO 205-FIND-HEADER.                                            
+      *                                                                         
+       205-EXIT.                                                                
+           EXIT.                                                                
+      *                                                                         
+       206-CREDIT-MEMO-SALES-TOTAL.                                             
+      *                                                                         
+           COMPUTE WS-TOT-SALES-BAL-LEFT = (ORSH-TOTAL-SALES            KAC93176
+                                         +   ORSH-TOTAL-TAX)            KAC93176
+                                         - ORSH-DISCOUNT-AMT                    
+           IF ORSH-OUT-BILL                                                     
+              ADD ORSH-FRT-OUT-AMT         TO  WS-TOT-SALES-BAL-LEFT.           
+      *                                                                         
+       207-UNAPPLY-CREDIT-MEMOS.                                                
+      *                                                                         
+       EXEC CICS HANDLE CONDITION                                       SAS17200
+            ENDFILE                                                     SAS17200
+            ERROR                                                       SAS17200
+            INVREQ                                                      SAS17200
+            LENGERR                                                     SAS17200
+            NOTFND                                                      SAS17200
+            END-EXEC                                                    SAS17200
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+      *                                                                         
+           PERFORM 207-UNAPPLY THRU 207-EXIT                                    
+              VARYING     SUB                                                   
+              FROM        1                                                     
+              BY          1                                                     
+              UNTIL       SUB > 3.                                              
+      *                                                                         
+           MOVE 'N'                        TO  ORSH-CREDITS-APPLIED             
+           MOVE 'Y'                        TO  ORSH-INTEGRITY-FLAG.             
+      *                                                                         
+       207-UNAPPLY.                                                             
+      *                                                                         
+      *    UNASSIGNED CREDIT MEMO, GET NEXT ENTRY                               
+      *                                                                         
+           IF ORSH-CM-NUMBER (SUB) = SPACES                                     
+              MOVE ZEROES               TO  ORSH-CM-AMOUNT (SUB)                
+              GO TO 207-EXIT.                                                   
+      *                                                                         
+      *    SET THE CREDIT MEMO APPLICATION RECORD KEY                           
+      *                                                                         
+           MOVE SPACES                    TO  CMM-KEY-CMRHDR                    
+           MOVE ORH-COMPANY               TO  CMM-COMPANY                       
+           MOVE ORH-BILL-TO-BR-NBR        TO  CMM-BR-NBR                        
+                                              CMM-CM-BR-NBR                     
+           MOVE ORH-BILL-TO-CUST-NBR      TO  CMM-CUST-NBR                      
+           MOVE ORSH-CM-NUMBER      (SUB) TO  CMM-CM-ORD-NBR                    
+           MOVE ORSH-CM-NUMBER-DIST (SUB) TO  CMM-CM-DIST-NBR                   
+           MOVE ORSH-CM-NUMBER-SHIP (SUB) TO  CMM-CM-SHIP-NBR                   
+           MOVE ORH-BR-NBR                TO  CMM-INV-BR-NBR                    
+           MOVE ORH-ORDER-NBR             TO  CMM-INV-ORD-NBR                   
+           MOVE ORSH-DIST-NBR             TO  CMM-INV-DIST-NBR                  
+           MOVE ORSH-SHIP-NBR             TO  CMM-INV-SHIP-NBR                  
+           MOVE 'D'                       TO  CMM-REC-ID                        
+           MOVE WS-CMHD-REC-LENGTH        TO  WS-REC-LENGTH                     
+      *                                                                         
+      *    READ THE CREDIT MEMO APPLICATION RECORD                              
+      *                                                                         
+       EXEC CICS READ                                                   SAS17200
+            FILE   (WS-CMHD-FILE-NAME)                                  SAS17200
+            RIDFLD (CMM-KEY-CMRHDR)                                     SAS17200
+            INTO   (CMM-CMRHDR)                                         SAS17200
+            LENGTH (WS-REC-LENGTH)                                      SAS17200
+            RESP   (WS-EIBRESP)                                         SAS17200
+            UPDATE                                                      SAS17200
+            END-EXEC.                                                   SAS17200
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+      *                                                                         
+           IF WS-EIB-NORESP                                             MCV95076
+              NEXT SENTENCE                                             MCV95076
+           ELSE                                                         MCV95076
+              IF WS-EIB-NOTFND                                          MCV95076
+                 GO TO 207-CLEAR                                        MCV95076
+              ELSE                                                      MCV95076
+                 MOVE '207A'              TO  WS-ABCODE                 MCV95076
+                 PERFORM 999-ABEND.                                     MCV95076
+      *                                                                         
+      *    VERIFY APPLICATION RECORD                                            
+      *                                                                         
+           IF CMM-SENT-TO-AR = 'Y' OR                                           
+              CMM-APP-AMT NOT = ORSH-CM-AMOUNT (SUB)                            
+                 MOVE '207B'              TO  WS-ABCODE                         
+                 PERFORM 999-ABEND.                                             
+      *                                                                         
+      *    DELETE CREDIT MEMO APPLICATION RECORD                                
+      *                                                                         
+       EXEC CICS DELETE                                                 SAS17200
+            FILE   (WS-CMHD-FILE-NAME)                                  SAS17200
+            END-EXEC                                                    SAS17200
+                                                                                
+      *                                                                         
+      *    SET CREDIT MEMO HEADER RECORD KEY                                    
+      *                                                                         
+           MOVE SPACES                    TO  CMM-INV-NBR                       
+           MOVE 'H'                       TO  CMM-REC-ID                        
+           MOVE WS-CMHD-REC-LENGTH        TO  WS-REC-LENGTH                     
+      *                                                                         
+      *    GET CREDIT MEMO HEADER RECORD                                        
+      *                                                                         
+       EXEC CICS READ                                                   SAS17200
+            FILE   (WS-CMHD-FILE-NAME)                                  SAS17200
+            LENGTH (WS-REC-LENGTH)                                      SAS17200
+            INTO   (CMM-CMRHDR)                                         SAS17200
+            RIDFLD (CMM-KEY-CMRHDR)                                     SAS17200
+            UPDATE                                                      SAS17200
+            END-EXEC                                                    SAS17200
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+      *                                                                         
+      *   SET CREDIT MEMO HEADER RECORD : AMOUNT APPLIED TODAY ,                
+      *                                 : DATE LAST UPDATED                     
+      *                                                                         
+           MOVE EIBDATE                   TO  CMM-LAST-UPDATE-DATE              
+           SUBTRACT ORSH-CM-AMOUNT (SUB) FROM CMM-APPLIED-TODAY                 
+           MOVE WS-CMHD-REC-LENGTH        TO  WS-REC-LENGTH                     
+      *                                                                         
+      *   REWRITE UPDATED CREDIT MEMO HEADER                                    
+      *                                                                         
+       EXEC CICS REWRITE                                                SAS17200
+            FILE   (WS-CMHD-FILE-NAME)                                  SAS17200
+            FROM   (CMM-CMRHDR)                                         SAS17200
+            LENGTH (WS-REC-LENGTH)                                      SAS17200
+            END-EXEC.                                                   SAS17200
+                                                                                
+                                                                                
+      *                                                                         
+      *   CLEAR THE ORDER'S CREDIT MEMO ENTRIES                                 
+      *                                                                         
+       207-CLEAR.                                                       MCV90107
+      *                                                                         
+           MOVE SPACES                  TO  ORSH-CREDIT-MEMO-USED (SUB)         
+           MOVE ZEROES                  TO  ORSH-CM-AMOUNT        (SUB).        
+      *                                                                         
+       207-EXIT.                                                                
+           EXIT.                                                                
+      *                                                                         

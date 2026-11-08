@@ -1,0 +1,135 @@
+000100*===============================================================*         
+000200* COPYBOOK:  ICSFCOP2                                           *         
+000300*             PROCEDURE DIVISION COPYBOOK                       *         
+000400* THIS COPYBOOK IS USED TO DETERMINE ACOP MODE AFTER READING    *         
+000500* ACOP_TRK TABLE AND SET UP COMMAREA FIELDS FOR ACOP SCREENS    *         
+000600* IT SHOULD BE USED ALONG WITH ICSFCOPK CPYBK TO FORMAT VSAM KEY*         
+000700*                                                               *         
+000800* REVISION INFO:                                                *         
+000900* 05/04/24 SS8 CHANGES FOR THE ADDITION OF EFF DATE TO KEY      * SS824125
+000900* 01/16/08 MXK SSEU ENHANCED ACOP PROJECT: EU, CA, TP           * MXK08016
+000900*              CHANGES FOR PRODUCT GROUP ACOPS                  * MXK08016
+000910* 07/31/03 JAR CREATED.                                         * MXK07103
+001000*===============================================================*         
+001100*                                                                         
+001200 A600-DETERMINE-ACOP-MODE.                                                
+001300*                                                                         
+001320     IF  TB-ACOP-PROD-GRP                                         MXK08016
+001331         MOVE SETATRK-ACOP-PROD-GP-CD TO TC-PROD-GROUP            MXK08016
+001340     ELSE                                                         MXK08016
+001350         MOVE SETATRK-VEND-NBR        TO TC-PROD-GROUP            MXK08016
+001360     END-IF                                                       MXK08016
+001400                                                                  MXK08016
+001410     MOVE SETATRK-ACOP-TYP-CD         TO ICWCOP-ACOP-CD                   
+           INITIALIZE SY777-PARM-DATA.                                  SS824125
+           MOVE SETATRK-ACOP-EFF-DT    TO SY777-IN-ISO-10               SS824125
+           IF ICWCOP-PGM-BATCH                                          SS824125
+              CALL 'SYV777'            USING SY777-PARM-DATA            SS824125
+           ELSE                                                         SS824125
+              CALL 'SYU777'            USING DFHEIBLK                   SS824125
+                                             DFHCOMMAREA                SS824125
+                                             SY777-PARM-DATA            SS824125
+           END-IF                                                       SS824125
+           IF SY777-OUT-ERR-SW = SPACES                                 SS824125
+              MOVE SY777-OUT-JUL-YYDDD TO ICWCOP-COP-EFF-DATE           SS824125
+           END-IF.                                                      SS824125
+                                                                        SS824125
+001500     EVALUATE TRUE                                                        
+001600       WHEN ICWCOP-VEND-CO-WIDE                                           
+001700         MOVE TC-PROD-GROUP           TO TC-INV-VEND-NBR          MXK08016
+001800         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+001900         SET ICWCOP-CO-VEND-OVERRIDE  TO TRUE                             
+002000       WHEN ICWCOP-VEND-BR                                                
+002100         MOVE TC-PROD-GROUP           TO TC-INV-VEND-NBR          MXK08016
+002200         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+002300         MOVE SETATRK-BR-NBR          TO TC-CUST-BR                       
+002400         SET ICWCOP-BR-VEND-OVERRIDE  TO TRUE                             
+002500      WHEN ICWCOP-VEND-MAIN-PRG                                           
+002600         MOVE TC-PROD-GROUP           TO TC-INV-VEND-NBR          MXK08016
+002700         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+002800         MOVE SETATRK-ACOP-TYP-CD     TO ICWCOP-ACOP-CD                   
+002900         MOVE SETATRK-IM-MAIN-PGM-CD  TO ICWCOP-IM-MAIN-PGM-CD            
+003000         SET ICWCOP-PRG-VEND-OVERRIDE TO TRUE                             
+003100         PERFORM A601-FORMAT-PGM-TYPE                                     
+003200      WHEN ICWCOP-VEND-SUB-PRG                                            
+003300         MOVE TC-PROD-GROUP           TO TC-INV-VEND-NBR          MXK08016
+003400         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+003500         MOVE SETATRK-ACOP-TYP-CD     TO ICWCOP-ACOP-CD                   
+003600         MOVE SETATRK-IM-MAIN-PGM-CD  TO ICWCOP-IM-MAIN-PGM-CD            
+003700         MOVE SETATRK-MRKT-SGMT-TYP-CD                                    
+003800                                    TO ICWCOP-EU-MRKT-SGMT-TYP-CD         
+003900         SET ICWCOP-PRG-VEND-OVERRIDE TO TRUE                             
+004000         PERFORM A601-FORMAT-PGM-TYPE                                     
+004100       WHEN ICWCOP-VEND-CUST-PRG                                          
+004200         MOVE TC-PROD-GROUP           TO TC-INV-VEND-NBR          MXK08016
+004300         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+004400         MOVE SETATRK-ACOP-TYP-CD     TO ICWCOP-ACOP-CD                   
+004500         MOVE SETATRK-IM-MAIN-PGM-CD  TO ICWCOP-IM-MAIN-PGM-CD            
+004600         MOVE SETATRK-VEND-ACOP-PGM-CD                                    
+004700                                      TO ICWCOP-VEND-ACOP-PGM-CD          
+004800         SET ICWCOP-PRG-VEND-OVERRIDE TO TRUE                             
+004900         PERFORM A601-FORMAT-PGM-TYPE                                     
+005000       WHEN ICWCOP-VEND-CUST-SPECIFIC                                     
+005100         MOVE TC-PROD-GROUP           TO TC-INV-VEND-NBR          MXK08016
+005200         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+005300         MOVE SETATRK-BR-NBR          TO TC-CUST-BR                       
+005400         MOVE SETATRK-CUST-NBR        TO TC-CUST-NBR                      
+005500         SET ICWCOP-CUS-VEND-OVERRIDE TO TRUE                             
+005600       WHEN ICWCOP-VEND-CUST-EU-SPECIFIC                                  
+005700         MOVE TC-PROD-GROUP           TO TC-INV-VEND-NBR          MXK08016
+005800         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+005900         MOVE SETATRK-BR-NBR          TO TC-CUST-BR                       
+006000         MOVE SETATRK-CUST-NBR        TO TC-CUST-NBR                      
+006100         MOVE SETATRK-ACOP-EU-ID      TO TC-ACOP-ENDUSER-NBR              
+006200         SET ICWCOP-CUS-EUS-VEND-OVERRIDE                                 
+006300                                      TO TRUE                             
+006400       WHEN ICWCOP-PART-CO-WIDE                                           
+006500         MOVE SETATRK-PART-NBR        TO TC-PART-NBR                      
+006600         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+006700         SET ICWCOP-CO-PART-OVERRIDE  TO TRUE                             
+006800       WHEN ICWCOP-PART-BR                                                
+006900         MOVE SETATRK-PART-NBR        TO TC-PART-NBR                      
+007000         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+007100         MOVE SETATRK-BR-NBR          TO TC-CUST-BR                       
+007200         SET ICWCOP-BR-PART-OVERRIDE  TO TRUE                             
+007300       WHEN ICWCOP-PART-MAIN-PRG                                          
+007400         MOVE SETATRK-PART-NBR        TO TC-PART-NBR                      
+007500         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+007600         MOVE SETATRK-ACOP-TYP-CD     TO ICWCOP-ACOP-CD                   
+007700         MOVE SETATRK-IM-MAIN-PGM-CD  TO ICWCOP-IM-MAIN-PGM-CD            
+007800         SET ICWCOP-PRG-PART-OVERRIDE TO TRUE                             
+007900         PERFORM A601-FORMAT-PGM-TYPE                                     
+008000       WHEN ICWCOP-PART-SUB-PRG                                           
+008100         MOVE SETATRK-PART-NBR        TO TC-PART-NBR                      
+008200         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+008300         MOVE SETATRK-ACOP-TYP-CD     TO ICWCOP-ACOP-CD                   
+008400         MOVE SETATRK-IM-MAIN-PGM-CD  TO ICWCOP-IM-MAIN-PGM-CD            
+008500         MOVE SETATRK-MRKT-SGMT-TYP-CD                                    
+008600                                    TO ICWCOP-EU-MRKT-SGMT-TYP-CD         
+008700         SET ICWCOP-PRG-PART-OVERRIDE TO TRUE                             
+008800         PERFORM A601-FORMAT-PGM-TYPE                                     
+008900       WHEN ICWCOP-PART-CUST-PRG                                          
+009000         MOVE SETATRK-PART-NBR        TO TC-PART-NBR                      
+009100         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+009200         MOVE SETATRK-ACOP-TYP-CD     TO ICWCOP-ACOP-CD                   
+009300         MOVE SETATRK-IM-MAIN-PGM-CD  TO ICWCOP-IM-MAIN-PGM-CD            
+009400         MOVE SETATRK-VEND-ACOP-PGM-CD                                    
+009500                                      TO ICWCOP-VEND-ACOP-PGM-CD          
+009600         SET ICWCOP-PRG-PART-OVERRIDE TO TRUE                             
+009700         PERFORM A601-FORMAT-PGM-TYPE                                     
+009800       WHEN ICWCOP-PART-CUST-SPECIFIC                                     
+009900         MOVE SETATRK-PART-NBR        TO TC-PART-NBR                      
+010000         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+010100         MOVE SETATRK-BR-NBR          TO TC-CUST-BR                       
+010200         MOVE SETATRK-CUST-NBR        TO TC-CUST-NBR                      
+010300         SET ICWCOP-CUS-PART-OVERRIDE TO TRUE                             
+010400       WHEN ICWCOP-PART-CUST-EU-SPECIFIC                                  
+010500         MOVE SETATRK-PART-NBR        TO TC-PART-NBR                      
+010600         MOVE SETATRK-ACOP-SEQ-NBR    TO TC-ACOP-AUTH-SEQNO               
+010700         MOVE SETATRK-BR-NBR          TO TC-CUST-BR                       
+010800         MOVE SETATRK-CUST-NBR        TO TC-CUST-NBR                      
+010900         MOVE SETATRK-ACOP-EU-ID      TO TC-ACOP-ENDUSER-NBR              
+011000         SET ICWCOP-CUS-EUS-PART-OVERRIDE                                 
+011100                                      TO TRUE                             
+011200     END-EVALUATE.                                                        
+011300**                                                                        

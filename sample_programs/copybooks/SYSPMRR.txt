@@ -1,0 +1,358 @@
+      *****************************************************************         
+      *                                                               *         
+      *            STRATEGIC PRICING MOVES - REQUEST & RESPONSE       *         
+      *                                                               *         
+      * PURPOSE: STANDARD PROCEDURE DIVISION ROUTINES TO SETUP THE    *         
+      *          PRICING PARAMETER AND HEADER AREAS TO SUPPORT        *         
+      *          PRICING OF MULTIPLE SKUS                             *         
+      *                                                               *         
+      * USAGE:   COPY IN YOUR PRICING APPLICATION. PARAGRAPH SP310    *         
+      *          (AND BELOW) IS PERFORMED BY AN APPLICATION'S         *         
+      *          VERSION OF PARAGRAPH SP300 (CONTAINED IN VARIOUS     *         
+      *          COPYBOOKS) , WHILE PARAGRAPH SP910 SHOULD BE         *         
+      *          PERFORMED BY AN APPLICATION AFTER PARAGRAPH SP900.   *         
+      *          WHILE VARYING SYWSPSRS-IDX FOR EACH SKU RESPONSE.    *         
+      *                                                               *         
+      *          ONCE THE RESPONSE VALUES HAVE BEEN RETURNED FROM THE *         
+      *          PRICING ENGINE, IT IS VERY IMPORTANT THAT THE        *         
+      *          APPLICATIONS DO NOT MODIFY ANY OF THESE VALUES       *         
+      *          IN ANY WAY (IN EITHER WORKING STORAGE OR THE ORDER   *         
+      *          LINE).                                               *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 04/16/21 TGF  CISCO NET PRICING - AUTH O CHANGES              * TGF21106
+      * 08/07/20 MXV  CISCO NET PRICING 'TERM' SKU BYPASS ACOP DELTA  * MXV20220
+      *               PRICE SETTINGS.                                 * MXV20220
+      * 01/15/15 WFP  PASS LOCAL REBATE AMOUNT FOR NON-US COMPANIES   * WFP15015
+      * 02/08/05 AXR       *** SKU REPLACEMENT ***                    * AXR05039
+      *               1. UPDATED ERROR HANDLING TO NOW CLEAR OUT      * AXR05039
+      *                  SYRPWSA RESPONSE FIELDS THAT ARE NORMALLY    * AXR05039
+      *                  SET FROM A GOOD RESPONSE, SO THAT THEY NO    * AXR05039
+      *                  LONGER CARRY OVER VALUES FROM THE LAST GOOD  * AXR05039
+      *                  SKU RESPONSE. ESPECIALLY USEFUL FOR MULTI-   * AXR05039
+      *                  RESPONSES OF MIXED GOOD & BAD RESULTS.       * AXR05039
+      * 11/02/04 AXR       *** STRATEGIC PRICING - FULL SOLUTION ***  * AXR04307
+      *               1. CREATED COPYBOOK.                            * AXR04307
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> SETUP A SKU REQUEST OCCURANCE. APPLICATIONS           <<<**         
+      **>>> THAT DO NOT HAVE THE SOURCE FIELDS CAN USE            <<<**         
+      **>>> 'COPY REPLACING' TO SPECIFY THE CORRECT SOURCE        <<<**         
+      **>>> FIELDS.                                               <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP310-SETUP-SKU-REQUEST.                                                 
+                                                                                
+      *   (APPLICATIONS MANAGE THE REQUEST INDEX: SYWSPSRQ-IDX)                 
+                                                                                
+      *   (THIS IS THE SKU COMPANY AND SKU NUMBER)                              
+           MOVE INI-COMPANY                                                     
+             TO SYWSPS-INGRAM-PART-CO OF SYWSP-CONNECTOR-DATA                   
+                (SYWSPSRQ-IDX).                                                 
+           MOVE INI-INV-PART-NBR                                                
+             TO SYWSPS-INGRAM-PART-NBR OF SYWSP-CONNECTOR-DATA                  
+                (SYWSPSRQ-IDX).                                                 
+                                                                                
+      *   (THIS IS SKU ORDER/INQUIRY QUANTITY)                                  
+           MOVE WS-QTY-ENTERED                                                  
+             TO SYWSPS-PART-QTY OF SYWSP-CONNECTOR-DATA                         
+                (SYWSPSRQ-IDX).                                                 
+                                                                                
+      *   (THE PRICING APPLICATION WOULD SET THE OVERRIDE INDICATOR TO          
+      *    'Y' AND THE OVERRIDE PRICE WITH THE ACTUAL AMOUNT WHEN A             
+      *    PRICE OVERRIDE IS RECEIVED)                                          
+                                                                                
+           MOVE 'N'                                                             
+             TO SYWSPS-OVERRIDE-PRC-IND                                         
+                OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX).                         
+                                                                                
+           MOVE ZERO                                                            
+             TO SYWSPS-OVERRIDE-PRICE OF SYWSP-CONNECTOR-DATA                   
+                (SYWSPSRQ-IDX).                                                 
+                                                                                
+      *   (STANDARD MOVES FROM THE COST ROUTINES)                               
+                                                                                
+           IF NOT ICWCOP-TERM-SKU-PRICING                               MXV20220
+      *   (NEED TO CHECK FOR VALID NUMERICS FIRST, THEN IF NEGATIVE)    TGF21106
+             IF ICWCOP-TOT-ACOP-DELTA-PRC NUMERIC                       TGF21106
+                MOVE ICWCOP-TOT-ACOP-DELTA-PRC                          MXV20220
+                  TO SYWSPS-TOT-ACOP-DELTA-PRC                                  
+                  OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                MXV20220
+             END-IF                                                     TGF21106
+             IF ICWCOP-TOT-ACOP-DELTA-PRC NUMERIC                       MXV20220
+              IF ICWCOP-TOT-ACOP-DELTA-PRC NEGATIVE                             
+                 MOVE '-' TO SYWSPS-TOT-ACOP-DELTA-SGN                          
+                   OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                       
+              END-IF                                                            
+            END-IF                                                      MXV20220
+           END-IF.                                                              
+                                                                                
+           IF NOT ICWCOP-TERM-SKU-PRICING                               MXV20220
+      *   (NEED TO CHECK FOR VALID NUMERICS FIRST, THEN IF NEGATIVE)    TGF21106
+            IF ICWCOP-PRG-ACOP-DELTA-PRC NUMERIC                        TGF21106
+               MOVE ICWCOP-PRG-ACOP-DELTA-PRC                           MXV20220
+                 TO SYWSPS-PRG-ACOP-DELTA-PRC                                   
+                 OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                 MXV20220
+            END-IF                                                      TGF21106
+            IF ICWCOP-PRG-ACOP-DELTA-PRC NUMERIC                        MXV20220
+              IF ICWCOP-PRG-ACOP-DELTA-PRC NEGATIVE                             
+                 MOVE '-' TO SYWSPS-PRG-ACOP-DELTA-SGN                          
+                 OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                         
+              END-IF                                                            
+            END-IF                                                      MXV20220
+           END-IF.                                                              
+                                                                                
+           IF NOT ICWCOP-TERM-SKU-PRICING                               MXV20220
+      *   (NEED TO CHECK FOR VALID NUMERICS FIRST, THEN IF NEGATIVE)    TGF21106
+            IF ICWCOP-PART-CUST-ACOP-DELTA NUMERIC                      TGF21106
+               MOVE ICWCOP-PART-CUST-ACOP-DELTA                         MXV20220
+                 TO SYWSPS-PARTCUST-ACOP-DELTA                                  
+                 OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                 MXV20220
+            END-IF                                                      TGF21106
+            IF ICWCOP-PART-CUST-ACOP-DELTA NUMERIC                      MXV20220
+              IF ICWCOP-PART-CUST-ACOP-DELTA NEGATIVE                           
+               MOVE '-' TO SYWSPS-PARTCUST-ACOP-DELTA-SGN                       
+                 OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                         
+              END-IF                                                            
+            END-IF                                                      MXV20220
+           END-IF.                                                              
+                                                                                
+           IF NOT ICWCOP-TERM-SKU-PRICING                               MXV20220
+      *   (NEED TO CHECK FOR VALID NUMERICS FIRST, THEN IF NEGATIVE)    TGF21106
+            IF ICWCOP-VEND-CUST-ACOP-DELTA NUMERIC                      TGF21106
+               MOVE ICWCOP-VEND-CUST-ACOP-DELTA                         MXV20220
+                 TO SYWSPS-VENDCUST-ACOP-DELTA                                  
+                 OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                         
+            END-IF                                                      TGF21106
+            IF ICWCOP-VEND-CUST-ACOP-DELTA NUMERIC                      MXV20220
+             IF ICWCOP-VEND-CUST-ACOP-DELTA NEGATIVE                            
+              MOVE '-' TO SYWSPS-VENDCUST-ACOP-DELTA-SGN                        
+                OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                          
+             END-IF                                                             
+            END-IF                                                      MXV20220
+           END-IF.                                                              
+                                                                                
+      *   (STANDARD MOVE FROM THE INSTANT REBATE ROUTINE)                       
+                                                                        WFP15015
+      *===>  FOR THE U.S., CONTINUE TO USE THE ORIGINAL LOGIC.          WFP15015
+      *===>  FOR OTHER COUNTRIES, USE THE REBATE AMOUNT THAT IS         WFP15015
+      *===>  IN LOCAL (CORPORATE) CURRENCY.  THE FIELD USED BY THE      WFP15015
+      *===>  U.S. IS IN VENDOR'S CURRENCY, WHICH WILL NOT WORK          WFP15015
+      *===>  FOR MULTI-CURRENCY IR'S.                                   WFP15015
+                                                                        WFP15015
+           IF TB-CPO-US-MODEL-COMPANY                                   WFP15015
+              MOVE WS-INM-COST-REBATE-AMT                               WFP15015
+                TO SYWSPS-INM-COST-REBATE-AMT                           WFP15015
+                OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                  WFP15015
+      *   (NEED TO CHECK FOR VALID NUMERICS FIRST, THEN IF NEGATIVE)    WFP15015
+              IF WS-INM-COST-REBATE-AMT NUMERIC                         WFP15015
+                 IF WS-INM-COST-REBATE-AMT NEGATIVE                     WFP15015
+                    MOVE '-' TO SYWSPS-INM-COST-REBATE-SGN              WFP15015
+                      OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)            WFP15015
+                 END-IF                                                 WFP15015
+              END-IF                                                    WFP15015
+           ELSE                                                         WFP15015
+              MOVE WS-INM-COST-REB-LOCAL-AMT                            WFP15015
+                TO SYWSPS-INM-COST-REBATE-AMT                           WFP15015
+                OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)                  WFP15015
+      *   (NEED TO CHECK FOR VALID NUMERICS FIRST, THEN IF NEGATIVE)    WFP15015
+              IF WS-INM-COST-REB-LOCAL-AMT NUMERIC                      WFP15015
+                 IF WS-INM-COST-REB-LOCAL-AMT NEGATIVE                  WFP15015
+                    MOVE '-' TO SYWSPS-INM-COST-REBATE-SGN              WFP15015
+                      OF SYWSP-CONNECTOR-DATA (SYWSPSRQ-IDX)            WFP15015
+                 END-IF                                                 WFP15015
+              END-IF                                                    WFP15015
+           END-IF.                                                      WFP15015
+                                                                                
+      *   (INITIALIZE THE SKU RESPONSE CORRESPONDING TO THE REQUEST)            
+           PERFORM SP312-INIT-SKU-RESPONSE.                                     
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THESE INITIALIZATIONS SET DEFAULT VALUES IN CASE ANY  <<<**         
+      **>>> PROBLEMS ARE ENCOUNTERED WHILE INVOKING THE PRICE     <<<**         
+      **>>> REQUEST.                                              <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP312-INIT-SKU-RESPONSE.                                                 
+                                                                                
+      *   (DEFAULT PRICE CODE VALUE REMAINS Z WHEN ERROR ENCOUNTERED)           
+           MOVE 'Z'                                                             
+             TO SYWSPS-R-PRICE-CD     OF SYWSP-CONNECTOR-DATA                   
+                (SYWSPSRQ-IDX).                                                 
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE IS PERFORMED TO MOVE THE VALUES          <<<**         
+      **>>> RETURNED BY A VALID PRICE REQUEST.                    <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP910-MOVE-SKU-RESPONSE.                                                 
+                                                                                
+      *   (WHEN BOTH THE OVERALL PRICE REQUEST AND INDIVIDUAL RESPONSE          
+      *    STATUSES ARE OKAY MOVE STRATAGIC PRICING RESPONSE FIELDS TO          
+      *    STANDARD WS FIELDS WHERE APPLICATIONS CURRENTLY EXPECT THEM)         
+                                                                                
+           IF  SYWSPH-STATUS-OK                                                 
+               OF SYWSP-CONNECTOR-DATA                                          
+           AND (   SYWSPS-R-RECORD-NO-ERRORS                                    
+                   OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                       
+      *        (WARNINGS ALSO RETURN A PRICE TO BE MOVED)                       
+                OR SYWSPS-R-RECORD-WARNING-FOUND                                
+                   OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                       
+               )                                                                
+      *       (POPULATE STANDARD PRICING RESPONSE FIELDS)                       
+               PERFORM SP912-MOVE-RESPONSE-FIELDS                               
+           ELSE                                                                 
+      *       (PERFORM STANDARD STRATEGIC PRICING ERROR HANDLING)               
+               PERFORM SP918-SP-ERROR-HANDLING                                  
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE IS PERFORMED TO MOVE ALL THE RESPONSE    <<<**         
+      **>>> FIELDS TO STANDARD PRICING WORKING STORAGE FIELDS.    <<<**         
+      **>>>                                                       <<<**         
+      **>>> ONCE THE RESPONSE VALUES HAVE BEEN RETURNED FROM THE  <<<**         
+      **>>> PRICING ENGINE, IT IS VERY IMPORTANT THAT THE         <<<**         
+      **>>> APPLICATIONS DO NOT MODIFY ANY OF THESE VALUES        <<<**         
+      **>>> IN ANY WAY (IN EITHER WORKING STORAGE OR THE ORDER    <<<**         
+      **>>> LINE).                                                <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP912-MOVE-RESPONSE-FIELDS.                                              
+                                                                                
+      *   (INITIALLY SET THE UNIT PRICE WITH AN UNSIGNED VALUE)                 
+           MOVE SYWSPS-R-UNIT-PRICE                                             
+             OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                             
+             TO WS-UNIT-PRICE                                                   
+      *      (WHEN UNIT PRICE NEGATIVE, SET IT TO A NEGATIVE VALUE)             
+           IF SYWSPS-R-UNIT-PRICE-NEG                                           
+              OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                            
+              MULTIPLY -1 BY WS-UNIT-PRICE                                      
+           END-IF.                                                              
+                                                                                
+      *   (INITIALLY SET THE FLOOR PRICE WITH AN UNSIGNED VALUE)                
+           MOVE SYWSPS-R-FLOOR-PRICE                                            
+             OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                             
+             TO SYWSPV-FLOOR-PRICE                                              
+      *   (WHEN FLOOR PRICE NEGATIVE, SET IT TO A NEGATIVE VALUE)               
+           IF SYWSPS-R-FLOOR-PRICE-NEG                                          
+              OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                            
+              MULTIPLY -1 BY SYWSPV-FLOOR-PRICE                                 
+           END-IF.                                                              
+                                                                                
+      *   (INITIALLY SET THE RESELLER BASE WITH AN UNSIGNED VALUE)              
+            MOVE SYWSPS-R-RSLR-BASE-PRICE                                       
+              OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                            
+              TO WS-PRC-RESELLER-BASE-PRICE                                     
+      *   (WHEN RESLR BASE NEGATIVE, SET IT TO A NEGATIVE VALUE)                
+           IF SYWSPS-R-RSLR-BASE-PRC-NEG                                        
+              OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                            
+              MULTIPLY -1 BY WS-PRC-RESELLER-BASE-PRICE                         
+           END-IF.                                                              
+                                                                                
+      *   (INITIALLY SET THE ACOP APPLIED WITH AN UNSIGNED VALUE)               
+           MOVE SYWSPS-R-ACOP-AMT-APPLIED                                       
+             OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                             
+             TO ICWCOP-ACOP-DELTA-TO-PRICE                                      
+      *   (WHEN ACOP APPLIED NEGATIVE, SET IT TO A NEGATIVE VALUE)              
+           IF SYWSPS-R-ACOP-AMT-APLD-NEG                                        
+              OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                            
+              MULTIPLY -1 BY ICWCOP-ACOP-DELTA-TO-PRICE                         
+           END-IF.                                                              
+                                                                                
+      *   (SET THE ACOP SOURCE RETURNED FROM THE PRICING ENGINE)                
+           MOVE SYWSPS-R-ACOP-SRC-CD                                            
+             OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                             
+             TO ICWCOP-APPLY-ACOP-IND-SRC.                                      
+                                                                                
+      *   (SET THE ACOP INDICATOR RETURNED FROM THE PRICING ENGINE)             
+           MOVE SYWSPS-R-ACOP-DELTA-FLAG                                        
+             OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                             
+             TO ICWCOP-APPLY-ACOP-DELTA-IND.                                    
+                                                                                
+      *    (INITIALLY SET THE ENGINE PRICE WITH AN UNSIGNED VALUE)              
+            MOVE SYWSPS-R-ENGINE-PRICE                                          
+              OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                            
+              TO WS-UNIT-PRICE-END-USER                                         
+      *      (WHEN PRICE NEGATIVE, SET IT TO A NEGATIVE VALUE)                  
+           IF SYWSPS-R-ENGINE-PRICE-NEG                                         
+              OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                            
+              MULTIPLY -1 BY WS-UNIT-PRICE-END-USER                             
+           END-IF.                                                              
+                                                                                
+      *   (THE PRICING ENGINE RETURNS NEW/UNIQUE PRICE SWITCH VALUES)           
+           MOVE SYWSPS-R-PRICE-CD                                               
+             OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                             
+             TO WS-PRICE-SW.                                                    
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE PERFORMS COMMON STRATEGIC PRICING ERROR  <<<**         
+      **>>> HANDLING, HOWEVER EACH PRICING APPLICATION IS STILL   <<<**         
+      **>>> EXPECTED TO PERFORM HANDLING DEPENDING ON THE TYPE    <<<**         
+      **>>> OF APPLICATION AND TYPE OF ERROR RETURNED.            <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP918-SP-ERROR-HANDLING.                                                 
+                                                                                
+      *   (WHEN THE OVERALL STATUS IS OKAY, BUT AN ERROR WAS RETURNED           
+      *    AT THE SKU REQUEST LEVEL, PERFORM THIS STANDARD ERROR                
+      *    HANDLING)                                                            
+                                                                        AXR05039
+      *   (INITIALIZE NUMERIC RESPONSE FIELDS)                          AXR05039
+           MOVE ZERO                                                    AXR05039
+             TO WS-UNIT-PRICE                                           AXR05039
+                SYWSPV-FLOOR-PRICE                                      AXR05039
+                WS-PRC-RESELLER-BASE-PRICE                              AXR05039
+                ICWCOP-ACOP-DELTA-TO-PRICE                              AXR05039
+                WS-UNIT-PRICE-END-USER.                                 AXR05039
+                                                                        AXR05039
+      *   (INITIALIZE ALPHANUMERIC RESPONSE FIELDS)                     AXR05039
+           MOVE SPACES                                                  AXR05039
+             TO ICWCOP-APPLY-ACOP-IND-SRC                               AXR05039
+                ICWCOP-APPLY-ACOP-DELTA-IND.                            AXR05039
+                                                                                
+                                                                                
+      *   (WHEN A SKU LEVEL ERROR EXISTS AND THERE WAS AN OVERRIDE              
+      *    PRICE, SAVE THE OVERRIDE PRICE IN THE UNIT PRICE FIELD)              
+           IF  SYWSPH-STATUS-OK                                                 
+               OF SYWSP-CONNECTOR-DATA                                          
+           AND SYWSPS-R-RECORD-ERROR-FOUND                                      
+               OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                           
+      *       (PRICE CD OF 'Z' IS DEFAULTED BEFORE INVOKING CONNECTOR)          
+               MOVE SYWSPS-R-PRICE-CD                                           
+                 OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                         
+                 TO WS-PRICE-SW                                                 
+      *       (WHEN OVERRIDE, SAVE OVERRIDE AMOUNT TO UNIT PRICE)               
+               IF  SYWSPS-OVERRIDE-PRC-YES                                      
+                   OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                       
+      *           (SAVE THE OVERRIDE PRICE)                                     
+                   MOVE SYWSPS-OVERRIDE-PRICE                                   
+                     OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                     
+                     TO SYWSPS-R-UNIT-PRICE                                     
+                        OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                  
+                        WS-UNIT-PRICE                                           
+      *           (SAVE THE OVERRIDE PRICE SIGN)                                
+                   MOVE SYWSPS-OVERRIDE-PRICE-SGN                               
+                     OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                     
+                     TO SYWSPS-OVERRIDE-PRICE-SGN                               
+                        OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                  
+      *           (WHEN NEGATIVE SIGN SET UNIT PRICE TO NEGATIVE)               
+                   IF SYWSPS-R-UNIT-PRICE-NEG                                   
+                      OF SYWSP-CONNECTOR-DATA (SYWSPSRS-IDX)                    
+                      MULTIPLY -1 BY WS-UNIT-PRICE                              
+                   END-IF                                                       
+               END-IF                                                           
+           END-IF.                                                              
+                                                                                

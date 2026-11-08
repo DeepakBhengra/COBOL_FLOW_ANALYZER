@@ -1,0 +1,192 @@
+000400******************************************************************        
+000500*  THIS COPYBOOK IS USED TO DETERMINE THE SUCCESS OF AN ADDRESS  *        
+000600*  MATCH VALIDATION THROUGH CANADA CODE1 SOFTWARE                *        
+000700*                                                                *        
+000800*  USED IN CONJUNCTION WITH COPYBOOK CCAG1ERR.                   *        
+000900*                                                                *        
+001000* REVISION INFO:                                                 *        
+      * 04/21/17 ROR MODIFIED ONE OF THE MESSAGES.                     *ROR17111
+      * 01/13/17 AXS ADDED LOGIC IN FIRM NAME                          *AXS17013
+001300* 11/11/16 MZM NEW COPYBOOK                                      *MZM16316
+001400******************************************************************        
+001500* CHECK THE 'OVERALL' RETURN VALUES.                             *        
+001600******************************************************************        
+001700     INITIALIZE CUWG1ERR-WORK-AREA.                                       
+001800*                                                                         
+001900      MOVE 'R'            TO  CUWG1ERR-GRP1-USPS-CODE.                    
+002000*                                                                         
+002100* CODE- 1 - GENERAL RETURN CODE                                           
+002200     EVALUATE MOA-CAN-O-GENERAL-RC                                        
+002300                                                                          
+002400     WHEN SPACE                                                           
+002500          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+002600          MOVE 'SUCCESSFUL ADDRESS MATCH'                                 
+002700                                 TO CUWG1ERR-MSG-RETURNED                 
+002400     WHEN 'N'                                                             
+002500          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+002600          MOVE 'VALID ADDRESS,CANNOT NORMALIZE'                   ROR17111
+002600*         MOVE "VALID ADDRESS,CAN'T NORMALIZE"                    ROR17111
+002700                                 TO CUWG1ERR-MSG-RETURNED                 
+002800     WHEN 'Z'                                                             
+002900          MOVE 'Z' TO CUWG1ERR-RETURN-CODE                                
+003000          MOVE 'ERROR: ZIP CODE AND CITY NOT FOUND'                       
+003100                                  TO CUWG1ERR-MSG-RETURNED                
+003200                                                                          
+003300     WHEN 'B'                                                             
+003400          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+003500          MOVE 'ERROR: NEED MORE ADDR INFO'                               
+003600                                 TO CUWG1ERR-MSG-RETURNED                 
+003700     WHEN 'S'                                                             
+003800          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+003900          MOVE 'ERROR: STREET NOT FOUND IN ZIP'                           
+004000                                 TO CUWG1ERR-MSG-RETURNED                 
+004100     WHEN 'H'                                                             
+004200          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+004300          MOVE 'ERROR: HOUSE RANGE NOT ON STREET'                         
+004400                                 TO CUWG1ERR-MSG-RETURNED                 
+004500     WHEN 'A'                                                             
+004600          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+004700          MOVE 'ERROR: APT # MISSING/NOT FOUND'                           
+004800                                 TO CUWG1ERR-MSG-RETURNED                 
+004900     WHEN 'M'                                                             
+005000          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+005100          MOVE 'WARNING: MULTI ADDRS FND - VERIFY'                        
+005200                                 TO CUWG1ERR-MSG-RETURNED                 
+004900     WHEN 'P'                                                             
+005000          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+005100          MOVE 'ERROR: POST OFFICE BOX RANGE NOT FOUND'                   
+005200                                 TO CUWG1ERR-MSG-RETURNED                 
+004900     WHEN 'R'                                                             
+005000          MOVE 'S' TO CUWG1ERR-RETURN-CODE                                
+005100          MOVE 'ERROR:ROUTE SERVICE IDENTIFIER NOT FOUND'                 
+005200                                 TO CUWG1ERR-MSG-RETURNED                 
+005300*    CANADA CODE1 DOESNT EXPIRE                                           
+005300*    WHEN 'X'                                                             
+005400*         MOVE 'N' TO CUWG1ERR-RETURN-CODE                                
+005500*         MOVE 'ERROR: GROUP1 DATABASE EXPIRED'                           
+005600*                                TO CUWG1ERR-MSG-RETURNED                 
+005700     WHEN OTHER                                                           
+005800          MOVE 'N' TO CUWG1ERR-RETURN-CODE                                
+005900          MOVE 'ERROR: UNEXPECTED RETURN CODE'                            
+006000                                 TO CUWG1ERR-MSG-RETURNED.                
+006100******************************************************************        
+006200* CHECK THE 'PROBABILITY' RETURN VALUES.                         *        
+006300******************************************************************        
+006400                                                                          
+006500* CODE- 1 - GENERAL AND OVERALL PROBALILITY RETURN CODE                   
+006600     EVALUATE MOA-CAN-O-GENERAL-RC ALSO                                   
+                                 MOA-CAN-O-OVRLL-PRB-COR-SCR                    
+006700                                                                          
+006800     WHEN SPACE ALSO 3 THRU 9                                             
+006900          CONTINUE                                                        
+007000                                                                          
+007100     WHEN SPACE ALSO 0 THRU 2                                             
+007200          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+007300          MOVE 'WARNING: ADDR CHANGED - VERIFY'                           
+007400                                 TO CUWG1ERR-MSG-RETURNED.                
+007500******************************************************************        
+007600* CHECK THE 'SUFFIX' RETURN CODE                                 *        
+007700******************************************************************        
+007800                                                                          
+007900* CODE- 1 - GENERAL AND SUFFIX RETURN CODES                               
+008000     EVALUATE MOA-CAN-O-GENERAL-RC ALSO MOA-CAN-O-STREET-TYPE-RC          
+008100                                                                          
+008200     WHEN SPACE ALSO SPACE                                                
+008300          CONTINUE                                                        
+008400                                                                          
+008500     WHEN SPACE ALSO 'N'                                                  
+008600          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+008700          MOVE 'WARNING: SUFFIX HAS BEEN ADDED'                           
+008800                                 TO CUWG1ERR-MSG-RETURNED                 
+008900                                                                          
+009000     WHEN SPACE ALSO 'S'                                                  
+009100          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+009200          MOVE 'WARNING: SUFFIX CHANGED -VERIFY'                          
+009300                                 TO CUWG1ERR-MSG-RETURNED.                
+009400******************************************************************        
+009500* CHECK THE 'DIRECTIONAL' RETURN CODE                            *        
+009600******************************************************************        
+009700                                                                          
+009800* CODE- 1 - GENERAL AND DIRECTIONAL RETURN CODES                          
+009900     EVALUATE MOA-CAN-O-GENERAL-RC ALSO MOA-CAN-O-DIRECTION-RC            
+010000                                                                          
+010100     WHEN SPACE ALSO SPACE                                                
+010200          CONTINUE                                                        
+010300                                                                          
+010400     WHEN SPACE ALSO 'N'                                                  
+010500          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+010600          MOVE 'WARNING: DIRECTIONAL ADDED -VERIFY'                       
+010700                                 TO CUWG1ERR-MSG-RETURNED                 
+010800                                                                          
+010900     WHEN SPACE ALSO 'D'                                                  
+011000          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+011100          MOVE 'WARNING: DIRECTIONAL CHGD -VERIFY'                        
+011200                                 TO CUWG1ERR-MSG-RETURNED                 
+010900     WHEN SPACE ALSO 'F'                                                  
+011000          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+011100          MOVE 'WARNING: DIRECTIONAL CHGD -VERIFY'                        
+011200                                 TO CUWG1ERR-MSG-RETURNED.                
+011300******************************************************************        
+011400* CHECK THE 'UNIT' RETURN VALUES.                                *        
+011500******************************************************************        
+011600                                                                          
+011700* CODE- 1 - GENERAL AND UNIT/APT RETURN CODES                             
+011800     EVALUATE MOA-CAN-O-GENERAL-RC ALSO MOA-CAN-O-APT-RC                  
+011900                                                                          
+012000     WHEN SPACE ALSO SPACE                                                
+012100          CONTINUE                                                        
+012200                                                                          
+012300     WHEN SPACE ALSO 'N'                                                  
+012400          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+012500          MOVE 'WARNING: MISSING APT #'                                   
+012600                                 TO CUWG1ERR-MSG-RETURNED                 
+012700                                                                          
+012800     WHEN SPACE ALSO 'A'                                                  
+012900          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+013000          MOVE 'ERROR: INVALID APT # - VERIFY'                            
+013100                                 TO CUWG1ERR-MSG-RETURNED                 
+012800     WHEN SPACE ALSO 'Q'                                                  
+012900          MOVE 'Y' TO CUWG1ERR-RETURN-CODE                                
+013000          MOVE 'ERROR: INVALID APT # RANGE-VERIFY'                        
+013100                                 TO CUWG1ERR-MSG-RETURNED.                
+016200*   ADDRESS TAKEN FROM PRIMARY LINE                                       
+016300        IF MOA-CAN-O-MATCH-ADDR-SRC    = 'P'                              
+                                                                                
+016301           MOVE MOA-CAN-O-STD-ADDR1  TO CUWG1ERR-ADDR1                    
+016610        END-IF                                                            
+016700*   ADDRESS TAKEN FROM BOTH PRIMARY AND SECONDARY LINES                   
+016800        IF MOA-CAN-O-MATCH-ADDR-SRC = 'M'                                 
+016900           MOVE MOA-CAN-O-STD-ADDR1  TO CUWG1ERR-ADDR1                    
+017110        END-IF                                                            
+017200*   ADDRESS TAKEN FROM SECONDARY LINE                                     
+017300        IF MOA-CAN-O-MATCH-ADDR-SRC = 'S'                                 
+017400           MOVE MOA-CAN-O-STD-ADDR1  TO CUWG1ERR-ADDR2                    
+017600        END-IF                                                            
+017700*   MOVES SHORT CITY NAME                                                 
+017800        MOVE MOA-CAN-O-LONG-CITY  TO CUWG1ERR-CITY                        
+017900*   MOVES USPS STANDARD STATE ABBREVIATION                                
+018000        MOVE MOA-CAN-O-PROV       TO CUWG1ERR-STATE                       
+017900*   MOVE  POSTCODE                                                        
+018000        MOVE MOA-P6OCZP           TO CUWG1ERR-ZIP                         
+      *   MOVE RDI (RESIDENTIALLY DELIVERY INDICATOR).                          
+                                                                                
+              IF MOA-CAN-O-RECORD-TYPE EQUAL TO 'B1' OR 'D2' OR 'F2'            
+                                                                                
+019100          MOVE 'F'        TO  CUWG1ERR-GRP1-USPS-CODE                     
+                                                                                
+019200        ELSE                                                              
+                                                                                
+019300            MOVE 'R'      TO  CUWG1ERR-GRP1-USPS-CODE                     
+                                                                                
+              END-IF.                                                           
+019400*   MOVE P.O. BOX INDICATOR.                                              
+019500        IF MOA-CAN-O-RECORD-TYPE = '32'                                   
+019600           MOVE 'P'            TO CUWG1ERR-GRP1-PO-BOX-IND                
+019700        ELSE                                                              
+020100           MOVE 'N'            TO CUWG1ERR-GRP1-PO-BOX-IND                
+020300        END-IF.                                                           
+020400*   MOVE FIRM NAME                                                        
+              MOVE CUW-GRP1-FIRM     TO CUWG1ERR-GRP1-FIRM.             AXS17013
+020402        IF MOA-CAN-O-FIRM-RC = SPACES                                     
+020401           MOVE MOA-CAN-O-LVR  TO CUWG1ERR-GRP1-FIRM                      
+020406        END-IF.                                                           

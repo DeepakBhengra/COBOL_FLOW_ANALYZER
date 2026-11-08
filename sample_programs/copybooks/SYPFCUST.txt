@@ -1,0 +1,93 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      ***************************************************************           
+      *               FORMAT CUSTOMER NUMBER       (SYPFCUST)                   
+      *                                                                         
+      * THIS PARA WILL FORMAT A CUSTOMER NUMBER USING THE FOLLOWING             
+      *  IF ANY DIGIT ALPHA, LEFT JUSTIFY, RIGHT FILL WITH BLANKS               
+      *     EX 'A200  '   = 'A200  '                                            
+      *  IF ALL ENTERED DIGITS NUMERIC,  RIGHT JUSTIFY, LEFT ZERO FILL          
+      *     EX '200   '   = '000200'                                            
+      *                                                                         
+      *  INPUT REQUIREMENTS                                                     
+      *    FCUST-IN-CUST-NBR  =   6 BYTE CHARACTER CUSTOMER NUMBER              
+      *                                                                         
+      *  OUTPUT                                                                 
+      *    FCUST-OUT-CUST-NBR  =  6 BYTE FORMATED CUSTOMER NUMBER               
+      *                                                                         
+      * USE COPYBOOK  SYWFCUST FOR WORKING STORAGE DEFINATIONS.                 
+      *                                                                         
+      * CREATED BY RANDY DAVIS ON 6/7/91                                        
+      * 06/10/98 RXD EFFICIENCY CHANGE                                  RXD98161
+      *                                                                         
+      ***************************************************************           
+       CM9950-FORMAT-CUST-NBR.                                                  
+           IF FCUST-IN-CUST-NBR-BYTE-NUMERIC(6)                         RXD98161
+           IF FCUST-IN-CUST-NBR-BYTE-NUMERIC(5)                         RXD98161
+           IF FCUST-IN-CUST-NBR-BYTE-NUMERIC(4)                         RXD98161
+           IF FCUST-IN-CUST-NBR-BYTE-NUMERIC(3)                         RXD98161
+           IF FCUST-IN-CUST-NBR-BYTE-NUMERIC(2)                         RXD98161
+           IF FCUST-IN-CUST-NBR-BYTE-NUMERIC(1)                         RXD98161
+               MOVE FCUST-IN-CUST-NBR      TO FCUST-OUT-CUST-NBR        RXD98161
+               GO TO CM9950-EXIT.                                       RXD98161
+*                                                                       RXD98161
+           IF FCUST-IN-CUST-NBR            EQUAL SPACES                         
+               MOVE SPACES                 TO FCUST-OUT-CUST-NBR                
+               GO TO CM9950-EXIT.                                               
+                                                                                
+           MOVE 6                          TO FCUST-IN-SUB,                     
+                                              FCUST-OUT-SUB.                    
+           MOVE SPACES                     TO FCUST-FIELD-TYPE-SW               
+           MOVE ZEROS                      TO FCUST-OUT-CUST-NBR.               
+           PERFORM CM9951-RIGHT-JUSTIFY THRU CM9951-EXIT.                       
+      *    MOVE 'AFT 51' TO WS-JUNK-PARA.                                       
+           IF FCUST-FIELD-TYPE-ALPHA                                            
+               MOVE SPACES                 TO FCUST-OUT-CUST-NBR                
+               MOVE 1                      TO FCUST-IN-SUB,                     
+                                              FCUST-OUT-SUB                     
+               PERFORM CM9952-LEFT-JUSTIFY THRU CM9952-EXIT.                    
+       CM9950-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       CM9951-RIGHT-JUSTIFY.                                                    
+      ***************************************************************           
+      * THIS PARA RIGHT JUSTIFY THE IN-CUST-NBR FIELD BY SCANNING               
+      * THE FIELD BACKWARDS ONE BYTE AT A TIME.  ANY NON BLANK CHAR             
+      * IS MOVED TO THE OUT-CUST-NBR.  IF ANY ALPH CHARS (OTHER THAN            
+      * SPACE) ARE FOUND, THEN THIS ROUTINE STOPS.                              
+      ***************************************************************           
+           IF FCUST-IN-CUST-NBR-BYTE (FCUST-IN-SUB) GREATER THAN SPACE          
+               IF FCUST-IN-CUST-NBR-BYTE (FCUST-IN-SUB) < '0'                   
+               OR FCUST-IN-CUST-NBR-BYTE (FCUST-IN-SUB) > '9'                   
+                   MOVE 'A'                TO FCUST-FIELD-TYPE-SW               
+                   GO TO CM9951-EXIT                                            
+                 ELSE                                                           
+                   MOVE FCUST-IN-CUST-NBR-BYTE (FCUST-IN-SUB) TO                
+                        FCUST-OUT-CUST-NBR-BYTE (FCUST-OUT-SUB)                 
+                   SUBTRACT 1              FROM FCUST-OUT-SUB.                  
+                                                                                
+           SUBTRACT 1                      FROM FCUST-IN-SUB.                   
+           IF FCUST-IN-SUB GREATER THAN ZERO                                    
+               GO TO CM9951-RIGHT-JUSTIFY.                                      
+                                                                                
+           MOVE 'N'                        TO FCUST-FIELD-TYPE-SW.              
+       CM9951-EXIT.                                                             
+                                                                                
+       CM9952-LEFT-JUSTIFY.                                                     
+      ***************************************************************           
+      *  THIS PARA WILL MOVE NON BLANK BYTES IN IN-CUST-NBR TO LEFT             
+      *  PORTION OF OUT-CUST-NBR    (LEFT JUSTIFY A FIELD).                     
+      ***************************************************************           
+           IF FCUST-IN-CUST-NBR-BYTE (FCUST-IN-SUB) > SPACE                     
+               MOVE FCUST-IN-CUST-NBR-BYTE (FCUST-IN-SUB)  TO                   
+                    FCUST-OUT-CUST-NBR-BYTE (FCUST-OUT-SUB)                     
+               ADD 1                       TO FCUST-OUT-SUB.                    
+                                                                                
+           ADD 1                           TO FCUST-IN-SUB                      
+           IF FCUST-IN-SUB GREATER THAN 6                                       
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               GO TO CM9952-LEFT-JUSTIFY.                                       
+       CM9952-EXIT.                                                             
+           EXIT.                                                                

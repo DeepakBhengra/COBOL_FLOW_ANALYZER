@@ -1,0 +1,141 @@
+      ******************************************************************        
+      *   SFWLOGSR - WORKING STORAGE DB2 INCLUDE COPYBOOK.             *        
+      *                                                                *        
+      *   WORKS IN CONJUCTION WITH "SFSLOGSR" PROCEDURE COPYBOOK       *        
+      *   TO ASSIST IN LOGGING A SF_SRV_REND ROW TO DB2.               *        
+      *                                                                *        
+      *   SEE USAGE INSTRUCTIONS IN SFSLOGSR COPYBOOK.                 *        
+      *                                                                *        
+      ******************************************************************        
+      * INGRAM MICRO REVISIONS:                                        *        
+      * 05/21/02 DBC CHANGED SFWLOGSR-MAX-COUNT FROM 999 TO 9.         *DBC02141
+      * 06/08/01 JER ADD OPERID FOR SRV REND UPDATES                   *JER01195
+      * 02/23/01 AXR 1. ADDED ADDITIONAL NULL INDICATORS FOR SERVICE   *AXR01054
+      *                 FEE REWRITE PROJECT.                           *AXR01054
+      *              2. ADDED SUPPORT FIELDS FOR CURRENCY LOOKUP.      *AXR01054
+      *              3. EXPANDED SIZE OF SFWLOGSR-RETURN-MESG TO       *AXR01054
+      *                 MATCH SIZE OF SYWDB2-EXTRA-MESSAGE-1 AND -2.   *AXR01054
+      *              4. EXPANDED NORMAL-RETURN TO INCLUDE WARNINGS.    *AXR01054
+      * 10/16/00 AXR INITIAL IMPLEMENTATION.                           *AXR00290
+      ******************************************************************        
+                                                                                
+       01  SFWLOGSR-WORK-AREA.                                                  
+      *   (INPUT FIELDS FOR THE SFSLOGSR ROUTINE)                       AXR01054
+           05  SFWLOGSR-INPUT-AREA.                                     AXR01054
+               10  SFWLOGSR-MODE-CD             PIC X(01) VALUE 'O'.    AXR01054
+                   88  SFWLOGSR-ONLINE-MODE               VALUE 'O'.    AXR01054
+                   88  SFWLOGSR-BATCH-MODE                VALUE 'B'.    AXR01054
+      *   (RESPONSE FIELDS FOR THE SFSLOGSR ROUTINE)                            
+           05  SFWLOGSR-RETURN-AREA.                                            
+               10  SFWLOGSR-RETURN-CODE         PIC X(01) VALUE SPACES.         
+                   88  SFWLOGSR-NORMAL-RETURN     VALUES SPACE, 'W'.    AXR01054
+                   88  SFWLOGSR-ERROR-RETURN              VALUE 'E'.            
+                   88  SFWLOGSR-WARNING-RETURN            VALUE 'W'.            
+               10  SFWLOGSR-RETURN-PARAGRAPH    PIC X(05) VALUE SPACES.         
+               10  SFWLOGSR-RETURN-MESG.                                        
+                   15  SFWLOGSR-RETURN-MODULE   PIC X(10) VALUE                 
+                                                          'SFSLOGSR: '. AXR01054
+                   15  SFWLOGSR-RETURN-TEXT    PIC X(118) VALUE SPACES. AXR01054
+      *   (THE PROGRAM TO CALL FOR ACCESS TO THE TABLE MASTER)          AXR01054
+           05  SFWLOGSR-TBLMST-PROGRAM          PIC X(08).              AXR01054
+      *   (THE PROGRAM TO CALL FOR ACCESS TO THE TABLE MASTER)          AXR01054
+           05  SFWLOGSR-VALID-CUSTPRICE-IND     PIC X(01) VALUE 'Y'.    AXR01054
+                   88  SFWLOGSR-VALID-CUSTPRICE           VALUE 'Y'.    AXR01054
+                   88  SFWLOGSR-INVALID-CUSTPRICE         VALUE 'N'.    AXR01054
+      *   (DATE/TIME FORMAT FOR OS390 COBOL INTRINSIC FUNCTION)                 
+           05  SFWLOGSR-DATE-AND-TIME.                                          
+               10  SFWLOGSR-CURRENT-DATE.                                       
+                   15  SFWLOGSR-CCYY            PIC 9(04).                      
+                   15  SFWLOGSR-MM              PIC 9(02).                      
+                   15  SFWLOGSR-DD              PIC 9(02).                      
+               10  SFWLOGSR-CURRENT-TIME.                                       
+                   15  SFWLOGSR-HRS             PIC 9(02).                      
+                   15  SFWLOGSR-MIN             PIC 9(02).                      
+                   15  SFWLOGSR-SEC             PIC 9(02).                      
+                   15  SFWLOGSR-HSEC            PIC 9(02).                      
+               10  SFWLOGSR-UTC-IND             PIC X(01).                      
+               10  SFWLOGSR-UTC-DIFF.                                           
+                   15  SFWLOGSR-UTC-HR-DIFF     PIC 9(02).                      
+                   15  SFWLOGSR-UTC-MN-DIFF     PIC 9(02).                      
+      *   (FORMATTED DB2 TIMESTAMP)                                             
+           05  SFWLOGSR-TIMESTAMP.                                              
+               10  SFWLOGSR-TIMESTAMP-DATE.                                     
+                   15  SFWLOGSR-TS-CCYY         PIC 9(04).                      
+                   15  FILLER                   PIC X(01) VALUE '-'.            
+                   15  SFWLOGSR-TS-MM           PIC 9(02).                      
+                   15  FILLER                   PIC X(01) VALUE '-'.            
+                   15  SFWLOGSR-TS-DD           PIC 9(02).                      
+               10  FILLER                       PIC X(01) VALUE '-'.            
+               10  SFWLOGSR-TIMESTAMP-TIME.                                     
+                   15  SFWLOGSR-TS-HRS          PIC 9(02).                      
+                   15  FILLER                   PIC X(01) VALUE '.'.            
+                   15  SFWLOGSR-TS-MIN          PIC 9(02).                      
+                   15  FILLER                   PIC X(01) VALUE '.'.            
+                   15  SFWLOGSR-TS-SEC          PIC 9(02).                      
+                   15  FILLER                   PIC X(01) VALUE '.'.            
+                   15  SFWLOGSR-TS-MSEC         PIC 9(06).                      
+           05  SFWLOGSR-SQLCODE-NBR             PIC -9(09) VALUE ZERO.          
+           05  SFWLOGSR-UPDATE-OPERID           PIC X(04) VALUE SPACES. JER01195
+           05  SFWLOGSR-DUP-ADDED-SW            PIC X(01)  VALUE SPACE.         
+               88  SFWLOGSR-DUP-ADDED                      VALUE 'Y'.           
+      *   (THE CURRENT COUNT OF RETRY ATTEMPTS FOR A DUPLICATE KEY)             
+           05  SFWLOGSR-COUNT                   PIC S9(09) VALUE +0.            
+      *   (THE MAXIMUM COUNT OF RETRY ATTEMPTS FOR A DUPLICATE KEY)             
+           05  SFWLOGSR-MAX-COUNT               PIC S9(09) VALUE +009.  DBC02141
+           05  SFWLOGSR-MAX-COUNT-DSPLY         PIC  9(09) VALUE  009.  DBC02141
+      *   (FIELDS TO USE FOR SETTING/UNSETTING NULL INDICATORS)                 
+           05  SFWLOGSR-SQL-NULL                PIC S9(04) VALUE -1.            
+           05  SFWLOGSR-SQL-NOT-NULL            PIC S9(04) VALUE ZERO.          
+      *   (NULL INDICATOR SET/TEST COLUMNS FOR THE SF_SRV_REND TABLE)           
+           05 SFTSRVR-DB2-NULL-IND-FIELDS.                                      
+              10  SFTSRVR-CUST-CO-CD-IND        PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-CUST-CO-CD-NULL    VALUES -9999 THRU -1.           
+                  88 SFTSRVR-CUST-CO-CD-NTNL    VALUES     0 THRU +9999.        
+              10  SFTSRVR-CUST-BR-NBR-IND       PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-CUST-BR-NBR-NULL   VALUES -9999 THRU -1.           
+                  88 SFTSRVR-CUST-BR-NBR-NTNL   VALUES     0 THRU +9999.        
+              10  SFTSRVR-CUST-NBR-IND          PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-CUST-NBR-NULL      VALUES -9999 THRU -1.           
+                  88 SFTSRVR-CUST-NBR-NTNL      VALUES     0 THRU +9999.        
+              10  SFTSRVR-CUST-BILL-TO-SFX-IND  PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-CBILL-TO-SFX-NULL  VALUES -9999 THRU -1.           
+                  88 SFTSRVR-CBILL-TO-SFX-NTNL  VALUES     0 THRU +9999.        
+              10  SFTSRVR-VEND-CO-CD-IND        PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-VEND-CO-CD-NULL    VALUES -9999 THRU -1.           
+                  88 SFTSRVR-VEND-CO-CD-NTNL    VALUES     0 THRU +9999.        
+              10  SFTSRVR-VEND-CLS-CD-IND       PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-VEND-CLS-CD-NULL   VALUES -9999 THRU -1.           
+                  88 SFTSRVR-VEND-CLS-CD-NTNL   VALUES     0 THRU +9999.        
+              10  SFTSRVR-VEND-NBR-IND          PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-VEND-NBR-NULL      VALUES -9999 THRU -1.           
+                  88 SFTSRVR-VEND-NBR-NTNL      VALUES     0 THRU +9999.        
+              10  SFTSRVR-INVC-CO-CD-IND        PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-INVC-CO-CD-NULL    VALUES -9999 THRU -1.           
+                  88 SFTSRVR-INVC-CO-CD-NTNL    VALUES     0 THRU +9999.        
+              10  SFTSRVR-INVC-BR-NBR-IND       PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-INVC-BR-NBR-NULL   VALUES -9999 THRU -1.           
+                  88 SFTSRVR-INVC-BR-NBR-NTNL   VALUES     0 THRU +9999.        
+              10  SFTSRVR-INVC-NBR-IND          PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-INVC-NBR-NULL      VALUES -9999 THRU -1.           
+                  88 SFTSRVR-INVC-NBR-NTNL      VALUES     0 THRU +9999.        
+              10  SFTSRVR-INVC-DIST-NBR-IND     PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-INVC-DIST-NBR-NULL VALUES -9999 THRU -1.           
+                  88 SFTSRVR-INVC-DIST-NBR-NTNL VALUES     0 THRU +9999.        
+              10  SFTSRVR-INVC-SHIP-NBR-IND     PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-INVC-SHIP-NBR-NULL VALUES -9999 THRU -1.           
+                  88 SFTSRVR-INVC-SHIP-NBR-NTNL VALUES     0 THRU +9999.        
+              10  SFTSRVR-INVC-DT-IND           PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-INVC-DT-NULL       VALUES -9999 THRU -1.           
+                  88 SFTSRVR-INVC-DT-NTNL       VALUES     0 THRU +9999.        
+              10  SFTSRVR-INVC-ORDR-DT-IND      PIC S9(04) VALUE 0 COMP.        
+                  88 SFTSRVR-INVC-ORDR-DT-NULL  VALUES -9999 THRU -1.           
+                  88 SFTSRVR-INVC-ORDR-DT-NTNL  VALUES     0 THRU +9999.        
+              10  SFTSRVR-INVC-LINE-NBR-IND     PIC S9(04) VALUE 0 COMP.AXR01054
+                  88 SFTSRVR-INVC-LINE-NBR-NULL VALUES -9999 THRU -1.   AXR01054
+                  88 SFTSRVR-INVC-ORDR-NBR-NTNL VALUES     0 THRU +9999.AXR01054
+              10  SFTSRVR-TERMS-CD-IND          PIC S9(04) VALUE 0 COMP.AXR01054
+                  88 SFTSRVR-TERMS-CD-NULL      VALUES -9999 THRU -1.   AXR01054
+                  88 SFTSRVR-TERMS-CD-NTNL      VALUES     0 THRU +9999.AXR01054
+              10  SFTSRVR-CHG-PGM-ID-IND        PIC S9(04) VALUE 0 COMP.AXR01054
+                  88 SFTSRVR-CHG-PGM-ID-NULL    VALUES -9999 THRU -1.   AXR01054
+                  88 SFTSRVR-CHG-PMG-ID-NTNL    VALUES     0 THRU +9999.AXR01054

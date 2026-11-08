@@ -1,0 +1,129 @@
+      ***************************************************************           
+      *          SYU012 CURRENCY FORMAT ROUTINE COPY BOOK           *           
+      *                                                             *           
+      * CURRENCY MAY BE IN SEVARAL FORMATS, SOME CURRENCY USE       *           
+      * COMMA FOR THOUSANDS SEPARATOR AND PERIOD FOR DECIMAL        *           
+      * SEPARATOR. THIS ROUTINE WILL:                               *           
+      *   1) FORMAT CURRENCY DEPENDING ON CURRENCY CODE, IT WILL    *           
+      *      DEFAULT TO DEM CURRENCY IF SYU12-CURRENCY-CODE = ' '   * JBP98170  
+      *   2) NOT DISPLAY NEGATIVE SIGN IF REQUESTED, DEFAULT TO     *           
+      *      DISPLAY NEGATIVE SIGN                                  *           
+      *   3) SUPPRESS THOUSANDS SEPARATOR, INSTEAD OF Z,ZZZ,ZZZ.ZZ- *           
+      *      IT WILL DISPLAY ZZZZZZZ.ZZ-                            *           
+      *   4) IT CAN HAVE MAX OF 4 DECIMAL OR 0 DEPENDING ON         *           
+      *      THE NUMBER OF DEC SPECIFIED                            *           
+      *   5) IT WILL FORMAT THE OUTPUT IN THE GIVEN OUTPUT LENGTH.  *           
+      *      SUPPRESS THOUSANDS SEPARATOR IF NEEDED, IT WILL ISSUE  *           
+      *      A RETURN CODE "E" FOR  HIGH ORDER TRUNCATION           *           
+      *   6) ZERO SUPPRESS (SYU12-ZERO-SUPPRESS-SW)                 *           
+      *      DEFAULT TO 0.0000                                      *           
+      *      VALUE 'A' = BLANK WHEN ZERO                            *           
+      *      VALUE 'D' = .0000                                      *           
+      *      VALUE '1 THRU 9' = NUMBER OF WHOLE NUMBER TO DISPLAY   *           
+      *             ZERO STARTING AT THE RIGHTMOST WHOLE NUMBER     *           
+      *        EX VALUE '2' = 00.0000                               *           
+      *        EX VALUE '3' = 000.0000                              *           
+      *   7) NOTATE SW (SYU12-NOTATE-SW)                            *           
+      *      ' '  = NO NOTATION                                     *           
+      *      'Y'  = ONLY IF COUNTRY ALLOWS NOTATION                 *           
+      *      'A'  = NOTATE REGARDLESS OF CURRENCY                   *           
+      *                                                             *           
+      *  EX:  INITIALIZE SYU12-INPUT-PARAMETERS.                    *           
+      *       MOVE NUMERIC-VALUE   TO  SYU12-INPUT-FIELD            *           
+      *       PERFORM 9995-FORMAT-AMOUNTS.       .                  *           
+      *       MOVE SYU12-OUTPUT TO DISPLAY AREA.                    *           
+      *                                                             *           
+      *                                                             *           
+      *  NOTE: YOU CAN CHECK THE RETURN CODE FOR HIGH ORDER         *           
+      *        TRUNCATION.                                          *           
+      *        DISPLAY AREA MUST BE PIC X (ALPHA FIELD)             *           
+      *        YOU NEED SYR012 COPY MEMBER ADDED IN YOUR            *           
+      *        PROCEDURE DIVISION                                   *           
+      * 06/30/04 MSI  ADD PGM NAME FIELD TO BE USED FOR DYNAMIC     *   MSI04182
+      *               CALLS                                         *   MSI04182
+      * 09/10/98 BAM  ADD 'PTE' AS NO DECIMAL CURRENCY              *   BAM98253
+      * 06/19/98 JBP  DEFAULT IS EUROPEAN (DEM) FORMAT              *   JBP98170
+      * 02/05/98 AXG  ADDED 'CLP' TO 88 LEVEL                       *   AXG98036
+      * 01/17/97 KLM ADDED 'IDR' TO NO-DECIMAL-CURRENCY 88-LEVEL    *   KLM97017
+      * 09/26/94 PRP NEW FIELD 'SYU012-FORCED-K-SW                  *   PRP94266
+      * 09/26/94 PRP CONTIGUOUS-K ' 123,456 K123,456 K '            *   PRP94266
+      *              VERSUS       ' 123,456K 123,456K  '            *   PRP94266
+      * 07/22/94 RXD REMOVED SPAIN FROM RECEIVING NOTATED AMOUNTS   *   RXD94203
+      ***************************************************************           
+       01  SYU12-WORKING-STORAGE.                                               
+         02  SYU12-UTIL-PGM-NAME       PIC X(8) VALUE 'SYU012 '.        MSI04182
+         02  SYU12-INPUT-PARAMETERS.                                            
+           05  FILLER                  PIC X(19) VALUE                          
+               'START OF SYU12 AREA'.                                           
+           05  SYU12-INPUT-AREA.                                                
+               10  SYU12-INPUT-FIELD PIC ZZ,ZZZ,ZZZ,ZZZ,ZZ9.9999-.              
+               10  SYU12-INPUT-TABLE REDEFINES                                  
+                   SYU12-INPUT-FIELD.                                           
+                   15  SYU12-INPUT-BYTE  OCCURS 24 TIMES                        
+                                       PIC X(01).                               
+               10  SYU12-END           PIC X(01)   VALUE HIGH-VALUE.            
+           05  SYU12-CURRENCY-CODE     PIC X(03)   VALUE SPACES.                
+               88  SYU12-NO-DEC-CURR               VALUE 'ITL',                 
+                                                         'JPY',                 
+                                                         'BEF',                 
+                                                         'ARA',                 
+                                                         'KRW',                 
+                                                         'IDR',         KLM97017
+                                                         'CLP',         AXG98036
+                                                         'PTE',         BAM98253
+                                                         'ESP'.                 
+               88  SYU12-NOTATE-CURR               VALUE 'ITL',                 
+                                                         'JPY',                 
+                                                         'ARA'.         RXD94203
+           05  SYU12-NEGATIVE-SW       PIC X(01)   VALUE 'Y'.                   
+               88  SYU12-NEGATIVE-SHOW-SIGN        VALUE 'Y'.                   
+               88  SYU12-NEGATIVE-SUPPRESS-SIGN    VALUE 'N'.                   
+           05  SYU12-ABBR-FORMAT-SW    PIC X(01)   VALUE SPACES.                
+               88  SYU12-ABBR-FORMAT-NONE          VALUE SPACE.                 
+               88  SYU12-ABBR-THOUS-SEPERATORS     VALUE 'T'.                   
+           05  SYU12-NOTATE-SW         PIC X(01)   VALUE SPACES.                
+               88  SYU12-NOTATE-NONE               VALUE SPACE.                 
+               88  SYU12-NOTATE-SELECTED-CURR      VALUE 'Y'.                   
+               88  SYU12-NOTATE-YES                VALUE 'A'.                   
+           05  SYU12-ZERO-SUPPRESS-SW  PIC X(01)   VALUE '0'.                   
+               88  SYU12-ZERO-SUPPRESS             VALUE 'A'.                   
+               88  SYU12-ZERO-DECIMAL              VALUE 'D'.                   
+               88  SYU12-ZERO-TENTH                VALUE '1' THRU '9'.          
+           05  SYU12-DEC-OVERRIDE-SW   PIC X(01)   VALUE ' '.                   
+               88  SYU12-DEC-OVERRIDE              VALUE 'Y'.                   
+           05  SYU12-NBR-OF-DEC        PIC S9(01)  VALUE +2.                    
+           05  SYU12-FLOATING-CHAR     PIC X(01)   VALUE SPACES.                
+           05  SYU12-OUTPUT-LENGTH     PIC S9(03)  VALUE ZERO.                  
+           05  SYU12-FORCED-K-SW       PIC X(01)   VALUE 'N'.           PRP94266
+               88  SYU12-FORCED-K                  VALUE 'Y'.           PRP94266
+           05  SYU12-CONTIGUOUS-K-SW   PIC X(01)   VALUE 'N'.           PRP94266
+               88  SYU12-CONTIGUOUS-K              VALUE 'Y'.           PRP94266
+         02  SYU12-OUTPUT-AREA.                                                 
+           05  SYU12-OUTPUT            PIC X(24)   VALUE SPACES.                
+           05  SYU12-OUTPUT-TABLE REDEFINES SYU12-OUTPUT.                       
+               10  SYU12-OUTPUT-VALUE OCCURS 24 TIMES                           
+                                       PIC X(01).                               
+           05  SYU12-CURR-RET-CODE     PIC X(01)   VALUE ' '.                   
+               88  SYU12-NORESP                    VALUE ' '.                   
+               88  SYU12-RET-CODE-TRUNC-OK         VALUE ' ', 'E'.              
+               88  SYU12-NOT-NUMERIC               VALUE 'N'.                   
+               88  SYU12-HIGH-ORDER-TRUNCATION     VALUE 'E'.                   
+                                                                                
+         02  SYU12-INTERNAL-WORKING-STORAGE.                                    
+           05  SYU12-DIFF              PIC S9(03)  VALUE ZERO.                  
+           05  SYU12-PASS              PIC S9(03)  VALUE ZERO.                  
+           05  SYU12-SUB               PIC S9(03)  VALUE ZERO.                  
+           05  SYU12-SUB2              PIC S9(03)  VALUE ZERO.          PRP94266
+           05  SYU12-COUNTER           PIC S9(03)  VALUE ZERO.                  
+           05  SYU12-DEC-COUNT         PIC S9(01)  VALUE ZERO.                  
+           05  SYU12-SUPPRESS-SW       PIC X(01)   VALUE ' '.                   
+               88  SYU12-SUPPRESS                  VALUE 'Y'.                   
+           05  SYU12-STOP-SW           PIC X(01)   VALUE ' '.                   
+               88  SYU12-STOP                      VALUE 'Y'.                   
+           05  SYU12-ALL-ZERO-SW       PIC X(01)   VALUE 'Y'.                   
+               88  SYU12-ALL-ZERO                  VALUE 'Y'.                   
+           05  SYU12-MOVE-K-SW         PIC X(01)   VALUE 'N'.                   
+               88  SYU12-MOVE-K                    VALUE 'Y'.                   
+           05  SYU12-ZERO-CNTA         PIC X(1)    VALUE '0'.                   
+           05  SYU12-ZERO-COUNT REDEFINES SYU12-ZERO-CNTA                       
+                                       PIC 9.                                   

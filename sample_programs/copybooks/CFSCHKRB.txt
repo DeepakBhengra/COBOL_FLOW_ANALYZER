@@ -1,0 +1,337 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *AMAY0014
+      ******************************************************************        
+      ******************************************************************        
+      ***                 (NO DATE LOGIC)                              *        
+      ******************************************************************        
+      * COPY MEMBER NAME: CFSCHKRB                                              
+      *   PROCEDURE DIVISION COPYBOOK TO CHECK WHETHER AN INPUT                 
+      *   BRANCH IS RESTRICTED TO SPECIFIC CUSTOMERS, AND IF SO,                
+      *   WHETHER THE INPUT CUSTOMER IS ALLOWED ACCESS TO THIS BRANCH.          
+      *   RETURNS FLAG INDICATING IF BRANCH ACCESS ALLOWED FOR CUSTOMER.        
+      ******************************************************************        
+      *   DATE   BY   DESCRIPTION OF CHANGE                                     
+      * 07/19/17 SAS  CICS UPGRADE PHASE II -                           SAS17200
+      *               DELETED THE CICS TRANSLATED CODE AND              SAS17200
+      *               UNCOMMENTED THE EXEC CICS STATEMENTS.             SAS17200
+      * 02/02/00 AXR  FIX TO ALLOW FOR BRANCH ACCESS IF BPLMST VSAM     AXR00033
+      *               ENTRY NOT FOUND (E.G. ITALY, COMPAQ)              AXR00033
+      * 01/21/00 AXR  FIX TO RESET INDEX BEFORE EACH TBXCUSBR SEARCH.   AXR00021
+      * 11/18/99 AXR  NEW COPYBOOK.                                     AXR99322
+      ******************************************************************        
+      * HOW TO USE THIS ROUTINE WITHIN AN INVOKING PROGRAM:                     
+      * ---------------------------------------------------                     
+      *   **FOR EXAMPLE OF STEPS 1-8, SEE ORP320MD, ORP673IM, OTHERS**          
+      * 1. ADD CFWCHKRB W/S COPYBOOK TO DEFINE REQUIRED VARIABLES               
+      * 2. ADD CFSCHKRB PROC/DIV COPYBOOK TO INCLUDE THIS ROUTINE               
+      * 3. ADD THE FOLLOWING W/S COPYBOOKS, IF NOT ALREADY INCLUDED:            
+      *    BPRMST/BPKMST, CUSHED/CUKHEAD, CUSBRN/CUKBRN AND TBICUSBR            
+      * 4. ADD THE FOLLOWING I/O COPYBOOKS, IF NOT ALREADY INCLUDED:            
+      *    CUIO1000 (FOR 1000-GU-CUSHED)                                        
+      *    CUIO1004 (FOR 1004-GU-CUSBRN)                                        
+      * 5. AFTER PROGRAM'S INSBRN ACCESS, INITIALIZE CFWCHKRB.                  
+      * 6. MOVE ALL AVAILABLE KEY VALUES TO CFWCHKRB-REQUEST-FIELDS.            
+      * 7. PERFORM 000-CFSCHKRB-CHK-CUST-BR-RESTR.                              
+      * 8. IF CFWCHKRB-BR-OKAY-FOR-CUST                                         
+      *       <USE THIS BRANCH FOR THE PROGRAM'S PROCESSING>                    
+      *    ELSE                                                                 
+      *       <SKIP THIS BRANCH OR DISPLAY RESTRICTED BRANCH MESSAGE>           
+      *    END-IF.                                                              
+      * 9. ALTERNATE USAGE: POPULATE ALL CFWCHKRB-REQUEST-FIELDS,               
+      *    INCLUDING THE CFWCHKRB-SF-BR-NBR WITH ANY NON-SPACE VALUE,           
+      *    AND THIS ROUTINE WILL RETURN CFWCHKRB-CUSBR-TABLE-ENTRIES            
+      *    WHICH CAN BE USED TO AUGMENT THE LIST OF AVAILABLE BRANCHES          
+      *    FOR THE SPECIFIED CUSTOMER.                                          
+      *                                                                         
+      * GENERAL NOTES ABOUT THIS ROUTINE:                                       
+      * ---------------------------------                                       
+      * 1. INPUT INCLUDES: COMPANY CODE, SHIP FROM BRANCH NUMBER,               
+      *    CUSTOMER'S BRANCH NUMBER AND CUSTOMER NUMBER.                        
+      * 2. PROCESSING CAN ACCESS: BPLMST, CUSHED, CUSBRN AND TBXCUSBR           
+      *    -I/O ONLY PERFORMED IF NOT ALREADY POSITIONED PROPERLY               
+      *    -IF ANY I/O ERRORS, STATUS OF 'NOT-OKAY' IS RETURNED                 
+      * 3. OUTPUT INCLUDES: CUSTOMER TO BRANCH RESTRICTION STATUS,              
+      *    A RETURN STATUS NUMBER, RETURN STATUS MESSAGE AND A                  
+      *    TABLE OF THE ADDITIONAL BRANCHES CUSTOMER HAS ACCESS TO.             
+      ******************************************************************        
+       000-CFSCHKRB-CHK-CUST-BR-RESTR.                                          
+           INITIALIZE                          CFWCHKRB-RETURN-FIELDS.          
+                                                                                
+      *   (CONTINUE RESTRICTED BRANCH CHECKS,UNTIL NO LONGER NECESSARY)         
+           SET CFWCHKRB-CONTINUE-CHECKING   TO TRUE.                            
+                                                                                
+      *   (ASSUME CUSTOMER HAS ACCESS TO BRANCH,UNTIL PROVEN OTHERWISE)         
+           SET CFWCHKRB-BR-OKAY-FOR-CUST    TO TRUE.                            
+                                                                                
+      *   (IF MORE CHECKING REQUIRED, CHECK IF RESTRICTED BRANCH)               
+           IF  CFWCHKRB-CONTINUE-CHECKING                                       
+      *       (ONLY PERFORM CHECK IF ALL REQUIRED KEYS HAVE A VALUE)            
+               IF CFWCHKRB-COMPANY-CODE      = SPACES                           
+               OR CFWCHKRB-SF-BR-NBR         = SPACES                           
+                  CONTINUE                                                      
+               ELSE                                                             
+      *          (IF ALL KEYS AVAILABLE, CHECK DATA ON BPLMST)                  
+                  PERFORM 100-CFSCHKRB-CHK-IF-RSTRCTD-BR                        
+               END-IF                                                           
+           END-IF.                                                              
+                                                                                
+      *   (IF MORE CHECKING REQUIRED, CHECK IF SPECIAL CUSTOMER)                
+           IF  CFWCHKRB-CONTINUE-CHECKING                                       
+      *       (ONLY PERFORM CHECK IF ALL REQUIRED KEYS HAVE A VALUE)            
+               IF CFWCHKRB-COMPANY-CODE      = SPACES                           
+               OR CFWCHKRB-CUST-BR-NBR       = SPACES                           
+               OR CFWCHKRB-CUST-NBR        NOT NUMERIC                          
+                  CONTINUE                                                      
+               ELSE                                                             
+      *          (IF ALL KEYS AVAILABLE, CHECK DATA ON CUSBRN)                  
+                  PERFORM 200-CFSCHKRB-CHK-IF-SPCL-CUST                         
+               END-IF                                                           
+           END-IF.                                                              
+                                                                                
+      *   (IF MORE CHECKING REQUIRED, CHECK FOR ALLOWED ADD'L BRANCHES)         
+           IF  CFWCHKRB-CONTINUE-CHECKING                                       
+      *       (IF YOU GOT THIS FAR, BUT ANY REQUIRED KEY IS MISSING,            
+      *        THEN DEFAULT ASSUMPTION IS THAT YOU DO NOT HAVE ACCESS           
+      *        TO THE BRANCH YOU ARE ATTEMPTING TO ACCESS!)                     
+               IF CFWCHKRB-COMPANY-CODE      = SPACES                           
+               OR CFWCHKRB-CUST-BR-NBR       = SPACES                           
+               OR CFWCHKRB-CUST-NBR        NOT NUMERIC                          
+               OR CFWCHKRB-SF-BR-NBR         = SPACES                           
+                  MOVE 'S000'                                                   
+                    TO CFWCHKRB-RESTR-BR-MESG-NBR                               
+                  MOVE 'RESTRICTED BRANCH; INSUFFICIENT DATA'                   
+                    TO CFWCHKRB-RESTR-BR-MESG-TXT                               
+                  SET  CFWCHKRB-STOP-CHECKING         TO TRUE                   
+                  SET  CFWCHKRB-BR-NOT-OKAY-FOR-CUST  TO TRUE                   
+               ELSE                                                             
+      *          (IF ALL KEYS AVAILABLE, CHECK DATA ON TBXCUSBR)                
+                  PERFORM 300-CFSCHKRB-CHK-BRS-FOR-CUST                         
+               END-IF                                                           
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       100-CFSCHKRB-CHK-IF-RSTRCTD-BR.                                          
+                                                                                
+      *   (ONLY INCUR BPLMST I/O IF DATA NOT ALREADY AVAILABLE)                 
+           IF  BP-REC-CODE          = '0'                                       
+           AND BP-COMPANY           = CFWCHKRB-COMPANY-CODE                     
+           AND BP-BR-NBR            = CFWCHKRB-SF-BR-NBR                        
+               MOVE 'I100'                                                      
+                 TO CFWCHKRB-RESTR-BR-MESG-NBR                                  
+               MOVE 'BPLMST ACCESS NOT REQUIRED'                                
+                 TO CFWCHKRB-RESTR-BR-MESG-TXT                                  
+           ELSE                                                                 
+               PERFORM 110-CFSCHKRB-READ-BP-RECORD                              
+           END-IF.                                                              
+                                                                                
+      *   (IF NOT RESTRICTED BRANCH, NO MORE CHECKING IS REQUIRED)              
+           IF  WS-BP-NORESP                                                     
+               IF  BP-CUST-WHSE-YES                                             
+                   MOVE 'I101'                                                  
+                     TO CFWCHKRB-RESTR-BR-MESG-NBR                              
+                   MOVE 'BRANCH IS RESTRICTED, MORE CHECKS REQUIRED'            
+                     TO CFWCHKRB-RESTR-BR-MESG-TXT                              
+               ELSE                                                             
+                   SET CFWCHKRB-STOP-CHECKING TO TRUE                           
+                   MOVE 'W100'                                                  
+                     TO CFWCHKRB-RESTR-BR-MESG-NBR                              
+                   MOVE 'UNRESTRICTED BRANCH, NO FURTHER CHECKING'              
+                     TO CFWCHKRB-RESTR-BR-MESG-TXT                              
+               END-IF                                                           
+           ELSE                                                                 
+               MOVE 'S100'                                                      
+                 TO CFWCHKRB-RESTR-BR-MESG-NBR                                  
+               MOVE 'TECHNICAL PROBLEMS ACCESSING BPLMST'                       
+                 TO CFWCHKRB-RESTR-BR-MESG-TXT                                  
+      *       ('BPLMST NOT FOUND' CAN OCCUR IN MULTI-COUNTRY REGIONS.   AXR00033
+      *        UNTIL TECH WORKAROUND FOUND, ASSUME BR NOT RESTRICTED)   AXR00033
+               SET  CFWCHKRB-STOP-CHECKING         TO TRUE                      
+      *        SET  CFWCHKRB-BR-NOT-OKAY-FOR-CUST  TO TRUE              AXR00033
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       110-CFSCHKRB-READ-BP-RECORD.                                             
+                                                                                
+           MOVE WS-BP-MAXLEN           TO WS-BP-REC-LENGTH.                     
+                                                                                
+           MOVE '0'                    TO WS-BP-REC-SEQ.                        
+           MOVE CFWCHKRB-COMPANY-CODE  TO WS-BP-COMPANY.                        
+           MOVE CFWCHKRB-SF-BR-NBR     TO WS-BP-BR-NBR.                         
+                                                                                
+      ** EXEC CICS COMMANDS IN A COPYBOOK ARE NOT SUPPORTED BY COMPILER         
+      ** SO THE FOLLOWING CALL WAS COPIED, IN HEX MODE, FROM TEMP CODE          
+      ** PLACED IN SOURCE PROGRAM THAT WENT THROUGH CICS PRECOMPILER            
+                                                                                
+           EXEC CICS READ                                               SAS17200
+                FILE   (WS-BP-FILE-NAME)                                SAS17200
+                LENGTH (WS-BP-REC-LENGTH)                               SAS17200
+                INTO   (BP-BPRMST)                                      SAS17200
+                RIDFLD (WS-BP-KEY)                                      SAS17200
+                RESP   (WS-EIBRESP)                                     SAS17200
+           END-EXEC.                                                    SAS17200
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              MOVE 'Y'              TO WS-BP-IO-SW                              
+           ELSE                                                                 
+              MOVE 'N'              TO WS-BP-IO-SW                              
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       200-CFSCHKRB-CHK-IF-SPCL-CUST.                                           
+                                                                                
+      *   (ONLY INCUR CUSHED I/O IF DATA NOT ALREADY AVAILABLE)                 
+           IF  CU-COMPANY         = CFWCHKRB-COMPANY-CODE                       
+           AND CU-BR-NBR          = CFWCHKRB-CUST-BR-NBR                        
+           AND CU-CUST-NBR        = CFWCHKRB-CUST-NBR                           
+               MOVE 'I200'                                                      
+                 TO CFWCHKRB-RESTR-BR-MESG-NBR                                  
+               MOVE 'CUSHED ACCESS NOT REQUIRED'                                
+                 TO CFWCHKRB-RESTR-BR-MESG-TXT                                  
+           ELSE                                                                 
+               PERFORM 210-CFSCHKRB-POSITION-CUSHED                             
+           END-IF.                                                              
+                                                                                
+      *   (ONLY INCUR CUSBRN I/O IF DATA NOT ALREADY AVAILABLE)                 
+           IF  CFWCHKRB-CONTINUE-CHECKING                                       
+               IF  CUB-BR-NBR     = CFWCHKRB-CUST-BR-NBR                        
+                   MOVE 'I201'                                                  
+                     TO CFWCHKRB-RESTR-BR-MESG-NBR                              
+                   MOVE 'CUSBRN ACCESS NOT REQUIRED'                            
+                     TO CFWCHKRB-RESTR-BR-MESG-TXT                              
+               ELSE                                                             
+                   PERFORM 220-CFSCHKRB-READ-CUSBRN                             
+               END-IF                                                           
+           END-IF.                                                              
+                                                                                
+           IF  CFWCHKRB-CONTINUE-CHECKING                                       
+           AND WS-CUSBRN-NORESP                                                 
+      *       (BY NOW BR IS RESTRICTED, SEE IF CUST HAS SPECIAL BR(S) ) AXR00033
+               IF  CUB-CUST-ONLY-BRANCH-YES                                     
+                   MOVE 'W200'                                                  
+                     TO CFWCHKRB-RESTR-BR-MESG-NBR                              
+                   MOVE 'CUSTOMER HAS SPCL BRANCHES, MORE CHECKS REQD'          
+                     TO CFWCHKRB-RESTR-BR-MESG-TXT                              
+               ELSE                                                             
+                   SET CFWCHKRB-STOP-CHECKING         TO TRUE                   
+                   SET CFWCHKRB-BR-NOT-OKAY-FOR-CUST  TO TRUE                   
+                   MOVE 'E200'                                                  
+                     TO CFWCHKRB-RESTR-BR-MESG-NBR                              
+                   MOVE 'RESTRICTED BRANCH; CUSTOMER HAS NO BR ACCESS'  AXR00033
+                     TO CFWCHKRB-RESTR-BR-MESG-TXT                              
+               END-IF                                                           
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       210-CFSCHKRB-POSITION-CUSHED.                                            
+                                                                                
+           MOVE CFWCHKRB-COMPANY-CODE  TO  WS-CUSHED-CO.                        
+           MOVE CFWCHKRB-CUST-BR-NBR   TO  WS-CUSHED-BR.                        
+           MOVE CFWCHKRB-CUST-NBR      TO  WS-CUSHED-CUST.                      
+                                                                                
+           PERFORM 1000-GU-CUSHED.                                              
+                                                                                
+           IF WS-CUSHED-NORESP                                                  
+              MOVE 'I210'                                                       
+                TO CFWCHKRB-RESTR-BR-MESG-NBR                                   
+              MOVE 'CUSHED POSITIONING ACCESS SUCCESSFUL'                       
+                TO CFWCHKRB-RESTR-BR-MESG-TXT                                   
+           ELSE                                                                 
+              MOVE 'S210'                                                       
+                TO CFWCHKRB-RESTR-BR-MESG-NBR                                   
+              MOVE 'TECHNICAL PROBLEMS ACCESSING CUSHED'                        
+                TO CFWCHKRB-RESTR-BR-MESG-TXT                                   
+              SET  CFWCHKRB-STOP-CHECKING         TO TRUE                       
+              SET  CFWCHKRB-BR-NOT-OKAY-FOR-CUST  TO TRUE                       
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       220-CFSCHKRB-READ-CUSBRN.                                                
+                                                                                
+           MOVE CFWCHKRB-CUST-BR-NBR   TO  WS-CUSBRN-BR.                        
+                                                                                
+           PERFORM 1004-GU-CUSBRN.                                              
+                                                                                
+           IF WS-CUSBRN-NORESP                                                  
+              MOVE 'I220'                                                       
+                TO CFWCHKRB-RESTR-BR-MESG-NBR                                   
+              MOVE 'CUSBRN POSITIONING ACCESS SUCCESSFUL'                       
+                TO CFWCHKRB-RESTR-BR-MESG-TXT                                   
+           ELSE                                                                 
+              MOVE 'S220'                                                       
+                TO CFWCHKRB-RESTR-BR-MESG-NBR                                   
+              MOVE 'TECHNICAL PROBLEMS ACCESSING CUSBRN'                        
+                TO CFWCHKRB-RESTR-BR-MESG-TXT                                   
+              SET  CFWCHKRB-STOP-CHECKING         TO TRUE                       
+              SET  CFWCHKRB-BR-NOT-OKAY-FOR-CUST  TO TRUE                       
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       300-CFSCHKRB-CHK-BRS-FOR-CUST.                                           
+                                                                                
+      *   (ONLY INCUR TBXCUSBR I/O IF DATA NOT ALREADY AVAILABLE)               
+           IF  TB-CUSBR-COMPANY-CODE        = CFWCHKRB-COMPANY-CODE             
+           AND TB-CUSBR-CUSTOMER-BR         = CFWCHKRB-CUST-BR-NBR              
+           AND TB-CUSBR-CUSTOMER-NBR        = CFWCHKRB-CUST-NBR                 
+               MOVE 'I300'                                                      
+                 TO CFWCHKRB-RESTR-BR-MESG-NBR                                  
+               MOVE 'TBXCUSBR ACCESS NOT REQUIRED'                              
+                 TO CFWCHKRB-RESTR-BR-MESG-TXT                                  
+           ELSE                                                                 
+               PERFORM 310-CFSCHKRB-READ-TBXCUSBR                               
+           END-IF                                                               
+                                                                                
+      *   (CHECK TABLE OF SPECIAL BRANCHES ALLOWED FOR CUSTOMER)                
+           IF  TB-CUSBR-NORESP                                                  
+               SET CFWCHKRB-CUSBR-ENTRY-NOT-FOUND TO TRUE                       
+               MOVE TB-CUSBR-SEARCH-TABLE                                       
+                 TO CFWCHKRB-TB-CUSBR-ENTRY                                     
+               PERFORM 320-CFSCHKRB-SEARCH-TB-CUSBR                             
+           ELSE                                                                 
+               MOVE 'S300'                                                      
+                 TO CFWCHKRB-RESTR-BR-MESG-NBR                                  
+               MOVE 'TECHNICAL PROBLEMS ACCESSING TBXCUSBR'                     
+                 TO CFWCHKRB-RESTR-BR-MESG-TXT                                  
+               SET  CFWCHKRB-STOP-CHECKING         TO TRUE                      
+               SET  CFWCHKRB-BR-NOT-OKAY-FOR-CUST  TO TRUE                      
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *                                                                         
+       310-CFSCHKRB-READ-TBXCUSBR.                                              
+                                                                                
+           SET TB-CUSBR-ENTRY-NOTFND              TO TRUE.                      
+                                                                                
+           MOVE CFWCHKRB-COMPANY-CODE     TO TB-CUSBR-COMPANY-CODE.             
+           MOVE CFWCHKRB-CUST-BR-NBR      TO TB-CUSBR-CUSTOMER-BR.              
+           MOVE CFWCHKRB-CUST-NBR         TO TB-CUSBR-CUSTOMER-NBR.             
+                                                                                
+           CALL 'SYU510' USING TB-CUSBR-PROC-IA.                                
+                                                                                
+      *                                                                         
+       320-CFSCHKRB-SEARCH-TB-CUSBR.                                            
+                                                                                
+           SET CFWCHKRB-TBL-IDX                    TO +1.               AXR00021
+           SEARCH CFWCHKRB-CUSBR-TABLE-ENTRIES                                  
+             AT END                                                             
+                SET CFWCHKRB-CUSBR-ENTRY-NOT-FOUND TO TRUE                      
+             WHEN CFWCHKRB-CUSBR-ENTRY (CFWCHKRB-TBL-IDX)                       
+                                        = CFWCHKRB-SF-BR-NBR                    
+                SET CFWCHKRB-CUSBR-ENTRY-FOUND     TO TRUE.                     
+                                                                                
+           IF  CFWCHKRB-CUSBR-ENTRY-FOUND                                       
+               SET CFWCHKRB-STOP-CHECKING          TO TRUE                      
+               SET CFWCHKRB-BR-OKAY-FOR-CUST       TO TRUE                      
+               MOVE 'I320'                                                      
+                 TO CFWCHKRB-RESTR-BR-MESG-NBR                                  
+               MOVE 'RESTRICTED BRANCH; ALLOWED FOR THIS CUSTOMER'              
+                 TO CFWCHKRB-RESTR-BR-MESG-TXT                                  
+           ELSE                                                                 
+                SET CFWCHKRB-STOP-CHECKING         TO TRUE                      
+                SET CFWCHKRB-BR-NOT-OKAY-FOR-CUST  TO TRUE                      
+               MOVE 'E320'                                                      
+                 TO CFWCHKRB-RESTR-BR-MESG-NBR                                  
+               MOVE 'RESTRICTED BRANCH; NOT ALLOWED FOR CUSTOMER'               
+                 TO CFWCHKRB-RESTR-BR-MESG-TXT                                  
+           END-IF.                                                              
+                                                                                
+      *---------------------END OF CFSCHKRB-------------------------*           

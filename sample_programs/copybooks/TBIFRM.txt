@@ -1,0 +1,152 @@
+      ******************************************************************        
+      * NAME: TBIFRM     PROCESS FREIGHT RULES MODULE                 *         
+      *=================================================================        
+      *  DATE    | PGMR | DESCRIPTION                                  *        
+      * 05/10/24   KMP    ADDED TB-FRM-RG-COMPANY-BYPASS-SW.            KMP24131
+      * 07/14/23   VYR    ADDED TB-FRM-RG-EXCL-SW FOR RG EXCLUSION.     VYR23195
+      * 02/28/20   KMP    ADDED TB-FRM-HAZMAT-SW FOR JDA PROCESSING.    KMP20059
+      * 02/27/19   WXY    ADDED NEW JDA FIELDS.                         WXY19059
+      *                   TB-FRM-VIR-CARTON-CNT                         WXY19059
+      *                   TB-FRM-SML-GIRTH, TB-FRM-SML-LENGTH           WXY19059
+      *                   TB-FRM-SML-WEIGHT, TB-FRM-LTL-WEIGHT          WXY19059
+      *                   TB-FRM-LTL-GIRTH, TB-FRM-LTL-LENGTH           WXY19059
+      * 01/31/19   GXE    ADDED JDA-PROCESS-DIR-FLAG FOR JDA PROJ       GXE19031
+      * 01/31/19   MAK    ADDED FOR PURGE PROGRAM FOR JDA PROJECT       MAK19011
+      * 01/31/19   RYD    ADDED FROM INSIDE LINE JDA FIELD              RYD19031
+      * 09/14/18   RYD    ADD NEW JDA FIELDS                            RYD18257
+      * 06/15/15   KMP    ADD DIM WEIGHT FIELD                         *KMP15166
+      * 04/07/10   JAV    ADD NEW FIELDS TO THE TABLE FOR TRUCKLOAD    *JAV10029
+      *                   BASERATE PROJECT                             *JAV10029
+      * 05/11/09   MCV    HEAVYWEIGHT FREIGHT LIMIT                     MCV09131
+      * 02/18/09   MCV    TRANSPORTATION POSTAL PROJECT                 MCV09049
+      * 01/28/04   BXT    ADD TB-FRM-PAL-BILLING-FLG.                  *BXT04028
+      * 10/01/03   JJU    ADD 4 CUSTOMER DEFAULT FIELDS TO THE TABLE.  *JJU03274
+      *                   ADD 6 PICK LITE FIELDS TO THE TABLE.         *JJU03274
+      * 09/28/03   MEP    NEW TABLE CREATION                           *MEP03271
+      ******************************************************************        
+       01  TB-FRM-PROC-IA.                                                      
+           05 TB-FRM-REQUEST-CODE      PIC  X(01)           VALUE 'K'.          
+              88 TB-FRM-ALL                                 VALUE 'A'.          
+              88 TB-FRM-KEY                                 VALUE 'K'.          
+              88 TB-FRM-NEXT                                VALUE 'N'.          
+              88 TB-FRM-CLOSE                               VALUE 'C'.          
+           05 TB-FRM-RETURN-CODE       PIC  X(01)           VALUE ' '.          
+              88 TB-FRM-NORESP                              VALUE 'Y'.          
+              88 TB-FRM-TABLE-NOTFND                        VALUE 'T'.          
+              88 TB-FRM-ENTRY-NOTFND                        VALUE 'N'.          
+              88 TB-FRM-EOT                                 VALUE 'E'.          
+              88 TB-FRM-NO-ROOM                             VALUE 'R'.          
+           05 TB-FRM-COMPANY           PIC  X(02)           VALUE '$$'.         
+           05 TB-FRM-TABLE-NAME        PIC  X(08)    VALUE 'TBXFRM  '.          
+           05 TB-FRM-IA-WORK-AREA      PIC  X(20)    VALUE LOW-VALUE.           
+           05 TB-FRM-ENTRY.                                                     
+              10 TB-FRM-COMPANY-CODE           PIC X(02)  VALUE SPACES.         
+              10 TB-FRM-IMPULSE                PIC X(01)  VALUE SPACES.         
+                 88  TB-USE-FRM-IMPULSE                   VALUE 'Y'.            
+              10 TB-FRM-CAPS                   PIC X(01)  VALUE SPACES.         
+                 88 TB-USE-FRM-CAPS                       VALUE 'Y'.            
+              10 TB-FRM-WEB                    PIC X(01)  VALUE SPACES.         
+                 88 TB-USE-FRM-WEB                        VALUE 'Y'.            
+              10 TB-FRM-EDI                    PIC X(01)  VALUE SPACES.         
+                 88 TB-USE-FRM-EDI                        VALUE 'Y'.            
+              10 TB-FRM-INSIDELINE             PIC X(01)  VALUE SPACES.         
+                 88 TB-USE-FRM-INSIDELINE                 VALUE 'Y'.            
+              10 TB-FRM-XML                    PIC X(01)  VALUE SPACES.         
+                 88 TB-USE-FRM-XML                        VALUE 'Y'.            
+              10 TB-FRM-PRINT-ROUTINE          PIC X(01)  VALUE SPACES.         
+                 88 TB-USE-FRM-PRINT-ROUTINE              VALUE 'Y'.            
+              10 TB-FRM-CC-CHOICE-ALLOWED-CD   PIC X(02)  VALUE SPACES. JJU03274
+                 88  TB-FRM-GRD-ONLY-CHOICE               VALUE 'GO'.   JJU03274
+                 88  TB-FRM-AIR-ONLY-CHOICE               VALUE 'AO'.   JJU03274
+                 88  TB-FRM-GRD-AIR-CHOICE                VALUE 'GA'.   JJU03274
+                 88  TB-FRM-NO-CC-CHOICE                  VALUE 'NO'.   JJU03274
+              10 TB-FRM-STND-SPLIT-CD          PIC X(02)  VALUE SPACES. JJU03274
+                 88  TB-FRM-GRD-ONLY-SPLIT-S              VALUE 'GO'.   JJU03274
+                 88  TB-FRM-AIR-ONLY-SPLIT-S              VALUE 'AO'.   JJU03274
+                 88  TB-FRM-GRD-OR-AIR-SPLIT-S            VALUE 'GA'.   JJU03274
+                 88  TB-FRM-AIR-GRD-SPLIT-S               VALUE 'AG'.   JJU03274
+                 88  TB-FRM-ALL-SPLIT-S                   VALUE 'AL'.   JJU03274
+                 88  TB-FRM-NO-SPLIT-S                    VALUE 'NO'.   JJU03274
+              10 TB-FRM-NSTND-SPLIT-CD         PIC X(02)  VALUE SPACES. JJU03274
+                 88  TB-FRM-GRD-ONLY-SPLIT-N              VALUE 'GO'.   JJU03274
+                 88  TB-FRM-AIR-ONLY-SPLIT-N              VALUE 'AO'.   JJU03274
+                 88  TB-FRM-GRD-OR-AIR-SPLIT-N            VALUE 'GA'.   JJU03274
+                 88  TB-FRM-AIR-GRD-SPLIT-N               VALUE 'AG'.   JJU03274
+                 88  TB-FRM-ALL-SPLIT-N                   VALUE 'AL'.   JJU03274
+                 88  TB-FRM-NO-SPLIT-N                    VALUE 'NO'.   JJU03274
+              10 TB-FRM-TRANSIT-DAY-FLG        PIC X(01)  VALUE SPACES. JJU03274
+                 88  TB-FRM-TRANSIT-ALLOWED               VALUE 'Y'.    JJU03274
+                 88  TB-FRM-NO-TRANSIT-ALLOWED            VALUE 'N'.    JJU03274
+              10 TB-FRM-IMPULSE-PAL            PIC X(01)  VALUE SPACES. JJU03274
+                 88 TB-USE-FRM-IMPULSE-PAL                VALUE 'Y'.    JJU03274
+              10 TB-FRM-CAPS-PAL               PIC X(01)  VALUE SPACES. JJU03274
+                 88 TB-USE-FRM-CAPS-PAL                   VALUE 'Y'.    JJU03274
+              10 TB-FRM-WEB-PAL                PIC X(01)  VALUE SPACES. JJU03274
+                 88 TB-USE-FRM-WEB-PAL                    VALUE 'Y'.    JJU03274
+              10 TB-FRM-EDI-PAL                PIC X(01)  VALUE SPACES. JJU03274
+                 88 TB-USE-FRM-EDI-PAL                    VALUE 'Y'.    JJU03274
+              10 TB-FRM-INSIDELINE-PAL         PIC X(01)  VALUE SPACES. JJU03274
+                 88 TB-USE-FRM-INSIDELINE-PAL             VALUE 'Y'.    JJU03274
+              10 TB-FRM-XML-PAL                PIC X(01)  VALUE SPACES. JJU03274
+                 88 TB-USE-FRM-XML-PAL                    VALUE 'Y'.    JJU03274
+              10 TB-FRM-PAL-BILLING-FLG        PIC X(01)  VALUE SPACES. BXT04028
+                 88 TB-FRM-PAL-BILLING                    VALUE 'Y'.    BXT04028
+              10 TB-FRM-POSTAL-DIST-LIMIT-1    PIC S9(07) COMP-3.       MCV09049
+              10 TB-FRM-LIMIT-1-EXPIRATION-DATE PIC X(08).              MCV09049
+              10 TB-FRM-POSTAL-DIST-LIMIT-2    PIC S9(07) COMP-3.       MCV09049
+              10 TB-FRM-HEAVYWEIGHT-LIMIT      PIC S9(06)V9(02) COMP.   MCV09131
+              10 TB-FRM-MIN-TRUCK-WEIGHT       PIC S9(5)     COMP-3.    JAV10029
+              10 TB-FRM-MAX-TRUCK-WEIGHT       PIC S9(5)     COMP-3.    JAV10029
+              10 TB-FRM-MIN-TRUCK-PALLETS      PIC S9(3)     COMP-3.    JAV10029
+              10 TB-FRM-MAX-TRUCK-PALLETS      PIC S9(3)     COMP-3.    JAV10029
+              10 TB-FRM-BILL-COND-CODE1        PIC X(4).                JAV10029
+              10 TB-FRM-BILL-COND-CODE2        PIC X(4).                JAV10029
+              10 TB-FRM-BILL-COND-CODE3        PIC X(4).                JAV10029
+              10 TB-FRM-BILL-COND-CODE4        PIC X(4).                JAV10029
+              10 TB-FRM-HOLD-ALLOWED-FLAG      PIC X(1).                JAV10029
+              10 TB-FRM-DIM-WEIGHT-SW          PIC X(1).                KMP15166
+                 88 TB-FRM-UPD-IM-DB2                     VALUE 'B'.    KMP15166
+                 88 TB-FRM-DIM-WEIGHT-ON                  VALUE 'Y'.    KMP15166
+                 88 TB-FRM-DIM-WEIGHT-OFF                 VALUE ' ' 'N'.KMP15166
+              10 TB-FRM-IMPULSE-JDA-FLG        PIC X(01)  VALUE SPACES. RYD18257
+                 88 TB-FRM-IMPULSE-JDA-ALL                VALUE 'J'.    RYD18257
+                 88 TB-FRM-IMPULSE-JDA-CUST               VALUE 'C'.    RYD18257
+              10 TB-FRM-EDI-JDA-FLG            PIC X(01)  VALUE SPACES. RYD18257
+                 88 TB-FRM-EDI-JDA-ALL                    VALUE 'J'.    RYD18257
+                 88 TB-FRM-EDI-JDA-CUST                   VALUE 'C'.    RYD18257
+              10 TB-FRM-WEB-JDA-FLG            PIC X(01)  VALUE SPACES. RYD18257
+                 88 TB-FRM-WEB-JDA-ALL                    VALUE 'J'.    RYD18257
+                 88 TB-FRM-WEB-JDA-CUST                   VALUE 'C'.    RYD18257
+              10 TB-FRM-XML-JDA-FLG            PIC X(01)  VALUE SPACES. RYD18257
+                 88 TB-FRM-XML-JDA-ALL                    VALUE 'J'.    RYD18257
+                 88 TB-FRM-XML-JDA-CUST                   VALUE 'C'.    RYD18257
+              10 TB-FRM-BILLING-FLG            PIC X(01)  VALUE SPACES. RYD18257
+                 88 TB-FRM-BILLING-ALL                    VALUE 'J'.    RYD18257
+                 88 TB-FRM-BILLING-CUST                   VALUE 'C'.    RYD18257
+              10 TB-FRM-JDA-LOG-SW             PIC X(01)  VALUE SPACES. RYD18257
+                 88 TB-FRM-LOG-ON                         VALUE 'Y'.    RYD18257
+                 88 TB-FRM-LOG-OFF                        VALUE 'N'.    RYD18257
+              10 TB-FRM-JDA-MAX-CARTONS        PIC 9(03)  VALUE ZEROS.  RYD18257
+              10 TB-FRM-JDA-TRANSIT-DAYS       PIC 9(03)  VALUE ZEROS.  RYD18257
+              10 TB-FRM-JDA-TIMEOUT-SECONDS    PIC 9(02)  VALUE ZEROS.  RYD18257
+              10 TB-FRM-DATE-INDICATOR         PIC 9(3).                MAK19031
+              10 TB-FRM-NEXT-PLACE             PIC X(3)   VALUE SPACES. MAK19031
+              10 TB-FRM-JDA-PROCESS-DIR-FLAG   PIC X(01)  VALUE SPACES. GXE19031
+                 88 TB-FRM-JDA-PROCESS-DIR-ORDER          VALUE 'Y'.    GXE19031
+              10 TB-FRM-IL-JDA-FLG             PIC X(01)  VALUE SPACES. RYD19031
+                 88 TB-FRM-IL-JDA-ALL                     VALUE 'J'.    RYD19031
+                 88 TB-FRM-IL-JDA-CUST                    VALUE 'C'.    RYD19031
+              10 TB-FRM-VIR-CARTON-CNT         PIC 9(02)  VALUE ZEROS.  WXY19059
+              10 TB-FRM-SML-GIRTH              PIC 9(03)  VALUE ZEROS.  WXY19059
+              10 TB-FRM-SML-LENGTH             PIC 9(03)  VALUE ZEROS.  WXY19059
+              10 TB-FRM-SML-WEIGHT             PIC 9(03)  VALUE ZEROS.  WXY19059
+              10 TB-FRM-LTL-WEIGHT             PIC 9(03)  VALUE ZEROS.  WXY19059
+              10 TB-FRM-LTL-GIRTH              PIC 9(03)  VALUE ZEROS.  WXY19059
+              10 TB-FRM-LTL-LENGTH             PIC 9(03)  VALUE ZEROS.  WXY19059
+              10 TB-FRM-HAZMAT-SW              PIC X(01)  VALUE SPACES. KMP20059
+                 88 TB-FRM-HAZMAT                         VALUE 'Y'.    KMP20059
+              10 TB-FRM-RG-EXCL-SW             PIC X(01)  VALUE SPACES. VYR23195
+                 88 TB-FRM-RG-EXCL                        VALUE 'Y'.    VYR23195
+              10 TB-FRM-RG-COMPANY-BYPASS-SW   PIC X(01)  VALUE SPACES. KMP24131
+                 88 TB-FRM-RG-COMPANY-BYPASS              VALUE 'Y'.    KMP24131
+              10 FILLER                        PIC X(84)  VALUE SPACES. KMP24131

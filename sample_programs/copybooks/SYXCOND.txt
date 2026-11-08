@@ -1,0 +1,393 @@
+      ***********************************************************               
+      * COPYBOOK SYXCOND                                                        
+      *   ROUTINES FOR DB2 TABLE SHIP_PAL_ORDER_COND TABLE.                     
+      *   1000-OPEN-CURSOR-SYXCOND.                                             
+      *   1100-FETCH-SYXCOND.                                                   
+      *   1200-CLOSE-CURSOR-SYXCOND.                                            
+      *   1300-INSERT-SYXCOND.                                                  
+      *   1400-DELETE-SYXCOND.                                                  
+      *   1500-DELETE-ALL-SYXCOND.                                              
+      *   1600-SELECT-SYXCOND.                                                  
+      *   2000-MAINLINE-SYXCOND.                                                
+      *   2100-LOOP-SYXCOND.                                                    
+      *   3000-DELETE-ADD-SYXCOND-MAIN.                                         
+      *   3100-SYXCOND-LOOP-INSERTS.                                            
+      *                                                                         
+      * NECESSARY OTHER COPYBOOKS.                                              
+      *   ORTSPAL - DCLGEN FOR SHIP_PAL_ORDER_COND TABLE                        
+      *   SYRDATE  - DATE ROUTINE                                               
+      *   SYWCOND  - WORKING VALUES FOR COPYBOOK                                
+      ***********************************************************               
+      * REVISION INFO                                                           
+      * 09/08/23 KMP NEW COPYBOOK FOR TMS PROJECT                       KMP23251
+      ***********************************************************               
+                                                                                
+      *********************************************************                 
+      * CURSOR SYXCOND_ORDER_COND_CSR. THIS WILL GET ALL RECORDS IN             
+      * DATABASE FOR THIS ORDER.                                                
+      *********************************************************                 
+           EXEC SQL                                                             
+               DECLARE SYXCOND_ORDER_COND_CSR CURSOR FOR                        
+                   SELECT SEQ_NBR,                                              
+                          TMS_CD,                                               
+                          TMS_CHRG_CD,                                          
+                          LAST_CHG_OPER_ID,                                     
+                          LST_CHG_TS                                            
+                   FROM SHIP_PAL_ORDER_COND                                     
+                   WHERE CO_CD        = :ORTSPAL-CO-CD         AND              
+                         BR_NBR       = :ORTSPAL-BR-NBR        AND              
+                         ORDR_NBR     = :ORTSPAL-ORDR-NBR      AND              
+                         DIST_NBR     = :ORTSPAL-DIST-NBR      AND              
+                         SHIP_NBR     = :ORTSPAL-SHIP-NBR      AND              
+                         ORDR_ENTY_DT = :ORTSPAL-ORDR-ENTY-DT                   
+                   ORDER BY SEQ_NBR                                             
+                   FOR FETCH ONLY                                               
+                   OPTIMIZE FOR 1 ROWS                                          
+           END-EXEC.                                                            
+                                                                                
+       1000-OPEN-CURSOR-SYXCOND.                                                
+      **************************************************************            
+      * OPEN CURSOR FOR SHIP_PAL_ORDER_COND TABLE                               
+      **************************************************************            
+                                                                                
+           EXEC SQL                                                             
+               OPEN SYXCOND_ORDER_COND_CSR                                      
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               MOVE '1000-OPEN-CURSOR '     TO SYWDB2-EXTRA-MESSAGE-1           
+               MOVE 'OPEN SHIP_PAL_ORDER_COND '                                 
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1000'             TO WS-ABCODE                             
+               PERFORM 999-ABEND.                                               
+                                                                                
+       1000-SYXCOND-EXIT.                                                       
+            EXIT.                                                               
+                                                                                
+       1100-FETCH-SYXCOND.                                                      
+      **************************************************************            
+      * GET NEXT ROW FOR SPECIFIC ORDER FROM SHIP_PAL_ORDER_COND TABLE          
+      **************************************************************            
+           EXEC SQL                                                             
+               FETCH SYXCOND_ORDER_COND_CSR                                     
+               INTO :ORTSPAL-SEQ-NBR,                                           
+                    :ORTSPAL-TMS-CD,                                            
+                    :ORTSPAL-TMS-CHRG-CD,                                       
+                    :ORTSPAL-LAST-CHG-OPER-ID,                                  
+                    :ORTSPAL-LST-CHG-TS                                         
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               IF SQLCODE = DB2-NOT-FOUND                                       
+                   GO TO 1100-SYXCOND-EXIT                                      
+                 ELSE                                                           
+                   MOVE '1100-FETCH-SYXCOND ' TO SYWDB2-EXTRA-MESSAGE-1         
+                   MOVE 'FETCH SHIP_PAL_ORDER_COND '                            
+                                            TO SYWDB2-EXTRA-MESSAGE-2           
+                   PERFORM 990-SQL-MESSAGE                                      
+                   MOVE '1100'              TO WS-ABCODE                        
+                   PERFORM 999-ABEND.                                           
+                                                                                
+                                                                                
+       1100-SYXCOND-EXIT.                                                       
+           EXIT.                                                                
+                                                                                
+       1200-CLOSE-CURSOR-SYXCOND.                                               
+      **************************************************************            
+      * CLOSE CURSOR FOR SHIP_PAL_ORDER_COND TABLE                              
+      **************************************************************            
+                                                                                
+           EXEC SQL                                                             
+               CLOSE SYXCOND_ORDER_COND_CSR                                     
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               MOVE '1200-CLOSE-CURSOR '     TO SYWDB2-EXTRA-MESSAGE-1          
+               MOVE 'CLOSE SHIP_PAL_ORDER_COND '                                
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1200'             TO WS-ABCODE                             
+               PERFORM 999-ABEND.                                               
+                                                                                
+       1200-SYXCOND-EXIT.                                                       
+            EXIT.                                                               
+                                                                                
+       1300-INSERT-SYXCOND.                                                     
+      **************************************************************            
+      * ADD ENTRY INTO SHIP_PAL_ORDER_COND TABLE                                
+      **************************************************************            
+                                                                                
+           EXEC SQL                                                             
+               INSERT INTO SHIP_PAL_ORDER_COND                                  
+                 (CO_CD,                                                        
+                  BR_NBR,                                                       
+                  ORDR_NBR,                                                     
+                  DIST_NBR,                                                     
+                  SHIP_NBR,                                                     
+                  ORDR_ENTY_DT,                                                 
+                  SEQ_NBR,                                                      
+                  TMS_CD,                                                       
+                  TMS_CHRG_CD,                                                  
+                  LAST_CHG_OPER_ID,                                             
+                  LST_CHG_TS)                                           KMP18292
+            VALUES (:ORTSPAL-CO-CD,                                             
+                    :ORTSPAL-BR-NBR,                                            
+                    :ORTSPAL-ORDR-NBR,                                          
+                    :ORTSPAL-DIST-NBR,                                          
+                    :ORTSPAL-SHIP-NBR,                                          
+                    :ORTSPAL-ORDR-ENTY-DT,                                      
+                    :ORTSPAL-SEQ-NBR,                                           
+                    :ORTSPAL-TMS-CD,                                            
+                    :ORTSPAL-TMS-CHRG-CD,                                       
+                    :ORTSPAL-LAST-CHG-OPER-ID,                                  
+                    CURRENT_TIMESTAMP)                                  KMP18292
+           END-EXEC.                                                            
+                                                                                
+           IF (SQLCODE = DB2-NORESP) OR                                         
+              (SQLCODE = DB2-DUPLICATE)                                         
+               CONTINUE                                                         
+           ELSE                                                                 
+               MOVE '1300-INSERT-PAL-WEIGHT' TO SYWDB2-EXTRA-MESSAGE-1          
+               MOVE 'INSERT SHIP_PAL_ORDER_COND '                               
+                                             TO SYWDB2-EXTRA-MESSAGE-2          
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1300'              TO WS-ABCODE                            
+               PERFORM 999-ABEND                                                
+           END-IF.                                                              
+                                                                                
+       1300-SYXCOND-EXIT.                                                       
+            EXIT.                                                               
+                                                                                
+       1400-DELETE-SYXCOND.                                                     
+      **************************************************************            
+      * DELETE ENTRY IN SHIP_PAL_ORDER_COND TABLE                               
+      **************************************************************            
+                                                                                
+            EXEC SQL                                                            
+                DELETE FROM SHIP_PAL_ORDER_COND                                 
+                 WHERE CO_CD        = :ORTSPAL-CO-CD                            
+                   AND BR_NBR       = :ORTSPAL-BR-NBR                           
+                   AND ORDR_NBR     = :ORTSPAL-ORDR-NBR                         
+                   AND DIST_NBR     = :ORTSPAL-DIST-NBR                         
+                   AND SHIP_NBR     = :ORTSPAL-SHIP-NBR                         
+                   AND ORDR_ENTY_DT = :ORTSPAL-ORDR-ENTY-DT                     
+                   AND SEQ_NBR  = :ORTSPAL-SEQ-NBR                              
+            END-EXEC.                                                           
+                                                                                
+           IF  SQLCODE = DB2-NORESP OR SQLCODE = DB2-NOT-FOUND                  
+               CONTINUE                                                         
+           ELSE                                                                 
+               MOVE '1400-DELETE-PAL-WEIGHT' TO SYWDB2-EXTRA-MESSAGE-1          
+               MOVE 'DELETE SHIP_PAL_ORDER_COND '                               
+                                             TO SYWDB2-EXTRA-MESSAGE-2          
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1400'              TO WS-ABCODE                            
+               PERFORM 999-ABEND                                                
+           END-IF.                                                              
+                                                                                
+       1400-SYXCOND-EXIT.                                                       
+            EXIT.                                                               
+                                                                                
+       1500-DELETE-ALL-SYXCOND.                                                 
+      ****************************************************************          
+      * DELETE ALL ENTRIES FOR SPECIFIC ORDER IN SHIP_PAL_ORDER_COND TABLE      
+      ****************************************************************          
+                                                                                
+            EXEC SQL                                                            
+                DELETE FROM SHIP_PAL_ORDER_COND                                 
+                 WHERE CO_CD        = :ORTSPAL-CO-CD                            
+                   AND BR_NBR       = :ORTSPAL-BR-NBR                           
+                   AND ORDR_NBR     = :ORTSPAL-ORDR-NBR                         
+                   AND DIST_NBR     = :ORTSPAL-DIST-NBR                         
+                   AND SHIP_NBR     = :ORTSPAL-SHIP-NBR                         
+                   AND ORDR_ENTY_DT = :ORTSPAL-ORDR-ENTY-DT                     
+            END-EXEC.                                                           
+                                                                                
+           IF  SQLCODE = DB2-NORESP OR SQLCODE = DB2-NOT-FOUND                  
+               CONTINUE                                                         
+           ELSE                                                                 
+               MOVE '1500-DELETE-ALL PAL-WEIGHT'                                
+                                             TO SYWDB2-EXTRA-MESSAGE-1          
+               MOVE 'DELETE SHIP_PAL_ORDER_COND '                               
+                                             TO SYWDB2-EXTRA-MESSAGE-2          
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1500'              TO WS-ABCODE                            
+               PERFORM 999-ABEND                                                
+           END-IF.                                                              
+                                                                                
+       1500-SYXCOND-EXIT.                                                       
+            EXIT.                                                               
+                                                                                
+       2000-MAINLINE-SYXCOND.                                                   
+      **************************************************************            
+      * GET ROWS FROM SHIP_PAL_ORDER_COND TABLE                                 
+      **************************************************************            
+                                                                                
+           MOVE SYWCOND-CO-CD             TO ORTSPAL-CO-CD                      
+           MOVE SYWCOND-BR-NBR            TO ORTSPAL-BR-NBR                     
+           MOVE SYWCOND-ORDR-NBR          TO ORTSPAL-ORDR-NBR.                  
+           MOVE SYWCOND-DIST-NBR          TO ORTSPAL-DIST-NBR.                  
+           MOVE SYWCOND-SHIP-NBR          TO ORTSPAL-SHIP-NBR.                  
+           MOVE SYWCOND-ORDR-ENTRY-DT-ISO TO ORTSPAL-ORDR-ENTY-DT.              
+                                                                                
+           EXEC SQL                                                             
+               OPEN SYXCOND_ORDER_COND_CSR                                      
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               MOVE 'SYXCOND-1000-'    TO SYWDB2-EXTRA-MESSAGE-1                
+               MOVE SQLCODE             TO SYWCOND-SQLCODE-MASK                 
+               MOVE SPACES              TO SYWDB2-EXTRA-MESSAGE-2               
+               STRING 'OPEN   SHIP_PAL_ORDER_COND - SQLCODE=',                  
+                   SYWCOND-SQLCODE-MASK DELIMITED BY ' '                        
+                                      INTO SYWDB2-EXTRA-MESSAGE-2               
+               MOVE '1000'              TO WS-ABCODE                            
+               PERFORM 999-ABEND.                                               
+                                                                                
+           MOVE 1                      TO SYWCOND-SUB                   KMP16177
+           PERFORM 2100-LOOP-SYXCOND                                            
+              THRU 2100-SYXCOND-EXIT                                            
+              UNTIL SYWCOND-SUB GREATER THAN SYWCOND-SUB-MAX                    
+                 OR SYXCOND-STOP-LOOP                                           
+                 OR SQLCODE = DB2-NOT-FOUND.                            KMP16177
+                                                                                
+           EXEC SQL                                                             
+               CLOSE SYXCOND_ORDER_COND_CSR                                     
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               MOVE 'SYXCOND-1000-'    TO SYWDB2-EXTRA-MESSAGE-1                
+               MOVE SQLCODE            TO SYWCOND-SQLCODE-MASK                  
+               MOVE SPACES             TO SYWDB2-EXTRA-MESSAGE-2                
+               STRING 'CLOSE  SHIP_PAL_ORDER_COND - SQLCODE=',                  
+                   SYWCOND-SQLCODE-MASK DELIMITED BY ' '                        
+                                     INTO SYWDB2-EXTRA-MESSAGE-2                
+               MOVE '1000'             TO WS-ABCODE                             
+               PERFORM 999-ABEND.                                               
+                                                                                
+       2000-SYXCOND-EXIT.                                                       
+           EXIT.                                                                
+                                                                                
+       2100-LOOP-SYXCOND.                                                       
+      **************************************************************            
+      * CALLED FROM 2000-MAINLINE-SYXCOND TO FETCH A ROW FROM                   
+      * SHIP_PAL_ORDER_COND TABLE.                                              
+      **************************************************************            
+                                                                                
+           EXEC SQL                                                             
+               FETCH SYXCOND_ORDER_COND_CSR                                     
+               INTO :ORTSPAL-SEQ-NBR,                                           
+                    :ORTSPAL-TMS-CD,                                            
+                    :ORTSPAL-TMS-CHRG-CD,                                       
+                    :ORTSPAL-LAST-CHG-OPER-ID,                                  
+                    :ORTSPAL-LST-CHG-TS                                         
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+              MOVE ORTSPAL-TMS-CD                                               
+                   TO SYWCOND-TMS-CD     (SYWCOND-SUB)                          
+              MOVE ORTSPAL-TMS-CHRG-CD                                          
+                   TO SYWCOND-TMS-CHRG-CD (SYWCOND-SUB)                         
+                                                                                
+    ***             ADD  FREIGHT CLASS  ----                            KMP18292
+              ADD 1                       TO SYWCOND-SUB                        
+             ELSE                                                               
+                IF SQLCODE = DB2-NOT-FOUND                                      
+                   MOVE 'Y'            TO SYXCOND-STOP-LOOP-SW                  
+                   GO TO 2100-SYXCOND-EXIT                                      
+                ELSE                                                            
+                   MOVE '2100-SYXCOND-LOOP' TO SYWDB2-EXTRA-MESSAGE-1           
+                   MOVE SQLCODE             TO SYWCOND-SQLCODE-MASK             
+                   MOVE SPACES              TO SYWDB2-EXTRA-MESSAGE-2           
+                   STRING 'FETCH  SHIP_PAL_ORDER_COND - SQLCODE=',              
+                   SYWCOND-SQLCODE-MASK DELIMITED BY ' '                        
+                                      INTO SYWDB2-EXTRA-MESSAGE-2               
+                   MOVE '2100'              TO WS-ABCODE                        
+                   PERFORM 999-ABEND.                                           
+                                                                                
+       2100-SYXCOND-EXIT.                                                       
+           EXIT.                                                                
+                                                                                
+       3000-DELETE-ADD-SYXCOND-MAIN.                                            
+      *******************************************************                   
+      * THIS PARA IS TO BE PERFORMED AND IT WILL ENSURE ALL ORTSPAL             
+      * ENTRIES ARE FIRST DELETED, THEN INSERTED USING THE PALR- DATA           
+      * PROGRAM CALLING THIS PARA, JUST NEEDS TO SETUP THE FIELDS IN            
+      * COPYBOOK SYWCOND, AREA SYWCOND-KEY-FIELDS, THEN PERFORM                 
+      * 3000-DELETE-ADD-SYXCOND-MAIN THRU 3000-SYXCOND-EXIT.                    
+      **********************************************************                
+           MOVE ZEROS                     TO SYWCOND-SUB.                       
+           MOVE SPACES                    TO WS-DATE-PARAMETER-1.               
+           MOVE SYWCOND-ORDR-ENTY-DT-JUL   TO WS-DATE-JULIAN.                   
+           CALL 'SYU015' USING WS-DATE-PARAMETER-1                              
+           MOVE '20'                      TO SYWCOND-ORDR-ENTRY-DT-CC.          
+           MOVE WS-DATE-YY                TO SYWCOND-ORDR-ENTRY-DT-YY.          
+           MOVE WS-DATE-MM                TO SYWCOND-ORDR-ENTRY-DT-MM.          
+           MOVE WS-DATE-DD                TO SYWCOND-ORDR-ENTRY-DT-DD.          
+           MOVE SYWCOND-CO-CD             TO ORTSPAL-CO-CD                      
+           MOVE SYWCOND-BR-NBR            TO ORTSPAL-BR-NBR                     
+           MOVE SYWCOND-ORDR-NBR          TO ORTSPAL-ORDR-NBR.                  
+           MOVE SYWCOND-DIST-NBR          TO ORTSPAL-DIST-NBR.                  
+           MOVE SYWCOND-SHIP-NBR          TO ORTSPAL-SHIP-NBR.                  
+           MOVE SYWCOND-ORDR-ENTRY-DT-ISO TO ORTSPAL-ORDR-ENTY-DT.              
+                                                                                
+           PERFORM 1500-DELETE-ALL-SYXCOND THRU 1500-SYXCOND-EXIT.              
+                                                                                
+           IF PALR-NO-ERROR                                                     
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               GO TO 3000-SYXCOND-EXIT.                                         
+           MOVE ZEROS                     TO SYWCOND-SUB.                       
+           PERFORM 3100-SYXCOND-LOOP-INSERTS THRU 3100-SYXCOND-EXIT.            
+       3000-SYXCOND-EXIT.                                                       
+           EXIT.                                                                
+                                                                                
+                                                                                
+       3100-SYXCOND-LOOP-INSERTS.                                               
+      ************************************************************              
+      * THIS PARA WILL LOOP AROUND AND INSERT ALL NECESSARY ENTRIES             
+      * THIS PARA IS PULLING DATA TO BE INSERTED DIRECTLY FROM WHXFRM           
+      * COPYBOOK.                                                               
+      ************************************************************              
+           ADD 1                             TO SYWCOND-SUB.                    
+           IF SYWCOND-SUB GREATER THAN 3                                KMP18292
+               GO TO 3100-SYXCOND-EXIT.                                         
+                                                                                
+           ADD  1                             TO ORTSPAL-SEQ-NBR.               
+           MOVE SYWCOND-LAST-CHG-OPER-ID TO ORTSPAL-LAST-CHG-OPER-ID.           
+           IF WHRQOR-CHG-LVL-NUM(SYWCOND-SUB) = 'CONDITION'                     
+              MOVE 'C' TO    ORTSPAL-TMS-CHRG-CD                                
+           ELSE                                                                 
+              MOVE 'O' TO    ORTSPAL-TMS-CHRG-CD                                
+           END-IF.                                                              
+           IF WHRQOR-CHG-CODE  (SYWCOND-SUB) > SPACES                           
+              CONTINUE                                                          
+           ELSE                                                                 
+              GO TO 3100-SYXCOND-LOOP-INSERTS                                   
+           END-IF.                                                              
+           MOVE WHRQOR-CHG-CODE  (SYWCOND-SUB) TO ORTSPAL-TMS-CD                
+           MOVE SYWCOND-CO-CD             TO ORTSPAL-CO-CD                      
+           MOVE SYWCOND-BR-NBR            TO ORTSPAL-BR-NBR                     
+           MOVE SYWCOND-ORDR-NBR          TO ORTSPAL-ORDR-NBR.                  
+           MOVE SYWCOND-DIST-NBR          TO ORTSPAL-DIST-NBR.                  
+           MOVE SYWCOND-SHIP-NBR          TO ORTSPAL-SHIP-NBR.                  
+           MOVE SYWCOND-ORDR-ENTRY-DT-ISO TO ORTSPAL-ORDR-ENTY-DT.              
+    ***             ADD  FREIGHT CLASS  ----                            KMP18292
+                                                                                
+           PERFORM 1300-INSERT-SYXCOND THRU 1300-SYXCOND-EXIT.                  
+                                                                                
+           GO TO 3100-SYXCOND-LOOP-INSERTS.                                     
+       3100-SYXCOND-EXIT.                                                       
+           EXIT.                                                                
+                                                                                

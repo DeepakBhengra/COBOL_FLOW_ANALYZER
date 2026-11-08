@@ -1,0 +1,50 @@
+﻿      ******************************************************************        
+      *         NAME: EUWSHPID                                                  
+      *=================================================================        
+      * DATE   | PGMR  | DESCRIPTION                                            
+      *------+-------+------+-------------------------------------------        
+      * 012611 | JUB   | ALLOW FOR PARTIAL SHIPMENTS                    JUB11050
+      * 060310 | JUB   | PROCEDURE CODE  FOR UNIQUE SHIPMENT ID         JUB10154
+      *=================================================================        
+      *=================================================================        
+      *  THIS COPYBOOK IS USED WITH SYWSHPID TO CREATE A UNIQUE        *        
+      *  SHIPMENT REFERENCE                                            *        
+      *                                                                *        
+      *  INITIALIZE THE FOLLOWING FIELDS.                              *        
+      *     SHIPMENT DATE IN JULIAN FORMAT.....WS-EU-SHIP-JULIAN       *        
+      *     ORDER NUMBER (9 CHARS).............WS-EU-SHIP-ORDER        *        
+      *                                                                *        
+      *  THE OUTPUT WILL BE IN WS-EU-SHIP-REFERENCE                    *        
+      *                                                                *        
+      *                                                                *        
+      *================================================================*        
+                                                                                
+       EUSHHPID-000.                                                            
+                                                                                
+           MOVE 'N'                    TO WS-EU-SHIP-ERROR-SW.                  
+           IF  WS-EU-SHIP-JULIAN NOT NUMERIC                                    
+               MOVE 'Y'                TO WS-EU-SHIP-ERROR-SW                   
+               GO TO EUSSHPID-999.                                              
+                                                                                
+           IF  WS-EU-SHIP-DAY          > 366                                    
+               MOVE 'Y'                TO WS-EU-SHIP-ERROR-SW                   
+               GO TO EUSSHPID-999.                                              
+                                                                                
+            DIVIDE WS-EU-SHIP-DAY BY 14 GIVING WS-EU-SHIP-SUB.                  
+            ADD 1                      TO WS-EU-SHIP-SUB.                       
+            MOVE WS-EU-SHIP-IND2(WS-EU-SHIP-SUB)                                
+                                       TO WS-EU-SHIPID-IND2.                    
+            IF  WS-EU-SHIP-DIST > 1                                             
+                IF  WS-EU-SHIP-NBR > 1                                  JUB11050
+                    ADD 8              TO WS-EU-SHIP-YEAR               JUB11050
+                ELSE                                                    JUB11050
+                    ADD 6              TO WS-EU-SHIP-YEAR               JUB11050
+            ELSE                                                        JUB11050
+                IF  WS-EU-SHIP-NBR > 1                                  JUB11050
+                    ADD 3              TO WS-EU-SHIP-YEAR.              JUB11050
+            MOVE WS-EU-SHIP-YEAR       TO WS-EU-SHIPID-IND1.                    
+            MOVE WS-EU-SHIP-ORD-NBR    TO WS-EU-SHIPID-ORDER.                   
+       EUSSHPID-999.                                                            
+            IF  EU-SHIP-ERROR                                                   
+                MOVE WS-EU-SHIP-ORDER-NBR                                       
+                                       TO WS-EU-SHIP-REFERENCE.                 

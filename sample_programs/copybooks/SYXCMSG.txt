@@ -1,0 +1,102 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *    * PC 60281      TKW1               02/25/87   03/03/87       00000010
+      *    * PC 60143      RITA               12/05/86                  00000020
+      *    * PC 60137      RITA               11/17/86                  00000030
+      *  880-FORMAT-PO-CONV-MESSAGE.                                    00000040
+      *                                                                 00000050
+      *  SYRCMSG IS USED FOR WORKING STORAGE.                           00000060
+      *  SYRCPRUM IS ALSO USED FOR WORKING STORAGE.                     00000070
+      *  INSHED SEGMENT MUST BE READ.                                   00000080
+      *  THE STANDARD (S) INSSTD SEGMENT MUST BE READ.                  00000090
+      *  WS-STD-UM MUST BE SET.                                         00000100
+      *                                                                 00000110
+           IF INS-QTY-CONV-FACTOR GREATER THAN +1 OR LESS THAN -1       00000120
+             MOVE INI-BASE-UNIT            TO  WS-UCMSG-BU              00000130
+             MOVE INS-PURCHASE-UNIT        TO  WS-UCMSG-PU              00000140
+             IF INS-QTY-CONV-FACTOR LESS THAN ZEROES                    00000150
+               MOVE 1                      TO  WS-UCMSG-BU-QTY          00000160
+               MOVE INS-QTY-CONV-FACTOR    TO  WS-UCMSG-PU-QTY          00000170
+             ELSE                                                       00000180
+               MOVE 1                      TO  WS-UCMSG-PU-QTY          00000190
+               MOVE INS-QTY-CONV-FACTOR    TO  WS-UCMSG-BU-QTY.         00000200
+           IF WS-STD-UM NOT EQUAL INI-UM                                00000210
+             PERFORM 881-CALC-UM-FACTOR                                 00000220
+           ELSE                                                         00000230
+             MOVE INS-UM-CONV-FACTOR       TO  WS-CUST-PRICE-FACT.      00000240
+      *                                                                 00000250
+           COMPUTE WS-UCMSG-UNIT-PRICE EQUAL                            00000260
+                 WS-STD-UNIT-PRICE * WS-CUST-PRICE-FACT.                00000270
+           IF WS-UCMSG-UNIT-PRICE NOT EQUAL ZEROS                       00000280
+              AND INS-UM-ORDER NOT EQUAL SPACES                         00000290
+              MOVE INS-UM-ORDER            TO  WS-UCMSG-UM.             00000300
+      *                                                                 00000310
+       881-CALC-UM-FACTOR.                                              00000320
+           MOVE INS-UM-ORDER        TO  WS-PRICE-UM.                    00000330
+           MOVE INS-QTY-CONV-FACTOR TO  WS-QTY-FACTOR.                  00000340
+           MOVE INI-WEIGHT          TO  WS-STD-WEIGHT.                  00000350
+           MOVE INI-WEIGHT-PER      TO  WS-STD-WEIGHT-PER.              00000360
+           MOVE 1.00000             TO  WS-STD-UM-FACTOR.               00000370
+           IF WS-STD-UM EQUAL 'C ' OR 'DE'                              00000380
+             MOVE .01000            TO  WS-STD-UM-FACTOR                00000390
+           ELSE                                                         00000400
+             IF WS-STD-UM EQUAL 'M '                                    00000410
+               MOVE .00100          TO  WS-STD-UM-FACTOR                00000420
+             ELSE                                                       00000430
+               IF WS-STD-UM EQUAL 'DZ'                                  00000440
+                 MOVE .08333        TO  WS-STD-UM-FACTOR                00000450
+               ELSE                                                     00000460
+                 IF WS-STD-UM EQUAL 'H '                                00000470
+                   IF WS-STD-WEIGHT-PER EQUAL 'E '                      00000480
+                     COMPUTE WS-STD-UM-FACTOR EQUAL                     00000490
+                             WS-STD-WEIGHT * .01                        00000500
+                   ELSE                                                 00000510
+                     IF WS-STD-WEIGHT-PER EQUAL 'C '                    00000520
+                       COMPUTE WS-STD-UM-FACTOR EQUAL                   00000530
+                               WS-STD-WEIGHT * .0001                    00000540
+                     ELSE                                               00000550
+                       IF WS-STD-WEIGHT-PER EQUAL 'M '                  00000560
+                         COMPUTE WS-STD-UM-FACTOR EQUAL                 00000570
+                                 WS-STD-WEIGHT * .00001.                00000580
+      *                                                                 00000590
+           MOVE 1.00000             TO  WS-PRICE-UM-FACTOR.             00000600
+           IF WS-PRICE-UM EQUAL 'C ' OR 'DE'                            00000610
+             MOVE .01000            TO  WS-PRICE-UM-FACTOR              00000620
+           ELSE                                                         00000630
+             IF WS-PRICE-UM EQUAL 'M '                                  00000640
+               MOVE .00100          TO  WS-PRICE-UM-FACTOR              00000650
+             ELSE                                                       00000660
+               IF WS-PRICE-UM EQUAL 'DZ'                                00000670
+                 MOVE .08333           TO  WS-PRICE-UM-FACTOR           00000680
+               ELSE                                                     00000690
+                 IF WS-PRICE-UM EQUAL 'H '                              00000700
+                   IF WS-STD-WEIGHT-PER EQUAL 'E '                      00000710
+                     COMPUTE WS-PRICE-UM-FACTOR EQUAL                   00000720
+                             WS-STD-WEIGHT * .01                        00000730
+                   ELSE                                                 00000740
+                     IF WS-STD-WEIGHT-PER EQUAL 'C '                    00000750
+                       COMPUTE WS-PRICE-UM-FACTOR EQUAL                 00000760
+                               WS-STD-WEIGHT * .0001                    00000770
+                     ELSE                                               00000780
+                       IF WS-STD-WEIGHT-PER EQUAL 'M '                  00000790
+                          COMPUTE WS-PRICE-UM-FACTOR EQUAL              00000800
+                                 WS-STD-WEIGHT * .00001.                00000810
+      *                                                                 00000820
+           IF INI-BASE-UNIT EQUAL INS-PURCHASE-UNIT                     00000830
+              COMPUTE WS-CUST-PRICE-FACT ROUNDED EQUAL                  00000840
+                WS-STD-UM-FACTOR / WS-PRICE-UM-FACTOR                   00000850
+           ELSE                                                         00000860
+              IF WS-PRICE-UM EQUAL 'H '                                 00000870
+              COMPUTE WS-CUST-PRICE-FACT ROUNDED EQUAL                  00000880
+                WS-STD-UM-FACTOR / WS-PRICE-UM-FACTOR                   00000890
+              ELSE                                                      00000900
+                 IF WS-QTY-FACTOR GREATER THAN ZEROS                    00000910
+                    COMPUTE WS-CUST-PRICE-FACT ROUNDED EQUAL            00000920
+                    (WS-STD-UM-FACTOR * WS-PRICE-UM-FACTOR) *           00000930
+                                                     WS-QTY-FACTOR      00000940
+                 ELSE                                                   00000950
+                    IF WS-QTY-FACTOR LESS THAN ZEROS                    00000960
+                       COMPUTE WS-CUST-PRICE-FACT ROUNDED EQUAL         00000970
+                       (WS-STD-UM-FACTOR / WS-PRICE-UM-FACTOR) /        00000980
+                                                 WS-QTY-FACTOR-ABS.     00000990

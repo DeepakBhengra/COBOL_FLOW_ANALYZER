@@ -1,0 +1,883 @@
+000100*****************************************************************         
+000200*  ICSCOP9 - PD CPYBOOK TO POPULATE ORSCAP SEGMENT, ACOP TYPE,  *         
+000300*            IN ORDER ENTRY PROGRAM AFTER IT RETURNS FROM ICPCOP*         
+000400*            COST ROUTINE                                       *         
+000500* ------------------------------------------------------------- *         
+000600* REVISIONS:                                                    *         
+      * 05/09/25   AXL EVEREST- NEW DESCRIPTIONS FOR GP HOLD          * AXL25129
+      * 05/02/25   SYJ ADDED LOGIC TO SET ORLOF-NP-IND AS 'U' FOR     * SYJ25122
+      *                NON CISCO VENDOR ENABLED FOR UPLIFT CALCULATION* SYJ25122
+      *                AND REMOVED TGF?                               * SYJ25122
+      * 11/01/24   AXL EVEREST: NEW HOLD GP AND NEW PROBLEM DESCRIPTIO* AXL24306
+      *                -N NEEDS TO PUT ON LINE AS ORSDES SEGMENT      * AXL24306
+      * 10/11/24   AP3 FOR ONLINE TRANSACTION, DO A START TO ICP380   * AP324285
+      *                INSTEAD OF A CALL.                             * AP324285
+      * 05/31/24   AXL EVEREST: HPE NBO ORSDES SEGAMENT CHANGES       * AXL24152
+      * 01/27/24   AP3 EVEREST: FOR DATA COMING FROM INP387, REFER TO * AP324027
+      *                ICWCOP FIELD FOR GDS DATA.                     * AP324027
+      * 08/11/23   AP3 ADDED C415-PROCESS-ORSDES PARA TO SAVE ORDES   * AP323223
+      *                DATA FOR GDS LINE.                             * AP323223
+      * 07/10/23   AP3 EVEREST: FOR ORDER LEVEL ACOP, SAVE ORDER DTLS * AP323191
+      *                IN ACOP_TRK TABLE.                             * AP323191
+      * 03/18/21   AP3 CNP ADDED FRT AND DUTY LOGIC FOR IA AND IN     * AP322077
+      *                    LOGIC TO NOT PRINT CHEM-TAX COMMENTS FOR   * AP322077
+      *                    'IA' AND 'IN'                              * AP322077
+      *            SYJ CNP - SAVE CHEM TAX AMOUNT FOR INDIA           * SYJ22077
+      * 01/14/22   SYJ CNP EMEA STOCK CLAIM - SET 'Y' TO THE FIELD    * SYJ22014
+      *                ORLOF-ACOP-DISC-TYPE-SW FOR STOCKING PROMO     * SYJ22014
+      *                ACOP ORDERS                                    * SYJ22014
+      * 10/08/21   TGF CNP EMEA TREAT AS STOCK FOR SOME DIRECT ORDERS * TGF21281
+      *                CNP PRICE PROTECTION DESCRIPTION UPDATE        * TGF21281
+      *            SYJ CNP - ORSLNE EXTRA DESC FLAG SET WHEN ACOP HAS * SYJ21281
+      *                PRICE PROTECTION DATE.                         * SYJ21281
+      * 08/06/21   TGF CNP - EMEA UPLIFT ADJUSTMENTS                  * TGF21218
+      *            SYJ CNP - EMEA UPLIFT - MISC COST IN NEEDED CURR   * SYJ21218
+      *                AND STORE OWNING BASE IN VENDOR FRT FOR STOCKS * SYJ21218
+      * 07/16/21   TGF CNP - EMEA UPLIFT CAPTURE                      * TGF21197
+      *            AP3 CNP - EMEA POCC CHANGES                        * AP321197
+      *            SYJ CNP - FLAG NET PRICE INDICATOR WITH PROPER     * SYJ21197
+      *                VALUES FOR NET PRICING COUNTRY MODELS.         * SYJ21197
+      * 04/16/21   TGF CNP DEAL/DART MESSAGING                        * TGF21106
+      * 08/07/20   MXV SET NET PRICING ORSLNEOF INDICATOR.            * MXV20220
+      * 06/12/20   EXU SE CHEMICAL TAX - CHANGES DONE TO INSERT EXTRA * EXU20164
+      *                LINE DESCRIPTION FOR CHEMICAL TAX COMMENTS     * EXU20164
+      * 03/10/17   TGF UPDATE ORLOF-ACOP-MIN-QTY-TYP-IND              * TGF17069
+      * 02/03/17   TGF TIER PRICING FIX FOR CBN/POCC                  * TGF17034
+      * 10/14/16   TGF TIER PRICING                                   * TGF16288
+      * 09/08/09   MXK SAVE CBN INFO                                  * MXK09251
+000701* 09/03/08   GAE SAVE POCC INFO.                                * GAE08247
+000702* 01/28/08   GAE INITIALIZE ICWCOP-ACOP-COMB-COUNT.             * GAE08028
+000703* 01/16/2008 MXK SSEU ENHANCED ACOP PROJECT:                    * MXK08016
+000704*                REPLACE 14 WITH ICWCOP-ACOP-COMB-COUNT         * MXK08016
+000710* 10/25/2004 MXK POPULATE ORC-ACOP-BTL-OVERRIDE-IND             * MXK04299
+000800* 11/10/2003 KKC POPULATE ORLOF-TOT-ACOP-DELTA                  * KKC03314
+000900* 06/17/2003 KKC NEW COPYBOOK FOR SSEUDB PROJECT                * KKC03168
+001000*****************************************************************         
+001100*                                                                         
+001200 C200-WRITE-ACOP-ORSCAP.                                                  
+001300     IF ORL-SYSTEMS-ITEM                                          KKC03314
+001400        GO TO C200-EXIT.                                          KKC03314
+001500                                                                          
+001600     INITIALIZE ORC-ORSCAP.                                               
+001700     MOVE    HIGH-VALUE            TO ORC-SEG-TYPE.                       
+001800     MOVE    ICWCOP-ACOP-CODE(CNT) TO ORC-ACOP-CODE.                      
+001900     MOVE    ICWCOP-TRK-NBR(CNT)   TO ORC-ACOP-TRK-NBR.                   
+           MOVE ICWCOP-GDS-TRK-NBR(CNT)                                 AP323191
+                                       TO ORC-ACOP-GDS-TRK-NBR.         AP323191
+002000     MOVE    ICWCOP-ACOP-IND(CNT)  TO ORC-ACOP-OVERRIDE-IND.              
+002100     MOVE    ICWCOP-MAQ-IND(CNT)   TO ORC-MAQ-IND.                        
+002200     MOVE    ICWCOP-ACOP-BTL-OVERRIDE-IND(CNT)                    MXK04299
+002300                                   TO ORC-ACOP-BTL-OVERRIDE-IND   MXK04299
+002310     MOVE    ICWCOP-CURRENCY-RATE(CNT) TO ORC-ACOP-CURR-RATE.     MXK08016
+002320     MOVE    ICWCOP-CURRENCY-CODE(CNT) TO ORC-ACOP-CURR-CODE.     MXK08016
+002330     MOVE    ICWCOP-ACOP-POCC-IND(CNT) TO ORC-ACOP-POCC-IND.      GAE08247
+                                                                        MXV20220
+           IF INRGNP-NP-MAGIC-KEY > SPACES  AND                         MXV20220
+              ICWCOP-TRK-NBR (CNT) = INRGNP-TRACKING-NBR                MXV20220
+                 MOVE INRGNP-NP-MAGIC-KEY TO  ORC-ACOP-NP-MAGIC-KEY     MXV20220
+           END-IF                                                       MXV20220
+                                                                        MXV20220
+002400     PERFORM 1346-ISRT-ORSCAP.                                            
+002500*                                                                         
+      *IF THE ACOP IS AN ORDER-LEVEL ACOP, TRIGGER ICP380 TO UPDATE     AP323191
+      *ORDER DETAILS IN ACOP_TRK DB2 TABLE.                             AP323191
+           IF ICWCOP-ACOP-ORD-LVL-FLG = 'Y'                             AP323191
+              IF ICWCOP-TRK-NBR(CNT) NUMERIC                            AP323191
+                 MOVE ICWCOP-TRK-NBR(CNT)                               AP323191
+                                       TO ICR380-ACOP-TRK-NBR           AP323191
+              ELSE                                                      AP323191
+                 NEXT SENTENCE                                          AP323191
+              END-IF                                                    AP323191
+                                                                        AP323191
+              MOVE WS-ORSHED-CO        TO ICR380-COMPANY                AP323191
+              MOVE WS-ORSHED-BR        TO ICR380-ORDER-BR               AP323191
+              MOVE WS-ORSHED-NBR       TO ICR380-ORDER-NBR              AP323191
+              MOVE WS-ORSSHH-DIST      TO ICR380-ORDER-DIST             AP323191
+              MOVE WS-ORSSHH-SHIP      TO ICR380-ORDER-SHIP             AP323191
+              SET  ICR380-ISRT         TO TRUE                          AP323191
+                                                                        AP323191
+              INITIALIZE SY777-PARM-DATA                                AP323191
+              MOVE ORH-ENTRY-DATE      TO SY777-IN-JUL-YYDDD            AP323191
+              MOVE TC-COMPANY          TO SY777-IN-COMPANY-CODE         AP323191
+              CALL 'SYV777'         USING SY777-PARM-DATA               AP323191
+              IF SY777-OUT-ERR-SW = SPACE                               AP323191
+                 MOVE SY777-OUT-ISO-10 TO ICR380-ORDER-DATE             AP323191
+              ELSE                                                      AP323191
+                 MOVE '0001-01-01'     TO ICR380-ORDER-DATE             AP323191
+              END-IF                                                    AP323191
+                                                                        AP323191
+              IF ICWCOP-PGM-BATCH                                       AP323191
+                 SET WS-ICP380-BATCH   TO TRUE                          AP323191
+                 CALL WS-ICP380     USING WS-DFHEIBLK                   AP323191
+                                          ICR380-COMMAREA               AP323191
+              ELSE                                                      AP323191
+                 SET WS-ICP380-ONLINE  TO TRUE                          AP323191
+                 PERFORM ICSCOP9-START-ICP380-PGM                       AP324285
+                    THRU ICSCOP9-START-ICP380-PGM-EXIT                  AP324285
+              END-IF                                                    AP323191
+           END-IF.                                                      AP323191
+                                                                        AP323191
+002600 C200-EXIT.                                                               
+002700     EXIT.                                                                
+002800*                                                                         
+002900 C300-ACOP-ORSLNE-MAQ.                                                    
+003000*                                                                         
+003100     IF ICWCOP-ACOP-COMB-COUNT NOT NUMERIC                        GAE08028
+003200        MOVE +16 TO ICWCOP-ACOP-COMB-COUNT.                       GAE08028
+003201*                                                                         
+003202     PERFORM VARYING CNT         FROM    1  BY  1                         
+003203     UNTIL   CNT                 >   ICWCOP-ACOP-COMB-COUNT       MXK08016
+003204     OR ORL-MAX-ACOP-SKU-MTRX                                             
+003300       IF  ICWCOP-MAQ-IND(CNT)   >   SPACE                                
+003400           MOVE 'X'              TO  ORL-MAQ-IND                          
+003500       END-IF                                                             
+003600     END-PERFORM.                                                         
+003700                                                                          
+003800     MOVE ICWCOP-TOT-ACOP-DELTA-COST                              GAE08247
+003900                             TO   ORLOF-TOT-ACOP-DELTA.           KKC03314
+004000     MOVE ICWCOP-ACOP-DELTA-TO-PRICE                              KKC03314
+004100                             TO   ORLOF-TOT-ACOP-DELTA-PRC.       KKC03314
+004200     MOVE ICWCOP-APPLY-ACOP-DELTA-IND                             KKC03314
+004300                             TO   ORLOF-APPLY-ACOP-DELTA-IND.     KKC03314
+004400     MOVE ICWCOP-APPLY-ACOP-IND-SRC                               KKC03314
+004500                             TO   ORLOF-APPLY-ACOP-DELTA-IND-SRC. KKC03314
+004510                                                                          
+004520     MOVE ICWCOP-HB-IND-SRC   TO ORLOF-HB-IND-SRC                 MXK08016
+           IF ICWCOP-ACOP-MIN-QTY-EXACT                                 MXV20220
+              IF ICWCOP-COST-OVERRIDE                                   MXV20220
+                 MOVE ICWCOP-ACOP-MIN-QTY                               MXV20220
+                                       TO ORLOF-ACOP-MIN-QTY            MXV20220
+                 MOVE ICWCOP-ACOP-MIN-QTY-IND                           MXV20220
+                                       TO ORLOF-ACOP-MIN-QTY-TYP-IND    MXV20220
+              END-IF                                                    MXV20220
+           ELSE                                                         MXV20220
+           IF TB-CPO4-MIN-ACOP-SHIP-QTY                                 TGF16288
+              IF ORL-QTY-SHIPPED > ZERO                                 TGF16288
+                 IF (ICWCOP-QTY-SHIPPED NUMERIC) AND                    TGF17034
+                    (ICWCOP-QTY-SHIPPED > ZEROES)                       TGF17034
+                AND (ICWCOP-ACOP-MIN-QTY NUMERIC ) AND                  TGF17034
+                    (ICWCOP-ACOP-MIN-QTY > ZEROES )                     TGF17034
+                    IF ICWCOP-QTY-SHIPPED >= ICWCOP-ACOP-MIN-QTY        TGF16288
+                       IF ICWCOP-COST-OVERRIDE                          TGF17069
+                          MOVE ICWCOP-ACOP-MIN-QTY                      TGF16288
+                                       TO ORLOF-ACOP-MIN-QTY            TGF16288
+                       END-IF                                           TGF17069
+                       MOVE ICWCOP-ACOP-MIN-QTY-IND                     TGF17069
+                                       TO ORLOF-ACOP-MIN-QTY-TYP-IND    TGF17069
+                    ELSE                                                TGF16288
+                       MOVE ZEROES     TO ORLOF-ACOP-MIN-QTY            TGF16288
+                       MOVE ICWCOP-ACOP-MIN-QTY-IND                     TGF17069
+                                       TO ORLOF-ACOP-MIN-QTY-TYP-IND    TGF17069
+                    END-IF                                              TGF16288
+                 ELSE                                                   TGF16288
+                    MOVE ZEROES        TO ORLOF-ACOP-MIN-QTY            TGF16288
+                 END-IF                                                 TGF16288
+              END-IF                                                    TGF16288
+           ELSE                                                         TGF16288
+004540        IF ICWCOP-ACOP-MIN-QTY NUMERIC                            GAE08028
+                 IF ICWCOP-ACOP-MIN-QTY > ZERO                          TGF16288
+                    MOVE 'Y'           TO ICWCOP-ACOP-MIN-ELIGIBLE-SW   TGF16288
+                 END-IF                                                 TGF16288
+                 MOVE ICWCOP-ACOP-MIN-QTY                               TGF16288
+                                       TO ORLOF-ACOP-MIN-QTY            TGF16288
+004542        ELSE                                                      GAE08028
+004543           MOVE ZEROES           TO ORLOF-ACOP-MIN-QTY.           GAE08028
+004544*                                                                 GAE08247
+004545     IF ICWCOP-TOT-ACOP-DELTA-POCC-AMT NUMERIC                    GAE08247
+004546        MOVE ICWCOP-TOT-ACOP-DELTA-POCC-AMT                       GAE08247
+004547          TO ORLOF-TOT-ACOP-DELTA-POCC-AMT                        GAE08247
+004548     ELSE                                                         GAE08247
+004549        MOVE +0                                                   GAE08247
+004550          TO ORLOF-TOT-ACOP-DELTA-POCC-AMT.                       GAE08247
+004560*                                                                 GAE08247
+004570     MOVE ICWCOP-TOT-ACOP-POCC-IND                                GAE08247
+004580       TO ORLOF-ACOP-POCC-IND.                                    GAE08247
+004590*                                                                 GAE08247
+           IF ICWCOP-BID-NBR > SPACES                                   MXV20220
+               MOVE ICWCOP-BID-NBR     TO ORLOF-ACOP-BID-NBR            MXV20220
+           ELSE                                                         TGF21197
+              IF ORLOF-ACOP-BID-NBR > SPACES                            TGF21197
+                 IF ORLOF-ACOP-BID-NBR = ICWCOP-BID-NBR                 TGF21197
+                    NEXT SENTENCE                                       TGF21197
+                 ELSE                                                   TGF21197
+                    MOVE ICWCOP-BID-NBR   TO ORLOF-ACOP-BID-NBR         TGF21197
+                 END-IF                                                 TGF21197
+              END-IF                                                    TGF21197
+           END-IF.                                                      TGF21197
+                                                                        TGF21197
+           MOVE ICWCOP-CBN-IND         TO ORLOF-CBN-IND                 MXK09251
+                                          ORLOF-ACOP-CBN-IND.           MXK09251
+           IF ICWCOP-CBN                                                MXK09251
+              MOVE ICWCOP-CBN-IND      TO OET-CBN-IND.                  MXK09251
+                                                                        EXU20164
+           IF ICWCOP-CHEMICAL-TAX                                       EXU20164
+           OR ICWCOP-DEAL-DART                                          TGF21106
+              SET ORL-EXTRA-DESC       TO TRUE                          EXU20164
+           END-IF.                                                      EXU20164
+                                                                        MXV20220
+           PERFORM C-GET-NET-PRICING                                    MXV20220
+                                                                        MXV20220
+           IF  INRGNP-RESPONSE-NORMAL                                   MXV20220
+           AND INRGNP-NP-MAGIC-KEY > SPACES                             MXV20220
+               EVALUATE TRUE                                            TGF21197
+      *    DROP-SHIP IS DIRECT/B2B/REPL = AN ORDER THAT WILL CUT        TGF21197
+      *      A PO TO VENDOR                                             TGF21197
+      *    NEW 88 TO DENOTE DROP-SHIP IS DIRECT/B2B/REPL                TGF21197
+      *** EMEA - TREAT AS STOCK EVEN THOUGH ORDER TYPE IS D             TGF21281
+                  WHEN ORHOF-NP-TREAT-AS-STOCK                          TGF21281
+                       SET ORLOF-NET-PRICE-LINE                         TGF21281
+                                       TO TRUE                          TGF21281
+      *           WHEN DIRECT ORDER - SET TO D                          TGF21197
+                  WHEN ORSH-DIRECT-ORDER                                TGF21197
+                  AND NOT ORHOF-NP-TREAT-AS-STOCK                       SYJ25122
+                       SET ORLOF-NP-DIRECT-LINE                         TGF21197
+                                       TO TRUE                          TGF21197
+      *           WHEN BACK2BACK - SET TO B                             TGF21197
+                  WHEN ORHOF-NP-ORDER-BACK-2-BACK                       TGF21197
+                       SET ORLOF-NP-B2B-LINE                            TGF21197
+                                       TO TRUE                          TGF21197
+      *           WHEN REPLENISHMENT - SET TO R                         TGF21197
+                  WHEN ORHOF-NP-ORDER-REPLNISHMNT                       TGF21197
+                       SET ORLOF-NP-REPLNISHMNT-LINE                    TGF21197
+                                       TO TRUE                          TGF21197
+      *           WHEN OTHER SET TO Y - DEFAULT                         TGF21197
+                  WHEN OTHER                                            TGF21197
+                       SET ORLOF-NET-PRICE-LINE                         TGF21197
+                                       TO TRUE                          TGF21197
+               END-EVALUATE                                             TGF21197
+               IF INRGNP-NP-SO-COST NUMERIC                             MXV20220
+                  MOVE INRGNP-NP-SO-COST TO ORLOF-NP-SO-COST            MXV20220
+               ELSE                                                     TGF21197
+                  MOVE +0                TO ORLOF-NP-SO-COST            TGF21197
+               END-IF                                                   TGF21197
+           ELSE                                                         TGF21197
+      * SET B2B/REP INDCATORS FOR NP COUNTRY                            SYJ21197
+               IF TB-CPO7-NET-PRICNG-CTRY                               SYJ21197
+                  EVALUATE TRUE                                         SYJ21197
+                      WHEN ORHOF-NP-ORDER-BACK-2-BACK                   SYJ21197
+                           SET ORLOF-NP-B2B-LINE                        SYJ21197
+                                        TO TRUE                         SYJ21197
+                      WHEN ORHOF-NP-ORDER-REPLNISHMNT                   SYJ21197
+                           SET ORLOF-NP-REPLNISHMNT-LINE                SYJ21197
+                                        TO TRUE                         SYJ21197
+                  END-EVALUATE                                          SYJ21197
+                  MOVE +0               TO ORLOF-NP-SO-COST             SYJ21197
+               ELSE                                                     SYJ21197
+                  MOVE SPACES           TO ORLOF-NP-IND                 SYJ21197
+                  MOVE +0               TO ORLOF-NP-SO-COST             SYJ21197
+               END-IF                                                   SYJ21197
+           END-IF.                                                      TGF21197
+                                                                        TGF21197
+           IF  INRGNP-RESPONSE-NORMAL                                   SYJ21281
+           AND INRGNP-NP-PRICE-PROTCT-END-DT > SPACES                   SYJ21281
+               SET ORL-EXTRA-DESC        TO TRUE                        SYJ21281
+           END-IF.                                                      SYJ21281
+                                                                        SYJ21281
+           IF ICWCOP-BR-MISC-COST NUMERIC                               MXV20220
+              MOVE ICWCOP-BR-MISC-COST   TO ORLOF-MISC-COST             MXV20220
+           ELSE                                                         MXV20220
+              MOVE +0                    TO ORLOF-MISC-COST             MXV20220
+           END-IF.                                                      MXV20220
+                                                                        TGF21197
+           IF ORH-COMPANY = 'IA'                                        SYJ22077
+              IF ICWCOP-CHEMICAL-TAX      AND                           SYJ22077
+                 ICWCOP-CHEM-TAX-CALC-AMT NUMERIC                       SYJ22077
+                 MOVE ICWCOP-CHEM-TAX-CALC-AMT                          SYJ22077
+                                       TO ORLOF-IA-CHEM-TAX-AMT         SYJ22077
+              ELSE                                                      SYJ22077
+                 MOVE +0               TO ORLOF-IA-CHEM-TAX-AMT         SYJ22077
+              END-IF                                                    SYJ22077
+           END-IF.                                                      SYJ22077
+                                                                        SYJ22077
+           IF ICWCOP-UNIT-FREIGHT NUMERIC                               AP322077
+              MOVE ICWCOP-UNIT-FREIGHT TO ORLOF-IA-ACOP-FRT-AMT         AP322077
+           ELSE                                                         AP322077
+              MOVE +0                  TO ORLOF-IA-ACOP-FRT-AMT         AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF ICWCOP-UNIT-DUTY    NUMERIC                               AP322077
+              MOVE ICWCOP-UNIT-DUTY    TO ORLOF-IA-ACOP-DUTY-AMT        AP322077
+           ELSE                                                         AP322077
+              MOVE +0                  TO ORLOF-IA-ACOP-DUTY-AMT        AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF ICWCOP-IA-TOT-ONCST-AMT NOT NUMERIC                       AP322077
+              MOVE +0                  TO ORLOF-IA-TOTAL-ONCST-AMT      AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF NOT ORLOF-SYSTEM-COMPONENT                                AP322077
+              MOVE ICWCOP-IA-TOT-ONCST-AMT                              AP322077
+                                       TO ORLOF-IA-TOTAL-ONCST-AMT      AP322077
+           ELSE                                                         AP322077
+              MOVE +0                  TO ORLOF-IA-TOTAL-ONCST-AMT      AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           MOVE +0                     TO ICWCOP-BR-MISC-COST.          AP322077
+           MOVE +0                     TO ICWCOP-UNIT-FREIGHT           AP322077
+                                          ICWCOP-UNIT-DUTY              AP322077
+                                          ICWCOP-IA-TOT-ONCST-AMT.      AP322077
+                                                                        AP321197
+           IF TB-CPO-EUROPEAN-CNTRY      AND                            AP321197
+              TB-CPO7-NET-PRICNG-PROCESS AND                            TGF21197
+              ICWCOP-VNH-NET-PRICING     AND                            TGF21197
+              (ORLOF-ACOP-POCC-ALL)      AND                            AP321197
+              (NOT ORLOF-NP)                                            AP321197
+              MOVE ICWCOP-ACOP-DISC-TYPE-SW                             AP321197
+                                       TO ORLOF-ACOP-DISC-TYPE-SW       AP321197
+              IF ORLOF-MISC-COST IS NOT NUMERIC                         AP321197
+                 MOVE ZEROES           TO ORLOF-MISC-COST               AP321197
+              END-IF                                                    AP321197
+              IF ICWCOP-FOREIGN-CURR-ACOP                               AP321197
+      *CONVERTING FROM LOCAL CURRENCY TO FOREIGN CURRENCY               AP321197
+                 COMPUTE ORLOF-NP-SO-COST =                             AP321197
+                        ((ICWCOP-NEW-COST - ORLOF-MISC-COST) /          AP321197
+                          ICWCOP-SAVE-CURR-RATE)                        AP321197
+              ELSE                                                      AP321197
+                 COMPUTE ORLOF-NP-SO-COST =                             AP321197
+                         (ICWCOP-NEW-COST - ORLOF-MISC-COST)            AP321197
+              END-IF                                                    AP321197
+           END-IF.                                                      AP321197
+      * SET ORLOF-ACOP-DISC-TYPE-SW TO 'Y' FOR STOCK ORDER + SO-COST    SYJ22014
+           IF TB-CPO-EUROPEAN-CNTRY      AND                            SYJ22014
+              TB-CPO7-NET-PRICNG-PROCESS AND                            SYJ22014
+              TB-CPO7-NP-STK-CLAIM       AND                            SYJ22014
+              ICWCOP-VNH-NET-PRICING     AND                            SYJ22014
+              (NOT ORLOF-NP)             AND                            SYJ22014
+              (NOT ORLOF-ACOP-DISC)      AND                            SYJ22014
+              (NOT ICWCOP-NP-DROP-SHIP)                                 SYJ22014
+              EVALUATE TRUE                                             SYJ22014
+                  WHEN ICWCOP-ACOP-DISC-SO-COST                         SYJ22014
+                       MOVE 'Y'        TO ORLOF-ACOP-DISC-TYPE-SW       SYJ22014
+                  WHEN OTHER                                            SYJ22014
+                       CONTINUE                                         SYJ22014
+              END-EVALUATE                                              SYJ22014
+           END-IF.                                                      SYJ22014
+                                                                        AP321197
+           IF ICWCOP-TERM-SKU-PRICING                                   MXV20220
+              SET  ORLOF-NP-TERM-SKU-LINE                               MXV20220
+                                       TO TRUE                          TGF21197
+           ELSE                                                         MXV20220
+              MOVE SPACES              TO ORLOF-NP-TERM-SKU-LINE-SW     TGF21197
+           END-IF.                                                      MXV20220
+                                                                        TGF21197
+           IF TB-CPO-EUROPEAN-CNTRY            AND                      TGF21197
+              TB-CPO-ALT-INVENTORY-ALLOWED     AND                      TGF21197
+              TB-CPO7-NET-PRICNG-PROCESS                                TGF21197
+              IF ICWCOP-SELLING-TAX-CODE > SPACES                       TGF21197
+                 MOVE ICWCOP-SELLING-TAX-CODE                           TGF21197
+                                          TO ORLOF-EMEA-NP-SELL-TAX-CD  TGF21197
+              END-IF                                                    TGF21197
+              IF ICWCOP-SELLING-DUTY-CODE > SPACES                      TGF21197
+                 MOVE ICWCOP-SELLING-DUTY-CODE                          TGF21197
+                                          TO ORLOF-EMEA-NP-SELL-DUTY-CD TGF21197
+              END-IF                                                    TGF21197
+      *STORE ORLOF-EMEA-NP-SELL-MISC-COST IN LOCALS                     SYJ21218
+              IF ICWCOP-VNH-GDS-DISCOUNT                                AP324027
+                 IF ICWCOP-SELLING-MISC-COST NUMERIC                    AP324027
+                    MOVE ICWCOP-SELLING-MISC-COST                       AP324027
+                                       TO ORLOF-EMEA-NP-SELL-MISC-COST  AP324027
+                 END-IF                                                 AP324027
+              ELSE                                                      AP324027
+                 IF INR387-SELL-MISC-COST-LOCAL NUMERIC                 AP324027
+                    MOVE INR387-SELL-MISC-COST-LOCAL                    AP324027
+                                       TO ORLOF-EMEA-NP-SELL-MISC-COST  AP324027
+                 END-IF                                                 AP324027
+              END-IF                                                    AP324027
+              IF ICWCOP-OWNING-TAX-CODE > SPACES                        TGF21197
+                 MOVE ICWCOP-OWNING-TAX-CODE                            TGF21197
+                                          TO ORLOF-EMEA-NP-OWN-TAX-CD   TGF21197
+              END-IF                                                    TGF21197
+              IF ICWCOP-OWNING-DUTY-CODE > SPACES                       TGF21197
+                 MOVE ICWCOP-OWNING-DUTY-CODE                           TGF21197
+                                          TO ORLOF-EMEA-NP-OWN-DUTY-CD  TGF21197
+              END-IF                                                    TGF21197
+              IF ICWCOP-OWNING-VNDR-FRT-CODE > SPACES                   TGF21197
+                 MOVE ICWCOP-OWNING-VNDR-FRT-CODE                       TGF21197
+                                       TO ORLOF-EMEA-NP-OWN-VNDR-FRT-CD TGF21197
+              END-IF                                                    TGF21197
+              IF ICWCOP-OWNING-VNDR-FRT-RATE NUMERIC                    TGF21197
+                 MOVE ICWCOP-OWNING-VNDR-FRT-RATE                       TGF21197
+                                       TO ORLOF-EMEA-NP-OWN-VNDR-FRT-RTETGF21197
+              END-IF                                                    TGF21197
+      * FOR STOCK ORLOF-EMEA-NP-OWN-VNDR-FRT-AMT HOLD THE OWING BASE    SYJ21218
+      * COST - ORLOF-EMEA-NP-OWN-BSE-COST                               SYJ21218
+              IF ICWCOP-NP-STOCK-ORDER                                  SYJ21218
+                 IF ICWCOP-VNH-GDS-DISCOUNT                             AP324027
+                    IF ICWCOP-OWNING-BASE-COST NUMERIC                  AP324027
+                       MOVE ICWCOP-OWNING-BASE-COST                     AP324027
+                                       TO ORLOF-EMEA-NP-OWN-BSE-COST    AP324027
+                    END-IF                                              AP324027
+                 ELSE                                                   AP324027
+                    IF INR387-STKING-BASE-COST NUMERIC                  AP324027
+                       MOVE INR387-STKING-BASE-COST                     AP324027
+                                       TO ORLOF-EMEA-NP-OWN-BSE-COST    AP324027
+                    END-IF                                              AP324027
+                 END-IF                                                 AP324027
+              ELSE                                                      SYJ21218
+      * FOR DROPSHIP ORLOF-EMEA-NP-OWN-VNDR-FRT-AMT HOLD THE VF AMOUNT  SYJ21218
+                IF ICWCOP-OWNING-NP-VNDR-FRT-AMT NUMERIC                SYJ21218
+                   MOVE ICWCOP-OWNING-NP-VNDR-FRT-AMT                   SYJ21218
+                                       TO ORLOF-EMEA-NP-OWN-VNDR-FRT-AMTSYJ21218
+                END-IF                                                  SYJ21218
+              END-IF                                                    SYJ21218
+      *ORLOF-EMEA-NP-OWN-MISC-COST IS IN CP'S LOCAL CURRENCY(USD)       SYJ21218
+              IF ICWCOP-VNH-GDS-DISCOUNT                                AP324027
+                 IF ICWCOP-OWNING-MISC-COST    NUMERIC                  AP324027
+                    MOVE ICWCOP-OWNING-MISC-COST                        AP324027
+                                       TO ORLOF-EMEA-NP-OWN-MISC-COST   AP324027
+                 END-IF                                                 AP324027
+              ELSE                                                      AP324027
+                 IF INR387-OWN-MISC-COST-LOCAL NUMERIC                  AP324027
+                    MOVE INR387-OWN-MISC-COST-LOCAL                     AP324027
+                                       TO ORLOF-EMEA-NP-OWN-MISC-COST   AP324027
+                 END-IF                                                 AP324027
+              END-IF                                                    AP324027
+      *       IF DUAL-MIRROR - NEED TO MOVE ICWCOP-DUAL ITEMS TO ORLOF  TGF21197
+              IF ICWCOP-EMEA-DUAL-MIRROR                                TGF21197
+                 IF ICWCOP-DUAL-TAX-CODE > SPACES                       TGF21197
+                    MOVE ICWCOP-DUAL-TAX-CODE                           TGF21197
+                                          TO ORLOF-EMEA-NP-DUAL-TAX-CD  TGF21197
+                 END-IF                                                 TGF21197
+                 IF ICWCOP-DUAL-DUTY-CODE > SPACES                      TGF21197
+                    MOVE ICWCOP-DUAL-DUTY-CODE                          TGF21197
+                                          TO ORLOF-EMEA-NP-DUAL-DUTY-CD TGF21197
+                 END-IF                                                 TGF21197
+      *ORLOF-EMEA-NP-DUAL-MISC-COST STORES IN LOCALS                    SYJ21218
+                 IF ICWCOP-VNH-GDS-DISCOUNT                             AP324027
+                    IF ICWCOP-DUAL-MISC-COST NUMERIC                    AP324027
+                       MOVE ICWCOP-DUAL-MISC-COST                       AP324027
+                                       TO ORLOF-EMEA-NP-DUAL-MISC-COST  AP324027
+                    END-IF                                              AP324027
+                 ELSE                                                   AP324027
+                    IF INR387-DUAL-MISC-COST-LOCAL NUMERIC              AP324027
+                       MOVE INR387-DUAL-MISC-COST-LOCAL                 AP324027
+                                       TO ORLOF-EMEA-NP-DUAL-MISC-COST  SYJ21218
+                    END-IF                                              AP324027
+                 END-IF                                                 AP324027
+              ELSE                                                      TGF21197
+                 MOVE SPACES              TO ORLOF-EMEA-NP-DUAL-TAX-CD  TGF21197
+                                             ORLOF-EMEA-NP-DUAL-DUTY-CD TGF21197
+                 MOVE ZEROES           TO ORLOF-EMEA-NP-DUAL-MISC-COST  TGF21197
+              END-IF                                                    TGF21197
+      * FOR TESTING ONLY TO SHOW IMPULSE CALC VALUES - COMMENT OUT      TGF21197
+      *       FOR PRODUCTION, AND WILL CHANGE TO DELETE AFTER HYPERCARE TGF21197
+      *      ENDS AT OR NEAR THE END OF AUGUST 2021                     TGF21197
+      *       PERFORM EMEA-DISPLAY-UPLIFT-IMPULSE                       TGF21197
+      *          THRU EMEA-DISPLAY-EXIT                                 TGF21197
+           END-IF.                                                      TGF21197
+                                                                        MXV20220
+      *ICWCOP-NP-SO-COST IS ALWAYS IN VENDOR CURRENCY USED IN PO CREATE SYJ25122
+           IF ICWCOP-VNH-GDS-DISCOUNT                                   SYJ25122
+              IF ICWCOP-VNH-NET-PRICING-CISCO                           SYJ25122
+              OR ICWCOP-VNH-SO-COST-UPLIFT                              SYJ25122
+                 IF ICWCOP-NP-SO-COST NUMERIC AND                       SYJ25122
+                    ICWCOP-NP-SO-COST > ZEROS                           SYJ25122
+                    MOVE ICWCOP-NP-SO-COST                              SYJ25122
+                                       TO ORLOF-NP-SO-COST              SYJ25122
+      *                                                                 SYJ25122
+      * UPDATE ORLOF-NP-IND FOR NON-CISCO VENDOR WITH UPLIFT            SYJ25122
+      * PRIORITY ALWAYS NET PRICE AND THEN UPLIFT VENDORS               SYJ25122
+      *                                                                 SYJ25122
+                    IF ORLOF-NP                                         SYJ25122
+                       CONTINUE                                         SYJ25122
+                    ELSE                                                SYJ25122
+                      IF ICWCOP-VNH-SO-COST-UPLIFT                      SYJ25122
+                         MOVE ICWCOP-VNH-NET-PRICING-IND                SYJ25122
+                                       TO ORLOF-NP-IND                  SYJ25122
+                      END-IF                                            SYJ25122
+                    END-IF                                              SYJ25122
+                 END-IF                                                 SYJ25122
+              END-IF                                                    SYJ25122
+           END-IF.                                                      SYJ25122
+                                                                        SYJ25122
+004700 C300-EXIT.                                                               
+004800     EXIT.                                                                
+004900*                                                                         
+       C400-PROCESS-ORSDES.                                             EXU20164
+                                                                        EXU20164
+           IF ORH-COMPANY = 'IA' OR 'IN'                                AP322077
+              IF ICWCOP-CHEM-TAX-AMT IS NUMERIC                         AP322077
+                 MOVE ICWCOP-CHEM-TAX-AMT                               AP322077
+                                       TO ICWCOP-SE-CHEM-TAX-AMT        AP322077
+              ELSE                                                      AP322077
+                 MOVE ZEROES           TO ICWCOP-SE-CHEM-TAX-AMT        AP322077
+              END-IF                                                    AP322077
+              GO TO C400-PROCESS-ORSDES-EXIT                            AP322077
+           END-IF.                                                      AP322077
+           MOVE SPACES                 TO ORD-ORSDES.                   EXU20164
+           MOVE 696                    TO ORD-DESC-NBR.                 EXU20164
+           MOVE ICWCOP-CHEM-TAX-COMMENTS                                EXU20164
+                                       TO ORD-CHEM-TAX-COMMENTS         EXU20164
+                                                                        EXU20164
+           IF ICWCOP-CHEM-TAX-AMT IS NUMERIC                            EXU20164
+              MOVE ICWCOP-CHEM-TAX-AMT TO ICWCOP-SE-CHEM-TAX-AMT        EXU20164
+           ELSE                                                         EXU20164
+              MOVE ZEROES              TO ICWCOP-SE-CHEM-TAX-AMT        EXU20164
+           END-IF.                                                      EXU20164
+                                                                        EXU20164
+           MOVE ICWCOP-SE-CHEM-TAX-AMT TO ORD-CHEM-TAX-AMT.             EXU20164
+           MOVE 'ORSDES   '            TO WS-UNQUAL-SSA                 EXU20164
+           PERFORM 1344-ISRT-ORSDES                                     EXU20164
+           IF NOT WS-ORSDES-NORESP                                      EXU20164
+              MOVE 'C400'              TO WS-ABCODE                     EXU20164
+              PERFORM 999-ABEND                                         EXU20164
+           END-IF.                                                      EXU20164
+                                                                        EXU20164
+       C400-PROCESS-ORSDES-EXIT.                                        EXU20164
+           EXIT.                                                        EXU20164
+                                                                        TGF21106
+       C405-PROCESS-ORSDES.                                             TGF21106
+                                                                        TGF21106
+           MOVE SPACES                 TO ORD-ORSDES.                   TGF21106
+           MOVE 597                    TO ORD-DESC-NBR.                 TGF21106
+           MOVE ICWCOP-DEAL-DART-COMMENTS                               TGF21106
+                                       TO ORD-DT-COMMENT                TGF21106
+                                                                        TGF21106
+           MOVE 'ORSDES   '            TO WS-UNQUAL-SSA                 TGF21106
+           PERFORM 1344-ISRT-ORSDES                                     TGF21106
+           IF NOT WS-ORSDES-NORESP                                      TGF21106
+              MOVE 'C405'              TO WS-ABCODE                     TGF21106
+              PERFORM 999-ABEND                                         TGF21106
+           END-IF.                                                      TGF21106
+                                                                        TGF21106
+       C405-PROCESS-ORSDES-EXIT.                                        TGF21106
+           EXIT.                                                        TGF21106
+                                                                        TGF21281
+       C410-PROCESS-ORSDES.                                             TGF21281
+                                                                        TGF21281
+           MOVE SPACES                 TO ORD-ORSDES.                   TGF21281
+           SET  ORD-PRICE-PROTECT-DT   TO TRUE                          TGF21281
+           SET  ORD-PPDT-FILL-SLASH    TO TRUE                          TGF21281
+           SET  ORD-PPDT-LIT           TO TRUE                          TGF21281
+           MOVE INRGNP-NP-PRICE-PROTCT-END-DT                           TGF21281
+                                       TO ORD-PRICE-PROTECT-DATE        TGF21281
+                                                                        TGF21281
+           MOVE 'ORSDES   '            TO WS-UNQUAL-SSA                 TGF21281
+           PERFORM 1344-ISRT-ORSDES                                     TGF21281
+           IF NOT WS-ORSDES-NORESP                                      TGF21281
+              MOVE 'C410'              TO WS-ABCODE                     TGF21281
+              PERFORM 999-ABEND                                         TGF21281
+           END-IF.                                                      TGF21281
+                                                                        TGF21281
+       C410-PROCESS-ORSDES-EXIT.                                        TGF21281
+           EXIT.                                                        TGF21281
+                                                                        MXV20220
+       C-GET-NET-PRICING.                                               MXV20220
+                                                                        MXV20220
+      *    NET PRICING                                                  MXV20220
+                                                                        MXV20220
+           INITIALIZE                         INRGNP-COMMAREA           MXV20220
+           MOVE ORH-COMPANY               TO  INRGNP-COMPANY            MXV20220
+                                                                        MXV20220
+           IF ICWCOP-PGM-BATCH                                          MXV20220
+              SET INRGNP-ROUTINE-BATCH    TO  TRUE                      MXV20220
+           ELSE                                                         MXV20220
+              SET INRGNP-ROUTINE-CICS     TO  TRUE                      MXV20220
+           END-IF                                                       MXV20220
+                                                                        MXV20220
+      *    ONLY COMBINABLE WITH $0 ACOP                                 MXV20220
+                                                                        MXV20220
+           PERFORM VARYING  ICWCOP-IDX                                  MXV20220
+                      FROM  +1                                          MXV20220
+                      BY    +1                                          MXV20220
+                      UNTIL ICWCOP-IDX > ICWCOP-ACOP-COMB-COUNT         MXV20220
+                         OR INRGNP-NP-MAGIC-KEY > SPACES                MXV20220
+                                                                        MXV20220
+              MOVE ICWCOP-TRK-NBR (ICWCOP-IDX)                          MXV20220
+                                          TO  INRGNP-TRACKING-NBR       MXV20220
+              IF ICWCOP-PGM-BATCH                                       MXV20220
+                 CALL INRGNP-ROUTINE   USING  INRGNP-COMMAREA           MXV20220
+              ELSE                                                      MXV20220
+                 CALL INRGNP-ROUTINE   USING  DFHEIBLK                  MXV20220
+                                              INRGNP-COMMAREA           MXV20220
+              END-IF                                                    MXV20220
+           END-PERFORM.                                                 MXV20220
+                                                                        MXV20220
+                                                                        TGF21197
+       EMEA-DISPLAY-UPLIFT-IMPULSE.                                     TGF21197
+                                                                        TGF21197
+           DISPLAY '**EMEA*UPLIFT*********'                             TGF21197
+           DISPLAY 'COMPANY = ' ORH-COMPANY                             TGF21197
+           DISPLAY 'BRANCH  = ' ORH-BR-NBR                              TGF21197
+           DISPLAY 'ORDER   = ' ORH-ORDER-NBR                           TGF21197
+           DISPLAY 'LINE    = ' ORL-LINE-NBR                            TGF21197
+           DISPLAY 'SKU     = ' ORL-PART-NBR                            TGF21197
+           IF ICWCOP-VEND-CURR-RATE NUMERIC AND                         TGF21197
+              ICWCOP-VEND-CURR-RATE GREATER THAN ZERO                   TGF21197
+              MOVE ICWCOP-VEND-CURR-RATE                                TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY-RATE      TGF21197
+              DISPLAY 'CURRENCY RATE AT THE MOMENT = '                  TGF21197
+                                          ICWCOP-EMEA-DISPLAY-RATE      TGF21197
+           END-IF                                                       TGF21197
+           IF ORLOF-MISC-COST NUMERIC AND                               TGF21197
+              ORLOF-MISC-COST       GREATER THAN ZERO                   TGF21197
+              MOVE ORLOF-MISC-COST                                      TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'CALCULATED UPLIFT (LOCAL CURR) '                 TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+           END-IF                                                       TGF21197
+           IF ORLOF-NP-SO-COST      NUMERIC AND                         TGF21197
+              ORLOF-NP-SO-COST      GREATER THAN ZERO                   TGF21197
+              MOVE ORLOF-NP-SO-COST                                     TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'SO NP COST                     '                 TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-OWNING-BASE-COST NUMERIC AND                       TGF21197
+              ICWCOP-OWNING-BASE-COST GREATER THAN ZERO                 TGF21197
+              MOVE ICWCOP-OWNING-BASE-COST                              TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-OWNING-BASE-COST        = '               TGF21197
+                       ICWCOP-EMEA-DISPLAY                              TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-OWNING-UPLIFT-COST       NUMERIC AND               TGF21197
+              ICWCOP-OWNING-UPLIFT-COST       GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-OWNING-UPLIFT-COST                            TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-OWNING-UPLIFT-COST      = '               TGF21197
+                       ICWCOP-EMEA-DISPLAY                              TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-SELLING-UPLIFT-COST      NUMERIC AND               TGF21197
+              ICWCOP-SELLING-UPLIFT-COST      GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-SELLING-UPLIFT-COST                           TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY ' ICWCOP-SELLING-UPLIFT-COST    = '               TGF21197
+                       ICWCOP-EMEA-DISPLAY                              TGF21197
+           END-IF                                                       TGF21197
+              DISPLAY 'ICWCOP-OWNING-TAX-CODE         = '               TGF21197
+                       ICWCOP-OWNING-TAX-CODE                           TGF21197
+           IF ICWCOP-OWNING-TAX-RATE          NUMERIC AND               TGF21197
+              ICWCOP-OWNING-TAX-RATE          GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-OWNING-TAX-RATE                               TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY-RATE      TGF21197
+              DISPLAY 'ICWCOP-OWNING-TAX-RATE         = '               TGF21197
+                       ICWCOP-EMEA-DISPLAY-RATE                         TGF21197
+           END-IF                                                       TGF21197
+              DISPLAY 'ICWCOP-OWNING-DUTY-CODE        = '               TGF21197
+                       ICWCOP-OWNING-DUTY-CODE                          TGF21197
+           IF ICWCOP-OWNING-DUTY-RATE         NUMERIC AND               TGF21197
+              ICWCOP-OWNING-DUTY-RATE         GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-OWNING-DUTY-RATE                              TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY-RATE      TGF21197
+              DISPLAY 'ICWCOP-OWNING-DUTY-RATE        = '               TGF21197
+                       ICWCOP-EMEA-DISPLAY-RATE                         TGF21197
+           END-IF                                                       TGF21197
+              DISPLAY 'ICWCOP-OWNING-VNDR-FRT-CODE    = '               TGF21197
+                       ICWCOP-OWNING-VNDR-FRT-CODE                      TGF21197
+           IF ICWCOP-OWNING-VNDR-FRT-RATE     NUMERIC AND               TGF21197
+              ICWCOP-OWNING-VNDR-FRT-RATE     GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-OWNING-VNDR-FRT-RATE                          TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY-RATE      TGF21197
+              DISPLAY 'ICWCOP-OWNING-VNDR-FRT-RATE    = '               TGF21197
+                       ICWCOP-EMEA-DISPLAY-RATE                         TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-OWNING-MISC-COST         NUMERIC AND               TGF21197
+              ICWCOP-OWNING-MISC-COST         GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-OWNING-MISC-COST                              TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-OWNING-MISC-COST (HEX)  = '               TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+                                                                        TGF21197
+           END-IF                                                       TGF21197
+              DISPLAY 'ICWCOP-SELLING-TAX-CODE        = '               TGF21197
+                       ICWCOP-SELLING-TAX-CODE                          TGF21197
+           IF ICWCOP-SELLING-TAX-RATE         NUMERIC AND               TGF21197
+              ICWCOP-SELLING-TAX-RATE         GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-SELLING-TAX-RATE                              TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY-RATE      TGF21197
+              DISPLAY 'ICWCOP-SELLING-TAX-RATE        = '               TGF21197
+                       ICWCOP-EMEA-DISPLAY-RATE                         TGF21197
+           END-IF                                                       TGF21197
+              DISPLAY 'ICWCOP-SELLING-DUTY-CODE       = '               TGF21197
+                       ICWCOP-SELLING-DUTY-CODE                         TGF21197
+           IF ICWCOP-SELLING-DUTY-RATE        NUMERIC AND               TGF21197
+              ICWCOP-SELLING-DUTY-RATE        GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-SELLING-DUTY-RATE                             TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY-RATE      TGF21197
+              DISPLAY 'ICWCOP-SELLING-DUTY-RATE       = '               TGF21197
+                       ICWCOP-EMEA-DISPLAY-RATE                         TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-SELLING-MISC-COST        NUMERIC AND               TGF21197
+              ICWCOP-SELLING-MISC-COST        GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-SELLING-MISC-COST                             TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-SELLING-MISC-COST       = '               TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-OWNING-NP-TAX-AMT        NUMERIC AND               TGF21197
+              ICWCOP-OWNING-NP-TAX-AMT        GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-OWNING-NP-TAX-AMT                             TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-OWNING-NP-TAX-AMT (HEX) = '               TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-OWNING-NP-DUTY-AMT       NUMERIC AND               TGF21197
+              ICWCOP-OWNING-NP-DUTY-AMT       GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-OWNING-NP-DUTY-AMT                            TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-OWNING-NP-DUTY-AMT(HEX) = '               TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-OWNING-NP-VNDR-FRT-AMT   NUMERIC AND               TGF21197
+              ICWCOP-OWNING-NP-VNDR-FRT-AMT   GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-OWNING-NP-VNDR-FRT-AMT                        TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-OWNING-NP-VNDR-FRT-AMT HEX'               TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-SELLING-NP-TAX-AMT       NUMERIC AND               TGF21197
+              ICWCOP-SELLING-NP-TAX-AMT       GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-SELLING-NP-TAX-AMT                            TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-SELLING-NP-TAX-AMT(HEX) = '               TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+                                                                        TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-SELLING-NP-DUTY-AMT      NUMERIC AND               TGF21197
+              ICWCOP-SELLING-NP-DUTY-AMT      GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-SELLING-NP-DUTY-AMT                           TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-SELLING-NP-DUTY-AMT (HEX) = '             TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-OWNING-UPLIFT-COST       NUMERIC AND               TGF21197
+              ICWCOP-OWNING-UPLIFT-COST       GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-OWNING-UPLIFT-COST                            TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-OWNING-UPLIFT-COST  (HEX) = '             TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+           END-IF                                                       TGF21197
+           IF ICWCOP-SELLING-UPLIFT-COST      NUMERIC AND               TGF21197
+              ICWCOP-SELLING-UPLIFT-COST      GREATER THAN ZERO         TGF21197
+              MOVE ICWCOP-SELLING-UPLIFT-COST                           TGF21197
+                                       TO ICWCOP-EMEA-DISPLAY           TGF21197
+              DISPLAY 'ICWCOP-SELLING-UPLIFT-COST (HEX) = '             TGF21197
+                                          ICWCOP-EMEA-DISPLAY           TGF21197
+           END-IF.                                                      TGF21197
+                                                                        TGF21197
+           IF ICWCOP-EMEA-DUAL-MIRROR                                   TGF21197
+              DISPLAY 'DUAL MIRROR DATA (SHOULD BE DE VALUES)'          TGF21197
+              IF ICWCOP-DUAL-BASE-COST        NUMERIC AND               TGF21197
+                 ICWCOP-DUAL-BASE-COST        GREATER THAN ZERO         TGF21197
+                 MOVE ICWCOP-DUAL-BASE-COST                             TGF21197
+                                          TO ICWCOP-EMEA-DISPLAY        TGF21197
+                 DISPLAY 'ICWCOP-DUAL-BASE-COST            = '          TGF21197
+                                             ICWCOP-EMEA-DISPLAY        TGF21197
+              END-IF                                                    TGF21197
+              DISPLAY 'ICWCOP-DUAL-TAX-CODE             = '             TGF21197
+                        ICWCOP-DUAL-TAX-CODE                            TGF21197
+              IF ICWCOP-DUAL-TAX-RATE         NUMERIC AND               TGF21197
+                 ICWCOP-DUAL-TAX-RATE         GREATER THAN ZERO         TGF21197
+                 MOVE ICWCOP-DUAL-TAX-RATE                              TGF21197
+                                          TO ICWCOP-EMEA-DISPLAY-RATE   TGF21197
+                 DISPLAY 'ICWCOP-DUAL-TAX-RATE             = '          TGF21197
+                                             ICWCOP-EMEA-DISPLAY-RATE   TGF21197
+              END-IF                                                    TGF21197
+              DISPLAY 'ICWCOP-DUAL-DUTY-CODE            = '             TGF21197
+                                             ICWCOP-DUAL-DUTY-CODE      TGF21197
+              IF ICWCOP-DUAL-DUTY-RATE        NUMERIC AND               TGF21197
+                 ICWCOP-DUAL-DUTY-RATE        GREATER THAN ZERO         TGF21197
+                 MOVE ICWCOP-DUAL-DUTY-RATE                             TGF21197
+                                          TO ICWCOP-EMEA-DISPLAY        TGF21197
+                 DISPLAY 'ICWCOP-DUAL-DUTY-RATE            = '          TGF21197
+                                             ICWCOP-EMEA-DISPLAY-RATE   TGF21197
+              END-IF                                                    TGF21197
+              IF ICWCOP-DUAL-MISC-COST        NUMERIC AND               TGF21197
+                 ICWCOP-DUAL-MISC-COST        GREATER THAN ZERO         TGF21197
+                 MOVE ICWCOP-DUAL-MISC-COST                             TGF21197
+                                          TO ICWCOP-EMEA-DISPLAY        TGF21197
+                 DISPLAY 'ICWCOP-DUAL-MISC-COST            = '          TGF21197
+                                             ICWCOP-EMEA-DISPLAY        TGF21197
+              END-IF                                                    TGF21197
+              IF ICWCOP-DUAL-NP-TAX-AMT       NUMERIC AND               TGF21197
+                 ICWCOP-DUAL-NP-TAX-AMT       GREATER THAN ZERO         TGF21197
+                 MOVE ICWCOP-DUAL-NP-TAX-AMT                            TGF21197
+                                          TO ICWCOP-EMEA-DISPLAY        TGF21197
+                 DISPLAY 'ICWCOP-DUAL-NP-TAX-AMT           = '          TGF21197
+                                             ICWCOP-EMEA-DISPLAY        TGF21197
+              END-IF                                                    TGF21197
+              IF ICWCOP-DUAL-NP-DUTY-AMT      NUMERIC AND               TGF21197
+                 ICWCOP-DUAL-NP-DUTY-AMT      GREATER THAN ZERO         TGF21197
+                 MOVE ICWCOP-DUAL-NP-DUTY-AMT                           TGF21197
+                                          TO ICWCOP-EMEA-DISPLAY        TGF21197
+                 DISPLAY 'ICWCOP-DUAL-NP-DUTY-AMT          = '          TGF21197
+                                             ICWCOP-EMEA-DISPLAY        TGF21197
+              END-IF                                                    TGF21197
+              IF ICWCOP-DUAL-UPLIFT-COST      NUMERIC AND               TGF21197
+                 ICWCOP-DUAL-UPLIFT-COST      GREATER THAN ZERO         TGF21197
+                 MOVE ICWCOP-DUAL-UPLIFT-COST                           TGF21197
+                                          TO ICWCOP-EMEA-DISPLAY        TGF21197
+                 DISPLAY 'ICWCOP-DUAL-UPLIFT-COST          = '          TGF21197
+                                             ICWCOP-EMEA-DISPLAY        TGF21197
+              END-IF                                                    TGF21197
+           END-IF.                                                      TGF21197
+           DISPLAY '**EMEA****************'.                            TGF21197
+       EMEA-DISPLAY-EXIT.                                               TGF21197
+           EXIT.                                                        TGF21197
+                                                                        AP323223
+      ****************************************************************  AP323223
+      *ORD-LINE-GP-ACOP-HLD GETS ADDED TO THE ORDER LINE THAT HAD    *  AP323223
+      *ISSUE WHILE TRYING TO IDENTIFY IMPULSE ACOP TRK# FOR A GIVEN  *  AP323223
+      *GDS TRK# AND IMPULSE ACOP WAS NOT FOUND.                      *  AP323223
+      ****************************************************************  AP323223
+       C415-PROCESS-ORSDES.                                             AP323223
+                                                                        AP323223
+           MOVE SPACES                 TO ORD-ORSDES.                   AP323223
+           SET  ORD-LINE-GP-ACOP-HLD   TO TRUE.                         AP323223
+           SET  ORD-LINE-GP-ACOP-SLASH TO TRUE.                         AP323223
+                                                                        AP323223
+           EVALUATE TRUE                                                AP323223
+               WHEN ICWCOP-GDS-NOT-FOUND                                AP323223
+                    SET ORD-LINE-GDS-NOT-FOUND                          AP323223
+                                       TO TRUE                          AP323223
+               WHEN ICWCOP-MULTI-GDS-FOUND                              AP323223
+                    SET ORD-LINE-MULTI-GDS-FOUND                        AP323223
+                                       TO TRUE                          AP323223
+               WHEN ICWCOP-GDS-IN-USE                                   AP323223
+                    SET ORD-LINE-GDS-IN-USE                             AP323223
+                                       TO TRUE                          AP323223
+               WHEN ICWCOP-GDS-NBO-ACOP-HOLD                            AXL24306
+                    SET ORD-LINE-GDS-NBO-ACOP-HOLD                      AXL24306
+                                       TO TRUE                          AXL24306
+               WHEN ICWCOP-GDS-NO-DISCOUNT                              AXL24306
+                    SET ORD-LINE-GDS-NO-DISCOUNT                        AXL24306
+                                       TO TRUE                          AXL24306
+               WHEN ICWCOP-GDS-DISC-FAIL-RESP-2                         AXL24306
+               WHEN ICWCOP-GDS-DISC-FAIL-RESP-3                         AXL24306
+                    SET ORD-LINE-GDS-DISC-FAIL-RESP-3                   AXL24306
+                                       TO TRUE                          AXL24306
+               WHEN ICWCOP-GDS-DISC-MISS-RESP-4                         AXL24306
+                    SET ORD-LINE-GDS-DISC-MISS-RESP-4                   AXL24306
+                                       TO TRUE                          AXL24306
+               WHEN ICWCOP-GDS-ACOP-REMOVED                             AXL25129
+                    SET ORD-LINE-GDS-ACOP-REMOVED                       AXL25129
+                                       TO TRUE                          AXL25129
+               WHEN ICWCOP-GDS-INVALID-ACOP                             AXL25129
+                    SET ORD-LINE-INVALID-ACOP                           AXL25129
+                                       TO TRUE                          AXL25129
+               WHEN ICWCOP-GDS-ISSUE-OTHER                              AP323223
+                    SET ORD-LINE-GDS-ISSUE-OTHER                        AP323223
+                                       TO TRUE                          AP323223
+           END-EVALUATE.                                                AP323223
+                                                                        AP323223
+           IF ICWCOP-GDS-NOT-FOUND   OR                                 AXL24306
+              ICWCOP-MULTI-GDS-FOUND OR                                 AXL24306
+              ICWCOP-GDS-IN-USE      OR                                 AXL25129
+              ICWCOP-GDS-INVALID-ACOP                                   AXL25129
+              MOVE ICWCOP-GDS-TRK-IN-ERROR                              AXL24306
+                                       TO ORD-LINE-GDS-TRK              AXL24306
+           END-IF.                                                      AXL24306
+                                                                        AXL24306
+           MOVE 'ORSDES   '            TO WS-UNQUAL-SSA.                AP323223
+                                                                        AP323223
+           PERFORM 1344-ISRT-ORSDES.                                    AP323223
+           IF WS-ORSDES-NORESP OR WS-ORSDES-DUPREC                      AP323223
+              CONTINUE                                                  AP323223
+           ELSE                                                         AP323223
+              MOVE 'C415'              TO WS-ABCODE                     AP323223
+              PERFORM 999-ABEND                                         AP323223
+           END-IF.                                                      AP323223
+                                                                        AP323223
+       C415-PROCESS-ORSDES-EXIT.                                        AP323223
+           EXIT.                                                        AP323223
+                                                                        AP323223

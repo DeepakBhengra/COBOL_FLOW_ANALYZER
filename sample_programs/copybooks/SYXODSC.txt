@@ -1,0 +1,394 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *                                                                         
+      ** MICRO-D  ORDER DISCOUNT QUALIFICATION AND COMPUTATION ROUTINE          
+      *                                                                         
+      * THE FOLLOWING WORKING STORAGE FIELDS MUST BE SET PRIOR TO               
+      * PERFORMING THIS ROUTINE.                                                
+      * WS-OD-ORDER-TOTAL                                                       
+      * WS-CUSHED-SSA, WS-ORSHED-SSA, WS-ORSSHH-SSA                             
+      * PARA 831-COMPUTE-ORDER-DISCOUNT MUST BE PERFORMED THRU                  
+      *      831-COMPUTE-ORDER-DISC-EXIT.                                       
+      *      THIS PARA WILL UPDATE THE ORSSHH ORDER DISCOUNT AMT.               
+      *                                                                         
+      ** REVISION INFO:                                                         
+      **   07/12/19   AP3  PORTUGAL CONVERSION ADDED 'PT'.              APX19193
+      *    06/14/19   SPR  SHIP COMPLETE LINE LEVEL - CHANGES DONE      SPR19165
+      *                    TO SET SWITCH AT ORDER SHIPMENT LEVEL        SPR19165
+      **   04/11/14   TGF  IMMDE - DISCOUNT PROCESSING.                 TGF14101
+      **   03/28/07   KMP  REMOVE SPECIAL HANDLE SW CHANGES.            KMP07089
+      **              GLS  CHG STMP FROM KMP07 TO KMP07089              KMP07089
+      **   01/15/07   KMP  SPECIAL-HANDLE-SW CHANGES.                   KMP07015
+      **   01/26/01   EJL  WHEN CHECKING FOR NON-DECIMAL CURRENCY, USE  EJL01026
+      **                   STANDARD CALL TO TBXCORP CURRENCY CODE AS    EJL01026
+      **                   PART OF EURO CONVERSION PROJECT.             EJL01026
+      **   03/08/00   JMW  CALCULATE FOREIGN DISCOUNT AMT BASED ON      JMW00068
+      **                   ORSH-DISCOUNT-AMT AND CURRENCY RATE EXCH.    JMW00068
+      **   05/27/98   SXB  CALCULATE MEXICO'S 'PROMPT PAY' DISCOUNT.    SXB98147
+      **   03/25/96   TFM  CHECK CONFIG ORDERS TO SET COMPLETE SWCH.    TFM96085
+      **   08/03/95   MCV  ONLY DISCOUNT MERCHANDISE LINES              MCV95215
+      **   03/27/94   MCV  MOVE USER EXIT LOGIC                         MCV95086
+      **   03/09/94   MCV  ORDER MANAGEMENT STOCK LINES                 MCV95068
+      **                   USE SYWODISC STORAGE                         MCV95068
+      **   07/21/94   MCV  REWRITE USING CUSMSC VECTORS                 MCV94201
+      **                   ADD COMPLETE SHIPMENT PROCESSING             MCV94201
+      **                   REMOVE GP OVERRIDE                           MCV94201
+      **   07/12/94   KAC  SPAIN DISCOUNTS AND ADDS CHARGES TO MOST     KAC94196
+      **                   ORDERS BASED ON TERMS CODES - NEW 88 LEVEL   KAC94196
+      **                   ORSH-DISCOUNT-QUALIFY-6 INDICATES A TERMS    KAC94196
+      **                   DISCOUNTED/CHARGED ORDER - A NEGATIVE ORSH-  KAC94196
+      **                   DISCOUNT-AMT INDICATES A FINANCIAL CHARGE,   KAC94196
+      **                   WHILE A POSITIVE AMOUNT REFLECTS A DISCOUNT  KAC94196
+      *                                                                         
+      *830-QUALIFY-ORDER.                                                       
+      *                                                                         
+      ***  MOST SPAIN ORDERS BASE DISCOUNTS AND CHARGES ON THE ORDER    KAC94196
+      ***  TERMS CODE RATHER THAN THE CUSTOMER PROFILE                  KAC94196
+      *                                                                         
+           IF WS-CUSHED-CO = 'ES' OR 'PT'                               APX19193
+              MOVE '6'                 TO  ORSH-DISCOUNT-QUALIFY-SW     MCV94201
+           ELSE                                                         SXB98147
+              IF WS-CUSHED-CO = 'MX'                                    SXB98147
+                 MOVE '7'              TO  ORSH-DISCOUNT-QUALIFY-SW     SXB98147
+              ELSE                                                      MCV94201
+                 MOVE SPACES           TO  ORSH-DISCOUNT-QUALIFY-SW.    MCV94201
+      *                                                                         
+      *    EXCLUDE CREDIT MEMOES, BRANCH TRANSFERS, & QUOTE SHIPMENTS           
+      *                                                                         
+           IF ORSH-CREDIT-MEMO         OR                               MCV95068
+              ORSH-BR-TRANSFER-ORDER   OR                               MCV95068
+              ORSH-QUOTE-ORDER         OR                               MCV95068
+              WS-OD-ORDER-TOTAL <= ZERO                                 MCV95068
+                 SET WS-CUSMSC-NOTFND  TO  TRUE                         MCV95068
+           ELSE                                                         MCV95068
+              MOVE 'Z'                 TO  WS-CUM-SEG-TYPE              MCV95068
+              MOVE '3'                 TO  WS-CUM-KEY                   MCV95068
+              PERFORM 1010-GU-CUSMSC.                                   MCV95068
+      *                                                                         
+           IF WS-CUSMSC-NORESP                                          MCV95068
+              PERFORM VARYING CUM-DC-AMT-NDX                            MCV94201
+                      FROM    5                                         MCV94201
+                      BY      -1                                        MCV94201
+                      UNTIL   CUM-DC-AMT-NDX < 1                        MCV94201
+                IF CUM-MICROD-AMT (CUM-DC-AMT-NDX ) > ZERO AND          MCV94201
+                   CUM-MICROD-AMT (CUM-DC-AMT-NDX ) < WS-OD-ORDER-TOTAL MCV95068
+                      SET ORSH-DISCOUNT-NDX                             MCV94201
+                                       TO  CUM-DC-AMT-NDX               MCV94201
+                      SET CUM-DC-AMT-NDX                                MCV94201
+                                       TO  1                            MCV94201
+                END-IF                                                  MCV94201
+           END-PERFORM.                                                 MCV94201
+      *                                                                         
+       831-COMPUTE-ORDER-DISCOUNT.                                              
+      *                                                                         
+      *    EXCLUDE CREDIT MEMOES, BRANCH TRANSFERS, & QUOTE SHIPMENTS           
+      *                                                                         
+           IF NOT WS-ORSSHH-NORESP     OR                               MCV95068
+              ORSH-CREDIT-MEMO         OR                               MCV95068
+              ORSH-BR-TRANSFER-ORDER   OR                               MCV95068
+              ORSH-QUOTE-ORDER                                          MCV95068
+                 GO TO 831-COMPUTE-ORDER-DISC-EXIT.                     MCV95068
+      *                                                                         
+           PERFORM 833-SYXDSC-INITIALIZATION.                           MCV95068
+      *                                                                         
+           MOVE SPACES                  TO  WS-ORSLNE-QUAL              MCV95068
+      *                                                                         
+           PERFORM 835-SYXDSC-GET-NEXT-LINE                             MCV95068
+               UNTIL WS-OD-TERMINATE-PROCESSING.                        MCV95068
+      *                                                                         
+           MOVE '('                     TO  WS-ORSLNE-QUAL.             MCV95068
+      *                                                                         
+           PERFORM 845-SYXDSC-UPDATE-SHIPMENT THRU 845-SYXDSC-EXIT.     MCV95068
+      *                                                                         
+       831-COMPUTE-ORDER-DISC-EXIT.                                     MCV95068
+           EXIT.                                                        MCV95068
+      *                                                                         
+       833-SYXDSC-INITIALIZATION.                                               
+      *                                                                         
+           SET WS-OD-RESET-STD-PROCESSING                               MCV95068
+                                       TO  TRUE                         MCV95068
+           MOVE SPACES                 TO  WS-OD-MISC-SWITCHES          MCV95068
+           MOVE LOW-VALUES             TO  WS-OD-NUMERIC-FIELDS         MCV95068
+           MOVE ZEROES                 TO  WS-DISCOUNT-AMT-7.           SXB98147
+                                                                        SPR19165
+           IF TB-CPO3-SHPLNE-BCKORDER                                   SPR19165
+              IF ORSH-FILL-OR-BACKORDER-LINE                            SPR19165
+                 SET WS-SHIPCOMPLETE-LINE                               SPR19165
+                                       TO TRUE                          SPR19165
+              END-IF                                                    SPR19165
+           END-IF.                                                      SPR19165
+                                                                        SPR19165
+      *                                                                         
+      *    PROCESS SHIPMENTS QUALIFIED FOR DISCOUNTING ,                        
+      *    SHIPPING COMPLETE , ORDER MANAGEMENT SCREENS ,                       
+      *    CAPS ORDER XREF.                                                     
+      *                                                                         
+           IF ORH-ORDER-MANAGEMENT      AND                             MCV95068
+              NOT WS-OD-BYPASS-ORDER-MANAGEMENT                         MCV95068
+                 SET WS-OD-ORDER-MANAGEMENT                             MCV95068
+                                        TO  TRUE.                       MCV95068
+      *                                                                 MCV95068
+           MOVE SPACES                  TO  WS-OD-SHIPMENT-PROCESSING   MCV95068
+           IF ORSH-DISCOUNT-QUALIFIES   AND                             MCV95068
+              NOT WS-OD-BYPASS-ORDER-DISCOUNT                           MCV95068
+                 SET WS-OD-DISCOUNT-QUALIFIES                           MCV95068
+                                        TO  TRUE.                       MCV95068
+      *                                                                 MCV95068
+      *    ADDED FIELD ( BACKORDER STATUS 'P') IN CONDITION TO SET      SPR19165
+      *    SWITCH FIELDS                                                SPR19165
+      *                                                                 SPR19165
+           IF (ORSH-SHIP-COMPLETE OR ORSH-CUST-CONFIG-ORDER             SPR19165
+                OR WS-SHIPCOMPLETE-LINE) AND                            SPR19165
+              NOT WS-OD-BYPASS-COMPLETE-SHIPMENT                        MCV95068
+                 SET WS-OD-COMPLETE-SHIPMENT                            MCV95068
+                     WS-OD-CHECK-COMPLETENESS                           MCV95068
+                                        TO  TRUE                        SPR19165
+           END-IF.                                                      SPR19165
+      *                                                                         
+       835-SYXDSC-GET-NEXT-LINE.                                        MCV95068
+      *                                                                         
+           PERFORM 1258-GNP-ORSLNE.                                             
+      *                                                                         
+      *    OPTIONAL USER EXIT PROCESSING                                        
+      *                                                                 MCV95068
+           IF WS-ORSLNE-NORESP                                          MCV95068
+              IF WS-OD-PROCESS-USER-EXIT                                MCV95086
+                 PERFORM 870-SYXDSC-USER-EXIT                           MCV95086
+              END-IF                                                    MCV95086
+              IF ORL-OPEN-LINE                                          MCV95068
+                 PERFORM 840-SYXDSC-PROCESS-LINES                       MCV95068
+              END-IF                                                    MCV95068
+           ELSE                                                         MCV95068
+              SET WS-OD-TERMINATE-PROCESSING                            MCV95068
+                                        TO  TRUE.                       MCV95068
+      *                                                                 MCV95068
+       840-SYXDSC-PROCESS-LINES.                                        MCV95068
+      *                                                                         
+      *    ONLY CHECK MERCHANDISE LINES (NO NON-STOCK) FOR COMPLETENESS.        
+      *    IF INCOMPLETE AND THE SHIPMENT DOESN'T QUALIFY FOR                   
+      *    DISCOUNTING , ORDER MANAGEMENT OR CAPS XREF , I.E. ,                 
+      *    WE'RE ONLY CHECKING FOR A COMPLETE SHIPMENT , THEN QUIT.             
+      *                                                                         
+           IF WS-SHIPCOMPLETE-LINE                                      SPR19165
+              IF ( ORL-OUR-PART-NBR OR ORL-CUSTOMER-PART-NBR )          SPR19165
+                 IF ORL-QTY-SHIPPED NOT = ORL-QTY-ORDERED               SPR19165
+                    SET WS-OD-INCOMPLETE-SHIPMENT TO TRUE               SPR19165
+                 ELSE                                                   SPR19165
+                    SET WS-PARTIAL-LINE-BKORDER   TO TRUE               SPR19165
+                 END-IF                                                 SPR19165
+              END-IF                                                    SPR19165
+           ELSE                                                         SPR19165
+           IF ORL-QTY-SHIPPED NOT = ORL-QTY-ORDERED    AND              MCV95068
+              ( ORL-OUR-PART-NBR OR ORL-CUSTOMER-PART-NBR )             MCV95068
+                SET WS-OD-INCOMPLETE-SHIPMENT                           MCV95068
+                    WS-OD-FAIL-COMPLETENESS                             MCV95068
+                                        TO  TRUE                        SPR19165
+           END-IF.                                                      SPR19165
+      *                                                                 MCV95068
+           COMPUTE ORSH-DISCOUNT-AMT ROUNDED =                          MCV95068
+                   ORL-QTY-SHIPPED * ORL-UNIT-PRICE                     MCV95068
+      *                                                                 MCV95068
+           IF ORH-ORDER-MANAGEMENT      AND                             MCV95068
+              NOT ORL-COMPONENT-ITEM    AND                             MCV95068
+              ( ORL-INV-STOCK OR ORL-INV-NONSTOCK )                     MCV95068
+                ADD 1                   TO  WS-OD-STOCK-LINES-TOTAL     MCV95068
+                IF (ORSH-SHIP-COMPLETE OR ORSH-CUST-CONFIG-ORDER)       TFM96085
+                   IF ORL-QTY-SHIPPED = ORL-QTY-ORDERED                 MCV95068
+                      ADD 1             TO  WS-OD-STOCK-LINES-SHIP      MCV95068
+                      ADD ORSH-DISCOUNT-AMT                             MCV95068
+                                        TO  WS-OD-STOCK-LINES-SHIP-AMT  MCV95068
+                   ELSE                                                 MCV95068
+                       COMPUTE WS-OD-STOCK-LINES-NSHIP-AMT ROUNDED =    MCV95068
+                               WS-OD-STOCK-LINES-NSHIP-AMT              MCV95068
+                            +  ORL-QTY-ORDERED * ORL-UNIT-PRICE         MCV95068
+                ELSE                                                    MCV95068
+                   COMPUTE WS-OD-STOCK-LINES-NSHIP-AMT ROUNDED =        MCV95068
+                           WS-OD-STOCK-LINES-NSHIP-AMT                  MCV95068
+                        +  ORL-QTY-BACKORDERED * ORL-UNIT-PRICE         MCV95068
+                   IF ORL-QTY-SHIPPED > ZERO                            MCV95068
+                      ADD 1             TO  WS-OD-STOCK-LINES-SHIP      MCV95068
+                      ADD ORSH-DISCOUNT-AMT                             MCV95068
+                                        TO  WS-OD-STOCK-LINES-SHIP-AMT. MCV95068
+      *                                                                 KAC94196
+      ***  SPAIN ALLOWS FOR DISCOUNTS/SURCHARGES ON SPECIAL & MANUALLY  MCV95215
+      ***  PRICED ORDER LINES.                                          MCV95215
+      *                                                                 MCV95215
+           IF (ORL-MERCHANDISE-LINE                                     TGF14101
+           OR  TB-CPO4-DISC-ALL)            AND                         TGF14101
+              ORSH-DISCOUNT-AMT NOT = ZERO  AND                         MCV95215
+              ORSH-DISCOUNT-QUALIFIES                                   MCV95215
+              IF TB-CPO4-DISC-ALL                                       TGF14101
+                 ADD ORSH-DISCOUNT-AMT TO WS-OD-SURCHARGE-SALES         TGF14101
+                                          WS-OD-DISCOUNTABLE-SALES      TGF14101
+              ELSE                                                      TGF14101
+                 IF WS-CUSHED-CO NOT = 'ES' AND 'MX'  AND 'PT' AND      APX19193
+                   ( ORL-UP-ACTUALLY-ENT OR ORL-SPECIAL-PRICE )         MCV95215
+                      ADD ORSH-DISCOUNT-AMT TO WS-OD-SURCHARGE-SALES    MCV95215
+                 ELSE                                                   MCV95215
+                      ADD ORSH-DISCOUNT-AMT TO WS-OD-SURCHARGE-SALES    MCV95215
+                                               WS-OD-DISCOUNTABLE-SALES.MCV95215
+                                                                        SXB98147
+           IF ORSH-DISCOUNT-QUALIFY-7       AND                         SXB98147
+              ORL-MERCHANDISE-LINE          AND                         SXB98147
+              ORSH-DISCOUNT-AMT NOT = ZERO  AND                         SXB98147
+              ORL-DISCOUNT-PCT NUMERIC      AND                         SXB98147
+              ORL-DISCOUNT-PCT > ZEROES                                 SXB98147
+              COMPUTE ORSH-DISCOUNT-AMT ROUNDED =                       SXB98147
+                      ORSH-DISCOUNT-AMT * ORL-DISCOUNT-PCT              SXB98147
+              ADD ORSH-DISCOUNT-AMT         TO WS-DISCOUNT-AMT-7.       SXB98147
+      *                                                                         
+       845-SYXDSC-UPDATE-SHIPMENT.                                      MCV95068
+      *                                                                         
+           IF ( ORH-ORDER-MANAGEMENT      AND                           MCV95068
+                NOT WS-OD-BYPASS-ORDER-MANAGEMENT )                     MCV95068
+              OR                                                        MCV95068
+               ( ORSH-DISCOUNT-QUALIFIES   AND                          MCV95068
+                 NOT WS-OD-BYPASS-ORDER-DISCOUNT )                      MCV95068
+              OR                                                        MCV95068
+               ( (ORSH-SHIP-COMPLETE OR ORSH-CUST-CONFIG-ORDER          SPR19165
+                     OR WS-SHIPCOMPLETE-LINE) AND                       SPR19165
+                  NOT WS-OD-BYPASS-COMPLETE-SHIPMENT )                  MCV95068
+                     NEXT SENTENCE                                              
+           ELSE                                                                 
+              GO TO 845-SYXDSC-EXIT                                     SPR19165
+           END-IF.                                                      SPR19165
+      *                                                                 MCV95068
+           PERFORM 1210-GHU-ORSSHH                                      MCV95068
+      *                                                                 MCV95068
+      *    IF BACKORDER STATUS SET TO 'P' FOR AN ORDER,ITS LINES        SPR19165
+      *    WOULD BE CHECKED AS BELOW TO SET ORSH-SHIP-COMPLETE-FILL-SW  SPR19165
+      *    AT ORDER SHIPMENT LEVEL.                                     SPR19165
+      *                                                                 SPR19165
+           IF WS-SHIPCOMPLETE-LINE                                      SPR19165
+              IF  WS-OD-INCOMPLETE-SHIPMENT                             SPR19165
+              AND WS-PARTIAL-LINE-BKORDER                               SPR19165
+                  MOVE 'P'              TO  ORSH-SHIP-COMPLETE-FILL-SW  SPR19165
+              ELSE                                                      SPR19165
+                 IF WS-OD-INCOMPLETE-SHIPMENT                           SPR19165
+                    MOVE 'N'            TO  ORSH-SHIP-COMPLETE-FILL-SW  SPR19165
+                 ELSE                                                   SPR19165
+                    IF WS-PARTIAL-LINE-BKORDER                          SPR19165
+                       MOVE 'Y'         TO  ORSH-SHIP-COMPLETE-FILL-SW  SPR19165
+                    END-IF                                              SPR19165
+                 END-IF                                                 SPR19165
+              END-IF                                                    SPR19165
+           ELSE                                                         SPR19165
+           IF (ORSH-SHIP-COMPLETE OR ORSH-CUST-CONFIG-ORDER) AND        TFM96085
+              NOT WS-OD-BYPASS-COMPLETE-SHIPMENT                        MCV95068
+                 MOVE WS-OD-COMPLETE-SHIPMENT-SW                        MCV95068
+                                        TO  ORSH-SHIP-COMPLETE-FILL-SW  SPR19165
+           END-IF.                                                      SPR19165
+      *                                                                 MCV95068
+           IF ORH-ORDER-MANAGEMENT      AND                             MCV95068
+              NOT WS-OD-BYPASS-ORDER-MANAGEMENT                         MCV95068
+                 MOVE WS-OD-STOCK-LINES-TOTAL                           MCV95068
+                                        TO  ORSH-STOCK-LINES-TOTAL      MCV95068
+                 MOVE WS-OD-STOCK-LINES-SHIP                            MCV95068
+                                        TO  ORSH-STOCK-LINES-SHIP       MCV95068
+                 MOVE WS-OD-STOCK-LINES-SHIP-AMT                        MCV95068
+                                        TO  ORSH-STOCK-LINES-SHIP-AMT   MCV95068
+                 MOVE WS-OD-STOCK-LINES-NSHIP-AMT                       MCV95068
+                                        TO  ORSH-STOCK-LINES-NSHIP-AMT. MCV95068
+      *                                                                 MCV95068
+           IF NOT WS-OD-BYPASS-ORDER-DISCOUNT                           MCV95068
+              MOVE ZEROS                TO  ORSH-DISCOUNT-AMT           MCV95068
+                                            ORSH-MD-DISC-PERCENT        MCV95068
+              IF ORSH-DISCOUNT-QUALIFIES AND                            MCV95068
+                 ( WS-OD-DISCOUNTABLE-SALES > ZERO OR                   MCV95068
+                   WS-OD-SURCHARGE-SALES    > ZERO )                    MCV95068
+                      PERFORM 850-SYXDSC-CALCULATE-DISCOUNT.            MCV95068
+           IF (ORL-SPECIAL-HANDLE-SW NOT = SPACES OR LOW-VALUES) AND    KMP07089
+              (ORSH-SPECIAL-HANDLE-SW = SPACES OR LOW-VALUES)           KMP07089
+              MOVE ORL-SPECIAL-HANDLE-SW    TO ORSH-SPECIAL-HANDLE-SW.  KMP07015
+      *    ELSE                                                         KMP07015
+      *       MOVE SPACES                   TO ORSH-SPECIAL-HANDLE-SW.  KMP07015
+                                                                        MCV95068
+           PERFORM 1314-REPL-ORSSHH.                                    MCV95068
+      *                                                                 JJD92028
+       845-SYXDSC-EXIT.                                                 MCV95068
+           EXIT.                                                        MCV95068
+      *                                                                 JJD92028
+       850-SYXDSC-CALCULATE-DISCOUNT.                                   MCV95068
+      *                                                                         
+      ***  QUALIFY-6 INDICATES TERMS DISC/CHARGE ORDER - THE DISCOUNT   KAC94196
+      ***  IS BASED ON THE TERMS DISCOUNT/CHARGE PERCENT - NO NEED TO   KAC94196
+      ***  READ CUST DATABASE - CALC ORSH-DISCOUNT-AMT AND EXIT         KAC94196
+      *    ORSH-MD-DISC-PERCENT IS SET FOR DOCUMENTATION ONLY.                  
+      *                                                                         
+           IF ORSH-DISCOUNT-QUALIFY-6                                   KAC94196
+              MOVE ORSH-TERMS-DISC-CHRG-PCT                             MCV94201
+                                       TO  ORSH-MD-DISC-PERCENT         MCV94201
+              COMPUTE ORSH-DISCOUNT-AMT =                               MCV95068
+                  (WS-OD-DISCOUNTABLE-SALES * ORSH-TERMS-DISC-CHRG-PCT) MCV95068
+           ELSE                                                         SXB98147
+           IF ORSH-DISCOUNT-QUALIFY-7                                   SXB98147
+              MOVE ZEROES              TO  ORSH-MD-DISC-PERCENT         SXB98147
+              MOVE WS-DISCOUNT-AMT-7   TO  ORSH-DISCOUNT-AMT            SXB98147
+           ELSE                                                         MCV94201
+              MOVE 'Z'                 TO  WS-CUM-SEG-TYPE              MCV94201
+              MOVE '2'                 TO  WS-CUM-KEY                   MCV94201
+              PERFORM 1010-GU-CUSMSC                                    MCV95068
+              IF WS-CUSMSC-NORESP                                       MCV94201
+                 SET CUM-DC-PCT-NDX    TO  ORSH-DISCOUNT-NDX            MCV94201
+                 MOVE CUM-MICROD-PCT (CUM-DC-PCT-NDX)                   MCV94201
+                                       TO  ORSH-MD-DISC-PERCENT         MCV94201
+                 IF ORSH-MD-DISC-PERCENT < ZERO                         MCV94201
+                    IF TB-CPO4-DISC-ALL                                 TGF14101
+                       COMPUTE WS-OD-DISC-4DEC-AMT ROUNDED =            TGF14101
+                       (WS-OD-SURCHARGE-SALES * ORSH-MD-DISC-PERCENT)   TGF14101
+                       COMPUTE ORSH-DISCOUNT-AMT ROUNDED =              TGF14101
+                           (WS-OD-DISC-4DEC-AMT * 1)                    TGF14101
+                    ELSE                                                TGF14101
+                       COMPUTE ORSH-DISCOUNT-AMT =                      TGF14101
+                        WS-OD-SURCHARGE-SALES * ORSH-MD-DISC-PERCENT    TGF14101
+                    END-IF                                              TGF14101
+                 ELSE                                                   MCV94201
+                    IF TB-CPO4-DISC-ALL                                 TGF14101
+                       COMPUTE WS-OD-DISC-4DEC-AMT ROUNDED =            TGF14101
+                       (WS-OD-SURCHARGE-SALES * ORSH-MD-DISC-PERCENT)   TGF14101
+                       COMPUTE ORSH-DISCOUNT-AMT ROUNDED =              TGF14101
+                           (WS-OD-DISC-4DEC-AMT * 1)                    TGF14101
+                    ELSE                                                TGF14101
+                       COMPUTE ORSH-DISCOUNT-AMT =                      TGF14101
+                        WS-OD-DISCOUNTABLE-SALES * ORSH-MD-DISC-PERCENT TGF14101
+                    END-IF.                                             TGF14101
+                                                                                
+      ******** TO POPULATE ORSH-FOREIGN-DISCOUNT-AMT FIELED             JMW00068
+      ********    FOR FOREIGN CURRENCY CUSTOMERS.                       JMW00068
+                                                                        JMW00068
+           IF TB-CPO-CURRENCY-CODE NOT = ORH-CURRENCY-CODE              JMW00068
+              AND (ORH-CURRENCY-RATE > ZEROS  AND                       JMW00068
+                                ORH-CURRENCY-RATE NOT = 1)              JMW00068
+              COMPUTE WS-OD-HOLD-ORH-RATE                               JMW00068
+                       = 1 / ORH-CURRENCY-RATE                          JMW00068
+              IF TB-CPO4-DISC-ALL                                       TGF14101
+                 COMPUTE WS-OD-FRG-DISC-4DEC-AMT ROUNDED =              TGF14101
+                       (WS-OD-DISC-4DEC-AMT   * WS-OD-HOLD-ORH-RATE)    TGF14101
+                 COMPUTE ORSH-FOREIGN-DISCOUNT-AMT ROUNDED =            TGF14101
+                           (WS-OD-FRG-DISC-4DEC-AMT * 1)                TGF14101
+              ELSE                                                      TGF14101
+                 COMPUTE ORSH-FOREIGN-DISCOUNT-AMT =                    JMW00068
+                    ORSH-DISCOUNT-AMT * WS-OD-HOLD-ORH-RATE             JMW00068
+              END-IF                                                    TGF14101
+           ELSE                                                         JMW00068
+              MOVE ZEROS     TO ORSH-FOREIGN-DISCOUNT-AMT.              JMW00068
+                                                                        JMW00068
+           IF ORSH-FOREIGN-DISCOUNT-AMT NOT = ZEROS                     JMW00068
+              IF ORH-NO-DECIMAL-CURRENCY                                JMW00068
+                 COMPUTE WS-OD-FOREIGN-DISC-NO-DEC ROUNDED =            JMW00068
+                         ORSH-FOREIGN-DISCOUNT-AMT                      JMW00068
+                 MOVE WS-OD-FOREIGN-DISC-NO-DEC                         JMW00068
+                       TO  ORSH-FOREIGN-DISCOUNT-AMT.                   JMW00068
+      *                                                                 MCV94201
+           IF ORSH-DISCOUNT-AMT NOT = ZERO                              MCV94201
+              IF TB-CPO-NO-DECIMAL-CURRENCY                             EJL01026
+                 COMPUTE WS-OD-DISCOUNT-NO-DEC ROUNDED =                MCV95068
+                         ORSH-DISCOUNT-AMT                              MCV95068
+                 MOVE WS-OD-DISCOUNT-NO-DEC                             MCV95068
+                                       TO  ORSH-DISCOUNT-AMT.           MCV95068
+      *                                                                         
+       870-SYXDSC-USER-EXIT.                                            MCV95068
+      *                                                                 MCV95068
+           CONTINUE.                                                    MCV95068
+      *                                                                         

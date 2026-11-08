@@ -1,0 +1,316 @@
+      ******************************************************************JWO01182
+      *** YEAR 2000 READY                                              *JWO01182
+      ******************************************************************JWO01182
+      *                                                                 JWO01182
+      * 10-24-05 TLC  ADD ORPCB-AH AND CUPCB-AH                         TLC05297
+      * 03-01-05 GYS  ADD TYPE  IS   INCXS3 INPCB-SKUTYP                GYS05083
+      * 08-11-04 JFH  CHANGES FOR EDI INDMST DATABASE, NEW PCB'S        JFH04224
+      * 11-27-01 ESS  INCLUDE HRPCB FOR SUNRISE PROJECT (OPT2).         ESS01315
+      * 09-10-01 GAE  CHANGES FOR SUNRISE PROJECT (OPT2).               GAE01253
+      * 07-01-01 JWO  CHANGES FOR SUNRISE PROJECT                       JWO01182
+      * 07-01-01 JAR  ADDED WS-PCB-TYPE-CFPCB-IDX7                      JWO01182
+      * 03-14-01 GAE  ADDED CFXCP0U, PUCXP0A, CFCXS6,CFCXS8, CFCXS9,    JWO01182
+      *                     CGCXP0, CFCXS4                              JWO01182
+      * 10-02-96 PLB  ADDED CODE FOR OTDMST DATABASE.                   JWO01182
+      * 05-31-96 MCS  ADDED CODE FOR RESHED DATABASE.                   JWO01182
+      * 02-16-96 DDR  ADDED CODE FOR END USER DATABASE.                 JWO01182
+      *                                                                 JWO01182
+       8888-SETUP-DLI-CALL.                                             JWO01182
+                                                                        JWO01182
+      * SET UP PCB POINTERS TO ALLOW ACCESS TO A DATABASE IN A          JWO01182
+      * REMOTE CICS REGION.                                             JWO01182
+                                                                        JWO01182
+      * SKIP THIS ROUTINE IF THE COMPANY IS NOT ALLOWED TO ACCESS       JWO01182
+      *  DATABASES IN OTHER REGIONS.                                    JWO01182
+                                                                        JWO01182
+           IF TB-CPO-ALT-INVENTORY-ALLOWED                              JWO01182
+           OR TB-CPO-INVENTORY-IS-SHARED                                JWO01182
+           OR WS-PCB-COMPONENT-IH-PO                                    GAE01253
+               CONTINUE                                                 JWO01182
+           ELSE                                                         JWO01182
+               GO TO 8888-SETUP-DLI-CALL-EXIT.                          JWO01182
+                                                                        JWO01182
+                                                                        JWO01182
+      * SEE IF THIS IS A SPECIAL PSB THAT HAS ONLY THE PCB'S NEEDED FOR JWO01182
+      *  1 FREQUENTLY USED PROGRAM. THESE PSB'S DO NOT HAVE THE SAME    JWO01182
+      *  NUMBER OF PCB'S FOR ALL PCB TYPES IN THE PSB. EX : 1 PCB       JWO01182
+      *  TYPE MAY BE REQUIRED FOR ALL REGIONS, WHILE THE OTHER PCB TYPESJWO01182
+      *  ARE ONLY NEEDED FOR THE LOCAL REGION.                          JWO01182
+      *  IN THIS CASE USE THE HARDCODED POINTER CALCULATION ROUTINE     JWO01182
+      *  WHICH USES THE TYPE-REGION-POSITION FORMAT OF TBIPSBTY AND     JWO01182
+      *  SKIP THE USUAL SUPERPSB POINTER CALCULATION ROUTINE            JWO01182
+      *  WHICH USES THE TYPE-ROW FORMAT OF TBIPSBTY.                    JWO01182
+                                                                        JWO01182
+           IF TB-PSB-TY-NUM-OF-TYPES  = 00                              JWO01182
+           PERFORM 8888-SPECIAL-DLI-SETUP                               JWO01182
+              THRU 8888-SPECIAL-DLI-SETUP-EXIT                          JWO01182
+               GO TO 8888-SETUP-DLI-CALL-CONTINUE2.                     JWO01182
+                                                                        JWO01182
+      *                                                                 JWO01182
+                                                                        JWO01182
+       8888-SETUP-DLI-CALL-CONTINUE1.                                   JWO01182
+                                                                        JWO01182
+      *  TYPE-ROW METHOD :                                              JWO01182
+      *                                                                 JWO01182
+      * FIND ROW THAT CONTAINS PCB'S OF THE REQUIRED TYPE               JWO01182
+      *                                                                 JWO01182
+           MOVE 'N'            TO WS-PCB-FOUND-SW.                      JWO01182
+      *                                                                 JWO01182
+           PERFORM  VARYING WS-PCB-SUB                                  JWO01182
+                    FROM 1 BY 1                                         JWO01182
+                    UNTIL (WS-PCB-SUB > TB-PSB-TY-NUM-OF-TYPES)         JWO01182
+                       OR (WS-PCB-FOUND-SW  = 'Y')                      JWO01182
+                       OR (WS-PCB-SUB > WS-PCB-TYPE-ROW-LIMIT)          JWO01182
+                                                                        JWO01182
+               IF WS-PCB-TYPE = TB-PSB-TY-TYPE ( WS-PCB-SUB )           JWO01182
+                   MOVE TB-PSB-TY-ROW ( WS-PCB-SUB ) TO WS-PCB-ROW      JWO01182
+                   MOVE 'Y' TO WS-PCB-FOUND-SW                          JWO01182
+               END-IF                                                   JWO01182
+                                                                        JWO01182
+           END-PERFORM.                                                 JWO01182
+      *                                                                 JWO01182
+           IF WS-PCB-NOT-FOUND                                          JWO01182
+               MOVE 'SETT' TO  WS-ABCODE                                JWO01182
+               PERFORM 999-ABEND                                        JWO01182
+           END-IF.                                                      JWO01182
+                                                                        JWO01182
+                                                                        JWO01182
+      * FIND COLUMN THAT CONTAINS PCB'S OF THE REQUIRED REGION          JWO01182
+      *                                                                 JWO01182
+           MOVE 'N'            TO WS-PCB-FOUND-SW.                      JWO01182
+      *                                                                 JWO01182
+           PERFORM  VARYING WS-PCB-SUB                                  JWO01182
+                    FROM 1 BY 1                                         JWO01182
+                    UNTIL (WS-PCB-SUB > TB-PSB-RG-NUM-OF-REGIONS)       JWO01182
+                       OR (WS-PCB-FOUND-SW  = 'Y')                      JWO01182
+                       OR (WS-PCB-SUB > WS-PCB-REGION-COL-LIMIT)        JWO01182
+                                                                        JWO01182
+               IF WS-PCB-REGION = TB-PSB-RG-REGION ( WS-PCB-SUB )       JWO01182
+                   MOVE TB-PSB-RG-COL ( WS-PCB-SUB ) TO WS-PCB-COL      JWO01182
+                   MOVE 'Y' TO WS-PCB-FOUND-SW                          JWO01182
+               END-IF                                                   JWO01182
+                                                                        JWO01182
+           END-PERFORM.                                                 JWO01182
+      *                                                                 JWO01182
+           IF WS-PCB-NOT-FOUND                                          JWO01182
+               MOVE 'SETR' TO  WS-ABCODE                                JWO01182
+               PERFORM 999-ABEND                                        JWO01182
+           END-IF.                                                      JWO01182
+                                                                        JWO01182
+                                                                        JWO01182
+      * CALCULATE RELATIVE POSITION OF THE PCB                          JWO01182
+      *                                                                 JWO01182
+                                                                        JWO01182
+           COMPUTE WS-PCB-SUB =                                         JWO01182
+                        WS-PCB-COL +                                    JWO01182
+                     (( WS-PCB-ROW - 1 ) * TB-PSB-RG-NUM-OF-REGIONS).   JWO01182
+                                                                        JWO01182
+                                                                        JWO01182
+       8888-SETUP-DLI-CALL-CONTINUE2.                                   JWO01182
+                                                                        JWO01182
+                                                                        JWO01182
+      * MATCH THE PCB WITH THE PROPER PCB FIELD NAMES                   JWO01182
+      *                                                                 JWO01182
+           MOVE WS-PCB-TYPE TO WS-PCB-TYPE-CHECK.                       JWO01182
+           IF     WS-PCB-TYPE-APPCB                                     JWO01182
+                     SET ADDRESS OF APPCB                               JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-APPCB-PAYEE                               JWO01182
+                     SET ADDRESS OF APPCB-PAYEE                         JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CUPCB                                     JWO01182
+                     SET ADDRESS OF CUPCB                               JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CUPCB2                                    JWO01182
+                     SET ADDRESS OF CUPCB2                              JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-EMPCB                                     JWO01182
+                     SET ADDRESS OF EMPCB                               JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-EMPCB-NAME                                JWO01182
+                     SET ADDRESS OF EMPCB-NAME                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-EMPCB-SLM                                 JWO01182
+                     SET ADDRESS OF EMPCB-SLM                           JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-EUPCB                                     JWO01182
+                     SET ADDRESS OF EUPCB                               JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-EUPCB2                                    JWO01182
+                     SET ADDRESS OF EUPCB2                              JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-EUPCB-EUNAME                              JWO01182
+                     SET ADDRESS OF EUPCB-EUNAME                        JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-EUPCB-CONTACT                             JWO01182
+                     SET ADDRESS OF EUPCB-CONTACT                       JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-EUPCB-VENDOR                              JWO01182
+                     SET ADDRESS OF EUPCB-VENDOR                        JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-EUPCB-ORDER                               JWO01182
+                     SET ADDRESS OF EUPCB-ORDER                         JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-INPCB                                     JWO01182
+                     SET ADDRESS OF INPCB                               JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-INPCB-PART                                JWO01182
+                     SET ADDRESS OF INPCB-PART                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-INPCB2-PART                               JFH04224
+                     SET ADDRESS OF INPCB2-PART                         JFH04224
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JFH04224
+           ELSE                                                         GYS05083
+               IF WS-PCB-TYPE-INPCB-SKUTYP                              GYS05083
+                     SET ADDRESS OF INPCB-SKUTYP                        GYS05083
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            GYS05083
+           ELSE                                                         JFH04224
+               IF WS-PCB-TYPE-ORPCB                                     JWO01182
+                     SET ADDRESS OF ORPCB                               JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-ORPCBU                                    JWO01182
+                     SET ADDRESS OF ORPCBU                              JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-ORPCB2                                    JWO01182
+                     SET ADDRESS OF ORPCB2                              JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-ORPCB-CUST-ORD-NBR                        JWO01182
+                     SET ADDRESS OF ORPCB-CUST-ORD-NBR                  JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-ORPCB-PART                                JWO01182
+                     SET ADDRESS OF ORPCB-PART                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-ORPCB-SHIP                                JWO01182
+                     SET ADDRESS OF ORPCB-SHIP                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-OTPCB                                     JWO01182
+                     SET ADDRESS OF OTPCB                               JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-PUPCB                                     JWO01182
+                     SET ADDRESS OF PUPCB                               JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-PUPCBA                                    JWO01182
+                     SET ADDRESS OF PUPCGO                              JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-PUPCB-VEND                                JWO01182
+                     SET ADDRESS OF PUPCB-VEND                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-PUPCB-PART                                JWO01182
+                     SET ADDRESS OF PUPCB-PART                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-PUPCB-BO                                  JWO01182
+                     SET ADDRESS OF PUPCB-BO                            JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-VNPCB                                     JWO01182
+                     SET ADDRESS OF VNPCB                               JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-VNPCB-SORT                                JWO01182
+                     SET ADDRESS OF VNPCB-SORT                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CFPCB-PRI0                                JWO01182
+                     SET ADDRESS OF CFPCB-PRI0                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CFPCB-PRI0U                               JWO01182
+                     SET ADDRESS OF CFPCB-UPDT                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CFPCB-IDX2                                JWO01182
+                     SET ADDRESS OF CFPCB-IDX2                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CFPCB-IDX4                                JWO01182
+                     SET ADDRESS OF CFPCB-IDX4                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CFPCB-IDX6                                JWO01182
+                     SET ADDRESS OF CFPCB-IDX6                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CFPCB-IDX7                                JWO01182
+                     SET ADDRESS OF CFPCB-IDX7                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CFPCB-IDX8                                JWO01182
+                     SET ADDRESS OF CFPCB-IDX8                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CFPCB-IDX9                                JWO01182
+                     SET ADDRESS OF CFPCB-IDX9                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CGPCB-PRI0                                JWO01182
+                     SET ADDRESS OF CGPCB-PRI0                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-CGPCB-IDX2                                JWO01182
+                     SET ADDRESS OF CGPCB-IDX2                          JWO01182
+                              TO SUPER-PCB-PTR ( WS-PCB-SUB)            JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-REPCB                                     JWO01182
+                     SET ADDRESS OF REPCB                               JWO01182
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-REPCB-ISLM                                JWO01182
+                     SET ADDRESS OF REPCB-SALESMAN                      JWO01182
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-REPCB-CUST                                JWO01182
+                     SET ADDRESS OF REPCB-CUSTOMER                      JWO01182
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-REPCB-REASON                              JWO01182
+                     SET ADDRESS OF REPCB-REASON                        JWO01182
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             JWO01182
+           ELSE                                                         JWO01182
+               IF WS-PCB-TYPE-REPCB-GSN                                 JWO01182
+                     SET ADDRESS OF REPCB-GSN                           JWO01182
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             ESS01315
+           ELSE                                                         ESS01315
+               IF WS-PCB-TYPE-HRPCB                                     ESS01315
+                     SET ADDRESS OF HRPCB                               ESS01315
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             ESS01315
+           ELSE                                                         ESS01315
+               IF WS-PCB-TYPE-CUPCB-CREDIT-HOLD                         TLC05297
+                     SET ADDRESS OF CUPCB-AH                            TLC05297
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             TLC05297
+           ELSE                                                         TLC05297
+               IF WS-PCB-TYPE-ORPCB-CREDIT-HOLD                         TLC05297
+                     SET ADDRESS OF ORPCB-AH                            TLC05297
+                              TO SUPER-PCB-PTR (WS-PCB-SUB)             TLC05297
+           ELSE                                                         TLC05297
+               IF WS-PCB-TYPE-HRPCB-IDX2                                ESS01315
+                     SET ADDRESS OF HRPCB-PROCFLAG                      ESS01315
+                              TO SUPER-PCB-PTR (WS-PCB-SUB).            ESS01315
+                                                                        JWO01182
+       8888-SETUP-DLI-CALL-EXIT.                                        JWO01182
+           EXIT.                                                        JWO01182

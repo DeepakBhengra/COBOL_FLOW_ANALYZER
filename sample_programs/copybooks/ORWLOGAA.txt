@@ -1,0 +1,87 @@
+      *---------------------------------------------------------------*         
+      * COMMUNICATION AREA BETWEEN MULTI-BRANCH AUTO-ALLOCATION AND   *         
+      * AUTO-PRINT PROGRAMS (CFP062 TO BOTH ORP063 AND ORP064).       *         
+      *---------------------------------------------------------------*         
+      * REVISION INFO:                                                *         
+      *                                                               *         
+      * MM/DD/YY PGMR NOTES                                           *         
+      * -------- ---- ----------------------------------------------- *         
+      * 10/12/06 ROR  ALLOW AUTO PRINT TO WORK WITHOUT MBAA           * ROR06285
+      * 06/18/02 JAR  MBAA PHASE 2 PROJECT                            * JAR02169
+      *               1. ADDED AM, RM, AND RP TO 88 LEVELS.           * JAR02169
+      *               2. ADDED SQLCODE AND ERROR CODE.                * JAR02169
+      * 03/11/02 AXR  1. INITIAL VERSION (PARTIAL CLONE FROM CFWAG62) * AXR02070
+      *---------------------------------------------------------------*         
+      * USED TO PASS KEY DATA AND CERTAIN COLUMN VALUES TO MAINTAIN   *         
+      * THE OR_MBAA_BO_ALLOC AND/OR OR_AUTO_PRINT DB2 TABLES.         *         
+      *                                                               *         
+      * SEE COMMENTS IN CFP062, ORP063 AND ORP064 FOR USAGE NOTES.    *         
+      *---------------------------------------------------------------*         
+        01  ORWLOGAA-MAINT-MBAA-DATA.                                           
+            05  ORWLOGAA-LENGTH                PIC S9(04) COMP.                 
+      *    (RETRY COUNT SET BY ORP063/ORP064, NOT BY STARTING PROGRAM)          
+            05  ORWLOGAA-RETRY-COUNT           PIC  9(01).                      
+      *    (VALUES FOR NEXT FIELD MAINTAINED IN CFWAG62-CHANGE-TYPE-2)          
+            05  ORWLOGAA-CHANGE-TYPE-2         PIC  X(02).                      
+      *        (THESE VALUES CONTROL AUTO-ALLOC MAINTENANCE IN ORP063)          
+                88  ORWLOGAA-AUTO-ALC-ADD-ORD  VALUES 'O ', 'O1', 'AM'. JAR02169
+      **        88  ORWLOGAA-AUTO-ALC-DEL-ORD  VALUES 'RM'.             JAR02169
+                88  ORWLOGAA-AUTO-ALC-ADD-SHIP VALUES 'K ', 'W '.               
+                88  ORWLOGAA-AUTO-ALC-DEL-SHIP VALUES 'RM' , 'V1', 'Z '.JAR02169
+                88  ORWLOGAA-AUTO-ALC-ADD-LINE VALUES 'G '.                     
+                88  ORWLOGAA-AUTO-ALC-CHG-LINE VALUES 'BQ', 'I ', 'ID',         
+                                                      'I4'.                     
+                88  ORWLOGAA-AUTO-ALC-DEL-LINE VALUES 'H ', 'Z1'.               
+      *        (THESE VALUES CONTROL AUTO-PRINT MAINTENANCE IN ORP064)          
+      **        88  ORWLOGAA-AUTO-PRT-DEL-ORD  VALUES 'RP'.             JAR02169
+                88  ORWLOGAA-AUTO-PRT-ADD-SHIP VALUES 'W '.                     
+                88  ORWLOGAA-AUTO-PRT-CHG-SHIP VALUES 'L '.                     
+                88  ORWLOGAA-AUTO-PRT-ALLOC-LINE VALUES 'I '.           ROR06285
+                88  ORWLOGAA-AUTO-PRT-DEL-SHIP VALUES 'RP' , 'V1', 'Z '.JAR02169
+      *    (THE NEXT FIELD INDICATES THE PROGRAM THAT STARTED CFP062)           
+            05  ORWLOGAA-PROGRAM-NAME          PIC  X(08).                      
+            05  ORWLOGAA-OPERATOR-ID           PIC  X(04).                      
+            05  ORWLOGAA-ORDER-NUMBER.                                          
+                10  ORWLOGAA-COMPANY           PIC  X(02).                      
+                10  ORWLOGAA-BR-NBR            PIC  X(02).                      
+                10  ORWLOGAA-ORDER-NBR         PIC  X(05).                      
+                10  ORWLOGAA-ORDER-SFX.                                         
+                    15  ORWLOGAA-DIST-NBR      PIC  X(01).                      
+                    15  ORWLOGAA-SHIP-NBR      PIC  X(01).                      
+      *    (THE NEXT FIELD IS PASSED FROM ORH-ENTRY-DATE)                       
+            05  ORWLOGAA-ORD-ENTRY-YYDDD       PIC  9(05).                      
+      *    (VALUES FOR THE NEXT FIELD ARE MAINTAINED IN ORSH-STATUS)            
+            05  ORWLOGAA-SHIPMENT-STATUS       PIC  X(01).                      
+            05  ORWLOGAA-SHIP-FROM-BR-NBR      PIC  X(02).                      
+            05  ORWLOGAA-LINE-NBR              PIC  X(03).                      
+      *    (VALUES FOR THE NEXT FIELD ARE MAINTAINED IN ORL-LINE-STATUS)        
+            05  ORWLOGAA-LINE-STATUS           PIC  X(01).                      
+            05  ORWLOGAA-PART-COMPANY          PIC  X(02).                      
+            05  ORWLOGAA-PART-NBR              PIC  X(12).                      
+            05  ORWLOGAA-QTY-BACKORDERED       PIC S9(07).                      
+      *    (THE NEXT FIELD IS PASSED FROM ORL-ENTRY-DATE)                       
+            05  ORWLOGAA-LINE-ENTRY-YYDDD      PIC  9(05).                      
+      *    (THE NEXT FIELD IS PASSED FROM ORL-ENTRY-TIME)                       
+            05  ORWLOGAA-LINE-ENTRY-HHMMSSUU   PIC  9(08).                      
+            05  ORWLOGAA-CUSTOMER-NUMBER.                                       
+                10  ORWLOGAA-CU-COMPANY        PIC  X(02).                      
+                10  ORWLOGAA-CU-BR-NBR         PIC  X(02).                      
+                10  ORWLOGAA-CU-CUST-NBR       PIC  X(06).                      
+            05  ORWLOGAA-CU-CUST-SHIP-SFX      PIC  X(03).                      
+      *    (THE NEXT FIELD IS MAINTAINED IN CU-AUTO-PRINT-BO-SW TO              
+      *     INDICATE IF THIS CUSTOMER'S ORDERS PRINT SAME DAY/NEXT DAY)         
+            05  ORWLOGAA-CU-AUTO-PRINT-BO-SW   PIC  X(01).                      
+      *    (THE NEXT FIELD IS PASSED FROM ORSH-LAST-PRINT-DATE)                 
+            05  ORWLOGAA-LAST-PRINT-YYDDD      PIC S9(05).                      
+      *    (THE NEXT FIELD IS MAINTAINED IN ORSH-CONFIG-FLAG)                   
+            05  ORWLOGAA-CONFIG-FLAG           PIC  X(01).                      
+                88  ORWLOGAA-CUST-CONFIG-ORDER VALUES 'Y' 'B' 'M' 'S'.          
+      *    (THE NEXT FIELD IS MAINTAINED IN ORL-SYSTEM-COMPONENT-SW)            
+            05  ORWLOGAA-SYSTEM-COMPONENT-SW   PIC X(1).                        
+                88  ORWLOGAA-SYS-OR-COMPONENT  VALUES 'S', 'C'.                 
+                88  ORWLOGAA-SYSTEMS-ITEM      VALUE 'S'.                       
+                88  ORWLOGAA-COMPONENT-ITEM    VALUE 'C'.                       
+            05  ORWLOGAA-SQLCODE               PIC S9(03).              JAR02169
+            05  ORWLOGAA-ERR-CODE              PIC  X(05).              JAR02169
+            05  FILLER                         PIC  X(47).              JAR02169
+                                                                                

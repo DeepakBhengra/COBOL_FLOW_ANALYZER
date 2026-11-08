@@ -1,0 +1,649 @@
+﻿      *****************************************************************         
+      ****  COPYBOOK  WHSBRFRT  ***************************************         
+      ****  PROCEDURE DIVISION LOGIC FOR BRAZIL FREIGHT               *         
+      ****  WORKING STORAGE FIELDS ARE IN WHWBRFRT                    *         
+      ****   THIS IS USED IN ORP560                                   *         
+      ****    07/03/22     MP4    BRLINK PROJECT- ADDED NEW COMPANY   * MP422184
+      ****                        'BL'                                * MP422184
+      ****    04/28/06     TGF    NUMERIC CHECK ON                    * TGF06118
+      ****                        ORSH-ACT-TOTAL-WEIGHT TO STOP       * TGF06118
+      ****                        ABENDS IN ORP560MD.                 * TGF06118
+      ****    06/22/04     TGF    ADDED BRAZIL NEW COMPANY CODE (BP). * TGF04174
+      ****    05/18/04     RPM    PAR#20150N.  CHECK FOR NUMERICS     * RPM04141
+      ****                        IN TB-FRAMT-TABLE.                  * RPM04141
+      ****    01/03/02     TLC    TABLE DRIVEN FREIGHT                * TLC02003
+      ****    01/24/01     TGF    IF TB-CAR2-FRT-CHG-BY-INVOICE-AMT   * TGF01024
+      ****                        LOOK AT CORP OR CUST LIMITS.        * TGF01024
+      ****    01/09/01     TGF    MOVE LOGIC FROM ORP560 TO HERE.     * TGF01009
+      ****    11/07/00     TGF    CORRECT FREIGHT ON BACK ORDERS      * TGF00312
+      ****                        DON'T CHARGE.                       * TGF00312
+      ****    10/31/00     TGF    CORRECT FREIGHT/MINIMUM ORDER LIMIT * TGF00306
+      ****                        CORRECT FREIGHT BASED OF WEIGHT     * TGF00306
+      ****                 GLS    CORRECT DATE ABOVE, STAMP LINE 168  * TGF00306
+      ****    10/01/00     JLF    FREIGHT/MINIMUM ORDER LIMIT FOR     * JLF00275
+      ****                        CUSTOMER WEB LIMIT: REPLACE         * JLF00275
+      ****                        CU-FRT-LIMIT-AMT BY WS-FRT-LIMIT-AMT* JLF00275
+      ****    07/18/00     GGW    CHECK CU-FRT-LIMIT-AMT ALSO         * GGW00200
+      ****    10/05/99     GGW    USE INVOICE AMT FOR FREIGHT CHARGES * GGW99278
+      ****    09/22/99     GGW    USE DIFFERENT FREIGHT RATE TABLES   * GGW99265
+      ****                        BASED ON THE VALUE ON TBXBRN2       * GGW99265
+      ****                                                            *         
+      ****    12/10/98     MJF    ACCESS TBX TABLES INSTEAD OF VSAM   * MJF98344
+      ****                        FILES FOR ZONES AND RATES           * MJF98344
+      ****    10/21/98     MJF    INITIAL COPYBOOK                    * MJF98294
+      *****************************************************************         
+      *                                                                         
+       373BR-ADD-895-LINE-FOR-BRAZIL.                                           
+                                                                                
+           IF  ORSH-CREDIT-MEMO                                                 
+                   OR ORSH-BR-TRANSFER-ORDER                                    
+                   OR ORH-ORDER-VALUE-AT-ADD = ZERO                             
+                   OR ORSH-CARRIER-CODE = 'PD'                          MJF98344
+                   OR ORSH-CARRIER-CODE = 'WC'                          MJF98344
+                   OR WS-BRAZIL-DEF-FRT-CD = 'P'                        MJF98344
+               GO TO 373BR-EXIT.                                                
+                                                                                
+           MOVE ORH-COMPANY           TO TB-MCHG-CO-CODE.                       
+           MOVE 'FOC'                 TO TB-MCHG-CODE.                          
+           PERFORM 380-MISC-TABLE-CHARGE.                                       
+           IF  NOT TB-MCHG-NORESP                                               
+               GO TO 373BR-EXIT.                                                
+                                                                                
+**************************                                              GGW99265
+128250     MOVE ORH-COMPANY       TO TB-CAR2-CO.                        GGW99265
+128270     MOVE ORSH-CARRIER-CODE TO TB-CAR2-CODE                       GGW99265
+128310     CALL 'SYU510'      USING TB-CARRIER2-TABLE-IA.               GGW99265
+128320     IF TB-CAR2-NORESP                                            GGW99265
+128330        IF TB-CAR2-FRT-CHG-BY-INVOICE-AMT                         GGW99265
+                 PERFORM 373BR-FRT-CHG-BY-INVOICE-AMT                   GGW99265
+                    THRU 373BR-FCIA-EXIT                                GGW99265
+                 GO TO 373BR-CONTINUE.                                  GGW99265
+**************************                                              GGW99265
+           IF  ORSH-ACT-TOTAL-WEIGHT NUMERIC AND                        TGF06118
+              (ORSH-ACT-TOTAL-WEIGHT GREATER THAN 0)                    TGF06118
+               MOVE ORSH-ACT-TOTAL-WEIGHT                               MJF98344
+                                      TO WS-HOLD-WEIGHT                 MJF98344
+           ELSE                                                         MJF98344
+               COMPUTE WS-HOLD-WEIGHT ROUNDED EQUAL                     MJF98344
+                   (ORSH-TOTAL-WEIGHT + .49).                           MJF98344
+           MOVE WS-HOLD-WEIGHT        TO WS-HOLD-RTE-WEIGHT             MJF98344
+                                         WS-BRAZIL-TOTAL-WGT.           MJF98344
+                                                                        MJF98344
+           MOVE SPACES                TO WS-BRAZIL-NO-CHARGE-SW.        MJF98344
+           MOVE ORSH-CARRIER-CODE     TO WS-BRAZIL-CARRIER.             MJF98344
+           PERFORM 373BR-FREIGHT-ZONE THRU 373BR-ZONE-EXIT              MJF98344
+               VARYING WS-BRAZIL-ZONE-CNT FROM 1 BY 1                   MJF98344
+                   UNTIL                                                MJF98344
+                       WS-BRAZIL-ZONE-CNT GREATER THAN 9998             MJF98344
+                           OR WS-BRAZIL-ZONE-FND-SW = 'Y'               MJF98344
+                           OR WS-BRAZIL-ZONE-END-SW = 'Y'.              MJF98344
+                                                                        MJF98344
+           IF  WS-BRAZIL-ZONE-END-SW = 'Y'                              MJF98344
+               MOVE '99'              TO WS-BRAZIL-RTE-ZONE             MJF98344
+               MOVE '??'              TO WS-BRAZIL-CARRIER.             MJF98344
+                                                                        MJF98344
+           PERFORM 373BR-FREIGHT-RATE THRU 373BR-RATE-EXIT              MJF98344
+               VARYING WS-BRAZIL-RATE-CNT FROM 1 BY 1                   MJF98344
+                   UNTIL                                                MJF98344
+                       WS-BRAZIL-RATE-CNT GREATER THAN 98               MJF98344
+                           OR WS-BRAZIL-RATE-FND-SW = 'Y'               MJF98344
+                           OR WS-BRAZIL-RATE-END-SW = 'Y'.              MJF98344
+                                                                        MJF98344
+           IF  WS-BRAZIL-RATE-END-SW = 'Y'                              MJF98344
+               MOVE '99'              TO WS-BRAZIL-RTE-ZONE             MJF98344
+               MOVE '??'              TO WS-BRAZIL-CARRIER              MJF98344
+               MOVE ZERO              TO                                MJF98344
+                                       WS-BRAZIL-FREIGHT-FLAT-RATE      MJF98344
+                                       WS-BRAZIL-FREIGHT-PC-SALES       MJF98344
+                                       WS-BRAZIL-FREIGHT-MAX-WGT        MJF98344
+                                       WS-BRAZIL-FREIGHT-KILO-CHG       MJF98344
+                                       WS-BRAZIL-FREIGHT-MIN-CHG.       MJF98344
+                                                                        MJF98344
+           IF  WS-BRAZIL-RTE-ZONE = '99'                                MJF98344
+                   AND WS-BRAZIL-CARRIER = '??'                         MJF98344
+               IF  TB-MCHG-FIXED-AMT NUMERIC                            MJF98344
+                       AND TB-MCHG-FIXED-AMT GREATER THAN ZERO          MJF98344
+                   MOVE TB-MCHG-FIXED-AMT                               MJF98344
+                                    TO WS-BRAZIL-FREIGHT-FLAT-RATE.     MJF98344
+                                                                        MJF98344
+      ****  FREE FREIGHT IF SALES > CORP FRT LIMIT                              
+           IF (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX) GREATER THAN          TGF00306
+      *    IF  ORH-ORDER-VALUE-AT-ADD GREATER THAN                      TGF00306
+                                           TB-CPO-FRT-LIMIT-AMT                 
+               MOVE 'Y'               TO WS-BRAZIL-NO-CHARGE-SW         MJF98344
+               MOVE ZERO              TO TB-MCHG-FIXED-AMT                      
+                                         WS-TOTAL-FRT-CHRG.                     
+                                                                                
+      ****  CUSTOMER IS NOT CHARGED FREIGHT IF ORDER VALUE EXCEEDS              
+      ****  THE INDIVIDUAL CUSTOMER FREIGHT LIMIT AMOUNT                        
+           IF  WS-FRT-LIMIT-AMT GREATER THAN ZERO                       JLF00275
+            IF (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX) GREATER THAN         TGF00306
+      *        IF  ORH-ORDER-VALUE-AT-ADD GREATER THAN                  TGF00306
+                                           WS-FRT-LIMIT-AMT             JLF00275
+                   MOVE 'Y'           TO WS-BRAZIL-NO-CHARGE-SW         MJF98344
+                   MOVE ZERO          TO WS-TOTAL-FRT-CHRG                      
+                                         TB-MCHG-FIXED-AMT.                     
+                                                                        TGF00312
+            IF (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX) = 0                  TGF00312
+                   MOVE 'Y'           TO WS-BRAZIL-NO-CHARGE-SW         TGF00312
+                   MOVE ZERO          TO WS-TOTAL-FRT-CHRG              TGF00312
+                                         TB-MCHG-FIXED-AMT.             TGF00312
+                                                                                
+           IF  WS-BRAZIL-RTE-ZONE = '99'                                MJF98344
+               MOVE SPACES            TO WS-BRAZIL-NO-CHARGE-SW.        MJF98344
+                                                                        MJF98344
+           PERFORM 373BR-CALC-CHARGE THRU 373BR-CALC-EXIT.                      
+                                                                                
+       373BR-CONTINUE.                                                  GGW99265
+                                                                                
+           IF  ORTD-PGM-ID = 'MDP650'                                   MJF98344
+                   AND WS-BRAZIL-FREIGHT-IM = ZERO                      MJF98344
+                   AND WS-BRAZIL-FREIGHT-CST = ZERO                     MJF98344
+               GO TO 373BR-EXIT.                                        MJF98344
+                                                                        MJF98344
+           MOVE WS-BRAZIL-FREIGHT-IM  TO WS-FRT-OUT-AMT.                MJF98344
+           MOVE WS-BRAZIL-FREIGHT-CST TO WS-TOTAL-FRT-CHRG              MJF98344
+                                         TB-MCHG-FIXED-AMT.             MJF98344
+                                                                        MJF98344
+           MOVE 'Y'                   TO WS-UPDATE-FRT-OUT-AMT-SW               
+           MOVE 'P'                   TO WS-FRT-OUT-CODE.                       
+           MOVE 'F'                   TO TB-MCHG-CHARGE-SW.                     
+           MOVE 895                   TO ORL-LINE-NBR.                          
+           PERFORM 380-MISC-CHARGE THRU 380-EXIT.                               
+           IF  WS-ORSLNE-NORESP                                                 
+               MOVE 'Y'               TO  WS-UPDATE-895-LINE-SW.                
+                                                                                
+       373BR-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+       373BR-FRT-CHG-BY-INVOICE-AMT.                                    GGW99265
+128250     MOVE ORH-COMPANY        TO TB-FRAMT-CO                       GGW99265
+128250     MOVE '**'               TO TB-FRAMT-BR                       GGW99265
+128260                                                                  GGW99265
+128270     MOVE ORSH-CARRIER-CODE  TO TB-FRAMT-CC                       GGW99265
+128300     MOVE ZERO               TO TB-FRAMT-REC-NBR                  GGW99265
+128300                                                                  GGW99265
+           MOVE SPACE TO WS-FCIA-SW.                                    GGW99265
+128300                                                                  GGW99265
+           PERFORM 373BR-READ-FCIA-TABLE                                GGW99265
+              THRU 373BR-RFCIA-EXIT                                     GGW99265
+128300        VARYING TB-FRAMT-REC-NBR FROM 1 BY 1                      GGW99265
+128300          UNTIL TB-FRAMT-REC-NBR > 9998                           GGW99265
+                   OR WS-FCIA-FOUND                                     GGW99265
+                   OR WS-FCIA-END.                                      GGW99265
+                                                                                
+       373BR-FCIA-EXIT.                                                 GGW99265
+           EXIT.                                                        GGW99265
+       373BR-READ-FCIA-TABLE.                                           GGW99265
+128310     CALL 'SYU510'      USING TB-FRAMT-TABLE-IA.                  GGW99265
+                                                                                
+           IF TB-FRAMT-NORESP            AND                            RPM04141
+              TB-FRAMT-TO-ZIP   NUMERIC  AND                            RPM04141
+              TB-FRAMT-FROM-ZIP NUMERIC                                 RPM04141
+              CONTINUE                                                  RPM04141
+           ELSE                                                         RPM04141
+              MOVE 'E' TO WS-FCIA-SW                                    GGW99265
+              GO TO 373BR-RFCIA-EXIT.                                   GGW99265
+           IF WS-BRAZIL-ZIP-CODE <                                      GGW99265
+                TB-FRAMT-FROM-ZIP                                       GGW99265
+              OR WS-BRAZIL-ZIP-CODE >                                   GGW99265
+                TB-FRAMT-TO-ZIP                                         GGW99265
+              GO TO 373BR-RFCIA-EXIT.                                   GGW99265
+                                                                        GGW99265
+      *    IF  ORH-ORDER-VALUE-AT-ADD GREATER THAN                      TGF00306
+           IF  (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX) GREATER THAN         TGF00306
+                                           TB-CPO-FRT-LIMIT-AMT         GGW99265
+               MOVE 'Y'               TO WS-BRAZIL-NO-CHARGE-SW         GGW99265
+               MOVE ZERO              TO TB-MCHG-FIXED-AMT              GGW99265
+                                         WS-TOTAL-FRT-CHRG.             GGW99265
+           IF  WS-FRT-LIMIT-AMT GREATER THAN ZERO AND                   TGF00306
+               (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX) GREATER THAN         TGF00306
+      *        AND ORH-ORDER-VALUE-AT-ADD GREATER THAN                  TGF00306
+                                           WS-FRT-LIMIT-AMT             JLF00275
+               MOVE 'Y'               TO WS-BRAZIL-NO-CHARGE-SW         GGW00200
+               MOVE ZERO              TO TB-MCHG-FIXED-AMT              GGW00200
+                                         WS-TOTAL-FRT-CHRG.             GGW00200
+                                                                        TGF00312
+            IF (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX) = 0                  TGF00312
+                   MOVE 'Y'           TO WS-BRAZIL-NO-CHARGE-SW         TGF00312
+                   MOVE ZERO          TO WS-TOTAL-FRT-CHRG              TGF00312
+                                         TB-MCHG-FIXED-AMT.             TGF00312
+                                                                        GGW00200
+           IF  WS-BRAZIL-NO-FREIGHT-CHG                                 GGW99265
+               MOVE ZERO              TO WS-BRAZIL-FREIGHT-CST.         GGW99265
+           MOVE ORSH-TOTAL-SALES      TO WS-BRAZIL-TOTAL-SALES.         GGW99265
+           MOVE ORSH-TOTAL-COST       TO WS-BRAZIL-TOTAL-COST.          GGW99265
+           MOVE ORSH-FOREIGN-TOTAL-SALES                                GGW99265
+                                      TO WS-BRAZIL-F-TOTAL-SALES.       GGW99265
+           SUBTRACT WS-BRAZIL-ORIG-UNIT-PRICE                           GGW99265
+                                    FROM WS-BRAZIL-TOTAL-SALES.         GGW99265
+           SUBTRACT WS-BRAZIL-ORIG-UNIT-COST                            GGW99265
+                                    FROM WS-BRAZIL-TOTAL-COST.          GGW99265
+           SUBTRACT WS-BRAZIL-ORIG-F-UNIT-PRC                           GGW99265
+                                    FROM WS-BRAZIL-F-TOTAL-SALES.       GGW99265
+           MOVE ZEROS                 TO WS-BRAZIL-FREIGHT-IM           GGW99265
+                                         WS-BRAZIL-FREIGHT-CST.         GGW99265
+                                                                        GGW99265
+                                                                                
+           IF (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX)                       GGW99278
+              NOT >   TB-FRAMT-INVOICE-AMT                              GGW99265
+              MOVE TB-FRAMT-FLAT-CHARGE                                 GGW99265
+                TO WS-BRAZIL-FREIGHT-IM                                 GGW99265
+           ELSE                                                         GGW99265
+              COMPUTE WS-BRAZIL-FREIGHT-IM  =                           GGW99265
+                TB-FRAMT-PCENT-SALES                                    GGW99278
+              * (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX).                    GGW99278
+                                                                        GGW99265
+                                                                        GGW99265
+********                                                                GGW99265
+********   IF  WS-BRAZIL-FREIGHT-PC-SALES GREATER THAN ZERO             GGW99265
+********       COMPUTE WS-BRAZIL-FREIGHT-IM ROUNDED =                   GGW99265
+********           WS-BRAZIL-FREIGHT-IM +                               GGW99265
+********               (WS-BRAZIL-TOTAL-SALES *                         GGW99265
+********                   WS-BRAZIL-FREIGHT-PC-SALES)                  GGW99265
+********       IF  WS-BRAZIL-FREIGHT-IM LESS THAN                       GGW99265
+********                                 WS-BRAZIL-FREIGHT-MIN-CHG      GGW99265
+********           MOVE WS-BRAZIL-FREIGHT-MIN-CHG                       GGW99265
+********                              TO WS-BRAZIL-FREIGHT-IM.          GGW99265
+                                                                        GGW99265
+           COMPUTE WS-BRAZIL-FREIGHT-CST ROUNDED =                      GGW99265
+               WS-BRAZIL-FREIGHT-IM +                                   GGW99265
+                   (WS-BRAZIL-FREIGHT-IM * WS-BRAZIL-UPCHARGE).         GGW99265
+                                                                        GGW99265
+           IF  WS-BRAZIL-NO-FREIGHT-CHG                                 GGW99265
+               MOVE ZERO              TO WS-BRAZIL-FREIGHT-CST.         GGW99265
+                                                                        GGW99265
+                                                                                
+           MOVE 'Y'   TO WS-FCIA-SW.                                    GGW99265
+                                                                        GGW99265
+       373BR-RFCIA-EXIT.                                                GGW99265
+           EXIT.                                                        GGW99265
+                                                                                
+       373BR-CALC-CHARGE.                                                       
+                                                                                
+           IF  ORSH-ACT-TOTAL-WEIGHT NUMERIC AND                        TGF06118
+              (ORSH-ACT-TOTAL-WEIGHT GREATER THAN 0)                    TGF06118
+               MOVE ORSH-ACT-TOTAL-WEIGHT                                       
+                                      TO WS-HOLD-WEIGHT                         
+           ELSE                                                                 
+               COMPUTE WS-HOLD-WEIGHT ROUNDED EQUAL                             
+                   (ORSH-TOTAL-WEIGHT + .49).                                   
+           MOVE WS-HOLD-WEIGHT        TO WS-HOLD-RTE-WEIGHT                     
+                                         WS-BRAZIL-TOTAL-WGT.                   
+      *    MOVE ORSH-TOTAL-SALES      TO WS-BRAZIL-TOTAL-SALES.         TGF00306
+           COMPUTE WS-BRAZIL-TOTAL-SALES =                              TGF00306
+                (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX).                    TGF00306
+           MOVE ORSH-TOTAL-COST       TO WS-BRAZIL-TOTAL-COST.          MJF98344
+      *    MOVE ORSH-FOREIGN-TOTAL-SALES                                TGF00306
+      *                               TO WS-BRAZIL-F-TOTAL-SALES.       TGF00306
+           COMPUTE WS-BRAZIL-F-TOTAL-SALES =                            TGF00306
+                (ORSH-FOREIGN-TOTAL-SALES + ORSH-FOREIGN-TOTAL-TAX).    TGF00306
+           SUBTRACT WS-BRAZIL-ORIG-UNIT-PRICE                           MJF98344
+                                    FROM WS-BRAZIL-TOTAL-SALES.         MJF98344
+           SUBTRACT WS-BRAZIL-ORIG-UNIT-COST                            MJF98344
+                                    FROM WS-BRAZIL-TOTAL-COST.          MJF98344
+           SUBTRACT WS-BRAZIL-ORIG-F-UNIT-PRC                           MJF98344
+                                    FROM WS-BRAZIL-F-TOTAL-SALES.       MJF98344
+           MOVE ZEROS                 TO WS-BRAZIL-FREIGHT-IM                   
+                                         WS-BRAZIL-FREIGHT-CST.                 
+                                                                                
+           MOVE WS-BRAZIL-FREIGHT-FLAT-RATE                             MJF98344
+                                      TO WS-BRAZIL-FREIGHT-IM.          MJF98344
+           IF  WS-BRAZIL-FREIGHT-MAX-WGT GREATER THAN ZERO              MJF98344
+               AND WS-BRAZIL-TOTAL-WGT GREATER THAN                     GGW00200
+                   WS-BRAZIL-FREIGHT-MAX-WGT                            GGW00200
+               SUBTRACT WS-BRAZIL-FREIGHT-MAX-WGT                       MJF98344
+                   FROM WS-BRAZIL-TOTAL-WGT                             MJF98344
+               COMPUTE WS-BRAZIL-FREIGHT-IM ROUNDED =                           
+                   WS-BRAZIL-FREIGHT-IM +                                       
+                       (WS-BRAZIL-TOTAL-WGT *                                   
+                           WS-BRAZIL-FREIGHT-KILO-CHG).                 MJF98344
+                                                                                
+           IF  WS-BRAZIL-FREIGHT-PC-SALES GREATER THAN ZERO             MJF98344
+               COMPUTE WS-BRAZIL-FREIGHT-IM ROUNDED =                           
+                   WS-BRAZIL-FREIGHT-IM +                                       
+                       (WS-BRAZIL-TOTAL-SALES *                                 
+                           WS-BRAZIL-FREIGHT-PC-SALES)                  MJF98344
+               IF  WS-BRAZIL-FREIGHT-IM LESS THAN                               
+                                         WS-BRAZIL-FREIGHT-MIN-CHG      MJF98344
+                   MOVE WS-BRAZIL-FREIGHT-MIN-CHG                       MJF98344
+                                      TO WS-BRAZIL-FREIGHT-IM.                  
+                                                                                
+           COMPUTE WS-BRAZIL-FREIGHT-CST ROUNDED =                              
+               WS-BRAZIL-FREIGHT-IM +                                           
+                   (WS-BRAZIL-FREIGHT-IM * WS-BRAZIL-UPCHARGE).                 
+                                                                                
+           IF  WS-BRAZIL-NO-FREIGHT-CHG                                 MJF98344
+               MOVE ZERO              TO WS-BRAZIL-FREIGHT-CST.         MJF98344
+                                                                        MJF98344
+                                                                                
+       373BR-CALC-EXIT.                                                         
+           EXIT.                                                                
+                                                                                
+       373BR-FREIGHT-ZONE.                                              MJF98344
+                                                                        MJF98344
+           MOVE ORH-COMPANY           TO TB-FZONE-CO.                   MJF98344
+           MOVE WS-BRAZIL-CARRIER     TO TB-FZONE-CC.                   MJF98344
+           MOVE WS-BRAZIL-ZONE-CNT    TO TB-FZONE-REC-NBR.              MJF98344
+                                                                        MJF98344
+           CALL  'SYU510'      USING  TB-FZONE-TABLE-AI.                MJF98344
+           IF  NOT TB-FZONE-NORESP                                      MJF98344
+               MOVE 'Y'               TO WS-BRAZIL-ZONE-END-SW          MJF98344
+               MOVE '99'              TO WS-BRAZIL-RTE-ZONE             MJF98344
+               MOVE '??'              TO WS-BRAZIL-CARRIER              MJF98344
+               GO TO 373BR-ZONE-EXIT.                                   MJF98344
+                                                                        MJF98344
+           PERFORM 373BR-ZONE-SCAN THRU 373BR-ZS-EXIT                   MJF98344
+               VARYING TBFZ-I FROM +1 BY +1                             MJF98344
+                   UNTIL TBFZ-I GREATER THAN +15                        MJF98344
+                           OR WS-BRAZIL-ZONE-FND-SW = 'Y'.              MJF98344
+                                                                        MJF98344
+       373BR-ZONE-EXIT.                                                 MJF98344
+           EXIT.                                                        MJF98344
+                                                                        MJF98344
+       373BR-ZONE-SCAN.                                                 MJF98344
+                                                                        MJF98344
+           IF  (WS-BRAZIL-ZIP-CODE                                      MJF98344
+                             NOT LESS THAN TB-FZONE-S-ZIP (TBFZ-I))     MJF98344
+                   AND (WS-BRAZIL-ZIP-CODE NOT GREATER THAN             MJF98344
+                                       TB-FZONE-E-ZIP (TBFZ-I))         MJF98344
+               MOVE 'Y'               TO WS-BRAZIL-ZONE-FND-SW          MJF98344
+               SET WS-BRAZIL-ZONE-INDEX                                 MJF98344
+                                      TO TBFZ-I                         MJF98344
+               MOVE TB-FZONE-ZONE (TBFZ-I)                              MJF98344
+                                      TO WS-BRAZIL-RTE-ZONE             MJF98344
+               MOVE TB-FZONE-NO-CHG-FLG (TBFZ-I)                        MJF98344
+                                      TO WS-BRAZIL-NO-CHARGE-SW.        MJF98344
+                                                                        MJF98344
+       373BR-ZS-EXIT.                                                   MJF98344
+           EXIT.                                                        MJF98344
+                                                                        MJF98344
+       373BR-FREIGHT-RATE.                                              MJF98344
+                                                                        MJF98344
+           MOVE ORH-COMPANY           TO TB-FRATE-CO.                   MJF98344
+           MOVE WS-BRAZIL-CARRIER     TO TB-FRATE-CC.                   MJF98344
+           MOVE WS-BRAZIL-RTE-ZONE    TO TB-FRATE-ZN.                   MJF98344
+           MOVE WS-BRAZIL-RATE-CNT    TO TB-FRATE-REC-NBR.              MJF98344
+                                                                        MJF98344
+           CALL  'SYU510'      USING  TB-FRATE-TABLE-AI.                MJF98344
+           IF  NOT TB-FRATE-NORESP                                      MJF98344
+               MOVE '99'              TO WS-BRAZIL-RTE-ZONE             MJF98344
+               MOVE '??'              TO WS-BRAZIL-CARRIER              MJF98344
+               GO TO 373BR-DEFAULT-RATE.                                MJF98344
+                                                                        MJF98344
+           GO TO 373BR-SCAN-RATE.                                       MJF98344
+                                                                        MJF98344
+       373BR-DEFAULT-RATE.                                              MJF98344
+                                                                        MJF98344
+           MOVE ORH-COMPANY           TO TB-FRATE-CO.                   MJF98344
+           MOVE WS-BRAZIL-CARRIER     TO TB-FRATE-CC.                   MJF98344
+           MOVE WS-BRAZIL-RTE-ZONE    TO TB-FRATE-ZN.                   MJF98344
+           MOVE WS-BRAZIL-RATE-CNT    TO TB-FRATE-REC-NBR.              MJF98344
+                                                                        MJF98344
+           CALL  'SYU510'      USING  TB-FRATE-TABLE-AI.                MJF98344
+           IF  NOT TB-FRATE-NORESP                                      MJF98344
+               MOVE 'Y'               TO WS-BRAZIL-RATE-END-SW          MJF98344
+               MOVE '99'              TO WS-BRAZIL-RTE-ZONE             MJF98344
+               MOVE '??'              TO WS-BRAZIL-CARRIER              MJF98344
+               MOVE ZERO              TO                                MJF98344
+                                       WS-BRAZIL-FREIGHT-FLAT-RATE      MJF98344
+                                       WS-BRAZIL-FREIGHT-PC-SALES       MJF98344
+                                       WS-BRAZIL-FREIGHT-MAX-WGT        MJF98344
+                                       WS-BRAZIL-FREIGHT-KILO-CHG       MJF98344
+                                       WS-BRAZIL-FREIGHT-MIN-CHG        MJF98344
+               GO TO 373BR-RATE-EXIT.                                   MJF98344
+                                                                        MJF98344
+       373BR-SCAN-RATE.                                                 MJF98344
+                                                                        MJF98344
+           PERFORM 373BR-RATE-SCAN THRU 373BR-RS-EXIT                   MJF98344
+               VARYING TBFR-I FROM +1 BY +1                             MJF98344
+                   UNTIL TBFR-I GREATER THAN +10                        MJF98344
+                           OR WS-BRAZIL-RATE-FND-SW = 'Y'.              MJF98344
+                                                                        MJF98344
+       373BR-RATE-EXIT.                                                 MJF98344
+           EXIT.                                                        MJF98344
+                                                                        MJF98344
+       373BR-RATE-SCAN.                                                 MJF98344
+                                                                        MJF98344
+           IF  (WS-BRAZIL-TOTAL-WGT NOT LESS THAN                       MJF98344
+                                       TB-FRATE-S-WGT (TBFR-I))         MJF98344
+                   AND (WS-BRAZIL-TOTAL-WGT NOT GREATER THAN            MJF98344
+                                       TB-FRATE-E-WGT (TBFR-I))         MJF98344
+               MOVE 'Y'             TO WS-BRAZIL-RATE-FND-SW            MJF98344
+               SET WS-BRAZIL-RATE-INDEX                                 MJF98344
+                                      TO TBFR-I                         MJF98344
+               MOVE TB-FRATE-FLAT-CHG (TBFR-I)                          MJF98344
+                                    TO WS-BRAZIL-FREIGHT-FLAT-RATE      MJF98344
+               MOVE TB-FRATE-PCENT-SALES (TBFR-I)                       MJF98344
+                                    TO WS-BRAZIL-FREIGHT-PC-SALES       MJF98344
+               MOVE TB-FRATE-MAX-WGT (TBFR-I)                           MJF98344
+                                    TO WS-BRAZIL-FREIGHT-MAX-WGT        MJF98344
+               MOVE TB-FRATE-PER-WGT-CHG (TBFR-I)                       MJF98344
+                                    TO WS-BRAZIL-FREIGHT-KILO-CHG       MJF98344
+               MOVE TB-FRATE-MIN-CHG (TBFR-I)                           MJF98344
+                                    TO WS-BRAZIL-FREIGHT-MIN-CHG.       MJF98344
+                                                                        MJF98344
+       373BR-RS-EXIT.                                                   MJF98344
+           EXIT.                                                        MJF98344
+                                                                        MJF98344
+       8100BR-UPDATE-895-LINE.                                          TGF01009
+                                                                        TGF00306
+           IF     (TB-CAR2-NORESP                                       TLC02003
+                AND TB-CAR2-USE-FREIGHT-TABLES)                         TLC02003
+              PERFORM 379-TABLE-FRT THRU 379-TF-EXIT                    TLC02003
+              GO TO 8100BR-U895-CONT                                    TLC02003
+           END-IF.                                                      TLC02003
+                                                                        TLC02003
+           IF  ORSH-CREDIT-MEMO                                         TGF00306
+               OR ORSH-BR-TRANSFER-ORDER                                TGF00306
+               OR ORH-ORDER-VALUE-AT-ADD = ZERO                         TGF00306
+               OR ORSH-CARRIER-CODE = 'PD'                              TGF00306
+               OR ORSH-CARRIER-CODE = 'WC'                              TGF00306
+               OR WS-BRAZIL-DEF-FRT-CD = 'P'                            TGF00306
+               GO TO 8100BR-U895-EXIT.                                  TGF01009
+                                                                        TGF00306
+      * CHECK TO SEE IF 895 LINE EXISTS.                                TGF00306
+           INITIALIZE WS-BRAZIL-FEIGHT-CALC-FIELDS                      TGF00306
+           MOVE WS-ORSLNE-QUAL        TO WS-BRAZIL-ORSLNE-QUAL          TGF00306
+           MOVE '('                   TO WS-ORSLNE-QUAL                 TGF00306
+           MOVE '895'                 TO WS-ORSLNE-NBR                  TGF00306
+           PERFORM 1204-GU-ORSLNE                                       TGF00306
+           IF  WS-ORSLNE-NORESP                                         TGF00306
+               MOVE ORL-UNIT-PRICE    TO WS-BRAZIL-ORIG-UNIT-PRICE      TGF00306
+               MOVE ORL-UNIT-COST     TO WS-BRAZIL-ORIG-UNIT-COST       TGF00306
+               MOVE ORL-FOREIGN-UNIT-PRICE                              TGF00306
+                                      TO WS-BRAZIL-ORIG-F-UNIT-PRC      TGF00306
+               MOVE WS-BRAZIL-ORSLNE-QUAL                               TGF00306
+                                      TO WS-ORSLNE-QUAL                 TGF00306
+               MOVE ORL-ICMS-TAX-AMT  TO WS-BRAZIL-ORIG-ICMS-TAX-AMT    TGF01009
+               MOVE ORL-PC-TAX-AMT    TO WS-BRAZIL-ORIG-PC-TAX-AMT      TGF01009
+               MOVE ORL-IPI-ISS-TAX-AMT                                 TGF01009
+                                      TO WS-BRAZIL-ORIG-IPI-ISS-AMT     TGF01009
+           ELSE                                                         TGF00306
+               MOVE WS-BRAZIL-ORSLNE-QUAL                               TGF00306
+                                      TO WS-ORSLNE-QUAL                 TGF00306
+               GO TO 8100BR-U895-EXIT.                                  TGF01009
+      * IF 895 LINE EXISTS, THEN IT NEEDS TO RECALCULATED BASED         TGF00306
+      * ON THE TOTAL ORDER AMOUNT (AMOUNT WITH TAXES).                  TGF00306
+                                                                        TGF00306
+           MOVE ORH-COMPANY           TO TB-MCHG-CO-CODE.               TGF00306
+           MOVE 'FOC'                 TO TB-MCHG-CODE.                  TGF00306
+           PERFORM 380-MISC-TABLE-CHARGE.                               TGF00306
+           IF  NOT TB-MCHG-NORESP                                       TGF00306
+               GO TO 8100BR-U895-EXIT.                                  TGF01009
+                                                                        TGF00306
+           IF  ORSH-ACT-TOTAL-WEIGHT NUMERIC AND                        TGF06118
+              (ORSH-ACT-TOTAL-WEIGHT GREATER THAN 0)                    TGF06118
+               MOVE ORSH-ACT-TOTAL-WEIGHT                               TGF00306
+                                      TO WS-HOLD-WEIGHT                 TGF00306
+           ELSE                                                         TGF00306
+               COMPUTE WS-HOLD-WEIGHT ROUNDED EQUAL                     TGF00306
+                   (ORSH-TOTAL-WEIGHT + .49).                           TGF00306
+           MOVE WS-HOLD-WEIGHT        TO WS-HOLD-RTE-WEIGHT             TGF00306
+                                         WS-BRAZIL-TOTAL-WGT.           TGF00306
+                                                                        TGF00306
+           MOVE SPACES                TO WS-BRAZIL-NO-CHARGE-SW.        TGF00306
+           MOVE ORSH-CARRIER-CODE     TO WS-BRAZIL-CARRIER.             TGF00306
+           PERFORM 373BR-FREIGHT-ZONE THRU 373BR-ZONE-EXIT              TGF00306
+               VARYING WS-BRAZIL-ZONE-CNT FROM 1 BY 1                   TGF00306
+                   UNTIL                                                TGF00306
+                       WS-BRAZIL-ZONE-CNT GREATER THAN 9998             TGF00306
+                           OR WS-BRAZIL-ZONE-FND-SW = 'Y'               TGF00306
+                           OR WS-BRAZIL-ZONE-END-SW = 'Y'.              TGF00306
+                                                                        TGF00306
+           IF  WS-BRAZIL-ZONE-END-SW = 'Y'                              TGF00306
+               MOVE '99'              TO WS-BRAZIL-RTE-ZONE             TGF00306
+               MOVE '??'              TO WS-BRAZIL-CARRIER.             TGF00306
+                                                                        TGF00306
+           PERFORM 373BR-FREIGHT-RATE THRU 373BR-RATE-EXIT              TGF00306
+               VARYING WS-BRAZIL-RATE-CNT FROM 1 BY 1                   TGF00306
+                   UNTIL                                                TGF00306
+                       WS-BRAZIL-RATE-CNT GREATER THAN 98               TGF00306
+                           OR WS-BRAZIL-RATE-FND-SW = 'Y'               TGF00306
+                           OR WS-BRAZIL-RATE-END-SW = 'Y'.              TGF00306
+                                                                        TGF00306
+           IF  WS-BRAZIL-RATE-END-SW = 'Y'                              TGF00306
+               MOVE '99'              TO WS-BRAZIL-RTE-ZONE             TGF00306
+               MOVE '??'              TO WS-BRAZIL-CARRIER              TGF00306
+               MOVE ZERO              TO                                TGF00306
+                                       WS-BRAZIL-FREIGHT-FLAT-RATE      TGF00306
+                                       WS-BRAZIL-FREIGHT-PC-SALES       TGF00306
+                                       WS-BRAZIL-FREIGHT-MAX-WGT        TGF00306
+                                       WS-BRAZIL-FREIGHT-KILO-CHG       TGF00306
+                                       WS-BRAZIL-FREIGHT-MIN-CHG.       TGF00306
+                                                                        TGF00306
+           IF  WS-BRAZIL-RTE-ZONE = '99'                                TGF00306
+                   AND WS-BRAZIL-CARRIER = '??'                         TGF00306
+               IF  TB-MCHG-FIXED-AMT NUMERIC                            TGF00306
+                       AND TB-MCHG-FIXED-AMT GREATER THAN ZERO          TGF00306
+                   MOVE TB-MCHG-FIXED-AMT                               TGF00306
+                                    TO WS-BRAZIL-FREIGHT-FLAT-RATE.     TGF00306
+                                                                        TGF00306
+      ****  FREE FREIGHT IF SALES > CORP FRT LIMIT                      TGF00306
+           IF (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX) GREATER THAN          TGF00306
+                                           TB-CPO-FRT-LIMIT-AMT         TGF00306
+               MOVE 'Y'               TO WS-BRAZIL-NO-CHARGE-SW         TGF00306
+               MOVE ZERO              TO TB-MCHG-FIXED-AMT              TGF00306
+                                         WS-TOTAL-FRT-CHRG.             TGF00306
+                                                                        TGF00306
+      ****  CUSTOMER IS NOT CHARGED FREIGHT IF ORDER VALUE EXCEEDS      TGF00306
+      ****  THE INDIVIDUAL CUSTOMER FREIGHT LIMIT AMOUNT                TGF00306
+           IF  WS-FRT-LIMIT-AMT GREATER THAN ZERO                       TGF00306
+            IF (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX) GREATER THAN         TGF00306
+                                           WS-FRT-LIMIT-AMT             TGF00306
+                   MOVE 'Y'           TO WS-BRAZIL-NO-CHARGE-SW         TGF00306
+                   MOVE ZERO          TO WS-TOTAL-FRT-CHRG              TGF00306
+                                         TB-MCHG-FIXED-AMT.             TGF00306
+                                                                        TGF00312
+            IF (ORSH-TOTAL-SALES + ORSH-TOTAL-TAX) = 0                  TGF00312
+                   MOVE 'Y'           TO WS-BRAZIL-NO-CHARGE-SW         TGF00312
+                   MOVE ZERO          TO WS-TOTAL-FRT-CHRG              TGF00312
+                                                                        TGF00306
+           IF  WS-BRAZIL-RTE-ZONE = '99'                                TGF00306
+               MOVE SPACES            TO WS-BRAZIL-NO-CHARGE-SW.        TGF00306
+                                                                        TGF00306
+           PERFORM 373BR-CALC-CHARGE THRU 373BR-CALC-EXIT.              TGF00306
+                                                                        TGF00306
+           MOVE ORH-COMPANY        TO TB-FRAMT-CO                       TGF01009
+           MOVE '**'               TO TB-FRAMT-BR                       TGF01009
+           MOVE ORSH-CARRIER-CODE  TO TB-FRAMT-CC                       TGF01009
+           MOVE ZERO               TO TB-FRAMT-REC-NBR                  TGF01009
+           MOVE SPACE TO WS-FCIA-SW.                                    TGF01009
+           PERFORM 8105BR-READ-FCW-TABLE                                TGF01009
+              THRU 8105BR-RFCW-EXIT                                     TGF01009
+              VARYING TB-FRAMT-REC-NBR FROM 1 BY 1                      TGF01009
+                UNTIL TB-FRAMT-REC-NBR > 9998                           TGF01009
+                   OR WS-FCIA-FOUND                                     TGF01009
+                   OR WS-FCIA-END.                                      TGF01009
+                                                                        TGF01009
+           IF TB-CAR2-FRT-CHG-BY-INVOICE-AMT                            TGF01024
+            IF WS-BRAZIL-TOTAL-SALES                                    TGF01009
+              NOT >   TB-FRAMT-INVOICE-AMT                              TGF01009
+              MOVE TB-FRAMT-FLAT-CHARGE                                 TGF01009
+                TO WS-BRAZIL-FREIGHT-IM                                 TGF01009
+            ELSE                                                        TGF01009
+              COMPUTE WS-BRAZIL-TOTAL-SALES = (WS-BRAZIL-TOTAL-SALES -  TGF01009
+                     (WS-BRAZIL-ORIG-IPI-ISS-AMT +                      TGF01009
+                      WS-BRAZIL-ORIG-PC-TAX-AMT +                       TGF01009
+                      WS-BRAZIL-ORIG-ICMS-TAX-AMT))                     TGF01009
+                 COMPUTE WS-BRAZIL-FREIGHT-IM  =                        TGF01009
+                 (TB-FRAMT-PCENT-SALES                                  TGF01024
+                  * WS-BRAZIL-TOTAL-SALES)                              TGF01024
+            END-IF                                                      TGF01024
+           END-IF.                                                      TGF01024
+                                                                        TGF01009
+           MOVE WS-BRAZIL-FREIGHT-IM  TO WS-FRT-OUT-AMT.                TGF01009
+                                                                        TGF01009
+           IF TB-CAR2-FRT-CHG-BY-INVOICE-AMT                            TGF01024
+            IF (WS-BRAZIL-TOTAL-SALES GREATER THAN                      TGF01024
+                                           TB-CPO-FRT-LIMIT-AMT) OR     TGF01024
+               (WS-BRAZIL-TOTAL-SALES GREATER THAN                      TGF01024
+                                           WS-FRT-LIMIT-AMT)            TGF01024
+               MOVE WS-BRAZIL-FREIGHT-CST                               TGF01024
+                                      TO WS-TOTAL-FRT-CHRG              TGF01024
+                                         ORL-UNIT-PRICE                 TGF01024
+                                         TB-MCHG-FIXED-AMT              TGF01024
+            ELSE                                                        TGF01024
+               GO TO 8100BR-U895-EXIT                                   TGF01024
+            END-IF                                                      TGF01024
+           ELSE                                                         TGF01024
+            IF TB-CAR2-FRT-CHG-BY-WEIGHT                                TGF01024
+               MOVE WS-BRAZIL-FREIGHT-CST                               TGF01009
+                                      TO WS-TOTAL-FRT-CHRG              TGF01009
+                                         ORL-UNIT-PRICE                 TGF01009
+                                         TB-MCHG-FIXED-AMT              TGF01009
+            END-IF                                                      TGF01024
+           END-IF.                                                      TGF01024
+                                                                        TGF01009
+           PERFORM 9212-GHU-ORSLNE.                                     TGF00306
+           IF WS-ORSLNE-NORESP                                          TGF00306
+              IF (ORH-COMPANY = 'BR' OR 'BL' OR 'BP') AND               MP422184
+                  TB-CPO2-FOREIGN-PRICE-ONLY  AND                       TGF04174
+                 (ORL-LINE-NBR = 895)                                   TGF04174
+                 IF TB-CPO3-USE-VDR-EXCHG-RATE                          TGF00306
+                    IF ORL-VDR-EXCHG-RATE IS NUMERIC AND                TGF00306
+                       ORL-VDR-EXCHG-RATE NOT = ZERO                    TGF00306
+                       COMPUTE ORL-FOREIGN-UNIT-PRICE ROUNDED =         TGF00306
+                               ORL-UNIT-PRICE / ORL-VDR-EXCHG-RATE      TGF00306
+                    ELSE                                                TGF00306
+                       IF ORL-ACTUAL-EXCHG-RATE IS NUMERIC AND          TGF00306
+                          ORL-ACTUAL-EXCHG-RATE NOT = ZERO              TGF00306
+                          COMPUTE ORL-FOREIGN-UNIT-PRICE  ROUNDED =     TGF00306
+                                  ORL-UNIT-PRICE / ORL-ACTUAL-EXCHG-RATETGF00306
+                       ELSE                                             TGF00306
+                          COMPUTE ORL-FOREIGN-UNIT-PRICE ROUNDED =      TGF00306
+                                  ORL-UNIT-PRICE / ORH-CURRENCY-RATE    TGF00306
+                       END-IF                                           TGF00306
+                    END-IF                                              TGF00306
+                 END-IF                                                 TGF00306
+              END-IF                                                    TGF00306
+              PERFORM 9316-REPL-ORSLNE                                  TGF00306
+           END-IF.                                                      TGF00306
+       8100BR-U895-CONT.                                                TLC02003
+           PERFORM 910-GET-TAXES   THRU  910-EXIT                       TGF00306
+           PERFORM 911-UPDATE-LINE THRU  911-EXIT.                      TGF00306
+                                                                        TGF00306
+       8100BR-U895-EXIT.                                                TGF01009
+           EXIT.                                                        TGF00306
+                                                                        TGF01009
+       8105BR-READ-FCW-TABLE.                                           TGF01009
+                                                                        TGF01009
+           CALL 'SYU510'      USING TB-FRAMT-TABLE-IA.                  TGF01009
+           IF TB-FRAMT-NORESP            AND                            RPM04141
+              TB-FRAMT-TO-ZIP   NUMERIC  AND                            RPM04141
+              TB-FRAMT-FROM-ZIP NUMERIC                                 RPM04141
+              CONTINUE                                                  RPM04141
+           ELSE                                                         RPM04141
+              MOVE 'E' TO WS-FCIA-SW                                    TGF01009
+              GO TO 8105BR-RFCW-EXIT.                                   TGF01009
+           IF WS-BRAZIL-ZIP-CODE <                                      TGF01009
+                TB-FRAMT-FROM-ZIP                                       TGF01009
+              OR WS-BRAZIL-ZIP-CODE >                                   TGF01009
+                TB-FRAMT-TO-ZIP                                         TGF01009
+              GO TO 8105BR-RFCW-EXIT.                                   TGF01009
+                                                                        TGF01009
+           MOVE 'Y'   TO WS-FCIA-SW.                                    TGF01009
+                                                                        TGF01009
+       8105BR-RFCW-EXIT.                                                TGF01009
+           EXIT.                                                        TGF01009
+                                                                        TGF01009

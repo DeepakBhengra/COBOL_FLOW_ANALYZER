@@ -1,0 +1,211 @@
+﻿      *=================================================================        
+      *                                                                *        
+      *   MINIMUM ORDER LIMIT PROCESS COPYBOOK.                        *        
+      *   THE COPY MEMBER ORWORDMN (WORKING STORAGE VARIABLES)         *        
+      *   IS NEEDED FOR THE USE OF THIS COPY MEMBER                    *        
+      *                                                                *        
+      *=================================================================        
+      * REVISIONS:                                                     *        
+      * 07/03/22 MP4 BR LINK PROJECT- ADDED NEW COMPANY 'BL'           *MP422184
+      * 05/15/09 JMW CHANGE MIN-ORD-LIMIT LOGIC INTENDED FOR US        *JMW09135
+      *              BUT ALSO AFFECTING EUROPE                         *JMW09135
+      * 02/20/06 SCT BRAZIL WEB ORDER MIN FEE                          *SCT06120
+      * 07/01/05 SCT CHILE  WEB ORDER MIN FEE                          *SCT05180
+      * 12/29/04 SCT MEXICO WEB ORDER MIN FEE                          *SCT04330
+      * 10/17/04 RDM MODIFY VALUE BASED PRICING (CHOICE ADVANTAGE)     *RDM04291
+      *              TO REPLACE ORWORDMN TABLE WITH NEW TBXMNORD TABLE.*RDM04291
+      * 10/04/04 SXR CHOICE ADVANTAGE (VALUE BASED PRICING) - RENAME   *SXR04278
+      *              CU-WEB-FREE-FRT-FLAG TO PREPARE FOR IMPLEMENTATION.SXR04278
+      * 03/15/04 RDM VALUE BASED PRICING FOR THE U.S.  ASSIGN MIN ORDER*RDM04075
+      *              CHG BASED ON ENTRY METHOD AND CUST FREE FRT FLAG. *RDM04075
+      * 07/31/03 SCT EUROPE 897                                        *SCT03250
+      * 12/01/00 DRK CHECK TBXCORP3 TB-CPO3-WAIVE-MIN-ORDER-WEB,       *DRK00335
+      *              IF ENTRY FOUND, SET WS-MIN-ORDER-LIMIT TO         *DRK00335
+      *              WS-WAIVE-MIN-ORDER-LIMIT IN COPY ORWORDMN.        *DRK00335
+      * 10/13/00 EDR USE CUSTOMER CHARGE AMOUNT IF PRESENT.            *EDR00287
+      * 09/12/00 EDR INITIAL IMPLEMENTATION.                           *EDR00275
+      *                                                                *        
+      *=================================================================        
+                                                                                
+       MIN00-MIN-ORDR-LIMITS.                                                   
+                                                                                
+           MOVE ZEROES                    TO WS-MIN-ORDER-CHRG-AMT,             
+                                             WS-MIN-ORDER-CHRG-AMT-PCT,         
+                                             WS-MIN-ORDER-LIMIT.                
+           MOVE ORH-TERM-ID               TO WS-ORH-TERM-ID.                    
+           SET WS-MIN-ORDER-CHRG-TB-CPO   TO TRUE.                      EDR00287
+                                                                        RDM04291
+      *** SET SWITCH TO SIMPLIFY IF STATEMENTS FOR WEB/CAPS ORDERS      RDM04291
+           IF  WS-ORSHED-NORESP                                         RDM04291
+              AND (ORH-CAPS-ENTRY                                       RDM04291
+                       OR                                               RDM04291
+              (ORH-ENTRY-VIA-LU62 AND TB-CPO-EUROPEAN-CNTRY)            RDM04291
+                       OR                                               SCT04330
+              (ORH-ENTRY-VIA-LU62 AND (ORH-COMPANY = 'MX' OR 'CL'  OR   SCT06120
+                                             'BL' OR 'BP' OR 'BR'))     MP422184
+                       OR                                               RDM04291
+              (ORH-ENTRY-VIA-LU62 AND WS-ORH-TERM-ID-WEB                RDM04291
+                                  AND NOT TB-CPO-EUROPEAN-CNTRY))       RDM04291
+              MOVE 'Y'                 TO WS-CAPS-WEB-ORDER-SW          RDM04291
+           ELSE                                                         RDM04291
+              MOVE 'N'                 TO WS-CAPS-WEB-ORDER-SW.         RDM04291
+                                                                        RDM04291
+      **** SET CORP DEFAULT FOR LIMIT AND CHARGE.  IF CUSTOMER LIMIT IS RDM04291
+      **** GOING TO BE USED LATER DON'T BOTHER MOVING A CORP DEFAULT.   RDM04291
+                                                                        RDM04291
+           EVALUATE TRUE                                                RDM04291
+               WHEN (CU-MIN-ORDER-LIMIT IS NUMERIC                      RDM04291
+                     AND CU-MIN-ORDER-LIMIT > 999999)                   RDM04291
+                    MOVE TB-CPO-MIN-ORDER-CHRG-AMT                      RDM04291
+                                          TO WS-CORP-MNORD-CHRG-AMT     RDM04291
+               WHEN WS-CAPS-WEB-ORDER                                   RDM04291
+                    MOVE  TB-CPO3-MIN-ORDER-CHRG-AMT                    RDM04291
+                                          TO WS-CORP-MNORD-CHRG-AMT     RDM04291
+                    MOVE  TB-CPO3-MIN-ORDER-LIMIT                       RDM04291
+                                          TO WS-CORP-MNORD-LIMIT        RDM04291
+               WHEN (CU-MIN-ORDER-LIMIT IS NUMERIC                      RDM04291
+                     AND CU-MIN-ORDER-LIMIT > 0)                        RDM04291
+                    MOVE TB-CPO-MIN-ORDER-CHRG-AMT                      RDM04291
+                                          TO WS-CORP-MNORD-CHRG-AMT     RDM04291
+               WHEN OTHER                                               RDM04291
+                    MOVE TB-CPO-MIN-ORDER-LIMIT                         RDM04291
+                                          TO WS-CORP-MNORD-LIMIT        RDM04291
+           END-EVALUATE.                                                RDM04291
+                                                                        RDM04291
+                                                                        RDM04291
+      **** TABLE TBXMNORD ALLOWS FOR LIMITS (THRESHOLDS) BY ORDER ENTRY RDM04291
+      **** METHOD.  THIS WILL OVERRIDE EXISTING CORP AND CORP3 LIMITS.  RDM04291
+                                                                        RDM04291
+           IF (TB-CPO5-THRESHLD-BY-OE-METH) AND (TB-MNORD-NORESP)       RDM04291
+               PERFORM MIN00-CORP-LIMIT-BY-OE-METH                      RDM04291
+                  THRU MIN00-CORP-LIMIT-BY-OE-EXIT.                     RDM04291
+                                                                        RDM04075
+                                                                        RDM04291
+      **** USE TBXCORP3 LIMIT AND CHARGE FOR WEB ORDERS.  FOR ALL OTHER RDM04291
+      **** ORDER TYPES USE THE TBXCORP TIELDS.                          RDM04291
+                                                                        EDR00287
+           IF (CU-MIN-ORDER-LIMIT IS NUMERIC                                    
+           AND CU-MIN-ORDER-LIMIT > 999999)                                     
+               MOVE WS-CORP-MNORD-CHRG-AMT                              RDM04291
+                                          TO WS-MIN-ORDER-CHRG-AMT              
+               PERFORM  MIN99-MIN-ORDR-CUST                                     
+                  THRU  MIN99-MIN-ORDR-CUST-EXIT                                
+           ELSE                                                                 
+              IF  WS-CAPS-WEB-ORDER                                     RDM04291
+                                                                        SCT03250
+                  MOVE WS-CORP-MNORD-CHRG-AMT                           RDM04291
+                                          TO WS-MIN-ORDER-CHRG-AMT      RDM04291
+                  MOVE WS-CORP-MNORD-LIMIT                              RDM04291
+                                          TO WS-MIN-ORDER-LIMIT         RDM04291
+                  IF TB-CPO3-WAIVE-MIN-ORDER-WEB > SPACES               DRK00335
+                     MOVE TB-CPO3-WAIVE-MIN-ORDER-WEB                   DRK00335
+                                          TO WS-WAIVE-MIN-ORDER-TBL     DRK00335
+                     IF (WS-ORH-TERM-ID = WS-WAIVE-MIN-ORDER-1 OR       DRK00335
+                                          WS-WAIVE-MIN-ORDER-2 OR       DRK00335
+                                          WS-WAIVE-MIN-ORDER-3 OR       DRK00335
+                                          WS-WAIVE-MIN-ORDER-4 OR       DRK00335
+                                          WS-WAIVE-MIN-ORDER-5 OR       DRK00335
+                                          WS-WAIVE-MIN-ORDER-6   )      DRK00335
+                        SET WS-MIN-ORDER-CHRG-FIXED TO TRUE             DRK00335
+                        MOVE ZEROES TO WS-MIN-ORDER-CHRG-AMT            DRK00335
+                        MOVE WS-WAIVE-MIN-ORDER-LIMIT                   DRK00335
+                                          TO WS-MIN-ORDER-LIMIT         DRK00335
+                        GO TO MIN00-MIN-ORDR-LIMITS-EXIT                DRK00335
+                     END-IF                                             DRK00335
+                  END-IF                                                DRK00335
+                  IF (CU-MIN-ORDER-LIMIT IS NUMERIC)                    RDM04291
+                      AND (CU-MIN-ORDER-LIMIT > 0)                      RDM04291
+                      PERFORM  MIN99-MIN-ORDR-CUST                      EDR00287
+                         THRU  MIN99-MIN-ORDR-CUST-EXIT                 EDR00287
+                      IF (NOT ORH-EUROPE-COMPANY) AND                   JMW09135
+                         CU-MIN-ORDER-LIMIT > WS-CORP-MNORD-LIMIT       JMW09135
+                         MOVE WS-CORP-MNORD-LIMIT                       RDM04291
+                                          TO WS-MIN-ORDER-LIMIT         EDR00287
+                      END-IF                                            EDR00287
+                  END-IF                                                EDR00287
+              ELSE                                                      EDR00287
+                  MOVE WS-CORP-MNORD-LIMIT                              RDM04291
+                                          TO WS-MIN-ORDER-LIMIT         RDM04291
+                  IF (CU-MIN-ORDER-LIMIT IS NUMERIC                     EDR00287
+                  AND CU-MIN-ORDER-LIMIT > 0)                           EDR00287
+                      MOVE WS-CORP-MNORD-CHRG-AMT                       RDM04291
+                                          TO WS-MIN-ORDER-CHRG-AMT      EDR00287
+                      PERFORM  MIN99-MIN-ORDR-CUST                              
+                         THRU  MIN99-MIN-ORDR-CUST-EXIT.                RDM04291
+                                                                                
+                                                                                
+      *** IF A SPECIAL AMOUNT OR PERCENTAGE WAS NOT ALREADY FOUND       RDM04291
+      *** (CUSTOMER LEVEL) CHECK TBXMCHG FOR A FIXED AMOUNT OR          RDM04291
+      *** PERCENTAGE (TBXMCHG ENTRY IS USUALLY "MIN").                  RDM04291
+      *** SET CHARGE SWITCH TO F - FIXED AMOUNT OR P - PERCENTAGE.      RDM04291
+                                                                                
+           IF WS-MIN-ORDER-CHRG-TB-CPO                                          
+              SET WS-MIN-ORDER-CHRG-FIXED TO TRUE                               
+              IF TB-MCHG-NORESP                                                 
+                 IF  TB-MCHG-PERCENTAGE                                         
+                 AND TB-MCHG-PCT NUMERIC                                        
+                     SET  WS-MIN-ORDER-CHRG-PCT TO TRUE                         
+                     MOVE TB-MCHG-PCT                                           
+                                          TO WS-MIN-ORDER-CHRG-AMT-PCT          
+                 ELSE                                                           
+                     IF  TB-MCHG-FIXED                                          
+                     AND TB-MCHG-FIXED-AMT NUMERIC                              
+                         MOVE TB-MCHG-FIXED-AMT                                 
+                                          TO WS-MIN-ORDER-CHRG-AMT              
+                     END-IF                                                     
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       MIN00-MIN-ORDR-LIMITS-EXIT.                                              
+           EXIT.                                                                
+                                                                                
+                                                                        RDM04075
+      **-- SET MIN ORDER LIMIT BASE ON ORDER ENTRY METHOD.  LIMITS      RDM04291
+      **-- STORED IN NEW TBXMNORD TABLE.                                RDM04291
+                                                                        RDM04075
+       MIN00-CORP-LIMIT-BY-OE-METH.                                     RDM04291
+                                                                        RDM04075
+      **-- USE TBXMNORD FIELD THAT CORRESPONDS TO THE ORDER ENTRY METHODRDM04291
+      **-- ORDER ENTRY METHOD DETERMINED IN ORSORDMT COPYBOOK.          RDM04291
+                                                                        RDM04291
+           IF  WS-ORD-TELEMARKETING                                     RDM04291
+               MOVE TB-MNORD-TELE-LIMIT   TO WS-CORP-MNORD-LIMIT.       RDM04291
+                                                                        RDM04291
+           IF  WS-ORD-CAPS                                              RDM04291
+               MOVE  TB-MNORD-CAPS-LIMIT  TO WS-CORP-MNORD-LIMIT.       RDM04291
+                                                                        RDM04291
+           IF  WS-ORD-WEB                                               RDM04291
+               MOVE TB-MNORD-WEB-LIMIT    TO WS-CORP-MNORD-LIMIT.       RDM04291
+                                                                        RDM04291
+           IF  WS-ORD-INSIDE-LINE                                       RDM04291
+               MOVE TB-MNORD-IL-LIMIT     TO WS-CORP-MNORD-LIMIT.       RDM04291
+                                                                        RDM04291
+           IF  WS-ORD-EDI                                               RDM04291
+               MOVE TB-MNORD-EDI-LIMIT    TO WS-CORP-MNORD-LIMIT.       RDM04291
+                                                                        RDM04291
+           IF  WS-ORD-XML                                               RDM04291
+               MOVE TB-MNORD-XML-LIMIT    TO WS-CORP-MNORD-LIMIT.       RDM04291
+                                                                        RDM04075
+       MIN00-CORP-LIMIT-BY-OE-EXIT.                                     RDM04291
+           EXIT.                                                        RDM04075
+                                                                        RDM04075
+       MIN99-MIN-ORDR-CUST.                                                     
+                                                                                
+           MOVE CU-MIN-ORDER-LIMIT        TO WS-MIN-ORDER-LIMIT                 
+           IF CU-MIN-ORDER-CHRG-AMT-PCT NUMERIC                                 
+              IF CU-MIN-ORDER-CHRG-PCT                                          
+                 SET WS-MIN-ORDER-CHRG-PCT TO TRUE                              
+                 MOVE CU-MIN-ORDER-CHRG-AMT-PCT                                 
+                                          TO WS-MIN-ORDER-CHRG-AMT-PCT          
+              ELSE                                                              
+                 IF CU-MIN-ORDER-CHRG-AMT                                       
+                    SET WS-MIN-ORDER-CHRG-FIXED TO TRUE                         
+                    MOVE CU-MIN-ORDER-CHRG-AMT-PCT                              
+                                          TO WS-MIN-ORDER-CHRG-AMT              
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF                                                               
+           .                                                                    
+       MIN99-MIN-ORDR-CUST-EXIT.                                                
+           EXIT.                                                                

@@ -1,0 +1,245 @@
+      *--------------------------------------------------------------*          
+      *   THIS COPYLIB BELONGS IN THE PROCEDURE DIVISION OF THE                 
+      *   ARUHLD AND ARVHLD CREDIT SUBROUTINES.                                 
+      *--------------------------------------------------------------*          
+      *   01/17/08  TGF  SWITCH CONTINUE TO NEXT SENTENCE               TGF08017
+      *   10/04/05  TRR  NEW                                            TRR05277
+      *--------------------------------------------------------------*          
+       0000-CREDIT-PROCESSING.                                                  
+      *--------------------------------------------------------------*          
+                                                                                
+           EVALUATE TRUE                                                        
+              WHEN ARX-RISK-CHECK                                               
+                   PERFORM 100-DATABASE-POINTERS  THRU 100-EXIT                 
+                   PERFORM 200-CHECK-TABLES       THRU 200-EXIT                 
+                   PERFORM 2000-CHECK-AR-RISK     THRU 2000-EXIT                
+                                                                                
+              WHEN ARX-CREDIT-CHECK                                             
+                   PERFORM 100-DATABASE-POINTERS  THRU 100-EXIT                 
+                   PERFORM 200-CHECK-TABLES       THRU 200-EXIT                 
+                   PERFORM 3000-CHECK-HOLD-STATUS THRU 3000-EXIT                
+                                                                                
+              WHEN ARX-REASON-SET                                               
+                   PERFORM 200-CHECK-TABLES       THRU 200-EXIT                 
+                   PERFORM 3100-SET-STATUS-REASON THRU 3100-EXIT                
+                                                                                
+              WHEN ARX-RISK-CREDIT-CHECK                                        
+                   PERFORM 100-DATABASE-POINTERS  THRU 100-EXIT                 
+                   PERFORM 200-CHECK-TABLES       THRU 200-EXIT                 
+                   PERFORM 2000-CHECK-AR-RISK     THRU 2000-EXIT                
+                   PERFORM 3000-CHECK-HOLD-STATUS THRU 3000-EXIT                
+                                                                                
+              WHEN ARX-RISK-CREDIT-REASON                                       
+                   PERFORM 100-DATABASE-POINTERS  THRU 100-EXIT                 
+                   PERFORM 200-CHECK-TABLES       THRU 200-EXIT                 
+                   PERFORM 2000-CHECK-AR-RISK     THRU 2000-EXIT                
+                   PERFORM 3000-CHECK-HOLD-STATUS THRU 3000-EXIT                
+                   PERFORM 3100-SET-STATUS-REASON THRU 3100-EXIT                
+                                                                                
+              WHEN ARX-INITIALIZATION                                           
+                   PERFORM 700-INITIALIZATION     THRU 700-EXIT                 
+                                                                                
+              WHEN ARX-TERMINATION                                              
+                   PERFORM 800-TERMINATION        THRU 800-EXIT                 
+                                                                                
+              WHEN OTHER                                                        
+                   MOVE 'FUNC'         TO WS-ABCODE                             
+                   PERFORM 999-ABEND                                            
+                                                                                
+           END-EVALUATE.                                                        
+                                                                                
+       0000-EXIT.                                                               
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       100-DATABASE-POINTERS.                                                   
+      *--------------------------------------------------------------*          
+                                                                                
+           SET ADDRESS                 OF ORPCB                                 
+                                       TO ORPCB-ARXHLD-PTR                      
+           SET ADDRESS                 OF CUPCB                                 
+                                       TO CUPCB-ARXHLD-PTR.                     
+                                                                                
+       100-EXIT.                                                                
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       110-GET-ORSHEDOF.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE ' '                    TO WS-ORSHED-IO-SW                       
+                                          WS-ORSHEDOF-IO-SW                     
+           MOVE ORH-COMPANY            TO WS-ORSHED-CO                          
+           MOVE ORH-BR-NBR             TO WS-ORSHED-BR                          
+           MOVE ORH-ORDER-NBR          TO WS-ORSHED-NBR                         
+           MOVE '0'                    TO WS-ORSHEDOF-NBR.                      
+                                                                                
+           PERFORM 1201-GU-ORSHEDOF.                                            
+                                                                                
+           IF WS-ORSHEDOF-NORESP                                                
+              MOVE ORHOF-ORSHEDOF      TO ORHOF-ORSHEDOF-0                      
+           ELSE                                                                 
+              MOVE '110-'              TO WS-ABCODE                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+       110-EXIT.                                                                
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       120-GET-ORSSTO.                                                          
+      *--------------------------------------------------------------*          
+      *    ORSA-STATE IS ON THE FOURTH ADDRESS LINE                             
+      *    BUT MAY NOT ALWAYS BE POPULATED FOR SOME COUNTRIES                   
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE ' '                    TO WS-ORSHED-IO-SW                       
+                                          WS-ORSSTO-IO-SW                       
+           MOVE ORH-COMPANY            TO WS-ORSHED-CO                          
+           MOVE ORH-BR-NBR             TO WS-ORSHED-BR                          
+           MOVE ORH-ORDER-NBR          TO WS-ORSHED-NBR                         
+           MOVE '1'                    TO WS-ORSSTO-TYPE                        
+           MOVE '4'                    TO WS-ORSSTO-SHIP.                       
+                                                                                
+           PERFORM 1207-GU-ORSSTO.                                              
+                                                                                
+           IF WS-ORSSTO-NORESP                                                  
+              NEXT SENTENCE                                             TGF08017
+           ELSE                                                                 
+              IF WS-ORSSTO-NOTFND                                               
+                 MOVE SPACES           TO ORSA-STATE                            
+              ELSE                                                              
+                 MOVE '120-'           TO WS-ABCODE                             
+                 PERFORM 999-ABEND                                              
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       120-EXIT.                                                                
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       130-GET-CUSBRN.                                                          
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE ' '                    TO WS-CUSHED-IO-SW                       
+                                          WS-CUSBRN-IO-SW                       
+           MOVE CU-COMPANY             TO WS-CUSHED-CO                          
+           MOVE CU-BR-NBR              TO WS-CUSHED-BR                          
+           MOVE CU-CUST-NBR            TO WS-CUSHED-CUST                        
+           MOVE ORH-BR-NBR             TO WS-CUSBRN-BR.                         
+                                                                                
+           PERFORM 1004-GU-CUSBRN.                                              
+                                                                                
+           IF WS-CUSBRN-NORESP                                                  
+           OR WS-CUSBRN-NOTFND                                                  
+              NEXT SENTENCE                                             TGF08017
+           ELSE                                                                 
+              MOVE '130-'              TO WS-ABCODE                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+       130-EXIT.                                                                
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       140-GET-CUSHEDOF.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE ' '                    TO WS-CUSHED-IO-SW                       
+                                          WS-CUSHEDOF-IO-SW                     
+           MOVE CU-COMPANY             TO WS-CUSHED-CO                          
+           MOVE CU-BR-NBR              TO WS-CUSHED-BR                          
+           MOVE CU-CUST-NBR            TO WS-CUSHED-CUST                        
+           MOVE '0'                    TO WS-CUSHEDOF-NBR.                      
+                                                                                
+           PERFORM 1201-GU-CUSHEDOF.                                            
+                                                                                
+           IF WS-CUSHEDOF-NORESP                                                
+              MOVE CUOF-CUSHEDOF       TO CUOF-CUSHEDOF-0                       
+           ELSE                                                                 
+              IF WS-CUSHEDOF-NOTFND                                             
+                 NEXT SENTENCE                                          TGF08017
+              ELSE                                                              
+                 MOVE '140-'           TO WS-ABCODE                             
+                 PERFORM 999-ABEND                                              
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       140-EXIT.                                                                
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       150-GET-CUSADR.                                                          
+      *--------------------------------------------------------------*          
+      *    USE ORDER SHIP TO SUFFIX                                             
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE ' '                    TO WS-CUSHED-IO-SW                       
+                                          WS-CUSADR-IO-SW                       
+           MOVE CU-COMPANY             TO WS-CUSHED-CO                          
+           MOVE CU-BR-NBR              TO WS-CUSHED-BR                          
+           MOVE CU-CUST-NBR            TO WS-CUSHED-CUST.                       
+                                                                                
+           IF ORH-SHIP-TO-SUFFIX  >  SPACES                                     
+              MOVE ORH-SHIP-TO-SUFFIX  TO WS-CUSADR-SUFFIX                      
+           ELSE                                                                 
+              MOVE ORH-BILL-TO-SUFFIX  TO WS-CUSADR-SUFFIX                      
+           END-IF.                                                              
+                                                                                
+           PERFORM 1002-GU-CUSADR.                                              
+                                                                                
+           IF WS-CUSADR-NORESP                                                  
+           OR WS-CUSADR-NOTFND                                                  
+              NEXT SENTENCE                                             TGF08017
+           ELSE                                                                 
+              MOVE '150-'              TO WS-ABCODE                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+       150-EXIT.                                                                
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       200-CHECK-TABLES.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+           IF ARX-CICS-PROCESSING                                               
+              SET WS-IMPULSE-CICS      TO TRUE                                  
+           ELSE                                                                 
+              SET WS-IMPULSE-BATCH     TO TRUE                                  
+           END-IF.                                                              
+                                                                                
+           IF ORH-COMPANY  NOT =  TB-CPO-COMPANY-CODE                           
+              MOVE ORH-COMPANY         TO TB-CPO-COMPANY-CODE                   
+              CALL WS-IMPULSE-TABLE    USING TB-CORP-PROC-IA                    
+           END-IF.                                                              
+                                                                                
+           IF ORH-COMPANY  NOT =  TB-CPO2-COMPANY-CODE                          
+              MOVE ORH-COMPANY         TO TB-CPO2-COMPANY-CODE                  
+              CALL WS-IMPULSE-TABLE    USING TB-CPO2-PROC-IA                    
+           END-IF.                                                              
+                                                                                
+           IF ORH-COMPANY  NOT =  TB-CPO3-COMPANY-CODE                          
+              MOVE ORH-COMPANY         TO TB-CPO3-COMPANY-CODE                  
+              CALL WS-IMPULSE-TABLE    USING TB-CPO3-PROC-IA                    
+           END-IF.                                                              
+                                                                                
+           IF ORH-COMPANY  NOT =  TB-DATE-COMPANY                               
+              MOVE ORH-COMPANY         TO TB-DATE-COMPANY                       
+              CALL WS-IMPULSE-TABLE    USING TB-DATE-TABLE-IA                   
+           END-IF.                                                              
+                                                                                
+       200-EXIT.                                                                
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       300-GET-BRANCH-PROFILE.                                                  
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE '2'                    TO BP-REC-CODE                           
+           MOVE ORH-COMPANY            TO BP-COMPANY                            
+           MOVE ORSH-BR-NBR-SHIP-FROM  TO BP-BR-NBR.                            
+                                                                                
+           PERFORM 9000-READ-BPLMST.                                            
+                                                                                
+           IF WS-BP-NORESP                                                      
+              NEXT SENTENCE                                             TGF08017
+           ELSE                                                                 
+              MOVE '300-'              TO WS-ABCODE                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+       300-EXIT.                                                                
+           EXIT.                                                                

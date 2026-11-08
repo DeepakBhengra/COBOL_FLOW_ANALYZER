@@ -1,0 +1,32 @@
+      *    * 09/18/03  MCV  FIX I/O SWITCH SETTING                      MCV03261
+      *                                                                         
+           CALL 'CBLTDLI'           USING  GU                                   
+                                           ORPCB                                
+                                           ORH-ORSHED                           
+                                           WS-ORSHED-SSA                        
+                                           WS-ORSSHH-SSA                        
+                                           WS-ORSLNE-SSA.                       
+           IF ORPCB-NORESP                                                      
+               MOVE 'Y'                TO  WS-ORSHED-IO-SW                      
+                                           WS-ORSSHH-IO-SW              MCV03261
+                                           WS-ORSLNE-IO-SW              MCV03261
+           ELSE                                                                 
+               IF ORPCB-NOTFND                                                  
+                   MOVE 'N'            TO  WS-ORSLNE-IO-SW                      
+                   IF ORPCB-SEG-NAME EQUAL 'ORSSHH  '                           
+                       MOVE 'Y'        TO  WS-ORSHED-IO-SW                      
+                                           WS-ORSSHH-IO-SW              MCV03261
+                   ELSE                                                         
+                      MOVE 'N'         TO  WS-ORSSHH-IO-SW                      
+                      IF ORPCB-SEG-NAME EQUAL 'ORSHED  '                        
+                          MOVE 'Y'     TO  WS-ORSHED-IO-SW                      
+                      ELSE                                                      
+                          MOVE 'N'     TO  WS-ORSHED-IO-SW                      
+               ELSE                                                             
+                  MOVE 'O702'          TO  WS-ABCODE                            
+                  MOVE ORPCB-STS       TO  WS-STATUS                            
+                  MOVE 'DL/1'          TO  WS-ERROR-CODE                        
+                  MOVE SPACES          TO  WS-ERROR-OPTIONAL-DATA               
+                  MOVE ORPCB           TO  WS-ERROR-DL1-PCB                     
+                  MOVE WS-ABCODE       TO  WS-ERROR-DL1-ABCODE                  
+                  PERFORM 999-ABEND.                                            

@@ -1,0 +1,105 @@
+      *****************************************************************         
+      *                                                               *         
+      *              STRATEGIC PRICING MOVES - HEADER                 *         
+      *                                                               *         
+      * PURPOSE: STANDARD PROCEDURE DIVISION ROUTINES TO SETUP        *         
+      *          STRATEGIC PRICING PARAMETERS, HELP VARIABLES AND     *         
+      *          AND THE PRICING REQUEST HEADER AREAS.                *         
+      *                                                               *         
+      * USAGE:   COPY IN YOUR APPLICATION AND PERFORM SP100 AFTER     *         
+      *          RETRIEVING TBXCORP5 AND CUSHEDOF TO SET THE          *         
+      *          STRATEGIC PRICING FLAG. WHEN STRATEGIC PRICING 'ON'  *         
+      *          PERFORM SP200 TO SETUP THE PRICING HEADER AREA.      *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 11/02/04 AXR       *** STRATEGIC PRICING - FULL SOLUTION ***  * AXR04307
+      *               1. CREATED COPYBOOK.                            * AXR04307
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE INITIALIZES THE STRATEGIC PRICING        <<<**         
+      **>>> CONNECTOR DATA AND SETS A FLAG INDICATING WHETHER     <<<**         
+      **>>> THIS STRATEGIC PRICING IS 'ON' OR 'OFF'.              <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP100-SETUP-PRICING-FLAG.                                                
+                                                                                
+      *   (SET ALL CONNECTOR DATA FIELDS TO SPACES AND ZEROS)                   
+           INITIALIZE SYWSP-CONNECTOR-DATA.                                     
+                                                                                
+      *   (DEFAULT STRATEGIC PRICING FLAG TO 'OFF')                             
+           MOVE 'N'                 TO SYWSPV-STRATEGIC-PRICING-FLAG.           
+                                                                                
+      *   (USE STRATEGIC PRICING ENGINE WHEN BOTH THE CORPORATE AND             
+      *    CUSTOMER STRATEGIC PRICING FLAGS ARE 'ON')                           
+           IF  TB-CPO5-PRICING-ENGINE-USED                                      
+           AND CUOF-PRICING-ENGINE-USED                                         
+               MOVE 'Y'             TO SYWSPV-STRATEGIC-PRICING-FLAG            
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE INITIALIZES FIELDS IN THE STRAGIC        <<<**         
+      **>>> PRICING PARAMETER AND HEADER AREAS. APPLICATIONS      <<<**         
+      **>>> THAT DO NOT HAVE THE SOURCE FIELDS CAN USE            <<<**         
+      **>>> 'COPY REPLACING' TO SPECIFY THE CORRECT SOURCE        <<<**         
+      **>>> FIELDS.                                               <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP200-SETUP-PRICING-HEADER.                                              
+                                                                                
+      *   (SET UP STRATEGIC PRICING CONNECTOR PARAMETERS)                       
+           SET SYWSPP-TARGET-PRICING-ENGINE TO TRUE.                            
+                                                                                
+      *   (SET UP STRATEGIC PRICING CONNECTOR HEADER FIELDS)                    
+           SET SYWSPH-STATUS-OK OF SYWSP-CONNECTOR-DATA                         
+            TO TRUE.                                                            
+                                                                                
+           MOVE SPACES                   TO SYWSPH-OVERALL-STATUS-TXT           
+             OF SYWSP-CONNECTOR-DATA.                                           
+                                                                                
+           MOVE WS-PRC-COMPANY           TO SYWSPH-COMPANY-CODE                 
+             OF SYWSP-CONNECTOR-DATA.                                           
+                                                                                
+           MOVE WS-PRC-COMPANY           TO SYWSPH-CUST-CO-CD                   
+             OF SYWSP-CONNECTOR-DATA.                                           
+           MOVE WS-PRC-BR-NBR            TO SYWSPH-CUST-BR-CD                   
+             OF SYWSP-CONNECTOR-DATA.                                           
+                                                                                
+           MOVE CU-CUST-NBR              TO WS-PRC-CUST-NBR.                    
+           MOVE WS-PRC-CUST-NBR          TO SYWSPH-CUST-NBR                     
+             OF SYWSP-CONNECTOR-DATA.                                           
+                                                                                
+      *   (PRICING APPLICATIONS CAN LATER OVERRIDE THESE DEFAULTS)              
+           MOVE 'N'                      TO SYWSPH-RETURN-EXPLAIN-FLAG          
+             OF SYWSP-CONNECTOR-DATA.                                           
+           MOVE 'N'                      TO SYWSPH-SAVE-EXPLAIN-FLAG            
+             OF SYWSP-CONNECTOR-DATA.                                           
+           MOVE 'N'                      TO SYWSPH-RETURN-QTYBRK-FLAG           
+             OF SYWSP-CONNECTOR-DATA.                                           
+           MOVE 'N'                      TO SYWSPH-RMA-FLAG                     
+             OF SYWSP-CONNECTOR-DATA.                                           
+                                                                                
+      *   (PRICING TRANSACTION OPERATOR ID IS SAVED WITH EXPLAIN PLAN)          
+           MOVE TC-OPER-ID               TO SYWSPH-OPER-ID                      
+             OF SYWSP-CONNECTOR-DATA.                                           
+                                                                                
+      *   (THIS IS THE EFFECTIVE DATE FOR ALL PRICING FUNCTIONS)                
+           IF (WS-PRC-EFF-DATE NUMERIC AND WS-PRC-EFF-DATE > ZEROS)             
+              MOVE WS-PRC-EFF-DATE          TO SYWSPV-JULIAN-DT-YYDDD           
+              MOVE SYWSPV-JULIAN-DT-YYDDD   TO SYWSPH-PRICE-DATE-YYDDD          
+                OF SYWSP-CONNECTOR-DATA                                         
+           ELSE                                                                 
+              MOVE SPACES                TO SYWSPH-PRICE-DATE-YYDDD             
+                OF SYWSP-CONNECTOR-DATA                                         
+           END-IF.                                                              
+                                                                                
+      *   (GENERAL SETUP COMMON TO EACH TYPE OF PRICING APPLICATION)            
+           PERFORM SP210-SETUP-GENERAL-REQUEST.                                 
+                                                                                

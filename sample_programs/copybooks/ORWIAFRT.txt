@@ -1,0 +1,126 @@
+﻿      * 04/07/22 SK2  ADDED NEW SWITCHES TO HANDLE FREIGHT AMOUNT      *SK223097
+      *               DISTRIBUTION FOR DIFFERENT SKU TYPES.            *SK223097
+      * 03/04/22 YS1  INDIA FREIGHT CALCULATION.                       *YS122063
+      *                                                                *YS122063
+      **==============================================================**YS122063
+      *                                                                *YS122063
+      *   WORKING STORAGE VARIABLES USED IN FRIEGHT CALCULATION        *YS122063
+      *   LOGICS AVAILABLE IN COPYBOOK ORSIAFRT                        *YS122063
+      **==============================================================**YS122063
+                                                                                
+                                                                                
+       01 WS-SAVE-AREA-FREIGHT-CAL.                                             
+          05 WS-SAVE-ORSH-ORSSHH       PIC X(608) VALUE SPACES.                 
+          05 WS-SAVE-ORSLNE-SEARCH     PIC X(02)  VALUE SPACES.                 
+          05 WS-SAVE-ORSLNE-QUALFR     PIC X(01)  VALUE SPACES.                 
+          05 WS-SAVE-ORSLNE-NBR        PIC X(03)  VALUE SPACES.                 
+                                                                                
+       01 WS-IND-FRT-VARIABLES.                                                 
+           05 WS-895-MANUAL-SW         PIC X(01) VALUE SPACE.                   
+           05 WS-GST-FRT-RATE          PIC S9(02)V9(03) COMP-3                  
+                                                 VALUE ZEROES.                  
+           05 WS-SAVE-ORIG-SHIP-WEIGHT PIC S9(15)V99 VALUE +0.                  
+           05 WS-CP-FLAG               PIC X(1) VALUE 'N'.                      
+           05 WS-TOT-WEIGHT-CP         PIC S9(9)V99 VALUE +0.                   
+           05 WS-TOT-FREIGHT-CP        PIC S9(15)V99 VALUE +0.                  
+           05 WS-REM-FREIGHT-CP        PIC S9(15)V99 VALUE +0.                  
+           05 WS-SAVE-ORSLNE-QUAL      PIC X(01) VALUE SPACES.                  
+           05 WS-SWISS-FREIGHT         PIC S9(15)V99 VALUE +0.                  
+           05 WS-GST-FRT-AMT           PIC S9(15)V9(02) COMP-3 VALUE            
+                                                        ZEROES.                 
+           05 WS-GST-FRT-AMT-SC-GST    PIC S9(15)V9(02) COMP-3 VALUE            
+                                                        ZEROES.                 
+           05 WS-SUM-FRT-AT-LINE       PIC S9(15)V9(02) COMP-3 VALUE            
+                                                        ZEROES.                 
+           05 WS-ORL-LST-LNE-NBR       PIC 9(03)  VALUE ZEROES.                 
+           05 WS-FRT-PAISE-DFF         PIC S9(15)V9(02) COMP-3 VALUE            
+                                                        ZEROES.                 
+           05 WS-ORGH-FILE-NAME        PIC X(08)     VALUE 'ORGDTL  '.          
+           05 WS-POSTCODE              PIC X(6) VALUE '000000'.                 
+           05 WS-FRTCC-COST            PIC 9(07)V99 VALUE 0.                    
+           05 WS-FRTCC-CHARGE          PIC 9(07)V99 VALUE 0.                    
+           05 WS-NBR-OVER-WT           PIC 9(05)V99 VALUE 0.                    
+           05 WS-NBR-OVER-WT-RED REDEFINES                                      
+              WS-NBR-OVER-WT.                                                   
+               10 WS-NBR-OVER-WT-INT   PIC 9(5).                                
+               10 WS-NBR-OVER-WT-DEC   PIC 9(2).                                
+           05 WS-SAVE-TOTAL-FRT-CHRG  COMP-3                                    
+                                       PIC S9(15)V99 VALUE  +0.                 
+           05 WS-FRT-AT-HDR            PIC S9(13)V9(04) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-FRT-AT-LINE           PIC S9(07)V9(08) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-TOTAL-VALUE           PIC S9(13)V9(04) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-LINE-VALUE            PIC S9(13)V9(04) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-FRT-CGST-TAX-TOTAL    PIC S9(15)V9(02) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-FRT-SGST-TAX-TOTAL    PIC S9(15)V9(02) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-FRT-IGST-TAX-TOTAL    REDEFINES WS-FRT-SGST-TAX-TOTAL          
+                                       PIC S9(15)V9(02) COMP-3.                 
+           05 WS-CESS1-AT-FRT-AMT-TOT  PIC S9(15)V9(02) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-CESS2-AT-FRT-AMT-TOT  PIC S9(15)V9(02) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-CESS3-AT-FRT-AMT-TOT  PIC S9(15)V9(02) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-CESS4-AT-FRT-AMT-TOT  PIC S9(15)V9(02) COMP-3                  
+                                                    VALUE ZEROES.               
+           05 WS-GST-REC-LENGTH        PIC S9(04)   COMP VALUE 500.             
+           05 WS-GST-KEY-LENGTH        PIC S9(04)   COMP VALUE 25.              
+           05 WS-EIBRESP2              PIC S9(08)   COMP.                       
+           05 WS-TEMP-LINES-SHIP-AMT   PIC S9(15)V9(02)                         
+                                           COMP-3 VALUE ZEROES.                 
+           05 WS-895-LINE-SW          PIC X(01).                                
+              88 WS-895-LINE-EXISTS                  VALUE 'Y'.                 
+           05 WS-EUROLOG-FRT-OUT-CODE-SW                                        
+                                       PIC X(01) VALUE ' '.                     
+              88 WS-EUROLOG-FRT-OUT-CODE   VALUE 'Y'.                           
+           05 WS-SET-ORSSHH-FRT-RATE-0-SW                                       
+                                       PIC X(01) VALUE 'N'.                     
+              88 WS-SET-ORSSHH-FRT-RATE-0-YES         VALUE 'Y'.                
+              88 WS-SET-ORSSHH-FRT-RATE-0-NO          VALUE 'N'.                
+           05 WS-SET-CESS-FRT-TOT-SW                                            
+                                       PIC X(01) VALUE 'N'.                     
+              88 WS-SET-CESS-FRT-TOT-YES              VALUE 'Y'.                
+              88 WS-SET-CESS-FRT-TOT-NO               VALUE 'N'.                
+           05 WS-CESS-APPLICABLE-SW                                             
+                                       PIC X(01) VALUE 'N'.                     
+              88 WS-CESS-APPLICABLE-YES               VALUE 'Y'.                
+              88 WS-CESS-APPLICABLE-NO                VALUE 'N'.                
+           05 WS-IA-REVISED-INVC-SW                                             
+                                       PIC X(01) VALUE 'N'.                     
+              88 WS-IA-REVISED-INVC-YES      VALUE 'Y'.                         
+              88 WS-IA-REVISED-INVC-NO       VALUE 'N'.                         
+           05 WS-IGNRE-ORGTL-NOTFND-SW                                          
+                                       PIC X(01) VALUE 'N'.                     
+              88 WS-IGNRE-ORGTL-NOTFND-Y     VALUE 'Y'.                         
+              88 WS-IGNRE-ORGTL-NOTFND-N     VALUE 'N'.                         
+           05 WS-FCIA-SW              PIC X(1) VALUE SPACE.                     
+              88 WS-FCIA-FOUND                 VALUE 'Y'.                       
+              88 WS-FCIA-END                   VALUE 'E'.                       
+           05 WS-SKU-TYPE-SW          PIC X(1) VALUE SPACE.             SK223097
+              88  WS-HARD-BUNDLE               VALUE 'H'.               SK223097
+              88  WS-CNP-HARD-BUNDLE           VALUE 'Z'.               SK223097
+              88  WS-SOFT-BUNDLE               VALUE 'G'.               SK223097
+              88  WS-KIT-SKU                   VALUE 'K'.               SK223097
+              88  WS-NORMAL-SKU                VALUE 'S' ' '.           SK223097
+           05 WS-FRT-AMT-DIST-SW      PIC X(1) VALUE 'Y'.               SK223097
+              88  WS-FRT-AMT-DIST-YES          VALUE 'Y'.               SK223097
+              88  WS-FRT-AMT-DIST-NO           VALUE 'N'.               SK223097
+       01  WS-872-LNE-CALC-AREA.                                                
+           05 WS-IA-FRT-FRTTAX-AMT    PIC S9(15)V9(02) COMP-3 VALUE +0.         
+           05 WS-IA-FRT-AMT           PIC S9(15)V9(02) COMP-3 VALUE +0.         
+                                                                                
+       01 WS-ORGH-RECORD-KEY.                                                   
+          05  WS-ORGH-COMPANY         PIC X(02) VALUE SPACES.                   
+          05  WS-ORGH-BR-NBR          PIC X(02) VALUE SPACES.                   
+          05  WS-ORGH-INVC-DT         PIC X(10) VALUE SPACES.                   
+          05  WS-ORGH-ORDR-NBR        PIC X(05) VALUE SPACES.                   
+          05  WS-ORGH-DIST-NBR        PIC X(01) VALUE SPACES.                   
+          05  WS-ORGH-SHIP-NBR        PIC X(01) VALUE SPACES.                   
+          05  WS-ORGH-LINE-NBR        PIC 9(03) VALUE ZEROES.                   
+          05  WS-ORGH-RECORD-CODE     PIC X(01) VALUE 'O'.                      
+       01  DUMMY-ORSLNE               PIC X(1000).                              

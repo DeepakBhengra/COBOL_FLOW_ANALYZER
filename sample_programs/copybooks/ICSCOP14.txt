@@ -1,0 +1,185 @@
+      ******************************************************************        
+      *                  CISCO NET PRICING PROJECT                     *        
+      ******************************************************************        
+      *   *  COPYBOOK: ICSCOP14 - EMEA LOGICS TO CONVERT THE FOLLOWING *        
+      *   *            FIELDS FROM LOCAL TO OWNING REGION'S CURRENCY.  *        
+      *   *                                                            *        
+      *   *  PURPOSE : THIS COPYBOOK IS USED IN CONJUNTION WITH THE    *        
+      *   *            INP387 AND ICSCOP11.                            *        
+      *   *                                                            *        
+      *   *  COPYBOOK: INR387                                          *        
+      *   *  REQUIRED  TBICORP                                         *        
+      *   *            INSHED                                          *        
+      *   *            TBICONR                                         *        
+      *   *                                                            *        
+      *   *  INPUTS  : INR387-TRIGGER-SW                               *        
+      *   *            INR387-IN-SELLING-COMPANY                       *        
+      *   *            INR387-SELLING-MISC-COST                        *        
+      *   *            INR387-DUAL-MISC-COST                           *        
+      *   *            INI-CONV-CURR-TABLE-CODE                        *        
+      *   *                                                            *        
+      *   *  OUTPUTS : INR387-SELLING-MISC-COST                        *        
+      *   *            INR387-DUAL-MISC-COST                           *        
+      *   *                                                            *        
+      *   *  PARAGRAPH:                                                *        
+      *   *  ----------                                                *        
+      *   *  1.CONVERT-SELLING-MISC-CST - CONVERT THE GIVEN SELLING    *        
+      *   *    MISC COST AND RETURN THE VALUES IN SAME FIELDS.         *        
+      *   *                                                            *        
+      *   *  2.CH-CONVERT-DUAL-MISC-CST - CONVERT THE GIVEN DUAL MISC  *        
+      *   *    COST FOR CH AND RETURN THE VALUES IN SAME FIELDS.       *        
+      *   *                                                            *        
+      *   *  3.AT-CONVERT-DUAL-MISC-CST - CONVERT THE GIVEN DUAL MISC  *        
+      *   *    COST FOR AT AND RETURN THE VALUES IN SAME FIELDS.       *        
+      *   *                                                            *        
+      *   *  ----------------------------------------------------------*        
+      *   *  08/06/21  TGF INITIAL COPYBOOK.                           *TGF21218
+      ******************************************************************        
+                                                                                
+       CONVERT-SELLING-MISC-CST.                                                
+      * NEED TO CONVERT MISC VALUE TO USD THEN ICSCOP CAN CONVERT               
+      * TO LOCAL EUR AT NEEDED MOMENT                                           
+                                                                                
+           MOVE INR387-IN-SELLING-COMPANY                                       
+                                       TO TB-CPO-COMPANY-CODE.                  
+           IF INR387-BATCH-RECOST                                               
+              CALL 'SYU500'         USING TB-CORP-PROC-IA                       
+           ELSE                                                                 
+              CALL 'SYU510'         USING TB-CORP-PROC-IA                       
+           END-IF                                                               
+                                                                                
+           IF TB-CPO-NORESP                                                     
+              IF INI-CONV-CURR-TABLE-CODE NOT EQUAL                             
+                                       TB-CPO-CURRENCY-CODE                     
+      * CALL TBXCONR                                                            
+                 MOVE INR387-IN-SELLING-COMPANY                                 
+                                       TO TB-CURR-CO                            
+                 IF INR387-IN-SELLING-COMPANY = 'AT'                            
+                    MOVE 'DE'          TO TB-CURR-CO                            
+                 END-IF                                                         
+      * SELL (CH) MISC COST IS CHF                                              
+      * SO THIS NEEDS TO GO USD SO THAT ICSCOP CAN SUM CORRECTLY                
+                 MOVE TB-CPO-CURRENCY-CODE                                      
+                                       TO TB-CURR-FROM-CURR-CODE                
+                 MOVE 'USD'            TO TB-CURR-TO-CURR-CODE                  
+                 IF INR387-BATCH-RECOST                                         
+                    CALL 'SYU500'   USING TB-CURR-TABLE-IA                      
+                 ELSE                                                           
+                    CALL 'SYU510'   USING TB-CURR-TABLE-IA                      
+                 END-IF                                                         
+                 IF TB-CURR-NORESP                                              
+                    CONTINUE                                                    
+                 ELSE                                                           
+                    MOVE +1            TO TB-CURR-SELL-RATE                     
+                 END-IF                                                         
+                 COMPUTE INR387-SELLING-MISC-COST =                             
+                        (INR387-SELLING-MISC-COST * TB-CURR-SELL-RATE)          
+                                                      + .00005                  
+                 MOVE 'Y'              TO INR387-SELL-MISC-CONV-SW              
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE +1                  TO TB-CURR-SELL-RATE                     
+              COMPUTE INR387-SELLING-MISC-COST =                                
+                     (INR387-SELLING-MISC-COST * TB-CURR-SELL-RATE)             
+                                                      + .00005                  
+              MOVE 'Y'                 TO INR387-SELL-MISC-CONV-SW              
+           END-IF.                                                              
+                                                                                
+       SELL-CURR-EXIT.                                                          
+           EXIT.                                                                
+                                                                                
+       CH-CONVERT-DUAL-MISC-CST.                                                
+      * ASSUMPTION HERE - SWISS CASE.                                           
+      * NEED TO CONVERT MISC VALUE TO USD THEN ICSCOP CAN CONVERT               
+      * TO LOCAL CHF VALUES                                                     
+                                                                                
+           MOVE INR387-IN-SELLING-COMPANY                                       
+                                       TO TB-CPO-COMPANY-CODE                   
+           IF INR387-BATCH-RECOST                                               
+              CALL 'SYU500'         USING TB-CORP-PROC-IA                       
+           ELSE                                                                 
+              CALL 'SYU510'         USING TB-CORP-PROC-IA                       
+           END-IF                                                               
+                                                                                
+           IF TB-CPO-NORESP                                                     
+              IF (INI-CONV-CURR-TABLE-CODE NOT EQUAL                            
+                                       TB-CPO-CURRENCY-CODE)                    
+              OR INR387-BATCH-RECOST                                            
+      * CALL TBXCONR  - USE DE COMPANY AS CH DOES NOT HAVE EUR TO USD           
+                 MOVE 'DE'             TO TB-CURR-CO                            
+      * DUAL (DE) MISC COST IS EUR                                              
+      * SO THIS NEEDS TO GO TO USD SO THAT ICSCOP CAN SUM CORRECTLY             
+                 MOVE 'EUR'            TO TB-CURR-FROM-CURR-CODE                
+                 MOVE 'USD'            TO TB-CURR-TO-CURR-CODE                  
+                 IF INR387-BATCH-RECOST                                         
+                    CALL 'SYU500'   USING TB-CURR-TABLE-IA                      
+                 ELSE                                                           
+                    CALL 'SYU510'   USING TB-CURR-TABLE-IA                      
+                 END-IF                                                         
+                 IF TB-CURR-NORESP                                              
+                    CONTINUE                                                    
+                 ELSE                                                           
+                    MOVE +1            TO TB-CURR-SELL-RATE                     
+                 END-IF                                                         
+                 COMPUTE INR387-DUAL-MISC-COST =                                
+                        (INR387-DUAL-MISC-COST * TB-CURR-SELL-RATE)             
+                                                      + .00005                  
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE +1                  TO TB-CURR-SELL-RATE                     
+              COMPUTE INR387-DUAL-MISC-COST =                                   
+                        (INR387-DUAL-MISC-COST * TB-CURR-SELL-RATE)             
+                                                      + .00005                  
+           END-IF.                                                              
+                                                                                
+       CH-DUAL-CURR-EXIT.                                                       
+           EXIT.                                                                
+                                                                                
+       AT-CONVERT-DUAL-MISC-CST.                                                
+      * NEED TO CONVERT MISC VALUE TO USD THEN ICSCOP CAN CONVERT               
+      * TO LOCAL CHF VALUES                                                     
+                                                                                
+           MOVE INR387-IN-SELLING-COMPANY                                       
+                                       TO TB-CPO-COMPANY-CODE                   
+                                          TB-CURR-CO                            
+           IF INR387-BATCH-RECOST                                               
+              CALL 'SYU500'         USING TB-CORP-PROC-IA                       
+           ELSE                                                                 
+              CALL 'SYU510'         USING TB-CORP-PROC-IA                       
+           END-IF.                                                              
+                                                                                
+           IF TB-CPO-NORESP                                                     
+              IF (INI-CONV-CURR-TABLE-CODE NOT EQUAL                            
+                                       TB-CPO-CURRENCY-CODE)                    
+              OR INR387-BATCH-RECOST                                            
+      * CALL TBXCONR  - USE DE COMPANY AS AT DOES NOT HAVE EUR TO USD           
+                 MOVE 'DE'             TO TB-CURR-CO                            
+      * DUAL (DE) MISC COST IS EUR                                              
+      * SO THIS NEEDS TO GO TO USD SO THAT ICSCOP CAN SUM CORRECTLY             
+                 MOVE 'EUR'            TO TB-CURR-FROM-CURR-CODE                
+                 MOVE 'USD'            TO TB-CURR-TO-CURR-CODE                  
+      * SO THIS NEEDS TO COVERT TO USD SO THAT ICSCOP CAN SUM CORRECTLY         
+                 IF INR387-BATCH-RECOST                                         
+                    CALL 'SYU500'   USING TB-CURR-TABLE-IA                      
+                 ELSE                                                           
+                    CALL 'SYU510'   USING TB-CURR-TABLE-IA                      
+                 END-IF                                                         
+                 IF TB-CURR-NORESP                                              
+                    CONTINUE                                                    
+                 ELSE                                                           
+                    MOVE +1            TO TB-CURR-SELL-RATE                     
+                 END-IF                                                         
+                 COMPUTE INR387-DUAL-MISC-COST =                                
+                        (INR387-DUAL-MISC-COST * TB-CURR-SELL-RATE)             
+                                                      + .00005                  
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE +1                  TO TB-CURR-SELL-RATE                     
+              COMPUTE INR387-DUAL-MISC-COST =                                   
+                        (INR387-DUAL-MISC-COST * TB-CURR-SELL-RATE)             
+                                                      + .00005                  
+           END-IF.                                                              
+                                                                                
+       AT-DUAL-CURR-EXIT.                                                       
+           EXIT.                                                                
+                                                                                

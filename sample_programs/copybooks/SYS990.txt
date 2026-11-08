@@ -1,0 +1,349 @@
+      *================================================================*        
+      *  SYS990 - ERROR LOG - PROCEDURAL COPYBOOK SUPPORTING           *        
+      *                       SYU990 AND SYV990.                       *        
+      *                                                                *        
+      *  THIS IS THE PROCEDURAL COPYBOOK HOLDING THE INSERT LOGICS     *        
+      *  TO THE DB2 TABLE IMPULSE_APPL_ERR_LOG.                        *        
+      *                                                                *        
+      *================================================================*        
+      * REVISION INFO:                                                 *        
+      * 07/19/24 AP3 CHANGE TO PUSH CORRELATION DETAIL TO ERTILOG AREA *AP324201
+      * 05/12/23 SYJ INITIAL VERSION                                   *SYJ23132
+      *================================================================*        
+                                                                                
+       100-CHK-FOR-LOGGER.                                                      
+                                                                                
+           MOVE SYR990-LOG-PROCS-CD         TO ERTIPRS-LOG-PROCS-CD.            
+           MOVE SYR990-PGM-ID               TO ERTIPRS-PGM-ID.                  
+           MOVE SYR990-CO-CD                TO ERTIPRS-CO-CD.                   
+      *                                                                         
+           EXEC SQL                                                             
+                SELECT  EVENT_LOG_SW                                            
+                  INTO  :ERTIPRS-EVENT-LOG-SW                                   
+                  FROM  IMP_APP_ERR_LOG_PRS                                     
+                 WHERE  LOG_PROCS_CD = :ERTIPRS-LOG-PROCS-CD                    
+                   AND  PGM_ID       = :ERTIPRS-PGM-ID                          
+                   AND  CO_CD        = :ERTIPRS-CO-CD                           
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                     TO SQLCODE-STATUS.                  
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                    MOVE 'E'                TO SYR990-RESPONSE                  
+                    MOVE '100-'             TO WS-ABCODE                        
+                    MOVE '100-CHK-FOR-LOGGER'                                   
+                                            TO SYWDB2-EXTRA-MESSAGE-1           
+                    MOVE 'ERROR SELECT IMP_APP_ERR_LOG_PRS'                     
+                                            TO SYWDB2-EXTRA-MESSAGE-2           
+                                               SYR990-MESSAGE                   
+                    STRING 'DATA:'                                              
+                           ERTIPRS-LOG-PROCS-CD                                 
+                           '-'                                                  
+                           ERTIPRS-PGM-ID                                       
+                           '-'                                                  
+                           ERTIPRS-CO-CD                                        
+                                     DELIMITED BY SIZE                          
+                                          INTO SYWDB2-EXTRA-MESSAGE-3           
+                    PERFORM 990-SQL-MESSAGE                                     
+           END-EVALUATE.                                                        
+                                                                                
+       100-CHK-FOR-LOGGER-EXIT.                                                 
+                          EXIT.                                                 
+      *                                                                         
+                                                                                
+       200-FORMAT-ERR-LOG.                                                      
+                                                                                
+           MOVE ZEROS                       TO WS-ATTEMPTS.                     
+           MOVE 'N'                         TO WS-END-INSERT-SW.                
+           MOVE SYR990-CO-CD                TO ERTILOG-CO-CD                    
+                                               WS-ISO-CO.                       
+      *                                                                         
+           IF SYR990-TASK-ID NUMERIC                                            
+              MOVE SYR990-TASK-ID           TO ERTILOG-TASK-ID                  
+           ELSE                                                                 
+              MOVE ZEROS                    TO ERTILOG-TASK-ID                  
+           END-IF.                                                              
+      *                                                                         
+           MOVE SYR990-LOG-DOC-CD           TO ERTILOG-LOG-DOC-CD               
+           MOVE SYR990-LOG-PROCS-CD         TO ERTILOG-LOG-PROCS-CD             
+      *                                                                         
+           MOVE SYR990-PGM-ID               TO ERTILOG-PGM-ID                   
+           MOVE SYR990-TRAN-ID              TO ERTILOG-TRAN-ID                  
+      *                                                                         
+           MOVE SYR990-SO-BR-NBR            TO ERTILOG-SO-BR-NBR                
+           MOVE SYR990-SO-ORDR-NBR          TO ERTILOG-SO-ORDR-NBR              
+      *                                                                         
+           IF SYR990-SO-ORDR-DT > ZEROS                                         
+              MOVE SYR990-SO-ORDR-DT        TO WS-JUL-DATE                      
+              PERFORM 800-JUL-TO-CAL-DATE-CONV                                  
+                 THRU 800-EXIT                                                  
+              IF SY777-OUT-NORESP                                               
+                 MOVE SY777-OUT-ISO-10      TO ERTILOG-SO-ORDR-DT               
+              ELSE                                                              
+                 MOVE '2023-01-01'          TO ERTILOG-SO-ORDR-DT               
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE '2023-01-01'             TO ERTILOG-SO-ORDR-DT               
+           END-IF.                                                              
+      *                                                                         
+           MOVE SYR990-SO-DIST-NBR          TO ERTILOG-SO-DIST-NBR              
+           MOVE SYR990-SO-SHIP-NBR          TO ERTILOG-SO-SHIP-NBR              
+           MOVE SYR990-SO-LINE-NBR          TO ERTILOG-SO-LINE-NBR              
+      *                                                                         
+           MOVE SYR990-PO-CO-CD             TO ERTILOG-PO-CO-CD                 
+           MOVE SYR990-PO-BR-NBR            TO ERTILOG-PO-BR-NBR                
+           MOVE SYR990-PO-NBR               TO ERTILOG-PO-NBR                   
+           MOVE SYR990-PO-LNE-NBR           TO ERTILOG-PO-LNE-NBR               
+      *                                                                         
+           MOVE SYR990-PART-NBR             TO ERTILOG-PART-NBR                 
+      *                                                                         
+           MOVE SYR990-VEND-CLS-CD          TO ERTILOG-VEND-CLS-CD              
+           MOVE SYR990-VEND-NBR             TO ERTILOG-VEND-NBR                 
+           MOVE SYR990-VEND-SFX             TO ERTILOG-VEND-SFX                 
+      *                                                                         
+           MOVE SYR990-CUST-BR-NBR          TO ERTILOG-CUST-BR-NBR              
+           MOVE SYR990-CUST-NBR             TO ERTILOG-CUST-NBR                 
+           MOVE SYR990-CUST-SFX             TO ERTILOG-CUST-SFX                 
+      *                                                                         
+           MOVE SYR990-ACOP-IMP-TRK-NBR     TO ERTILOG-ACOP-IMP-TRK-NBR         
+           MOVE SYR990-ACOP-GDS-TRK-NBR     TO ERTILOG-ACOP-GDS-TRK-NBR         
+      *                                                                         
+           IF SYR990-OPER-ID > SPACES                                           
+              MOVE SYR990-OPER-ID           TO ERTILOG-OPER-ID                  
+           ELSE                                                                 
+              MOVE 'AUTO'                   TO ERTILOG-OPER-ID                  
+           END-IF.                                                              
+      *                                                                         
+           IF SYR990-MSG1-TXT > SPACES                                          
+              MOVE SYR990-MSG1-TXT          TO ERTILOG-MSG1-TXT-TEXT            
+              MOVE LENGTH                   OF ERTILOG-MSG1-TXT-TEXT            
+                                            TO ERTILOG-MSG1-TXT-LEN             
+              EXEC SQL                                                          
+                   SET :WS-LENGTH =                                             
+                       LENGTH(STRIP(:ERTILOG-MSG1-TXT, TRAILING))               
+              END-EXEC                                                          
+                                                                                
+              MOVE WS-LENGTH                TO ERTILOG-MSG1-TXT-LEN             
+           END-IF.                                                              
+      *                                                                         
+           IF SYR990-MSG2-TXT > SPACES                                          
+              MOVE SYR990-MSG2-TXT          TO ERTILOG-MSG2-TXT-TEXT            
+              MOVE LENGTH                   OF ERTILOG-MSG2-TXT-TEXT            
+                                            TO ERTILOG-MSG2-TXT-LEN             
+              EXEC SQL                                                          
+                   SET :WS-LENGTH =                                             
+                       LENGTH(STRIP(:ERTILOG-MSG2-TXT, TRAILING))               
+              END-EXEC                                                          
+                                                                                
+              MOVE WS-LENGTH                TO ERTILOG-MSG2-TXT-LEN             
+           END-IF.                                                              
+      *                                                                         
+           IF SYR990-MSG3-TXT > SPACES                                          
+              MOVE SYR990-MSG3-TXT          TO ERTILOG-MSG3-TXT-TEXT            
+              MOVE LENGTH                   OF ERTILOG-MSG3-TXT-TEXT            
+                                            TO ERTILOG-MSG3-TXT-LEN             
+              EXEC SQL                                                          
+                   SET :WS-LENGTH =                                             
+                       LENGTH(STRIP(:ERTILOG-MSG3-TXT, TRAILING))               
+              END-EXEC                                                          
+                                                                                
+              MOVE WS-LENGTH                TO ERTILOG-MSG3-TXT-LEN             
+           END-IF.                                                              
+      *                                                                         
+           IF SYR990-MSG4-TXT > SPACES                                          
+              MOVE SYR990-MSG4-TXT          TO ERTILOG-MSG4-TXT-TEXT            
+              MOVE LENGTH                   OF ERTILOG-MSG4-TXT-TEXT            
+                                            TO ERTILOG-MSG4-TXT-LEN             
+              EXEC SQL                                                          
+                   SET :WS-LENGTH =                                             
+                       LENGTH(STRIP(:ERTILOG-MSG4-TXT, TRAILING))               
+              END-EXEC                                                          
+                                                                                
+              MOVE WS-LENGTH                TO ERTILOG-MSG4-TXT-LEN             
+           END-IF.                                                              
+      *                                                                         
+           MOVE SYR990-LAST-REV-ID          TO ERTILOG-LAST-REV-ID              
+           MOVE SYR990-LAST-CONTAINER-NBR   TO                                  
+                                            ERTILOG-LAST-CONTAINER-NBR          
+           MOVE SYR990-LAST-CMPL-TXT        TO ERTILOG-LAST-CMPL-TXT            
+      *                                                                         
+           IF SYR990-CORRELATION-KEY > SPACES                           AP324201
+              MOVE SYR990-CORRELATION-KEY                               AP324201
+                                       TO ERTILOG-CORRELATION-KEY       AP324201
+           ELSE                                                         AP324201
+              MOVE SPACES              TO ERTILOG-CORRELATION-KEY       AP324201
+           END-IF.                                                      AP324201
+                                                                        AP324201
+           IF SYR990-CORRELATION-TYP-CD > SPACES                        AP324201
+              MOVE SYR990-CORRELATION-TYP-CD                            AP324201
+                                       TO ERTILOG-CORRELATION-TYP-CD    AP324201
+           ELSE                                                         AP324201
+              MOVE SPACES              TO ERTILOG-CORRELATION-TYP-CD    AP324201
+           END-IF.                                                      AP324201
+                                                                        AP324201
+           PERFORM 300-INSERT-ERR-LOG                                           
+              THRU 300-INSERT-ERR-LOG-EXIT                                      
+              WITH TEST AFTER                                                   
+           VARYING WS-ATTEMPTS                                                  
+              FROM +1                                                           
+                BY +1                                                           
+             UNTIL (WS-ATTEMPTS > WS-ATTEMPTS-MAX)                              
+                OR (WS-END-INSERT).                                             
+                                                                                
+      *IF INSERT FAILS EVEN AFTER 5 ATTEMPTS, FAIL WITH DUPLICATE       AP324201
+      *ENTRY.                                                           AP324201
+           IF WS-END-INSERT                                             AP324201
+              CONTINUE                                                  AP324201
+           ELSE                                                         AP324201
+              IF WS-ATTEMPTS > WS-ATTEMPTS-MAX                          AP324201
+                 MOVE 'E'              TO SYR990-RESPONSE               AP324201
+                 MOVE '300-INSERT-ERR-LOG'                              AP324201
+                                       TO SYWDB2-EXTRA-MESSAGE-1        AP324201
+                 MOVE 'ERROR INSERT IMPULSE_APPL_ERR_LOG'               AP324201
+                                       TO SYWDB2-EXTRA-MESSAGE-2        AP324201
+                 MOVE 'DUPS INSERT ATTEMPT MAX OUT'                     AP324201
+                                       TO SYWDB2-EXTRA-MESSAGE-3        AP324201
+                                          SYR990-MESSAGE                AP324201
+                 MOVE ERTILOG-TASK-ID  TO WS-DISPLAY-TASK-NBR           AP324201
+                 STRING 'DUP_DATA:'                                     AP324201
+                        ERTILOG-CO-CD                                   AP324201
+                        '-'                                             AP324201
+                        WS-DISPLAY-TASK-NBR                             AP324201
+                        '-'                                             AP324201
+                        ERTILOG-LOG-DOC-CD                              AP324201
+                        '-'                                             AP324201
+                        ERTILOG-LOG-PROCS-CD                            AP324201
+                        '-'                                             AP324201
+                        ERTILOG-PGM-ID                                  AP324201
+                        '-'                                             AP324201
+                        ERTILOG-TRAN-ID DELIMITED BY SIZE               AP324201
+                   INTO SYWDB2-EXTRA-MESSAGE-4                          AP324201
+                 PERFORM 990-SQL-MESSAGE                                AP324201
+              END-IF                                                    AP324201
+           END-IF.                                                      AP324201
+      *                                                                         
+       200-FORMAT-ERR-LOG-EXIT.                                                 
+                          EXIT.                                                 
+      *                                                                         
+       300-INSERT-ERR-LOG.                                                      
+                                                                                
+           EXEC SQL                                                             
+                INSERT INTO IMPULSE_APPL_ERR_LOG                                
+                     (      CO_CD                                               
+                           ,CREATE_TS                                           
+                           ,TASK_ID                                             
+                           ,LOG_DOC_CD                                          
+                           ,LOG_PROCS_CD                                        
+                           ,PGM_ID                                              
+                           ,TRAN_ID                                             
+                           ,SO_BR_NBR                                           
+                           ,SO_ORDR_NBR                                         
+                           ,SO_ORDR_DT                                          
+                           ,SO_DIST_NBR                                         
+                           ,SO_SHIP_NBR                                         
+                           ,SO_LINE_NBR                                         
+                           ,PO_CO_CD                                            
+                           ,PO_BR_NBR                                           
+                           ,PO_NBR                                              
+                           ,PO_LNE_NBR                                          
+                           ,PART_NBR                                            
+                           ,VEND_CLS_CD                                         
+                           ,VEND_NBR                                            
+                           ,VEND_SFX                                            
+                           ,CUST_BR_NBR                                         
+                           ,CUST_NBR                                            
+                           ,CUST_SFX                                            
+                           ,ACOP_IMP_TRK_NBR                                    
+                           ,ACOP_GDS_TRK_NBR                                    
+                           ,OPER_ID                                             
+                           ,MSG1_TXT                                            
+                           ,MSG2_TXT                                            
+                           ,MSG3_TXT                                            
+                           ,MSG4_TXT                                            
+                           ,LAST_REV_ID                                         
+                           ,LAST_CONTAINER_NBR                                  
+                           ,LAST_CMPL_TXT                                       
+                           ,CORRELATION_KEY                             AP324201
+                           ,CORRELATION_TYP_CD                          AP324201
+                     )                                                          
+                VALUES                                                          
+                     (      :ERTILOG-CO-CD                                      
+                           ,CURRENT TIMESTAMP                           AP324201
+                           ,:ERTILOG-TASK-ID                                    
+                           ,:ERTILOG-LOG-DOC-CD                                 
+                           ,:ERTILOG-LOG-PROCS-CD                               
+                           ,:ERTILOG-PGM-ID                                     
+                           ,:ERTILOG-TRAN-ID                                    
+                           ,:ERTILOG-SO-BR-NBR                                  
+                           ,:ERTILOG-SO-ORDR-NBR                                
+                           ,:ERTILOG-SO-ORDR-DT                                 
+                           ,:ERTILOG-SO-DIST-NBR                                
+                           ,:ERTILOG-SO-SHIP-NBR                                
+                           ,:ERTILOG-SO-LINE-NBR                                
+                           ,:ERTILOG-PO-CO-CD                                   
+                           ,:ERTILOG-PO-BR-NBR                                  
+                           ,:ERTILOG-PO-NBR                                     
+                           ,:ERTILOG-PO-LNE-NBR                                 
+                           ,:ERTILOG-PART-NBR                                   
+                           ,:ERTILOG-VEND-CLS-CD                                
+                           ,:ERTILOG-VEND-NBR                                   
+                           ,:ERTILOG-VEND-SFX                                   
+                           ,:ERTILOG-CUST-BR-NBR                                
+                           ,:ERTILOG-CUST-NBR                                   
+                           ,:ERTILOG-CUST-SFX                                   
+                           ,:ERTILOG-ACOP-IMP-TRK-NBR                           
+                           ,:ERTILOG-ACOP-GDS-TRK-NBR                           
+                           ,:ERTILOG-OPER-ID                                    
+                           ,:ERTILOG-MSG1-TXT                                   
+                           ,:ERTILOG-MSG2-TXT                                   
+                           ,:ERTILOG-MSG3-TXT                                   
+                           ,:ERTILOG-MSG4-TXT                                   
+                           ,:ERTILOG-LAST-REV-ID                                
+                           ,:ERTILOG-LAST-CONTAINER-NBR                         
+                           ,:ERTILOG-LAST-CMPL-TXT                              
+                           ,:ERTILOG-CORRELATION-KEY                    AP324201
+                           ,:ERTILOG-CORRELATION-TYP-CD                 AP324201
+                     )                                                          
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                     TO SQLCODE-STATUS.                  
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    MOVE 'Y'                TO WS-END-INSERT-SW                 
+               WHEN SQLCODE-DUPLICATE                                           
+                    CONTINUE                                            AP324201
+               WHEN OTHER                                                       
+                    MOVE 'Y'                TO WS-END-INSERT-SW                 
+                    MOVE 'E'                TO SYR990-RESPONSE                  
+                    MOVE '300-'             TO WS-ABCODE                        
+                    MOVE '300-INSERT-ERR-LOG'                                   
+                                            TO SYWDB2-EXTRA-MESSAGE-1           
+                    MOVE 'ERROR INSERT IMPULSE_APPL_ERR_LOG'                    
+                                            TO SYWDB2-EXTRA-MESSAGE-2           
+                                               SYR990-MESSAGE                   
+                    MOVE ERTILOG-TASK-ID    TO WS-DISPLAY-TASK-NBR              
+                    STRING 'DATA:'                                              
+                           ERTILOG-CO-CD                                        
+                           '-'                                                  
+                           WS-DISPLAY-TASK-NBR                                  
+                           '-'                                                  
+                           ERTILOG-LOG-DOC-CD                                   
+                           '-'                                                  
+                           ERTILOG-LOG-PROCS-CD                                 
+                           '-'                                                  
+                           ERTILOG-PGM-ID                                       
+                           '-'                                                  
+                           ERTILOG-TRAN-ID                                      
+                                     DELIMITED BY SIZE                          
+                                          INTO SYWDB2-EXTRA-MESSAGE-3           
+                    PERFORM 990-SQL-MESSAGE                                     
+           END-EVALUATE.                                                        
+                                                                                
+       300-INSERT-ERR-LOG-EXIT.                                                 
+                          EXIT.                                                 
+      *                                                                         

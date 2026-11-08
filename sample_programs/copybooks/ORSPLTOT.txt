@@ -1,0 +1,62 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *                                                                         
+      * 03/20/97 MCV BUILD FLOORING ORDER & SHIP TOTALS                 MCV97079
+      *                                                                         
+       8500-ORSPLTOT-LINE-PROCESSING.                                           
+      *                                                                         
+      *    FLOORING SUFFIXES USE SHIPPING TOTALS                                
+      *    NON-FLOORING SUFFIXES USE ORDER TOTALS                               
+      *                                                                         
+           IF ORH-SPLIT-BILL-REQ         AND                                    
+              ORL-SPLIT-BILL-TO-SUFF NOT > SPACES                               
+                 MOVE ORH-BILL-TO-SUFFIX  TO  ORL-SPLIT-BILL-TO-SUFF.           
+      *                                                                         
+           IF ORL-OPEN-LINE                                                     
+              IF ORSH-CUST-CONFIG-ORDER                                         
+                 PERFORM 8510-ORSPLTOT-CONFIG-LINE                              
+              ELSE                                                              
+                 IF NOT ORL-COMPONENT-ITEM                                      
+                    PERFORM 8520-ORSPLTOT-STANDARD-LINE                         
+                    PERFORM 8530-ORSPLTOT-LINE-TOTALS.                          
+      *                                                                         
+       8510-ORSPLTOT-CONFIG-LINE.                                               
+      *                                                                         
+      *    ICP555 USES ORDER-QTY INSTEAD OF SHIP-QTY FOR TOTAL SALES ??         
+      *    FOR SOME CONFIGURATION SERVICE CENTER FEES                ??         
+      *                                                                         
+      *    CONFIGURATION COMPONENT'S SHIP-QTY IS ALLOCATED STOCK, NOT           
+      *    THE SYSTEM'S SHIP-QTY EXTENDED BY THE QTY PER SYSTEM.                
+      *                                                                         
+           IF ORL-SYSTEMS-ITEM                                                  
+              MOVE ORL-QTY-SHIPPED     TO  FV-CONFIG-SYSTEM-SHIP-QTY            
+           ELSE                                                                 
+              IF ORL-COMPONENT-ITEM AND NOT ORL-COMMENT-TYPE                    
+                 IF ORL-COMP-QTY-PER NOT NUMERIC   OR                           
+                    ORL-COMP-QTY-PER NOT > ZERO                                 
+                       MOVE +1         TO  ORL-COMP-QTY-PER                     
+                 END-IF                                                         
+                 COMPUTE FV-LINE-SHIP-AMOUNT ROUNDED                            
+                                        =  ORL-CONFIG-UNIT-PRICE                
+                                        *  FV-CONFIG-SYSTEM-SHIP-QTY            
+                                        *  ORL-COMP-QTY-PER                     
+                 COMPUTE FV-LINE-ORDER-AMOUNT ROUNDED                           
+                                        =  ORL-CONFIG-UNIT-PRICE                
+                                        *  ORL-QTY-ORDERED                      
+                 PERFORM 8530-ORSPLTOT-LINE-TOTALS                              
+              ELSE                                                              
+                 PERFORM 8520-ORSPLTOT-STANDARD-LINE                            
+                 IF ORL-COMMOD-CODE = 'CCS' OR 'CHS'                            
+                    COMPUTE FV-LINE-SHIP-AMOUNT =  FV-LINE-ORDER-AMOUNT         
+                 END-IF                                                         
+                 PERFORM 8530-ORSPLTOT-LINE-TOTALS.                             
+      *                                                                         
+       8520-ORSPLTOT-STANDARD-LINE.                                             
+      *                                                                         
+           COMPUTE FV-LINE-SHIP-AMOUNT  ROUNDED                                 
+                                        = ORL-UNIT-PRICE                        
+                                        * ORL-QTY-SHIPPED                       
+           COMPUTE FV-LINE-ORDER-AMOUNT ROUNDED                                 
+                                        = ORL-UNIT-PRICE                        
+                                        * ORL-QTY-ORDERED.                      

@@ -1,0 +1,96 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *    * 07/03/22 MP4   BR LINK PROJECT - ADDED NEW COMPANY 'BL' *  MP422184
+      *    * 10/25/20 TGF   ADDED CISCO NET PRICING HARDBUNDLE HANDLE*  TGF20299
+      *    * 09/27/13 TGF   ADDED PROMARK-GSA PROCESSING.            *  TGF13270
+      *    * 06/22/04 TGF   ADDED BRAZIL NEW COMPANY CODE (BP).      *  TGF04174
+      *    * 03/16/04 RLH   CLONE GERMANY LOGIC FOR COMPUSHACK       *  RLH04075
+000010*    * 08/01/00 TLC   CHANGE FOR BACKORDER OF GERMAN 895 LINES *  TLC00214
+000010*    * 12/02/98 KLM   IF MEDIA CHARGE FOR BRAZIL (MCE OR MCU), *  KLM98350
+000010*    *                ALLOW BACKORDER                          *  KLM98350
+000010*    * 04/05/96 MWD   CONFIG MISC CHARGES SHOULD BE SKIPPED    *  MWD96095
+000010*    * 11/17/94 TMH   ALLOW LINE CHANGE FOR 895 LINE           *  TMH94321
+000200*    * 01/04/93  MCV  FIX GP ROUNDING ERROR                       MCV93004
+000300*    * PC 60123      K-H-               10/14/86   11/07/86               
+000400*    * PC 60061      R-R-               07/29/86                          
+000500*    * PC 60025      TKW1               05/05/86                          
+000600*    * REV 4.06      K.H.                850812     850822                
+001000     IF ORL-COMMENT-TYPE AND                                      MWD96095
+001000        ORL-CONFIG-IND > SPACE                                    MWD96095
+001000            NEXT SENTENCE                                         MWD96095
+001000     ELSE                                                         MWD96095
+000700        IF ORL-MISC-FRT-CHARGE                                    TMH94321
+                   OR ( ( ORH-COMPANY EQUAL 'DE' OR 'DC' )              RLH04075
+                          AND ORL-MISC-CHARGE)                          RLH04075
+000800               NEXT SENTENCE                                      TMH94321
+000900        ELSE                                                      TMH94321
+001000           IF ORL-COMMENT-TYPE OR ORL-LABOR OR ORL-TAX-LINE               
+                    IF ORL-COMPONENT-ITEM AND                           TGF20299
+                       ORL-SYSTEM-ITEM-LINE-NBR NUMERIC AND             TGF20299
+                       ORL-SYSTEM-ITEM-LINE-NBR > ZEROES                TGF20299
+001100                 NEXT SENTENCE                                    TGF20299
+                    ELSE                                                TGF20299
+001100                 IF ORH-COMPANY = ('BR' OR 'BL' OR 'BP') AND      MP422184
+001100                    (ORL-COMMOD-CODE = 'MCE' OR 'MCU')            KLM98350
+001100                    NEXT SENTENCE                                 KLM98350
+001100                 ELSE                                             KLM98350
+                          IF ORH-GOVT-PROMARK-GSA                       TGF13270
+                             NEXT SENTENCE                              TGF13270
+                          ELSE                                          TGF13270
+001100                       IF ORL-QTY-SHIPPED EQUAL ZEROS                     
+001200                          MOVE 1 TO ORL-QTY-SHIPPED                       
+001300                                    ORL-QTY-ORDERED                       
+001400                          MOVE ZEROES                             TGF20299
+                                       TO ORL-QTY-BACKORDERED           TGF20299
+                             END-IF.                                    TGF20299
+001500*                                                                         
+001600     MOVE 1.00000                TO  WS-FACTOR.                           
+001700     IF ORL-WEIGHT-PER EQUAL 'C' OR 'DE'                                  
+001800         MOVE .01000             TO  WS-FACTOR                            
+001900     ELSE                                                                 
+002000         IF ORL-WEIGHT-PER EQUAL 'M'                                      
+002100             MOVE .00100         TO  WS-FACTOR                            
+002200         ELSE                                                             
+002300             IF ORL-WEIGHT-PER EQUAL 'DZ'                                 
+002400                 MOVE .08333     TO  WS-FACTOR.                           
+002500*                                                                         
+002600     COMPUTE WS-EXT-WEIGHT ROUNDED = (ORL-UNIT-WEIGHT *                   
+002700         ORL-QTY-SHIPPED) * WS-FACTOR.                                    
+002800*                                                                         
+002900     MOVE 1.00000                TO  WS-FACTOR.                           
+003000     IF ORL-UM EQUAL 'C ' OR 'DE'                                         
+003100         MOVE .01000             TO  WS-FACTOR                            
+003200     ELSE                                                                 
+003300         IF ORL-UM EQUAL 'M '                                             
+003400             MOVE .00100         TO  WS-FACTOR                            
+003500         ELSE                                                             
+003600             IF ORL-UM EQUAL 'DZ'                                         
+003700                 MOVE .08333     TO  WS-FACTOR.                           
+003800     IF ORL-UM EQUAL 'H'                                                  
+003900         IF ORL-WEIGHT-PER EQUAL 'E'                                      
+004000             COMPUTE WS-FACTOR = .01 * ORL-UNIT-WEIGHT                    
+004100         ELSE                                                             
+004200             IF ORL-WEIGHT-PER EQUAL 'C'                                  
+004300                 COMPUTE WS-FACTOR = .0001 * ORL-UNIT-WEIGHT              
+004400             ELSE                                                         
+004500                 IF ORL-WEIGHT-PER EQUAL 'M'                              
+004600                     COMPUTE WS-FACTOR = .00001 * ORL-UNIT-WEIGHT.        
+004700*                                                                         
+004800     COMPUTE WS-EXT-DISCOUNT = ORL-UNIT-PRICE * ORL-TRADE-DISC.           
+004900     COMPUTE WS-EXT-SALES ROUNDED = (((ORL-UNIT-PRICE -                   
+005000         WS-EXT-DISCOUNT) * ORL-QTY-SHIPPED) * WS-FACTOR).                
+005100     COMPUTE WS-EXT-COST ROUNDED = (ORL-UNIT-COST *                       
+005200         ORL-QTY-SHIPPED) * WS-FACTOR.                                    
+005300     IF WS-EXT-SALES GREATER THAN ZEROS                                   
+005400         COMPUTE WS-EXT-GP = WS-EXT-SALES - WS-EXT-COST                   
+005500         COMPUTE WS-EXT-PCT-DEC = WS-EXT-GP / WS-EXT-SALES                
+005600         COMPUTE WS-EXT-PCT ROUNDED =                             MCV93004
+005700                 100 * WS-EXT-GP / WS-EXT-SALES                   MCV93004
+005800     ELSE                                                                 
+005900         MOVE ZEROS              TO  WS-EXT-GP                            
+006000                                     WS-EXT-PCT-DEC                       
+006100                                     WS-EXT-PCT.                          
+006200     COMPUTE WS-EXT-ORDERED-SALES ROUNDED = (((ORL-UNIT-PRICE -           
+006300         WS-EXT-DISCOUNT) * ORL-QTY-ORDERED) * WS-FACTOR).                
+006400     COMPUTE WS-EXT-CUBE ROUNDED = ORL-QTY-SHIPPED * ORL-CUBE.            

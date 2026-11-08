@@ -1,0 +1,414 @@
+﻿      *           INDIA SALES TAX CALCULATION ROUTINE                           
+      *****************************************************************         
+      * 07/10/15  TXV SE24042 - TO INCLUDE NEW TBX TABLE(TBXSOTAX) TO   TXV15191
+      *               SETUP TAX CALCULATION SWITCH ON DUAL-TAX AND      TXV15191
+      *               BASE + SERVICE LINE                               TXV15191
+      * 03/06/15  AZA TO CALCULATE VAT ON FREIGHT AMT IN IMME -SE22575  AZA15065
+      * 02/24/13  SMP  VALIDATION FOR NON VAT TAX STATE YY AND YH       SMP13055
+      * 07/31/08  SZS  INDIA - ADDED INT225 FOR MISC CHARGE VAT TAX     SZS08213
+      * 07/14/05  CJK  INDIA - ADDED CST CODE E                         CJK05238
+      * 05/31/05  KLM  TP - ADDED SERVICE TAX AND REDUCED CST TAX RATE  KLM05151
+      * 05/29/03  DXB  MODIFICATIONS FOR NEW VAT AND SAT TAXES          DXB03149
+      * 12/07/99  KLL  MODIFY TAX ON TURNOVER LOGIC                     KLL99341
+      * 11/02/99  KLL  NEW COPYBOOK                                     KLL99306
+      *****************************************************************         
+                                                                                
+       INT100-TAX-ROUTINE.                                                      
+                                                                                
+           IF INT-PCT-PASSED                                                    
+              PERFORM INT400-COMPUTE-TAX-AMOUNTS THRU INT400-EXIT               
+              PERFORM INT500-CALC-TOTAL-TAX THRU INT500-EXIT                    
+              GO TO INT100-EXIT.                                                
+                                                                                
+           MOVE INT-COMPANY            TO TB-INT-COMPANY-CODE.                  
+           MOVE INT-IM-STATE           TO TB-INT-STATE-CODE.            TXV15191
+           CALL 'SYU510'            USING TB-INT-TABLE-IA.                      
+                                                                                
+           IF INT-SERVICE-TAX-SW NOT = 'Y'                              KLM05151
+           PERFORM INT200-CALC-LST-CST-TAX THRU INT200-EXIT.                    
+                                                                        AZA15065
+           IF WS-FRT-VAT-APPLY AND WS-FRT-LINE-EXISTS                   AZA15065
+              PERFORM INT201-CALC-LST-CST-FRTAX-RATE                    AZA15065
+                                              THRU INT201-EXIT.         AZA15065
+                                                                        SZS08213
+           IF INT-SERVICE-TAX-SW = 'Y' AND                              SZS08213
+             INT-SERVICE-TAX-CODE = 'ST' AND                            SZS08213
+             NOT WS-IM-NON-TAX                                          TXV15191
+              PERFORM INT225-CALC-LST-MIS-TAX THRU INT225-EXIT.         SMP13055
+                                                                        KLM05151
+           IF INT-SERVICE-TAX-SW = 'Y' AND                              KLM05151
+             INT-SERVICE-TAX-CODE = 'SV'                                KLM05151
+              PERFORM INT250-CALC-SERVICE-TAX THRU INT250-EXIT.         KLM05151
+                                                                        DXB03149
+           IF TB-INT-VAT-TAX-SW = 'Y'                                   DXB03149
+              AND TB-INT-SAT-TAX-SW  = 'Y'                              DXB03149
+              AND INT-LST-CST-AMT NOT = ZEROES                          DXB03149
+               PERFORM INT300-CALC-OTHER-TAX THRU                       DXB03149
+                       INT300-EXIT                                      DXB03149
+           END-IF.                                                      DXB03149
+                                                                        DXB03149
+           PERFORM INT500-CALC-TOTAL-TAX THRU INT500-EXIT.                      
+                                                                                
+           IF INT-SYSTEM-ITEM                                                   
+              MOVE INT-LST-CST-RATE    TO INT-SYS-LST-CST-RATE                  
+              MOVE INT-CESS-RATE       TO INT-SYS-CESS-RATE                     
+              MOVE INT-TOT-RATE        TO INT-SYS-TOT-RATE                      
+              MOVE INT-OCTROI-RATE     TO INT-SYS-OCTROI-RATE.                  
+                                                                                
+       INT100-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       INT200-CALC-LST-CST-TAX.                                                 
+                                                                                
+           IF TB-INT-VAT-TAX-SW = 'N'                                   DXB03149
+              AND INT-LST-TAX                                           DXB03149
+              AND INT-VENDOR-STATE = INT-IM-STATE                       DXB03149
+               GO TO INT200-EXIT                                        DXB03149
+           END-IF.                                                      DXB03149
+                                                                                
+           IF NOT WS-SYTX-NORESP                                        DXB03149
+              GO TO INT200-EXIT                                         DXB03149
+           END-IF.                                                      DXB03149
+                                                                                
+           IF INT-RESELLER-NBR > SPACES AND                             AZA15065
+                                      ORL-LINE-NBR NOT = 895            AZA15065
+              IF INT-CST-TAX                                            KLM05151
+                 IF INT-CST-TAX-FORM = 'Y' OR 'E'                       CJK05238
+                    COMPUTE INT-LST-CST-RATE ROUNDED =                  KLM05151
+                            INT-CST-RATE-SAVE / 100                     KLM05151
+                 ELSE                                                   KLM05151
+                    COMPUTE INT-LST-CST-RATE ROUNDED =                  KLM05151
+                            SYTX-STATE-SALES-TAX-RATE / 100             KLM05151
+              ELSE                                                      KLM05151
+                 COMPUTE INT-LST-CST-RATE ROUNDED =                     DXB03149
+                         SYTX-STATE-SALES-TAX-RATE / 100                DXB03149
+           ELSE                                                                 
+               COMPUTE INT-LST-CST-RATE ROUNDED =                       DXB03149
+                       SYTX-COUNTY-SALES-TAX-RATE / 100                 DXB03149
+           END-IF.                                                      DXB03149
+                                                                                
+           COMPUTE INT-LST-CST-AMT ROUNDED =                                    
+                   INT-TAXABLE-AMT * INT-LST-CST-RATE.                          
+                                                                                
+       INT200-EXIT.                                                             
+           EXIT.                                                                
+                                                                        AZA15065
+       INT201-CALC-LST-CST-FRTAX-RATE.                                  AZA15065
+                                                                        AZA15065
+           IF ORL-LINE-NBR NOT         = 895 AND ORL-MERCHANDISE-LINE   AZA15065
+                    AND ORL-VAT-TAX-CODE NOT = SPACES                   AZA15065
+                    AND INT-LST-CST-RATE NOT  = ZEROES                  AZA15065
+               PERFORM 380IAA-CALC-VAT-ON-FRT THRU 380IAA-EXIT          AZA15065
+           ELSE                                                         AZA15065
+             IF ORL-LINE-NBR = 895 AND ORL-UNIT-PRICE NOT = ZEROES      AZA15065
+              IF INT-TOT-AMT-AVG   > ZERO                               AZA15065
+               MOVE +0 TO INT-AVG-LST-CST-RATE-DISP                     AZA15065
+               COMPUTE INT-AVG-LST-CST-RATE ROUNDED =                   AZA15065
+                       INT-TOTAL-TAX-AVG / INT-TOT-AMT-AVG              AZA15065
+               COMPUTE INT-LST-CST-AMT ROUNDED =                        AZA15065
+                       INT-TAXABLE-AMT * INT-AVG-LST-CST-RATE           AZA15065
+               COMPUTE INT-AVG-LST-CST-RATE-DISP ROUNDED =              AZA15065
+                               INT-AVG-LST-CST-RATE * 100               AZA15065
+               MOVE INT-AVG-LST-CST-RATE-DISP TO WS-895IA-AVG-VAT-RATE  AZA15065
+                PERFORM 379IAB-REBUILD-TAX-DISP-DATA                    AZA15065
+                   THRU 379IAB-EXIT                                     AZA15065
+              END-IF                                                    AZA15065
+             END-IF                                                     AZA15065
+           END-IF.                                                      AZA15065
+                                                                        AZA15065
+       INT201-EXIT.                                                     AZA15065
+           EXIT.                                                        AZA15065
+                                                                        SZS08213
+       INT225-CALC-LST-MIS-TAX.                                         SZS08213
+                                                                        SZS08213
+           IF TB-INT-NORESP                                             SZS08213
+              CONTINUE                                                  SZS08213
+           ELSE                                                         SZS08213
+              GO TO INT225-EXIT.                                        SZS08213
+                                                                        SZS08213
+           IF INT-LST-TAX                                               TXV15191
+               COMPUTE INT-LST-CST-RATE ROUNDED =                       TXV15191
+                   TB-INT-MISC-VAT-TAX-RATE / 100.                      SZS08213
+                                                                        TXV15191
+           IF INT-CST-TAX                                               TXV15191
+               COMPUTE INT-LST-CST-RATE ROUNDED =                       TXV15191
+                   TB-INT-MISC-CST-TAX-RATE / 100.                      TXV15191
+                                                                        SZS08213
+           COMPUTE INT-LST-CST-AMT ROUNDED =                            SZS08213
+                   INT-TAXABLE-AMT * INT-LST-CST-RATE.                  SZS08213
+                                                                        SZS08213
+       INT225-EXIT.                                                     SZS08213
+           EXIT.                                                        SZS08213
+                                                                        KLM05151
+       INT250-CALC-SERVICE-TAX.                                         KLM05151
+                                                                        KLM05151
+           IF TB-INT-NORESP                                             KLM05151
+              CONTINUE                                                  KLM05151
+           ELSE                                                         KLM05151
+              GO TO INT250-EXIT.                                        KLM05151
+                                                                        KLM05151
+           COMPUTE INT-SERVICE-TAX-RATE ROUNDED =                       KLM05151
+                   TB-INT-SERVICE-TAX-RATE / 100.                       KLM05151
+                                                                        KLM05151
+           COMPUTE INT-SERVICE-TAX-AMT ROUNDED =                        KLM05151
+                   INT-TAXABLE-AMT * INT-SERVICE-TAX-RATE.              KLM05151
+                                                                        KLM05151
+       INT250-EXIT.                                                     KLM05151
+           EXIT.                                                        KLM05151
+                                                                                
+       INT300-CALC-OTHER-TAX.                                                   
+                                                                                
+           IF TB-INT-NORESP                                                     
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              GO TO INT300-EXIT.                                                
+                                                                                
+           IF TB-INT-CESS-RATE NUMERIC  AND                                     
+              TB-INT-CESS-RATE NOT = ZEROES                                     
+              MOVE TB-INT-CESS-RATE    TO INT-CESS-RATE                         
+              COMPUTE INT-CESS-AMT ROUNDED =                                    
+                      INT-LST-CST-AMT * INT-CESS-RATE.                          
+                                                                                
+      **** WILL USE TOT RATE AND TOT AMOUNT FOR NEW SAT TAX ****        DXB03149
+      **** TOT TAX IS CURRENTLY NOT ACTIVE IN INDIA         ***         DXB03149
+                                                                        DXB03149
+           IF SYTX-CITY-SALES-TAX-RATE NUMERIC                          DXB03149
+              COMPUTE INT-TOT-RATE = SYTX-CITY-SALES-TAX-RATE / 100     DXB03149
+              IF TB-INT-SAT-CALC-TYPE = 'B'                             DXB03149
+                 COMPUTE INT-TOT-AMT ROUNDED =                          DXB03149
+                      INT-TAXABLE-AMT * INT-TOT-RATE                    DXB03149
+              END-IF                                                    DXB03149
+              IF TB-INT-SAT-CALC-TYPE = 'T'                             DXB03149
+                 COMPUTE INT-TOT-AMT ROUNDED =                          DXB03149
+                   (INT-TAXABLE-AMT + INT-LST-CST-AMT) * INT-TOT-RATE   DXB03149
+              END-IF                                                    DXB03149
+           END-IF.                                                      DXB03149
+                                                                                
+       INT300-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       INT400-COMPUTE-TAX-AMOUNTS.                                              
+                                                                                
+           COMPUTE INT-LST-CST-AMT ROUNDED =                                    
+                   INT-TAXABLE-AMT * INT-LST-CST-RATE.                          
+           COMPUTE INT-CESS-AMT ROUNDED =                                       
+                   INT-LST-CST-AMT * INT-CESS-RATE.                             
+           COMPUTE INT-TOT-AMT ROUNDED =                                        
+                   INT-TAXABLE-AMT * INT-TOT-RATE.                              
+           COMPUTE INT-SERVICE-TAX-AMT ROUNDED =                        KLM05151
+                   INT-TAXABLE-AMT * INT-SERVICE-TAX-RATE.              KLM05151
+                                                                                
+       INT400-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       INT500-CALC-TOTAL-TAX.                                                   
+                                                                                
+           COMPUTE INT-TOTAL-LST-CST-AMT =                                      
+                   INT-TOTAL-LST-CST-AMT + INT-LST-CST-AMT.                     
+           COMPUTE INT-TOTAL-CESS-AMT =                                         
+                   INT-TOTAL-CESS-AMT + INT-CESS-AMT.                           
+           COMPUTE INT-TOTAL-TOT-AMT =                                          
+                   INT-TOTAL-TOT-AMT + INT-TOT-AMT.                             
+           COMPUTE INT-TOTAL-SERVICE-AMT ROUNDED =                      KLM05151
+                   INT-TOTAL-SERVICE-AMT + INT-SERVICE-TAX-AMT.         KLM05151
+           COMPUTE INT-TOTAL-TAX =                                              
+                   INT-TOTAL-LST-CST-AMT + INT-TOTAL-OCTROI-AMT +       KLM05151
+                   INT-TOTAL-SERVICE-AMT +                              KLM05151
+                   INT-TOTAL-CESS-AMT + INT-TOTAL-TOT-AMT.                      
+                                                                                
+       INT500-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       INT900-INITIALIZE-TAX-FIELDS.                                            
+                                                                                
+           MOVE ZEROES                 TO INT-LST-CST-RATE                      
+                                          INT-CESS-RATE                         
+                                          INT-TOT-RATE                          
+                                          INT-OCTROI-RATE                       
+                                          INT-SERVICE-TAX-RATE          KLM05151
+                                          INT-LST-CST-AMT                       
+                                          INT-CESS-AMT                          
+                                          INT-TOT-AMT                           
+                                          INT-SERVICE-TAX-AMT           KLM05151
+                                          INT-OCTROI-AMT.                       
+                                                                                
+           MOVE SPACES                 TO INT-PCT-PASSED-SW                     
+                                          INT-VENDOR-STATE                      
+                                          INT-PRODUCT-CODE                      
+                                          INT-SERVICE-TAX-SW            KLM05151
+                                          INT-SERVICE-TAX-CODE          KLM05151
+                                          INT-SYSTEM-COMPONENT-SW.              
+                                                                                
+                                                                                
+       INT900-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      *================================================================ AZA15065
+      * HEY BUDDY...IF THERE IS ORSDES LINE WITH '999' EXISTING,        AZA15065
+      * IT IMPLIES THAT THERE IS VAT TAX LINE IN ORDER.                 AZA15065
+      * HOWEVER, THERE IS A POSSIBILITY WE HAD VAT TAX LINE EARLIER AND AZA15065
+      * THAT WAS JUST REMOVED DURING THIS TRAIL.                        AZA15065
+      * SO WE NEED TO DELETE ALL ORSDES SEGMENTS COMING UNDER 895 LINE. AZA15065
+      * GREAT DEAL !!!                                                  AZA15065
+      *================================================================ AZA15065
+       379IAB-REBUILD-TAX-DISP-DATA.                                    AZA15065
+                                                                        AZA15065
+             MOVE WS-COMPANY     TO WS-ORSHED-CO.                       AZA15065
+             MOVE WS-BRANCH      TO WS-ORSHED-BR.                       AZA15065
+             MOVE WS-ORDER       TO WS-ORSHED-NBR.                      AZA15065
+             MOVE WS-DIST        TO WS-ORSSHH-DIST.                     AZA15065
+             MOVE WS-SHIP        TO WS-ORSSHH-SHIP.                     AZA15065
+             MOVE '895'          TO WS-ORSLNE-NBR.                      AZA15065
+             MOVE '('            TO WS-ORSHED-QUAL                      AZA15065
+                                    WS-ORSSHH-QUAL                      AZA15065
+                                    WS-ORSLNE-QUAL.                     AZA15065
+             MOVE '397'          TO WS-ORSDES-NBR.                      AZA15065
+             MOVE '= '           TO WS-ORSDES-SEARCH.                   AZA15065
+                                                                        AZA15065
+             PERFORM 1209-GU-ORSDES.                                    AZA15065
+                                                                        AZA15065
+             IF WS-ORSDES-NORESP                                        AZA15065
+                PERFORM 379IAA-DELETE-AND-REBUILD-895                   AZA15065
+                   THRU 379IAA-EXIT                                     AZA15065
+             END-IF.                                                    AZA15065
+                                                                        AZA15065
+                MOVE '('                 TO  WS-ORSLNE-QUAL             AZA15065
+                MOVE 'ORSDES   '         TO  WS-UNQUAL-SSA              AZA15065
+                MOVE ' '                 TO  WS-ORSDES-IO-SW            AZA15065
+                                             WS-ORSDES-QUAL             AZA15065
+                MOVE SPACES              TO  ORD-ORSDES                 AZA15065
+                MOVE '397'               TO  ORD-DESC-NBR               AZA15065
+                MOVE WS-895IA-DISC-AVG   TO  ORD-DESCRIPTION-ORD        AZA15065
+                                                                        AZA15065
+                PERFORM 1344-ISRT-ORSDES                                AZA15065
+                                                                        AZA15065
+                IF NOT WS-ORSDES-NORESP                                 AZA15065
+                   MOVE '379I'         TO  WS-ABCODE                    AZA15065
+                   MOVE ORPCB-STS      TO  WS-STATUS                    AZA15065
+                   MOVE 'DL/1'         TO  WS-ERROR-CODE                AZA15065
+                   MOVE SPACES         TO  WS-ERROR-OPTIONAL-DATA       AZA15065
+                   MOVE ORPCB          TO  WS-ERROR-DL1-PCB             AZA15065
+                   MOVE WS-ABCODE      TO  WS-ERROR-DL1-ABCODE          AZA15065
+                   PERFORM 999-ABEND                                    AZA15065
+                END-IF.                                                 AZA15065
+                                                                        AZA15065
+       379IAB-EXIT.                                                     AZA15065
+             EXIT.                                                      AZA15065
+                                                                        AZA15065
+       379IAA-DELETE-AND-REBUILD-895.                                   AZA15065
+                                                                        AZA15065
+             PERFORM 1204-GU-ORSLNE.                                    AZA15065
+                                                                        AZA15065
+             IF WS-ORSLNE-NORESP                                        AZA15065
+                MOVE ORL-ORSLNE     TO SAVE-ORSLNE-AREA                 AZA15065
+                PERFORM 1205-GU-ORSLNEOF                                AZA15065
+                IF WS-ORSLNEOF-NORESP                                   AZA15065
+                   MOVE ORLOF-ORSLNEOF TO SAVE-ORSLNEOF-AREA            AZA15065
+                   PERFORM 9212-GHU-ORSLNE                              AZA15065
+                   IF WS-ORSLNE-NORESP                                  AZA15065
+                      PERFORM 1296-DLET-ORSLNE                          AZA15065
+                      IF WS-ORSLNE-NORESP                               AZA15065
+                         MOVE SAVE-ORSLNE-AREA TO ORL-ORSLNE            AZA15065
+                         PERFORM 1336-ISRT-ORSLNE                       AZA15065
+                         IF WS-ORSLNE-NORESP                            AZA15065
+                         MOVE '('            TO  WS-ORSLNE-QUAL         AZA15065
+                         MOVE SPACES         TO  WS-UNQUAL-SSA          AZA15065
+                         MOVE 'ORSLNEOF'     TO  WS-UNQUAL-SSA          AZA15065
+                         MOVE SAVE-ORSLNEOF-AREA TO  ORLOF-ORSLNEOF     AZA15065
+                         PERFORM 1337-ISRT-ORSLNEOF                     AZA15065
+                         MOVE SPACES         TO  WS-ORSLNE-QUAL         AZA15065
+                      END-IF                                            AZA15065
+                   END-IF                                               AZA15065
+                END-IF                                                  AZA15065
+             END-IF.                                                    AZA15065
+                                                                        AZA15065
+             IF (NOT WS-ORSLNE-NORESP)   OR                             AZA15065
+                (NOT WS-ORSLNEOF-NORESP)                                AZA15065
+                 MOVE '379A'         TO  WS-ABCODE                      AZA15065
+                 MOVE ORPCB-STS      TO  WS-STATUS                      AZA15065
+                 MOVE 'DL/1'         TO  WS-ERROR-CODE                  AZA15065
+                 MOVE SPACES         TO  WS-ERROR-OPTIONAL-DATA         AZA15065
+                 MOVE ORPCB          TO  WS-ERROR-DL1-PCB               AZA15065
+                 MOVE WS-ABCODE      TO  WS-ERROR-DL1-ABCODE            AZA15065
+                 PERFORM 999-ABEND                                      AZA15065
+             END-IF.                                                    AZA15065
+                                                                        AZA15065
+       379IAA-EXIT.                                                     AZA15065
+             EXIT.                                                      AZA15065
+                                                                        AZA15065
+       380IAA-CALC-VAT-ON-FRT.                                          AZA15065
+                                                                        AZA15065
+           MOVE SPACES                TO WS-SHIP-FROM-STATE.            AZA15065
+           MOVE SPACES                TO INT-APPLY-DUAL-TAX.            AZA15065
+           MOVE +0                    TO INT-LNE-TAX-AVG                AZA15065
+                                         INT-LNE-TOT-AVG.               AZA15065
+           MOVE TC-COMPANY            TO WS-BP-COMPANY                  AZA15065
+           MOVE ORSH-BR-NBR-SHIP-FROM TO WS-BP-BR-NBR                   AZA15065
+           MOVE '2'                   TO WS-BP-REC-SEQ                  AZA15065
+           PERFORM 702-READ-BP        THRU 702-EXIT                     AZA15065
+                                                                        AZA15065
+           IF WS-BP-NORESP                                              AZA15065
+               MOVE BP-SHIP-FROM-STATE TO WS-SHIP-FROM-STATE            AZA15065
+           END-IF                                                       AZA15065
+                                                                        AZA15065
+           PERFORM 380IAB-CHECK-SR-VAT THRU 380IAB-EXIT                 AZA15065
+                                                                        AZA15065
+           IF INT-APPLY-DUAL-TAX = 'Y'                                  AZA15065
+            MOVE ORH-COMPANY        TO TB-INT-COMPANY-CODE              AZA15065
+            MOVE WS-SHIP-FROM-STATE TO TB-INT-STATE-CODE                AZA15065
+            CALL 'SYU510'        USING TB-INT-TABLE-IA                  AZA15065
+              IF TB-INT-NORESP                                          AZA15065
+               MOVE TB-INT-SERVICE-TAX-RATE TO INT-SERVICE-TAX-RATE-PCT AZA15065
+              END-IF                                                    AZA15065
+                                                                        AZA15065
+                  MOVE +0                  TO INT-SERVICE-TAX-AMOUNT    AZA15065
+                                              INT-TOT-AMT-WITH-SRV-TAX  AZA15065
+                                              INT-VAT-ON-TOTAL-AMOUNT   AZA15065
+                  COMPUTE INT-SERVICE-TAX-AMOUNT    =                   AZA15065
+                      ORL-UNIT-PRICE * INT-SERVICE-TAX-RATE-PCT / 100   AZA15065
+                  COMPUTE INT-TOT-AMT-WITH-SRV-TAX  =                   AZA15065
+                            INT-SERVICE-TAX-AMOUNT + ORL-UNIT-PRICE     AZA15065
+                 COMPUTE INT-VAT-ON-TOTAL-AMOUNT   =                    AZA15065
+                          INT-TOT-AMT-WITH-SRV-TAX  * INT-LST-CST-RATE  AZA15065
+                 COMPUTE INT-LNE-TAX-AVG           =                    AZA15065
+                          INT-VAT-ON-TOTAL-AMOUNT   * ORL-QTY-SHIPPED   AZA15065
+                 COMPUTE INT-LNE-TOT-AVG           =                    AZA15065
+                          ORL-UNIT-PRICE  * ORL-QTY-SHIPPED             AZA15065
+                 ADD INT-LNE-TAX-AVG      TO INT-TOTAL-TAX-AVG          AZA15065
+                 ADD INT-LNE-TOT-AVG      TO INT-TOT-AMT-AVG            AZA15065
+           ELSE                                                         AZA15065
+                 MOVE +0                  TO INT-LNE-TAX-VAT            AZA15065
+                 COMPUTE INT-LNE-TAX-VAT           =                    AZA15065
+                          ORL-UNIT-PRICE     * INT-LST-CST-RATE         AZA15065
+                 COMPUTE INT-LNE-TAX-AVG           =                    AZA15065
+                          INT-LNE-TAX-VAT    * ORL-QTY-SHIPPED          AZA15065
+                 COMPUTE INT-LNE-TOT-AVG           =                    AZA15065
+                          ORL-UNIT-PRICE  * ORL-QTY-SHIPPED             AZA15065
+                 ADD INT-LNE-TAX-AVG      TO INT-TOTAL-TAX-AVG          AZA15065
+                 ADD INT-LNE-TOT-AVG      TO INT-TOT-AMT-AVG            AZA15065
+           END-IF.                                                      AZA15065
+                                                                        AZA15065
+       380IAA-EXIT.                                                     AZA15065
+             EXIT.                                                      AZA15065
+                                                                        AZA15065
+      *--------------------------------------------------------------*  AZA15065
+       380IAB-CHECK-SR-VAT.                                             AZA15065
+      *--------------------------------------------------------------*  AZA15065
+           MOVE ORH-COMPANY        TO TB-SRVAT-COMPANY-CODE             AZA15065
+           MOVE WS-SHIP-FROM-STATE TO TB-SRVAT-STATE-CODE               AZA15065
+           MOVE ORL-VAT-TAX-CODE   TO TB-SRVAT-VAT-CODE                 AZA15065
+           CALL 'SYU510'        USING TB-SRVAT-PROC-IA                  AZA15065
+           IF TB-SRVAT-NORESP                                           AZA15065
+             MOVE TB-SRVAT-APPLY-DUAL-TAX TO INT-APPLY-DUAL-TAX         AZA15065
+           ELSE                                                         AZA15065
+             IF TB-SRVAT-ENTRY-NOTFND                                   AZA15065
+              CONTINUE                                                  AZA15065
+             ELSE                                                       AZA15065
+              MOVE 'TSRV'           TO WS-ABCODE                        AZA15065
+              PERFORM 999-ABEND                                         AZA15065
+             END-IF                                                     AZA15065
+           END-IF.                                                      AZA15065
+                                                                        AZA15065
+       380IAB-EXIT.                                                     AZA15065
+           EXIT.                                                        AZA15065
+                                                                        AZA15065

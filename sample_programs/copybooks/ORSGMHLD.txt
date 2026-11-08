@@ -1,0 +1,191 @@
+      ******************************************************************
+      * ORSGMHLD - ORDER GROSS MARGIN HOLD CALCULATION MODULE.
+      ******************************************************************
+      *   THIS COPYBOOK IS USED TO CALCULATE MARGIN ON LINE LEVEL AND
+      *   SET THE ORDER ON GROSS MARGIN HOLD BASED ON THE TBXCORP7
+      *   FLAGS AND VENDOR LEVEL SETUPS.
+      *   THIS IS AN INSIDELINE MODULE CALLED FROM ORP678IM PROGRAM.
+      *   FOR ANY CHANGES, PLEASE REACH OUT TO:
+      *   INSIDELINE_TEAM@INGRAMMICRO.COM
+      ******************************************************************
+      * REVISION HISTORY
+      * 10/31/25 VZM INITIAL RELEASE                                    VZM25304
+      ******************************************************************
+       G100-CHECK-GM-LOGIC.
+      *
+      * SKIP THIS ROUTINE FOR NON-PART LINES                           *
+      *
+           IF ORL-MERCHANDISE-LINE
+              NEXT SENTENCE
+           ELSE
+              GO TO G100-EXIT
+           END-IF.
+      *
+      * SKIP THIS ROUTINE IF THE UNIT PRICE AND ADJUSTED COST IS NOT   *
+      * NUMERIC.                                                       *
+      *
+           IF  ORL-UNIT-PRICE NUMERIC  AND
+                ORL-ADJUSTED-COST NUMERIC
+              NEXT SENTENCE
+           ELSE
+              GO TO G100-EXIT
+           END-IF.
+      *
+      * THE FOLLOWING SWITCH DETERMINES TO PERFORM THE SUBROUTINE TO   *
+      * FETCH COST TO BE USED FOR GROSS MARGIN PROFIT CALCULATIONS.    *
+      *
+           IF TB-CPO7-GM-CALC-YES
+              PERFORM G110-FIND-VENDOR-GM-SW
+                 THRU G110-EXIT
+              PERFORM G120-NUM-CHCK-ON-COST
+                 THRU G120-EXIT
+           END-IF.
+      *
+      * CALL CORRECT PARA TO CALCULATE MARGINS BASED ON THE FLAG       *
+      *
+           IF TC-COMPANY = 'FT' OR
+              (TB-CPO7-GM-CALC-YES AND WS-GM-ORU356-NORESP)
+               PERFORM G130-ADJUSTED-GM-CALC THRU G130-EXIT
+           ELSE
+               PERFORM G140-GM-CALC THRU G140-EXIT
+           END-IF.
+      *
+       G100-EXIT.
+           EXIT.
+      *
+      * BELOW PARA EXECUTES SUBROUTINE ORU356 TO FETCH THE COST TYPE
+      * SET FOR VENDOR.
+      *
+       G110-FIND-VENDOR-GM-SW.
+
+           MOVE SPACES                 TO WS-ORR356-PROGRAM-INTERFACE.
+           MOVE ORH-COMPANY            TO WS-GM-VND-CO-CD.
+           MOVE WS-VEND-CLS-TYPE       TO WS-GM-VND-TYPE.
+           MOVE ORL-VENDOR-NBR         TO WS-GM-VND-NBR.
+
+           CALL WS-VEND-MAGN-CHK-PGM   USING DFHEIBLK
+                                             DFHCOMMAREA
+                                          WS-ORR356-PROGRAM-INTERFACE.
+       G110-EXIT.
+           EXIT.
+      *
+      * BELOW PARA CHECKS IF THE BELOW INVENTORY DATABASE FIELDS
+      * AND COPY THEM TO WORKING STORAGE FOR MARGIN CALCULATION.
+      *    1. INI-REPLACEMENT-COST
+      *    2. INI-INGRAM-COST
+      *
+       G120-NUM-CHCK-ON-COST.
+
+           INITIALIZE                 WS-GM-REPL-COST
+                                      WS-GM-ING-COST.
+
+           MOVE ORH-COMPANY            TO WS-INAL2-CO.
+           MOVE ORL-PART-NBR           TO WS-INAL2-PART.
+           PERFORM 1550-GU-INSHED-VIA-PART.
+           IF WS-INSHED-NORESP
+              CONTINUE
+           ELSE
+              MOVE ZEROS               TO WS-GM-REPL-COST
+              MOVE ZEROS               TO WS-GM-ING-COST
+           END-IF.
+
+           IF INI-REPLACEMENT-COST IS NUMERIC
+              MOVE INI-REPLACEMENT-COST
+                                       TO WS-GM-REPL-COST
+           ELSE
+              MOVE ZEROS               TO WS-GM-REPL-COST
+           END-IF.
+      *
+           IF INI-INGRAM-COST IS NUMERIC
+              MOVE INI-INGRAM-COST     TO WS-GM-ING-COST
+           ELSE
+              MOVE ZEROS               TO WS-GM-ING-COST
+           END-IF.
+
+       G120-EXIT.
+            EXIT.
+
+       G130-ADJUSTED-GM-CALC.
+      *
+      *BELOW LOGIC VALIDATES THE VENDOR SWITCH SET FOR GROSS MARGIN    *
+      *CALCULATION. BASED ON THE SWITCH IT WILL USE THAT COST VALUE TO *
+      *CALCULATE THE MARGIN.                                           *
+      *    I-INGRAM COST                                               *
+      *    R-REPLACEMENT COST                                          *
+      *    A-ADJUSTED COST                                             *
+      *    (SPACE)DEFAULT-ADJUSTED COST                                *
+      *
+           EVALUATE TRUE
+             WHEN WS-GM-CAL-MARGIN-REP
+                  MOVE WS-GM-REPL-COST TO WS-COMMON-COST-TYPE
+             WHEN WS-GM-CAL-MARGIN-ING
+                  MOVE WS-GM-ING-COST  TO WS-COMMON-COST-TYPE
+             WHEN (TB-CPO7-GM-CALC-YES  AND
+                 (WS-GM-CAL-MARGIN-ADJ OR WS-GM-CAL-MARGIN-SW = SPACES)
+                  OR WS-GM-CAL-MARGIN-SW = SPACES)
+                  OR TC-COMPANY = 'FT'
+                  MOVE ORL-ADJUSTED-COST
+                                        TO WS-COMMON-COST-TYPE
+           END-EVALUATE.
+           PERFORM G150-FIND-MARGIN-PROFIT  THRU G150-EXIT.
+      *
+           IF WS-PROFIT-PCT < ZEROS
+              PERFORM G160-CHECK-FOR-GM-HOLD  THRU G160-EXIT
+           END-IF.
+
+       G130-EXIT.
+           EXIT.
+      *
+      * CALCULATING THE MARGIN WHEN TBXCORP7 SWITCH IS NOT SET.
+      * DEFAULTING TO UNIT PRICE AND UNIT COST AT LINE.
+      *
+       G140-GM-CALC.
+      *
+           COMPUTE WS-PROFIT-PCT ROUNDED =
+             100 * (ORL-UNIT-PRICE - ORL-UNIT-COST)
+                   /  ORL-UNIT-PRICE
+             ON SIZE ERROR
+                IF ORL-UNIT-PRICE > ORL-UNIT-COST
+                   MOVE +99.99      TO  WS-PROFIT-PCT
+                ELSE
+                   MOVE -99.99      TO  WS-PROFIT-PCT
+                END-IF
+           END-COMPUTE.
+           IF WS-PROFIT-PCT < ZEROS
+              PERFORM G160-CHECK-FOR-GM-HOLD   THRU G160-EXIT
+           END-IF.
+
+       G140-EXIT.
+           EXIT.
+      *
+      * BELOW PARA PERFORMS THE GROSS MARGIN CALCULATION WHEN THE
+      * TBXCORP7 SWITCH IS SET AND BASED ON VENDOR FLAGS THE COST
+      * IS USED.
+      *
+       G150-FIND-MARGIN-PROFIT.
+      *
+            COMPUTE WS-PROFIT-PCT ROUNDED =
+              100 * (ORL-UNIT-PRICE - WS-COMMON-COST-TYPE)
+                    /  ORL-UNIT-PRICE
+              ON SIZE ERROR
+                 IF ORL-UNIT-PRICE > WS-COMMON-COST-TYPE
+                    MOVE +99.99        TO  WS-PROFIT-PCT
+                 ELSE
+                    MOVE -99.99        TO  WS-PROFIT-PCT
+                 END-IF
+            END-COMPUTE.
+      *
+       G150-EXIT.
+           EXIT.
+      *
+      * SETS THE GROSS MARGIN HOLD INDICATOR WHICH IS THEN SET TO THE
+      * ORSHEDOF VALUE IN THE ORDER DATABASE IN THE ORP678IM PROGRAM.
+      *
+       G160-CHECK-FOR-GM-HOLD.
+      *
+
+           SET WS-BOX-NDX        TO  BR-INX.
+           SET WS-GROSS-MARGIN-HOLD (WS-BOX-NDX) TO TRUE.
+
+       G160-EXIT.
+            EXIT.

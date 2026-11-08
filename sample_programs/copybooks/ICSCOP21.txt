@@ -1,0 +1,223 @@
+      *================================================================*        
+      *  PURPOSE:                                                      *        
+      *  =======                                                       *        
+      *  THIS COPYBOOK IS USED POPULATING ORDER LINE AND ACOP DETAIL   *        
+      *  VALUES FOR THE ORDER LINE TO WHICH ACOP IS APPLIED WITH       *        
+      *  RESPECT TO MAX/CUST LIMIT(MAQ) QUANTITIES.                    *        
+      *  THIS IS DONE TO KEEP TRACK OF THE MAX/MAQ QUANTITY USAGE IN   *        
+      *  THE ORDERS PLACED CONSIDERING RESPECTIVE ACOPS WITH QUANTITY  *        
+      *  LIMITS.                                                       *        
+      *                                                                *        
+      *  USED IN THE PROGRAMS WHICH MANIPULATES MAQ-COP-QTY-ORDERED/   *        
+      *  COP-MAX-QTY-TODATE FIELD IN THE BELOW LIFE CYLCE OF AN ORDER. *        
+      *  1. ORDER CREATE           - ORP320                            *        
+      *  2. ORDER LINE QTY CHAGE   - ORP572                            *        
+      *  3. ORDER LINE DELETION    - ORP472 -> ICP060                  *        
+      *  4. ORDER DELETION         - ORP550 -> ICP060                  *        
+      *  5. RECOST/REPRICE         - EUP345/INP955/ORP955              *        
+      *  6. ORDER CANCELLATION     - ORP716/ORP716EU                   *        
+      *  7. ACOP ROUTINE           - ICPCOP                            *        
+      *                                                                *        
+      *  WORKING STORAGE USED: ICWCOP20.                               *        
+      *                                                                *        
+      *  CALLING OF PARAGRAPH X400-MAX-MAQ-TRK:                        *        
+      *     WHEN EITHER COP-MAX-QTY-TODATE/MAQ-COP-QTY-ORDERED FIELD   *        
+      *     IS ADJUSTED, ICWCOP20-COP-MAX-MAQ-TRK-SW IN COPYBOOK       *        
+      *     ICWCOP20 IS SET TO EITHER 'S' OR 'C' TO REPRESENT THERE ARE*        
+      *     SOME CHANGES MADE TO COP-MAX-QTY-TODATE/MAQ-COP-QTY-ORDERED*        
+      *     FIELD.                                                     *        
+      *     USING THIS INDICATION, X400-MAX-MAQ-TRK IS CALLED TO       *        
+      *     POPULATE THE NEEDED VALUES TO PROCESS ACOP_MAX_MAQ_LOG     *        
+      *     TABLE.                                                     *        
+      *================================================================*        
+      *                                                                *        
+      * REVISION INFO:                                                 *        
+      * 02/28/20 SPR ACOP TRACK DB2 PROCESS: NEW COPYBOOK              *SPR20059
+      *================================================================*        
+      *                                                                         
+       X400-MAX-MAQ-TRK.                                                        
+                                                                                
+           MOVE TC-COMPANY             TO ICWCOP20-CO-CD.                       
+                                                                                
+           IF COP-TRACKING-NBR IS NUMERIC                                       
+              MOVE COP-TRACKING-NBR    TO ICWCOP20-ACOP-TRK-NBR                 
+           ELSE                                                                 
+              MOVE ZEROES              TO ICWCOP20-ACOP-TRK-NBR                 
+           END-IF.                                                              
+                                                                                
+           IF TC-CUST-BR > SPACES                                               
+              MOVE TC-CUST-BR          TO ICWCOP20-CUST-BR-NBR                  
+           ELSE                                                                 
+              MOVE SPACES              TO ICWCOP20-CUST-BR-NBR                  
+           END-IF.                                                              
+                                                                                
+           IF TC-CUST-NBR > SPACES                                              
+              MOVE TC-CUST-NBR         TO ICWCOP20-CUST-NBR                     
+           ELSE                                                                 
+              MOVE SPACES              TO ICWCOP20-CUST-NBR                     
+           END-IF.                                                              
+                                                                                
+           IF TC-SHIP-TO-SUF IS NUMERIC                                         
+              MOVE TC-SHIP-TO-SUF      TO ICWCOP20-CUST-SHIP-TO-SFX             
+           ELSE                                                                 
+              MOVE ZERO                TO ICWCOP20-CUST-SHIP-TO-SFX             
+           END-IF.                                                              
+                                                                                
+           IF COP-ACOP-CODE > SPACES                                            
+              MOVE COP-ACOP-CODE       TO ICWCOP20-ACOP-TYP-CD                  
+           ELSE                                                                 
+              MOVE SPACES              TO ICWCOP20-ACOP-TYP-CD                  
+           END-IF.                                                              
+                                                                                
+           IF COP-PART-CUST-EU-SPECIFIC                                         
+              IF COP-EU-END-USER-NBR > ZEROES                                   
+                 MOVE COP-EU-END-USER-NBR                                       
+                                       TO ICWCOP20-ACOP-EU-ID                   
+                 MOVE ZEROES           TO ICWCOP20-ACOP-EU-ID-IND               
+              ELSE                                                              
+                 MOVE -1               TO ICWCOP20-ACOP-EU-ID-IND               
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE -1                  TO ICWCOP20-ACOP-EU-ID-IND               
+           END-IF.                                                              
+                                                                                
+           IF COP-PROGRAM-SPECIFIC                                              
+              IF COP-PROGRAM-TYPE1 > SPACES                                     
+                 MOVE COP-PROGRAM-TYPE1                                         
+                                       TO ICWCOP20-MAIN-PGM-CD                  
+              ELSE                                                              
+                MOVE SPACES            TO ICWCOP20-MAIN-PGM-CD                  
+              END-IF                                                            
+              IF COP-PROGRAM-TYPE2 > SPACES                                     
+                 MOVE COP-PROGRAM-TYPE2                                         
+                                       TO ICWCOP20-VEND-ACOP-PGM-CD             
+              ELSE                                                              
+                MOVE SPACES            TO ICWCOP20-VEND-ACOP-PGM-CD             
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE SPACES            TO ICWCOP20-MAIN-PGM-CD                    
+                                        ICWCOP20-VEND-ACOP-PGM-CD               
+           END-IF.                                                              
+                                                                                
+           IF TC-ORDER-BR-NBR > SPACES                                          
+              MOVE TC-ORDER-BR-NBR     TO ICWCOP20-ORDER-BR-NBR                 
+           ELSE                                                                 
+              MOVE SPACES              TO ICWCOP20-ORDER-BR-NBR                 
+           END-IF.                                                              
+                                                                                
+           IF TC-ORDER-NBR > SPACES                                             
+              MOVE TC-ORDER-NBR        TO ICWCOP20-ORDER-NBR                    
+           ELSE                                                                 
+              MOVE SPACES              TO ICWCOP20-ORDER-NBR                    
+           END-IF.                                                              
+                                                                                
+           IF TC-DIST-NBR  > SPACES                                             
+              MOVE TC-DIST-NBR         TO ICWCOP20-DIST-NBR                     
+           ELSE                                                                 
+              MOVE SPACES              TO ICWCOP20-DIST-NBR                     
+           END-IF.                                                              
+                                                                                
+           IF TC-SHIP-NBR  > SPACES                                             
+              MOVE TC-SHIP-NBR         TO ICWCOP20-SHIP-NBR                     
+           ELSE                                                                 
+              MOVE SPACES              TO ICWCOP20-SHIP-NBR                     
+           END-IF.                                                              
+                                                                                
+           IF  ICWCOP20-ORDER-DT-JUL NUMERIC                                    
+           AND ICWCOP20-ORDER-DT-JUL > ZEROES                                   
+               PERFORM :X410:-CONVERT-JUL-DT                                    
+                  THRU :X410:-CONVERT-JUL-DT-EXIT                               
+               IF SY777-OUT-ERR-SW = SPACE                                      
+                  MOVE SY777-OUT-ISO-10                                         
+                                       TO ICWCOP20-ORDER-DT                     
+                  MOVE ZERO            TO ICWCOP20-ORD-DT-IND                   
+               ELSE                                                             
+                  MOVE -1              TO ICWCOP20-ORD-DT-IND                   
+               END-IF                                                           
+           ELSE                                                                 
+               MOVE -1                 TO ICWCOP20-ORD-DT-IND                   
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP20-INVC-DT > SPACES                                         
+              MOVE ZERO                TO ICWCOP20-ORD-INVC-DT-IND              
+           ELSE                                                                 
+              MOVE -1                  TO ICWCOP20-ORD-INVC-DT-IND              
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-ORD-LINE-NBR  > SPACES                                     
+              MOVE ICWCOP-ORD-LINE-NBR TO ICWCOP20-ORD-LINE-NBR                 
+           ELSE                                                                 
+              MOVE SPACES              TO ICWCOP20-ORD-LINE-NBR                 
+           END-IF.                                                              
+                                                                                
+           MOVE INI-INV-PART-NBR       TO ICWCOP20-PART-NBR                     
+                                                                                
+           IF  COP-MAX-QTY IS NUMERIC                                           
+           AND COP-MAX-QTY >  ZEROES                                            
+               MOVE COP-MAX-QTY        TO ICWCOP20-MAX-QTY                      
+           ELSE                                                                 
+               MOVE ZERO               TO ICWCOP20-MAX-QTY                      
+           END-IF.                                                              
+                                                                                
+           IF  COP-MAQ     IS NUMERIC                                           
+           AND COP-MAQ     >  ZEROES                                            
+               MOVE COP-MAQ            TO ICWCOP20-MAQ-QTY                      
+           ELSE                                                                 
+               MOVE ZERO               TO ICWCOP20-MAQ-QTY                      
+           END-IF.                                                              
+                                                                                
+           IF  ICWCOP-QTY-ORDERED IS NUMERIC                                    
+           AND ICWCOP-QTY-ORDERED >  ZEROES                                     
+               IF ICWCOP20-ORD-LNE-OPEN                                         
+                  MOVE ICWCOP-QTY-ORDERED                                       
+                                       TO ICWCOP20-ORDER-QTY                    
+               ELSE                                                             
+                  COMPUTE ICWCOP20-ORDER-QTY = ICWCOP-QTY-ORDERED               
+                                             * -1                               
+               END-IF                                                           
+           ELSE                                                                 
+               MOVE ZERO               TO ICWCOP20-ORDER-QTY                    
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP20-ORD-REDUCE-QTY                                           
+              MOVE ICWCOP20-ORD-LNE-DEL-STUS-SW                                 
+                                       TO ICWCOP20-LINE-DEL-STS                 
+           ELSE                                                                 
+              MOVE SPACES              TO ICWCOP20-LINE-DEL-STS                 
+           END-IF.                                                              
+                                                                                
+           MOVE TC-OPER-ID             TO ICWCOP20-OPID.                        
+           MOVE ICWCOP-CALLED-PGM-ID   TO ICWCOP20-UPD-PGM-ID.                  
+           MOVE ICWCOP-MAX-MAQ-LG-EVENT-IDX                                     
+                                       TO ICWCOP20-EVENT-TYPE-IDX.              
+           SET  ICWCOP20-EVENT-IDX     TO ICWCOP20-EVENT-TYPE-IDX.              
+           MOVE ICWCOP20-EVENT-ENTRY-TYPE(ICWCOP20-EVENT-IDX)                   
+                                       TO ICWCOP20-EVENT-RSN-TXT.               
+                                                                                
+       X400-MAX-MAQ-TRK-EXIT.                                                   
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      * CONVERT JULIAN DATE TO ISO FORMAT                              *        
+      ******************************************************************        
+      *----------------------------------------------------------------*        
+       X410-CONVERT-JUL-DT.                                                     
+      *----------------------------------------------------------------*        
+                                                                                
+           INITIALIZE SY777-PARM-DATA.                                          
+           MOVE ICWCOP20-ORDER-DT-JUL  TO SY777-IN-JUL-YYDDD                    
+           MOVE TC-COMPANY             TO SY777-IN-COMPANY-CODE                 
+                                                                                
+           IF ICWCOP20-PGM-CICS                                                 
+              CALL ICWCOP20-DATE-RTN-SYU777                                     
+                                    USING DFHEIBLK                              
+                                          DFHCOMMAREA                           
+                                          SY777-PARM-DATA                       
+           ELSE                                                                 
+              CALL ICWCOP20-DATE-RTN-SYV777                                     
+                                    USING SY777-PARM-DATA                       
+           END-IF.                                                              
+                                                                                
+       X410-CONVERT-JUL-DT-EXIT.                                                
+           EXIT.                                                                
+                                                                                

@@ -1,0 +1,122 @@
+      ******************************************************************        
+      *                                                                *        
+      *      THIS ROUTINE WILL HANDLE ALL ERROR LOGIC PROCESSING       *        
+      *       FOR VSAM FILES                                           *        
+      *      FOR QUICK-REF.. LANGUAGE/COBOL/FILE-STATUS                *        
+      *                                                                         
+      * 07/22/96 RMR UPDATED WITH ALL KNOWN STATUS CODES FROM READ IBM *RMR97203
+      *              FOR MORE INFO, SEE VS COBOL II APPLICATION        *RMR97203
+      *              PROGRAMMING LANGUAGE REFERENCE; STATUS KEY        *RMR97203
+      *              (2.8.9.1.1-4)                                     *RMR97203
+      * 12/02/96 GMS STATUS '02'.                                      *GMS96336
+      * 10/30/96 TXM STATUS '05'.                                      *TXM96304
+      * 07/02/96 RWD REMOVED EXTRA "'" FROM LN#44                      *RWD96182
+      * 06/29/96 JMK STATUS '39'.                                      *MCV95010
+      * 01/10/95 MCV STATUS '35'.                                      *MCV95010
+      * 11/23/92 DMH ADDED STATUS 04 FOR COBOL II PROCESSING           *DMH92238
+      ******************************************************************        
+       01  VSAM-STATUS          PIC XX.                                         
+           88  VSAM-NORESP                  VALUE '00', '97'.                   
+           88  VSAM-DUPKEY-ALT              VALUE '02'.                 GMS96336
+           88  VSAM-REC-LENGTH              VALUE '04'.                 DMH92328
+           88  VSAM-OPTIONAL-EMPTY-FILE     VALUE '05'.                 TXM96304
+           88  VSAM-OPEN-NON-REEL-UNIT      VALUE '07'.                 RMR97203
+           88  VSAM-AT-END                     VALUE '10'.                      
+           88  VSAM-SEQ-READ-REL-KEY-TOO-LONG  VALUE '14'.              RMR97203
+           88  VSAM-SEQ-ERR                    VALUE '21'.                      
+           88  VSAM-DUP-KEY                    VALUE '22'.                      
+           88  VSAM-NO-REC-FOUND               VALUE '23'.                      
+           88  VSAM-BOUNDRY-VIOLATION          VALUE '24'.                      
+           88  VSAM-PERM-ERROR-NO-INFO         VALUE '30'.              RMR97203
+           88  VSAM-OUT-OF-SPACE               VALUE '34'.                      
+           88  VSAM-NON-OPTIONAL-FILE-MISSING  VALUE '35'.              MCV95010
+           88  VSAM-OPEN-WRONG-MODE            VALUE '37'.              RMR97203
+           88  VSAM-OPEN-ON-LOCKED-FILE        VALUE '38'.              RMR97203
+           88  VSAM-FILE-PROGRAM-MISMATCH      VALUE '39'.              JMK96183
+           88  VSAM-LOGIC-ALREADY-OPENED       VALUE '41'.              RMR97203
+           88  VSAM-LOGIC-ALREADY-CLOSED       VALUE '42'.              RMR97203
+           88  VSAM-LOGIC-READ-B4-REWRITE-DEL  VALUE '43'.              RMR97203
+           88  VSAM-LOGIC-BOUNDARY-VIOLATION   VALUE '44'.              RMR97203
+      * 46 READ ERROR MEANS ONE OF THESE:                               RMR97203
+      *        1) PRECEDING START UNSUCCESSFUL                          RMR97203
+      *        2) PRECEDING READ UNSUCCESSFUL (BUT NOT DID NOT HIT END) RMR97203
+      *        3) PRECEDING READ CAUSED AT END CONDITION                RMR97203
+           88  VSAM-LOGIC-SEQ-READ-ERROR       VALUE '46'.              RMR97203
+           88  VSAM-LOGIC-READ-UNOPENED-FILE   VALUE '47'.              RMR97203
+      * 47 DELETE OR REWRITE ON UNOPENED FILE                           RMR97203
+           88  VSAM-LOGIC-DELETE-OR-REWITE-UO  VALUE '47'.              RMR97203
+           88  VSAM-LOGIC-WRITE-UNOPENED-FILE  VALUE '48'.              RMR97203
+           88  VSAM-LOGIC-DELETE-WRITE-NON-IO  VALUE '49'.              RMR97203
+      * 90 VOILATED OPTION OF FILE DEFINITION - NO MORE INFO AVAIL      RMR97203
+           88  VSAM-IMPLEMENTOR-DEFINED-COND   VALUE '90'.              RMR97203
+           88  VSAM-PASSWORD                   VALUE '91'.                      
+           88  VSAM-LOGIC-ERROR                VALUE '92'.                      
+           88  VSAM-RESOURCE-NOT-AVAIL         VALUE '93'.                      
+           88  VSAM-NO-CURR-REC                VALUE '94'.                      
+           88  VSAM-INVALID-FILE               VALUE '95'.                      
+           88  VSAM-NO-DD-CARD                 VALUE '96'.                      
+           88  VSAM-NOT-CLOSED                 VALUE '97'.                      
+      * 98 WRITE ON FILE NOT OPEND FOR IO, OUTPUT OR EXTENDED MODE      RMR97203
+           88  VSAM-WRITE-FILE-NOT-IO          VALUE '98'.              RMR97203
+                                                                        RMR97203
+       01  VSAM-STATUS-TABLE.                                                   
+           05  FILLER PIC X(25)  VALUE '00VSAM-NORMAL-RESPONSE   '.             
+           05  FILLER PIC X(25)  VALUE '02GOOD IO, DUP KEY FOUND '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '04VSAM-REC-LENGTH-ERR    '.             
+           05  FILLER PIC X(25)  VALUE '05GOOD OPEN, FILE CREATED'.     RMR97203
+           05  FILLER PIC X(25)  VALUE '07CLOSE WITH TAPE OPT    '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '10VSAM-AT-END            '.             
+           05  FILLER PIC X(25)  VALUE '14SEQREAD RELKEY TOO LONG'.     RMR97203
+           05  FILLER PIC X(25)  VALUE '21VSAM-SEQ-ERR           '.             
+           05  FILLER PIC X(25)  VALUE '22VSAM-DUP-KEY           '.             
+           05  FILLER PIC X(25)  VALUE '23VSAM-NO-REC-FOUND      '.             
+           05  FILLER PIC X(25)  VALUE '24VSAM-BOUNDRY-VIOLATION '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '25VSAM-BOUNDRY-VIOLATION '.             
+           05  FILLER PIC X(25)  VALUE '30VSAM-OUT-OF-SPACE      '.             
+           05  FILLER PIC X(25)  VALUE '34VSAM-PASSWORD          '.             
+           05  FILLER PIC X(25)  VALUE '35VSAM-FILE IS MISSING   '.     MCV95010
+           05  FILLER PIC X(25)  VALUE '37INVALID OPEN OPERATION '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '38OPEN ON LOCKED FILE    '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '39WFILEFILE IS MISSING   '.     JMK96183
+           05  FILLER PIC X(25)  VALUE '41FILE ALREADY OPEN      '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '42FILE ALREADY CLOSED    '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '43REWRITE W/O GOOD READ  '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '44BOUNDARY VIOLATION     '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '46BAD SEQ READ           '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '47READ NOT OPEN FOR INPUT'.     RMR97203
+           05  FILLER PIC X(25)  VALUE '48WRITE NOT OPEN 4 OUTPUT'.     RMR97203
+           05  FILLER PIC X(25)  VALUE '49DEL/REWRITE  NONOUTPUT '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '90BROKE DEFINITION PARAM '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '91VSAM-PASSWORD FAILURE  '.     RMR97203
+           05  FILLER PIC X(25)  VALUE '92VSAM-FILE DEF/PROG ERR '.             
+           05  FILLER PIC X(25)  VALUE '93VSAM-RESOURCE-NOT-AVAIL'.             
+           05  FILLER PIC X(25)  VALUE '94VSAM-NO-CURR-REC       '.             
+           05  FILLER PIC X(25)  VALUE '95VSAM-INV-FILE          '.             
+           05  FILLER PIC X(25)  VALUE '96VSAM-NO-DD-CARD        '.             
+           05  FILLER PIC X(25)  VALUE '97VSAM-NOT-CLOSED-OPEN OK'.             
+           05  FILLER PIC X(25)  VALUE '98WRITE - FILE NOT OUTPUT'.     RMR97203
+                                                                                
+       01  VSAM-CONDITIONS REDEFINES VSAM-STATUS-TABLE.                         
+          05    VSAM-IO-CODES                                                   
+                    OCCURS 35 TIMES                                     RMR97203
+                    ASCENDING KEY  VSAM-STATUS-CODE                             
+                    INDEXED BY     VSAM-INDEX.                                  
+               10   VSAM-STATUS-CODE.                                           
+                    15   VSAM-STATUS-KEY1    PIC X.                             
+                    15   VSAM-STATUS-KEY2    PIC X.                             
+               10   VSAM-STATUS-KEY-DESC     PIC X(23).                         
+                                                                        RMR97203
+       01  VSAM-MAX-OCCURS                   PIC 9(02)                  RMR97203
+                                               VALUE 35.                RMR97203
+       01  VSAM-FUNCTION.                                               RMR97203
+          05  VSAM-CLOSE                PIC X(10) VALUE '  CLOSE'.      RMR97203
+          05  VSAM-ENDBR                PIC X(10) VALUE '  ENDBR'.      RMR97203
+          05  VSAM-OPEN                 PIC X(10) VALUE '  OPEN'.       RMR97203
+          05  VSAM-READ                 PIC X(10) VALUE '  READ'.       RMR97203
+          05  VSAM-READNEXT             PIC X(10) VALUE '  READNEXT'.   RMR97203
+          05  VSAM-READPREV             PIC X(10) VALUE '  READPREV'.   RMR97203
+          05  VSAM-REWRITE              PIC X(10) VALUE '  REWRITE'.    RMR97203
+          05  VSAM-STARTBR              PIC X(10) VALUE '  STARTBR'.    RMR97203
+          05  VSAM-UNLOCK               PIC X(10) VALUE '  UNLOCK'.     RMR97203
+          05  VSAM-WRITE                PIC X(10) VALUE '  WRITE'.      RMR97203
+                                                                        RMR97203

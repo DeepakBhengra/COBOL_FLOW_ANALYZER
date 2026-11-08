@@ -1,0 +1,76 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *                                                                 JWO95010
+      * THIS ROUTINE SHOULD BE PERFORMED AFTER A PSB SCHEDULE CALL.     JWO95010
+      * IT CHECKS EACH PCB IN THE CURRENTLY SCHEDULED PSB.              JWO95010
+      *                                                                 JWO95010
+      * OUTPUT :                                                        JWO95010
+      * IF THE DATABASE FOR ANY PCB IS NOT AVAILABLE, THEN THE          JWO95010
+      * ROUTINE :                                                       JWO95010
+      *  1 - SETS THE WS-DATABASES-AVAILABLE-SW TO 'N'                  JWO95010
+      *  2 - MOVES THE NAME OF THE FIRST UNAVAILABLE DATABASE           JWO95010
+      *         TO DATABASE-THAT-IS-NOT-AVAIL.                          JWO95010
+      *  3 - SETS THE WS-DB-ALWAYS-AVAILABLE-SW TO 'N'                  JWO95010
+      * IF DATABASES FOR ALL PCB'S IN THE PSB ARE AVAILABLE, THEN THE   JWO95010
+      * ROUTINE :                                                       JWO95010
+      *  1 - SETS THE WS-DATABASES-AVAILABLE-SW TO 'Y'                  JWO95010
+      *                                                                 JWO95010
+      * THIS ROUTINE REQUIRES COPYBOOK DBAVAILW IN WORKING-STORAGE      JWO95010
+      *                   AND COPYBOOK DBAVAILL IN LINKAGE SECTION.     JWO95010
+      *                                                                 JWO95010
+       982-CHECK-DATABASE-AVAIL.                                        JWO95010
+      *                                                                 JWO95010
+      *    UIBPCBAL IS THE ADDRESS OF A LIST OF PCB ADDRESSES.          JWO95010
+      *                                                                 JWO95010
+           SET ADDRESS OF DB-AVAIL-PCB-PTRS TO UIBPCBAL.                JWO95010
+      *                                                                 JWO95010
+      *    NOW DB-AVAIL-PCB-PTRS IS A LIST OF PCB ADRESSES FOR THE PSB  JWO95010
+      *                                                                 JWO95010
+           MOVE 'N' TO WS-END-OF-PCB-ADDDRESS-LIST-SW.                  JWO95010
+           MOVE 'Y' TO WS-DATABASES-AVAILABLE-SW.                       JWO95010
+      *                                                                 JWO95010
+      *****************                                                 JWO95010
+      *                                                                 JWO95010
+      *    CHECK EACH PCB UNTIL THE LAST ONE HAS BEEN CHECKED OR        JWO95010
+      *    A PCB FOR AN UNAVAILABLE DATABASE IS FOUND.                  JWO95010
+      *                                                                 JWO95010
+           PERFORM VARYING DB-AVAIL-SUB                                 JWO95010
+                   FROM 1 BY 1                                          JWO95010
+                   UNTIL WS-END-OF-PCB-ADDDRESS-LIST                    JWO95010
+                      OR DB-AVAIL-SUB > 20                              JWO95010
+      *                                                                 JWO95010
+      *        GET ADDRESS OF NEXT PCB INTO POINTER COMPARE FIELD       JWO95010
+      *                                                                 JWO95010
+               SET WS-POINTER-COMPARE-FLD                               JWO95010
+                TO DB-AVAIL-PCB-PTR (DB-AVAIL-SUB)                      JWO95010
+      *                                                                 JWO95010
+      *        SEE IF BIT 0 OF FIRST BYTE OF PCB ADDRESS WAS SET TO 1.  JWO95010
+      *        IF YES, THEN THIS IS ADDRESS OF LAST PCB FOR THE PSB     JWO95010
+      *                                                                 JWO95010
+               IF WS-POINTER-COMPARE-FLD-X (1:1) >= X'80'               JWO95010
+                   MOVE 'Y' TO WS-END-OF-PCB-ADDDRESS-LIST-SW           JWO95010
+               END-IF                                                   JWO95010
+      *                                                                 JWO95010
+      *        MAKE THE WORK PCB REDEFINE THIS PCB :                    JWO95010
+      *                                                                 JWO95010
+               SET ADDRESS OF DB-AVAIL-PCB                              JWO95010
+                TO DB-AVAIL-PCB-PTR (DB-AVAIL-SUB)                      JWO95010
+      *                                                                 JWO95010
+      *        SEE IF STATUS CODE IN PCB                                JWO95010
+      *        WAS SET TO 'NA' OR 'NU' BY THE AUTOMATIC 'INIT DBQUERY'  JWO95010
+      *        THAT HAPPENS WITH A PSB SCHEDULE CALL.                   JWO95010
+      *        IF YES, THEN THE DATABASE FOR THIS PCB IS UNAVAILABLE.   JWO95010
+      *                                                                 JWO95010
+               IF DB-AVAIL-STATUS-CODE NOT = SPACES                     JWO95010
+                   MOVE 'N' TO WS-DATABASES-AVAILABLE-SW                JWO95010
+                   MOVE DB-AVAIL-DB-NAME                                JWO95010
+                     TO DATABASE-THAT-IS-NOT-AVAIL                      JWO95010
+                   MOVE 'N' TO WS-DB-ALWAYS-AVAILABLE-SW                JWO95010
+                   MOVE 'Y' TO WS-END-OF-PCB-ADDDRESS-LIST-SW           JWO95010
+               END-IF                                                   JWO95010
+      *                                                                 JWO95010
+           END-PERFORM.                                                 JWO95010
+      *                                                                 JWO95010
+      *****************                                                 JWO95010
+      *                                                                 JWO95010

@@ -1,0 +1,199 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT072                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINE EDV072 TO SUPPLY A CALLING PROGRAM      *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION                                                 *          
+      *                                                              *          
+      *     INPUT: EDV072-INPUT-DATA                                 *          
+      *            - ACTION CODE                                     *          
+      *            - COMPANY CODE                                    *          
+      *            - SRCE SYS ID                                     *          
+      *            - SRCE SYS KEY ID                                 *          
+      *            - PARTNER ID                                      *          
+      *            - OBJECT ID                                       *          
+      *            - USER ID                                         *          
+      *                                                              *          
+      *     INPUT/OUTPUT: EDV072-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV072-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV072-CO-CD                                  *          
+      *              - EDV072-SRCE-SYS-ID                            *          
+      *              - EDV072-SRCE-SYS-KEY-ID                        *          
+      *              - EDV072-PARTNER-ID                             *          
+      *              - EDV072-LST-CHG-TS                             *          
+      *              - EDV072-LST-CHG-NAM                            *          
+      *                                                              *          
+      *    OUTPUT: EDV072-OUTPUT-DATA                                *          
+      *          - EDV072-ROW-COUNT                                  *          
+      *          - EDV072-MODULE-RESULT-CD                           *          
+      *          - EDV072-MODULE-MESSAGE                             *          
+      *          - EDV072-DATABASE-RESULT-CODES:                     *          
+      *              - EDV072-SQLCA VALUES                           *          
+      *              - EDV072-SQLCODE                                *          
+      *              - EDV072-SQLSTATE                               *          
+      *                                                              *          
+      *   PROCESS:                                                   *          
+      *            1) VALIDATE THE ACTION CODE.                      *          
+      *            2) EVALUTE THE ACTION CODE AND PERFORM THE        *          
+      *               REQUESTED FUNCTION DOING THE FOLLOWING:        *          
+      *               A. EDIT THE INPUT PARAMETERS RELATED TO THE    *          
+      *                  ACTION CODE REQUEST.                        *          
+      *               B. PERFORM THE REQUESTED ACTION AGAINST THE    *          
+      *                  IE_PID_SRC_SYS_XRF TABLE.                   *          
+      *               C. FORMAT ALL REQUIRED BEFORE AND AFTER IMAGE  *          
+      *                  DATA AREAS AND CALL THE AUDIT TRAIL LOGGING *          
+      *                  MODULE.                                     *          
+      *            3) WHEN ANY PARAMETER EDITS FAIL, TABLE I/O       *          
+      *               RETURNS AN INVALID SQLCODE, OR THE AUDIT TRAIL *          
+      *               LOGGING PROGRAM RETURNS A FAILURE STATUS;      *          
+      *               FORMAT THE APPROPRIATE RESULT CODE AND MESSAGE *          
+      *               BEFORE RETURNING TO THE CALLING PROGRAM.       *          
+      *            4) IF ALL EDITS AND I/O ARE SUCCESSFULLY COMPLETED*          
+      *               FORMAT THE APPROPRIATE RESULT CODE AND MESSAGE *          
+      *               BEFORE RETURNING TO THE CALLING PROGRAM.       *          
+      *                                                              *          
+      *   EDV072 EXAMPLE CALL FOR AN INSERT ACTION:                  *          
+      *                                                              *          
+      *    INITIALIZE     EDV072-COMMUNICATIONS-AREA.                *          
+      *    SET EDV072-INSERT            TO TRUE.                     *          
+      *                                                              *          
+      *  DEFAULT THE MODULE STATUS CODE TO 'OK' FOR THE START OF THE *          
+      *  EDIT AND I/O PROCESS.                                       *          
+      *                                                              *          
+      *    SET EDV072-STATUS-OKAY      TO TRUE.                      *          
+      *                                                              *          
+      * - KEYED SELECTS/UPDATES                                      *          
+      *    MOVE WS-CO-CD               TO EDV072-KEY-CO-CD.          *          
+      *    MOVE WS-SRC-SYS-ID          TO EDV072-KEY-SRCE-SYS-ID.    *          
+      *    MOVE WS-SRC-SYS-KEY-ID      TO EDV072-KEY-SRCE-SYS-KEY-ID.*          
+      *                                                              *          
+      * - INSERTS                                                    *          
+      *    MOVE WS-CO-CD               TO EDV072-CO-CD(1).           *          
+      *    MOVE 'IMPULS'               TO EDV072-SRCE-SYS-ID(1).     *          
+      *    MOVE WS-VENDOR-ID           TO EDV072-SRCE-SYS-KEY-ID(1). *          
+      *    MOVE WS-PARTNER-ID          TO EDV072-PARTNER-ID(1).      *          
+      *    ... ETC. TO LOAD OTHER FLAG VALUES.....                   *          
+      *    MOVE WS-TIMESTAMP           TO EDV072-LST-CHG-TS(1).      *          
+      *    REMINDER: TIMESTAMP FORMAT IS:'2000-11-01-08.51.19.324816'*          
+      *    MOVE 'BATCHJNM'             TO EDV072-LST-CHG-NAM(1).     *          
+      *                                                              *          
+      *    CALL 'EDV072' USING EDV072-COMMUNICATIONS-AREA.           *          
+      *                                                              *          
+      *     IF EDV072-STATUS-OKAY                                    *          
+      *     THEN                                                     *          
+      *          ..........                                          *          
+      *     ELSE                                                     *          
+      *          ..........                                          *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING AN 'INSERT' ACTION TO CREATE A NEW  *          
+      *            TABLE ENTRY.                                      *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV072 TO VALIDATE THAT IT     *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT072 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      * - FOR CURSOR PROCESSING, USE CODE LIKE:                      *          
+      *  > MOVE WS-CO-CD               TO EDV072-KEY-CO-CD.          *          
+      *  > MOVE WS-SRC-SYS-ID          TO EDV072-KEY-SRCE-SYS-ID.    *          
+      *  > MOVE WS-PARTNER-ID          TO EDV072-PARTNER-ID(1).      *          
+      *   DATA IS RETURNED IN ORDER BY CO, SRCE-SYS-ID, SRCE-SYS-KEY-*          
+      *   ID AND PARTNER.                                            *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *     DATE     PROG   COMMENT                                  *          
+      *    --------------------------------------------------------- *          
+      *     10/19/02  TWA   CORRECT OBJECT_ID.                       *  TWA02290
+      *     10/07/02  TWA   ORIGINAL.                                *  TWA02280
+      ****************************************************************          
+                                                                                
+       01  EDV072-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV072-ACTION-CD                     PIC  X(002).                
+               88  EDV072-SELECT                    VALUE 'S '.                 
+               88  EDV072-INSERT                    VALUE 'I '.                 
+               88  EDV072-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV072-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV072-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV072-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV072-CURSOR-CL                 VALUE 'CL'.                 
+           05  EDV072-USER-ID                       PIC  X(010).                
+           05  EDV072-KEY-AREA.                                                 
+               10  EDV072-KEY-CO-CD                 PIC  X(002).                
+               10  EDV072-KEY-SRCE-SYS-ID           PIC  X(006).                
+               10  EDV072-KEY-SRCE-SYS-KEY-ID       PIC  X(030).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV072-INPUT-OUTPUT-AREA.                                        
+               10  EDV072-OBJECT-ID                 PIC  X(030).                
+                   88  EDV072-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV072-IE-PID-SRC-SYS-XRF    VALUE               TWA02290
+                                  'IE_PID_SRC_SYS_XRF            '.     TWA02290
+               10  EDV072-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV072-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV072-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV072-CO-CD                 PIC  X(002).                
+                   15  EDV072-SRCE-SYS-ID           PIC  X(006).                
+                   15  EDV072-SRCE-SYS-KEY-ID       PIC  X(030).                
+                   15  EDV072-PARTNER-ID            PIC  X(015).                
+                   15  EDV072-LST-CHG-TS            PIC  X(026).                
+                   15  EDV072-LST-CHG-NAM           PIC  X(015).                
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV072-OUTPUT-DATA.                                              
+               10  EDV072-ROW-COUNT             PIC  S9(009).                   
+               10  EDV072-MODULE-RESULT-CD      PIC  X(002).                    
+                   88  EDV072-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV072-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV072-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV072-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV072-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV072-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV072-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV072-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV072-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV072-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV072-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV072-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV072-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV072-EXCEPTION-MESSAGE.                                    
+                   15  EDV072-MSG-OBJECT            PIC  X(030).                
+                   15  EDV072-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV072-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV072-SQLCA.                                            
+                       20  EDV072-SQLCAID           PIC  X(008).                
+                       20  EDV072-SQLCABC           PIC  S9(009).               
+                       20  EDV072-SQLCODE           PIC  S9(009).               
+                       20  EDV072-SQLERRM.                                      
+                           25  EDV072-SQLERRML      PIC  S9(004).               
+                           25  EDV072-SQLERRMC      PIC  X(070).                
+                       20  EDV072-SQLERRP           PIC  X(008).                
+                       20  EDV072-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV072-SQLWARN.                                      
+                           25  EDV072-SQLWARN0      PIC  X(001).                
+                           25  EDV072-SQLWARN1      PIC  X(001).                
+                           25  EDV072-SQLWARN2      PIC  X(001).                
+                           25  EDV072-SQLWARN3      PIC  X(001).                
+                           25  EDV072-SQLWARN4      PIC  X(001).                
+                           25  EDV072-SQLWARN5      PIC  X(001).                
+                           25  EDV072-SQLWARN6      PIC  X(001).                
+                           25  EDV072-SQLWARN7      PIC  X(001).                
+                       20  EDV072-SQLEXT.                                       
+                           25  EDV072-SQLWARN8      PIC  X(001).                
+                           25  EDV072-SQLWARN9      PIC  X(001).                
+                           25  EDV072-SQLWARNA      PIC  X(001).                
+                           25  EDV072-SQLSTATE      PIC  X(005).                

@@ -1,0 +1,119 @@
+      *****************************************************************         
+      *                                                               *         
+      *   STANDARD MOVES TO INITIALIZE PRICE ROUTINE FIELDS FOR       *         
+      *   SUBSEQUENT USE BY STRATEGIC PRICING                         *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      *                                                               *         
+      * 11/01/05 MEP  ALWAYS MOVE CUSTOMER WORK AREA TO CUSTOMER      * MEP05305
+      *               PRICING ARRAY TO CORRECT END USER CUSTOMER      * MEP05305
+      *               NOT FOUND ISSUE RETURNING FROM PRICE ENGINE     * MEP05305
+      * 07/28/05 MOG  INITIALIZE CUST BRANCH FOR PXLMST READ          * MOG05209
+      * 11/02/04 JAR  *** STRATEGIC PRICING - FULL SOLUTION ***       * JAR04307
+      *               1. CREATED COPYBOOK (CLONED FROM SYXIPRA)       *         
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+      *                                                                         
+      *    CUSTOMER LEVEL SETTINGS                                              
+      *                                                                         
+           INITIALIZE                      WS-PRC-CUSTOMER-WORK-AREA            
+                                           WS-PRC-CUSTOMER-WORK-AREA2           
+           MOVE WS-PRC-CUSTOMER-WORK-AREA                                       
+                                       TO  WS-PRC-CUSTOMER-PRICING (002)        
+           MOVE WS-PRC-CUSTOMER-WORK-AREA2                                      
+                                       TO  WS-PRC-CUSTOMER-PRICING2(002)        
+           SET WS-PRC-STANDARD-PROCESS TO  TRUE                                 
+      *                                                                         
+      *    COMMON INITIALIZATION                                                
+      *                                                                         
+           PERFORM SP830-CUSTOMER-PRICING-INIT                                  
+      *                                                                         
+      *    END-USER PRICING --- INITIALIZE PARENT RESELLER'S PRICING            
+      *                                                                         
+           IF WS-PRC-END-USER-PRICING                                           
+              PERFORM SP860-PARENT-RESELLER-INIT                                
+           ELSE                                                                 
+              IF WS-PRC-CONTRACT                                                
+                 PERFORM SP870-CONTRACT-INIT.                           MEP05305
+                                                                        MEP05305
+           MOVE WS-PRC-CUSTOMER-WORK-AREA                               MEP05305
+                          TO  WS-PRC-CUSTOMER-PRICING (001).            MEP05305
+           MOVE WS-PRC-CUSTOMER-WORK-AREA2                              MEP05305
+                          TO  WS-PRC-CUSTOMER-PRICING2(001).            MEP05305
+      *                                                                         
+           PERFORM SP880-CALCULATE-PGM-FEE-PCT.                                 
+                                                                                
+      *                                                                         
+      *    CUSTOMER PRICING INITIALIZATION                                      
+      *                                                                         
+       SP830-CUSTOMER-PRICING-INIT.                                             
+      *                                                                         
+           MOVE CU-COMPANY             TO  WS-PRC-COMPANY                       
+                                           WS-CUSHED-CO.                        
+           MOVE CU-BR-NBR              TO  WS-PRC-BR-NBR                        
+                                           WS-CUSBRN-BR.                        
+           MOVE CU-CUST-NBR            TO  WS-PRC-CUST-NBR.                     
+           MOVE WS-PRC-BR-CUST         TO  WS-CUSHED-BR-CUST                    
+                                           WS-PRC-PRICE-AS.                     
+                                                                                
+           IF  CU-PXLMST-BR-CUST-NBR > SPACES                           MOG05209
+               MOVE CU-PXLMST-BR-CUST-NBR                               MOG05209
+                                       TO  WS-PRC-XREF-BR-CUST          MOG05209
+           ELSE                                                         MOG05209
+               MOVE WS-PRC-BR-CUST     TO  WS-PRC-XREF-BR-CUST          MOG05209
+           END-IF.                                                      MOG05209
+                                                                        MOG05209
+           IF NOT WS-PRC-CONTRACT-PROCESS                                       
+              MOVE CU-PROMOTIONAL-SW   TO  WS-CUST-PROMOTIONAL-SW.              
+                                                                                
+           PERFORM 1004-GU-CUSBRN.                                              
+           IF WS-CUSBRN-NORESP                                                  
+              IF WS-PRC-STANDARD-PROCESS AND NOT WS-PRC-CONTRACT                
+                 MOVE CUB-END-USER-SW  TO  WS-PRC-END-USER-PRICING-SW.          
+           MOVE CU-INSTANT-REBATE-SW   TO  WS-INSTANT-REBATE-SW.                
+                                                                                
+      *                                                                         
+      *    PARENT RESELLER INITIALIZATION                                       
+      *                                                                         
+       SP860-PARENT-RESELLER-INIT.                                              
+           IF WS-CUST-PROMOTIONAL-ALLOWED                                       
+              MOVE 'P'                 TO  WS-CUST-PROMOTIONAL-SW               
+           ELSE                                                                 
+              SET WS-CUST-NONE-ALLOWED  TO  TRUE.                               
+                                                                                
+      *                                                                         
+      *    CONTRACT INITIALIZATION                                              
+      *                                                                         
+       SP870-CONTRACT-INIT.                                                     
+           MOVE CU-PROMOTIONAL-SW    TO  WS-CUST-PROMOTIONAL-SW.                
+           MOVE 'C'                  TO  WS-PRC-END-USER-PROCESS-SW.            
+                                                                                
+      *                                                                         
+      *    CALCULATE PROGRAM FEE PERCENT                                        
+      *                                                                         
+       SP880-CALCULATE-PGM-FEE-PCT.                                             
+      *                                                                         
+           IF CUB-RESELLER-SPLIT-PCT NOT NUMERIC                                
+              MOVE +0                  TO  CUB-RESELLER-SPLIT-PCT.              
+      *                                                                         
+           IF CUB-RESELLER-SPLIT-PCT > 0                                        
+              MOVE CUB-RESELLER-SPLIT-PCT                                       
+                                       TO  WS-PRC-PGM-FEE-PCT                   
+           ELSE                                                                 
+              IF WS-PRC-EU-AGENCY  AND                                          
+                 TB-CPO3-AGENCY-PCT IS NUMERIC                                  
+                 MOVE TB-CPO3-AGENCY-PCT                                        
+                                       TO  WS-PRC-PGM-FEE-PCT                   
+              ELSE                                                              
+                 IF WS-PRC-EU-SELECTSOURCE  AND                                 
+                    TB-CPO3-SELECTSOURCE-PCT IS NUMERIC                         
+                    MOVE TB-CPO3-SELECTSOURCE-PCT                               
+                                       TO  WS-PRC-PGM-FEE-PCT                   
+                 ELSE                                                           
+                    IF WS-PRC-EU-PURCH-ORDER-FIN  AND                           
+                       TB-CPO3-PURCH-ORDER-FIN-PCT IS NUMERIC                   
+                       MOVE TB-CPO3-PURCH-ORDER-FIN-PCT                         
+                                       TO  WS-PRC-PGM-FEE-PCT.                  
+                                                                                

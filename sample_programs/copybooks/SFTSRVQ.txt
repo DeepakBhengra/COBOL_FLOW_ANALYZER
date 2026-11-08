@@ -1,0 +1,387 @@
+      * -------------------------------------------------------------           
+      *   FEE SERVICE TS QUEUE                               --------           
+      * -------------------------------------------------------------           
+      *  06-30-05 JAR CA E WASTE PROJECT                                JAR05181
+      *  09-28-03 MEP 1. ADDED PROCESS END ORDER SWITCH                 MEP03271
+      *  05-16-03 BSR 1. CHANGED BIN HT, WIDTH, LEN FIELDS FROM         BSR03136
+      *                  PIC X(9) TO PIC S9(4)V99.                      BSR03136
+      *               2. ADDED 88'S TO DOCUMENT IM LOGISTICS BILLING    BSR03136
+      *                  SYSTEM EVENTS AND SERVICES                     BSR03136
+      *               3. ADDED SERVICE-TDQ-NAME TO ASSIST PROGRAMS      BSR03136
+      *                  THAT WRITE OUT A SERVICE TDQ                   BSR03136
+      *  03-12-03 JER 1. ADDED FIELDS FOR IM LOGISTICS BILLING SYSTEM   AXR03079
+      *           AXR 2. PADDED EACH SERVICEQ-XXX-AREA TO PIC X(508)    AXR03079
+      *                  TO MATCH SIZE OF SERVICEQ-DATA-AREA            AXR03079
+      *           AXR 3. ADDED COMMENTS EXPLAINING GROUP LEVELS & USAGE AXR03079
+      *  03-20-02 WFP ADD SRVQ-FR-UNIT-PRICE FOR RECUPEL PROJECT.       WFP02079
+      *  01-23-02 JER ADD NEW FIELDS FOR RECUBEL PROCESSING.            JER02015
+      *  07-21-01 JER ADD 88 TO SRVQ-H-BILLING-FLAG                     JER01225
+      *  04-16-01 JER ADD SRVQ-H-BILLING-FLAG FOR DEFERED BILLING       JER01125
+      *  02-23-01 GAF ADDED SRVQ-SD-SUBSYSTEM-CD AND 88 LEVEL,          GAF01054
+      *           GAF RENAMED SRVQ-SD-DETAIL TO SRVQ-SD-DETAIL-COMMON,  GAF01054
+      *           GAF ADDED 88 SRVQ-SD-OK AND SRVQ-SD-RETURN-SQL.       GAF01054
+      *  02-23-01 JAR JIM'S CHANGES                                     JAR01054
+      *               JOE'S CHANGES                                     JXR01054
+      *  02-23-01 JAR ADDED 88 LEVELS.                                  JAR01054
+      *  11-06-00 JAR COPYBOOK CREATED.                                 JER00300
+      * -------------------------------------------------------------           
+                                                                                
+       01  SERVICE-QUEUE.                                                       
+      *       (THE FOLLOWING QUEUE NAME IS ONLY FOR SPECIFYING A        BSR03136
+      *        SERVICE FEE TSQ NAME, NOT FOR THE TDQ NAME, WHICH CAN BE BSR03136
+      *        SET USING THE SFTSRVQ-TDQ-NAME AND DERIVED BY THE        BSR03136
+      *        TRIGGERED PROGRAM USING THE ASSIGN COMMAND).             BSR03136
+           05  SERVICE-QUEUE-NAME.                                              
+               10  FILLER                      PIC X(04) VALUE 'SFSQ'.          
+               10  WS-SQN-OPERID               PIC X(04).                       
+           05  SERVICE-QUEUE-LEN               PIC S9(4) COMP VALUE +0.         
+           05  SERVICE-QUEUE-ITEM              PIC S9(4) COMP VALUE +0.         
+                                                                        BSR03136
+       01  SFTSRVQ-TDQ-NAME                    PIC X(04).               BSR03136
+      *       (IM LOGISTISTICS SERVICE FEE TDQ TO TRIGGER SFP300)       BSR03136
+               88  WS-IMLB-TDQ-TRIGGER-SFP300  VALUE 'S30Q'.            BSR03136
+                                                                                
+       01  SERVICEQ-REQUEST.                                                    
+           05  SERVICEQ-RECORD-TYPE            PIC X(02).                       
+               88  SERVICEQ-HEADER                           VALUE 'H '.        
+               88  SERVICEQ-PART                             VALUE 'P '.        
+               88  SERVICEQ-EVENT                            VALUE 'E '.        
+               88  SERVICEQ-SERVICE-REND-DETAIL              VALUE 'SD'.        
+               88  SERVICEQ-FEE-RESULTS                      VALUE 'FR'.        
+      *   (BASED ON THE SERVICEQ-RECORD-TYPE, THE FOLLOWING DATA-AREA   AXR03079
+      *    SHOULD BE MOVED TO ONE, AND ONLY ONE, OF THE SERVICEQ AREAS) AXR03079
+           05  SERVICEQ-DATA-AREA              PIC X(508).                      
+                                                                                
+      *   (DATA-AREA-DETAIL GROUP SHOULD ONLY CONTAIN DATA IN ONE OF    AXR03079
+      *    ITS SERVICEQ-XXX-AREA GROUPS. THERE SHOULD NEVER BE A NEED   AXR03079
+      *    TO DO A GROUP MOVE OF THE ENTIRE DATA-AREA-DETAIL GROUP).    AXR03079
+       01  SERVICEQ-DATA-AREA-DETAIL.                                           
+                                                                        AXR03079
+      * HEADER AREA CONTAINS THE SALES ORDER QUEUE FIELDS               AXR03079
+           05  SERVICEQ-HEADER-AREA.                                            
+               10  SRVQ-H-ERROR-CODE           PIC X(02).                       
+                   88  SRVQ-H-NO-HEADER        VALUE 'NH'.              JAR01054
+                   88  SRVQ-H-DB2-UNAVAILABLE  VALUE 'UN'.              JAR01054
+               10  SRVQ-H-COMPANY-BRANCH.                                       
+                   15  SRVQ-H-COMPANY-CODE     PIC X(02).                       
+                   15  SRVQ-H-SERVICE-BR-NBR   PIC X(02).                       
+               10  SRVQ-H-CUST.                                                 
+                   15  SRVQ-H-CUST-CO-CD       PIC X(02).                       
+                   15  SRVQ-H-CUST-BR          PIC X(02).                       
+                   15  SRVQ-H-CUST-NBR         PIC X(06).                       
+                   15  SRVQ-H-CUST-SUFFIX      PIC X(03).                       
+               10  SRVQ-H-ORDER-NUMBER.                                         
+                   15  SRVQ-H-ORDER-BR         PIC X(02).                       
+                   15  SRVQ-H-ORDER-NBR        PIC X(05).                       
+                   15  SRVQ-H-ORDER-DIST       PIC X(01).                       
+                   15  SRVQ-H-ORDER-SHIP       PIC X(01).                       
+               10  SRVQ-H-ORDER-DATE-CCYYMMDD  PIC 9(08).                       
+               10  SRVQ-H-ORDER-LINE-NBR       PIC 9(03).                       
+               10  SRVQ-H-TOTAL-FEES-PRICE     PIC S9(13)V9(4).                 
+               10  SRVQ-H-TOTAL-FEES-COST      PIC S9(13)V9(4).                 
+               10  SRVQ-H-TOTAL-FEES-ADJ-COST  PIC S9(13)V9(4).                 
+               10  SRVQ-H-QUANTITY-ORDERED     PIC S9(5).                       
+               10  SRVQ-H-PRNAME-IN            PIC X(04).                       
+               10  SRVQ-H-PRNAME-USED          PIC X(04).                       
+               10  SRVQ-H-CURRENCY-CODE        PIC X(03).                       
+               10  SRVQ-H-BILLING-FLAG         PIC X(01).               JER01125
+                   88 SRVQ-H-BILL-TO-ORDER     VALUE 'O' ' '.           JER01125
+                   88 SRVQ-H-BILL-SRV-REND     VALUE 'R'.               JER01125
+                   88 SRVQ-H-BILL-DEFERRED     VALUE 'D'.               JER01225
+               10  SRVQ-H-ORDER-PROCESS-SW     PIC X(01).               MEP03271
+                   88 SRVQ-H-END-ORDER-PGM     VALUE 'E'.               MEP03271
+                   88 SRVQ-H-TOTAL-ORDER-PGM   VALUE 'T'.               MEP03271
+               10  FILLER                      PIC X(400).              MEP03271
+                                                                                
+      * PART AREA ARE THE PART QUEUE FIELDS USED BY SFP001 TO CALC FEES AXR03079
+           05  SERVICEQ-PART-AREA.                                              
+               10  SRVQ-P-ACTIVITY-CD          PIC X(1).                        
+                   88  SRVQ-P-INTEGRATED-PART                VALUE 'I'.         
+                   88  SRVQ-P-STAGED-PART                    VALUE 'S'.         
+                   88  SRVQ-P-BASE-PART                      VALUE 'B'.         
+                   88  SRVQ-P-PROMO                          VALUE 'P'.         
+               10  SRVQ-P-COMPONENT.                                            
+                   15  SRVQ-P-COMPANY          PIC X(02).                       
+                   15  SRVQ-P-PARTNO           PIC X(12).                       
+               10  SRVQ-P-CA-PRICE-NAME        PIC X(04).                       
+               10  SRVQ-P-CATEGORY.                                             
+                   15  SRVQ-P-CAT-CODE.                                         
+                       20  SRVQ-P-CAT-CODE-1   PIC X(01).                       
+                       20  SRVQ-P-CAT-CODE-2   PIC X(01).                       
+                   15  SRVQ-P-SUB-CAT-CODE     PIC X(02).                       
+               10  SRVQ-P-COMPONENT-QTY        PIC S9(5).                       
+               10  SRVQ-P-COMPONENT-QTY-PER    PIC 9(3).                        
+               10  SRVQ-P-INB-AVG-COST         PIC S9(13)V9(4).                 
+               10  SRVQ-P-UNIT-COST            PIC S9(13)V9(4).                 
+               10  SRVQ-P-UNIT-PRICE           PIC S9(15)V99.                   
+               10  SRVQ-P-VENDOR-ID.                                            
+                   15  SRVQ-P-VEND-CO-CD       PIC X(02).                       
+                   15  SRVQ-P-VEND-TYPE        PIC X(01).                       
+                   15  SRVQ-P-VEND-NBR         PIC X(04).                       
+               10  SRVQ-P-DESCRIPTION          PIC X(30).                       
+               10  FILLER                      PIC X(389).              AXR03079
+                                                                                
+      * EVENT AREA CONTAINS FIELDS USED BY SFP001 TO CALC FEES          AXR03079
+           05  SERVICEQ-EVENT-AREA.                                             
+               10  SRVQ-E-ERROR-CODE           PIC X(02).                       
+               10  SRVQ-E-EVENT-ID             PIC X(04).                       
+      *           (IM LOGISTICS BILLING EVENTS)                         BSR03136
+      *               (RECEIVING EVENTS FOR EACHES, PALLETS & CARTONS)  BSR03136
+                   88  SRVQ-E-EVENT-RCVE       VALUE 'RCVE'.            BSR03136
+                   88  SRVQ-E-EVENT-RCVP       VALUE 'RCVP'.            BSR03136
+                   88  SRVQ-E-EVENT-RCVC       VALUE 'RCVC'.            BSR03136
+      *               (GROUPING OF ALL RECEIVING EVENTS)                BSR03136
+                   88  SRVQ-E-EVENT-RCV                                 BSR03136
+                       VALUES 'RCVE', 'RCVP', 'RCVC'.                   BSR03136
+      *               (SHIPPING EVENTS FOR EACHES, PALLETS, CARTONS     BSR03136
+      *                AND REPACKS)                                     BSR03136
+                   88  SRVQ-E-EVENT-SHPE       VALUE 'SHPE'.            BSR03136
+                   88  SRVQ-E-EVENT-SHPP       VALUE 'SHPP'.            BSR03136
+                   88  SRVQ-E-EVENT-SHPC       VALUE 'SHPC'.            BSR03136
+                   88  SRVQ-E-EVENT-SHPR       VALUE 'SHPR'.            BSR03136
+      *               (GROUPING OF ALL SHIPPING EVENTS)                 BSR03136
+                   88  SRVQ-E-EVENT-SHP                                 BSR03136
+                       VALUES 'SHPE', 'SHPP', 'SHPC', 'SHPR'.           BSR03136
+      *               (RETURN EVENTS FOR REFUSAL, STOCKING CREDIT,      BSR03136
+      *                AND OPEN BOX REASON CODES)                       BSR03136
+                   88  SRVQ-E-EVENT-RTRR       VALUE 'RTRR'.            BSR03136
+                   88  SRVQ-E-EVENT-RTRC       VALUE 'RTRC'.            BSR03136
+                   88  SRVQ-E-EVENT-RTRO       VALUE 'RTRO'.            BSR03136
+      *               (GROUPING OF ALL RETURN/REVERSE LOGISTICS EVENTS) BSR03136
+                   88  SRVQ-E-EVENT-RTR                                 BSR03136
+                       VALUES 'RTRR', 'RTRC', 'RTRO'.                   BSR03136
+      *                                                                 BSR03136
+               10  SRVQ-E-GROUP-ID             PIC X(04).               JXR01054
+               10  SRVQ-E-SERVICE-ID           PIC X(04).               JXR01054
+      *           (IM LOGISTICS BILLING SERVICES)                       BSR03136
+      *               (RECEIVING SERVICES FOR EACHES, PALLETS & CARTONS)BSR03136
+                   88  SRVQ-E-SERVICE-RCVE     VALUE 'RCVE'.            BSR03136
+                   88  SRVQ-E-SERVICE-RCVP     VALUE 'RCVP'.            BSR03136
+                   88  SRVQ-E-SERVICE-RCVC     VALUE 'RCVC'.            BSR03136
+      *               (GROUPING OF ALL RECEIVING SERVICES)              BSR03136
+                   88  SRVQ-E-SERVICE-RCV                               BSR03136
+                       VALUES 'RCVE', 'RCVP', 'RCVC'.                   BSR03136
+      *               (SHIPPING SERVICES FOR EACHES, PALLETS, CARTONS   BSR03136
+      *                AND REPACKS)                                     BSR03136
+                   88  SRVQ-E-SERVICE-SHPE     VALUE 'SHPE'.            BSR03136
+                   88  SRVQ-E-SERVICE-SHPP     VALUE 'SHPP'.            BSR03136
+                   88  SRVQ-E-SERVICE-SHPC     VALUE 'SHPC'.            BSR03136
+                   88  SRVQ-E-SERVICE-SHPR     VALUE 'SHPR'.            BSR03136
+      *               (GROUPING OF ALL SHIPPING SERVICES)               BSR03136
+                   88  SRVQ-E-SERVICE-SHP                               BSR03136
+                       VALUES 'SHPE', 'SHPP', 'SHPC', 'SHPR'.           BSR03136
+      *               (RETURN SERVICES FOR REFUSAL, STOCKING CREDIT,    BSR03136
+      *                AND OPEN BOX REASON CODES)                       BSR03136
+                   88  SRVQ-E-SERVICE-RTRR     VALUE 'RTRR'.            BSR03136
+                   88  SRVQ-E-SERVICE-RTRC     VALUE 'RTRC'.            BSR03136
+                   88  SRVQ-E-SERVICE-RTRO     VALUE 'RTRO'.            BSR03136
+      *               (GROUPING OF ALL RETURN SERVICES)                 BSR03136
+                   88  SRVQ-E-SERVICE-RTR                               BSR03136
+                       VALUES 'RTRR', 'RTRC', 'RTRO'.                   BSR03136
+               10  SRVQ-E-ACTIVITY-CD          PIC X(01).                       
+                   88  SRVQ-E-EVENT                          VALUE 'E'.         
+                   88  SRVQ-E-OPER-SYS                       VALUE 'O'.         
+               10  SRVQ-E-EVENT-QTY            PIC S9(5).                       
+               10  SRVQ-E-QTY-PER              PIC 9(3).                        
+               10  SRVQ-E-EVENT-AMT            PIC S9(15)V99.                   
+               10  SRVQ-E-LABCODE              PIC X(6).                        
+               10  SRVQ-E-OPER-SYS-ID          PIC X(05).                       
+               10  SRVQ-E-COMPANY-BRANCH.                                       
+                   15  SRVQ-E-COMPANY-CODE     PIC X(02).                       
+                   15  SRVQ-E-SERVICE-BR-NBR   PIC X(02).                       
+               10  SRVQ-E-CUST.                                                 
+                   15  SRVQ-E-CUST-CO-CD       PIC X(02).                       
+                   15  SRVQ-E-CUST-BR          PIC X(02).                       
+                   15  SRVQ-E-CUST-NBR         PIC X(06).                       
+                   15  SRVQ-E-CUST-SUFFIX      PIC X(03).                       
+               10  SRVQ-E-ORDER-NUMBER.                                         
+                   15  SRVQ-E-ORDER-BR         PIC X(02).                       
+                   15  SRVQ-E-ORDER-NBR        PIC X(05).                       
+                   15  SRVQ-E-ORDER-DIST       PIC X(01).                       
+                   15  SRVQ-E-ORDER-SHIP       PIC X(01).                       
+               10  SRVQ-E-ORDER-DATE-CCYYMMDD  PIC 9(08).                       
+      * THIS IS THE ORDER LINE NBR WHERE FEE WILL BE WRITTEN.           JER02015
+      *     (MAY BE BLANK OR ZERO FOR AUTO ASSIGN)                      JER02015
+               10  SRVQ-E-ORDER-LINE-NBR       PIC 9(03).                       
+               10  SRVQ-E-DESCRIPTION          PIC X(30).                       
+               10  SRVQ-E-PRNAME-IN            PIC X(04).                       
+               10  SRVQ-E-PRNAME-USED          PIC X(04).                       
+               10  SRVQ-E-CURRENCY-CODE        PIC X(03).                       
+               10  SRVQ-E-COMPONENT.                                            
+                   15  SRVQ-E-COMPANY          PIC X(02).                       
+                   15  SRVQ-E-PARTNO           PIC X(12).                       
+               10  SRVQ-E-CATEGORY.                                     JXR01054
+                   15  SRVQ-E-CAT-CODE.                                 JXR01054
+                       20  SRVQ-E-CAT-CODE-1   PIC X(01).               JXR01054
+                       20  SRVQ-E-CAT-CODE-2   PIC X(01).               JXR01054
+                   15  SRVQ-E-SUB-CAT-CODE     PIC X(02).               JXR01054
+               10  SRVQ-E-VENDOR-ID.                                            
+                   15  SRVQ-E-VEND-CO-CD       PIC X(02).                       
+                   15  SRVQ-E-VEND-TYPE        PIC X(01).                       
+                   15  SRVQ-E-VEND-NBR         PIC X(04).                       
+               10  SRVQ-E-FEE-CAUSING-LINE-NBR PIC 9(03).               JER02015
+               10  SRVQ-E-FEE-DESC-FORMAT      PIC X(01).               JER02015
+               10  SRVQ-E-ORDR-TYPE-CD         PIC X(02).               JER02015
+               10  SRVQ-E-STATEPR              PIC X(03).               JAR05181
+               10  SRVQ-E-FROMTO-SIZE          PIC S9(3)V9.             JAR05181
+               10  FILLER                      PIC X(341).              JAR05181
+                                                                        AXR03079
+      * THIS AREA LOOKS LIKE THE SRV_REND DETAIL (CHILD) TABLES                 
+      * 05 LEVEL IS FOR MQ INPUT                                                
+           05  SERVICEQ-SERVICE-REND-DET-AREA.                                  
+               10  SRVQ-SD-PROGRAM             PIC X(08).                       
+               10  SRVQ-SD-SUBSYSTEM-CD        PIC X(02).                       
+                   88 SRVQ-SD-CONSIGNED                   VALUE 'CI'.           
+                   88 SRVQ-SD-SRVRND-TEXT                 VALUE 'TX'.   JXR01054
+                   88 SRVQ-SD-LOGISTICS-BILLING           VALUE 'LB'.   AXR03079
+      * 10 LEVEL IS FOR COMMAREA FOR SUB DETAIL PROGRAM                         
+               10  SRVQ-SD-DETAIL-COMMON.                                       
+                   15  SRVQ-SD-SERV-REND-TS    PIC X(26).                       
+                   15  SRVQ-SD-ERROR-CODE      PIC X(02).                       
+                       88  SRVQ-SD-OK                     VALUE 'OK'.           
+                   15  SRVQ-SD-RETURN-SQL      PIC S9(5) COMP-3.                
+      * 10 LEVEL IS FOR REDEFINITIONS FOR EACH PRIVATE SUBSYSTEM                
+      * NOTE THAT THE SUBSYSTEM CODE (88 LEVEL ABOVE) SHOULD BE THE             
+      * THIRD QUALIFIER FOR EACH DATA NAME.                                     
+               10 SRVQ-SD-REND-DATA                   PIC X(467).       AXR03079
+      *          (CI - CONSIGNED INVENTORY SUBSYSTEM DATA GROUP)        AXR03079
+               10 SRVQ-SD-CI-REND-DATA REDEFINES SRVQ-SD-REND-DATA.             
+                   15  SRVQ-SD-CI-CIPV-CO-CD          PIC X(02).                
+                   15  SRVQ-SD-CI-CIPV-PROC-VEND-NBR  PIC X(04).                
+                   15  SRVQ-SD-CI-CIPR-CO-CD          PIC X(02).                
+                   15  SRVQ-SD-CI-CIPR-BASE-PART-ID   PIC X(12).                
+                   15  SRVQ-SD-CI-CIPR-IM-PART-NBR    PIC X(12).                
+                   15  SRVQ-SD-CI-PO-NBR              PIC X(05).                
+                   15  SRVQ-SD-CI-FROM-DC-NBR         PIC X(02).                
+                   15  SRVQ-SD-CI-TO-DC-NBR           PIC X(02).                
+                   15  SRVQ-SD-CI-XFER-QTY            PIC S9(5) COMP-3.         
+                   15  SRVQ-SD-CI-ORDER-NBR           PIC X(09).                
+                   15  SRVQ-SD-CI-BFOR-QTY            PIC S9(5) COMP-3.         
+                   15  SRVQ-SD-CI-BIN-ID              PIC X(10).        GAF01054
+                   15  SRVQ-SD-CI-PO-DC-NBR           PIC X(02).        GAF01054
+                   15  FILLER                         PIC X(399).       AXR03079
+      *          (TX - SERVICES RENDERED FREEFORM TEXT DATA GROUP)      AXR03079
+               10 SRVQ-SD-TX-REND-DATA REDEFINES SRVQ-SD-REND-DATA.     JAR01054
+                   15  SRVQ-SD-TX-SEQ-NBR             PIC S9(4) COMP.   JAR01054
+                   15  SRVQ-SD-TX-SRV-TXT-DES         PIC X(35).        JAR01054
+                   15  FILLER                         PIC X(430).       AXR03079
+      *          (LB - LOGISTICS BILLING SUBSYSTEM DATA GROUP)          AXR03079
+               10 SRVQ-SD-LB-REND-DATA REDEFINES SRVQ-SD-REND-DATA.     AXR03079
+      *               (CALCULATION FACTORS DETERMINE THE FEE AMOUNT)    AXR03079
+                   15  SRVQ-SD-LB-CALC-FACTORS.                         AXR03079
+      *                  (RETURN LOGISTCS FIELDS)                       AXR03079
+                       20 SRVQ-SD-LB-RTN-REASON-CD    PIC X(2).         AXR03079
+                       20 SRVQ-SD-LB-RTN-QTY          PIC S9(4).        AXR03079
+                       20 SRVQ-SD-LB-RTN-DESTR-QTY    PIC S9(4).        AXR03079
+      *                  (RECEIVING LOGISTCS FIELDS)                    AXR03079
+                       20 SRVQ-SD-LB-RCVD-QTY         PIC S9(4).        AXR03079
+                       20 SRVQ-SD-LB-CARTONS-RCVD-QTY PIC S9(4).        AXR03079
+                       20 SRVQ-SD-LB-PALLETS-RCVD-QTY PIC S9(4).        AXR03079
+      *                  (SHIPPING LOGISTCS FIELDS)                     AXR03079
+                       20 SRVQ-SD-LB-SHIPPED-QTY      PIC S9(4).        AXR03079
+                       20 SRVQ-SD-LB-CARTONS-SHIP-QTY PIC S9(4).        AXR03079
+                       20 SRVQ-SD-LB-PALLETS-SHIP-QTY PIC S9(4).        AXR03079
+                       20 SRVQ-SD-LB-REPK-UNIT-SHIP-QTY PIC S9(4).      AXR03079
+      *                  (BIN STORAGE LOGISTCS FIELDS)                  AXR03079
+                       20 SRVQ-SD-LB-BIN-TYP-CD       PIC X(2).         AXR03079
+                       20 SRVQ-SD-LB-BIN-STOR-TYP-CD  PIC X(2).         AXR03079
+                       20 SRVQ-SD-LB-BIN-HT           PIC S9(4)V99.     BSR03136
+                       20 SRVQ-SD-LB-BIN-WIDTH        PIC S9(4)V99.     BSR03136
+                       20 SRVQ-SD-LB-BIN-LEN          PIC S9(4)V99.     BSR03136
+                       20 SRVQ-SD-LB-QTY-ON-HAND      PIC S9(4).        AXR03079
+      *               (FILLER FOR FUTURE EXPANSION)                     AXR03079
+                       20 SRVQ-SD-LB-CALC-FILLER      PIC X(159).       BSR03136
+      *               (LOGGING FIELDS ARE INFORMATIONAL, NOT USED AS    AXR03079
+      *                PART OF SERVICE FEE CALCULATION)                 AXR03079
+                   15  SRVQ-SD-LB-LOG-FIELDS.                           AXR03079
+                       20 SRVQ-SD-LB-IM-PART-NBR      PIC X(12).        AXR03079
+                       20 SRVQ-SD-LB-VEND-PART-NBR    PIC X(20).        AXR03079
+                       20 SRVQ-SD-LB-CUST-PO-NBR      PIC X(18).        AXR03079
+                       20 SRVQ-SD-LB-BIN-LOC          PIC X(10).        AXR03079
+      *               (FILLER FOR FUTURE EXPANSION)                     AXR03079
+                       20 SRVQ-SD-LB-LOG-FILLER       PIC X(184).       AXR03079
+                                                                        AXR03079
+      * FEE RESULTS AREA IS INPUT FOR SFP002 TO WRITE AN ORDER AND/OR   AXR03079
+      * WRITE TO THE SRV_REND TABLE.                                            
+           05  SERVICEQ-FEE-RESULTS-AREA.                                       
+               10  SRVQ-FR-ERROR-CODE          PIC X(02).                       
+      * FR-OK ADDED BY JJU00252                                                 
+                   88  SRVQ-FR-OK                     VALUE 'OK'.               
+                   88  SRVQ-FR-DB2-UNAVAILABLE-SFP004 VALUE 'A1'.       JAR01054
+                   88  SRVQ-FR-BAD-INSERT-SRV-REND    VALUE 'A3'.       JAR01054
+               10  SRVQ-FR-MODE-SW             PIC X(01).               JAR01054
+                   88  SRVQ-FR-INSERT                        VALUE 'I'. JAR01054
+                   88  SRVQ-FR-UPDATE                        VALUE 'U'. JAR01054
+               10  SRVQ-FR-ACTIVITY-CD         PIC X(01).                       
+                   88  SRVQ-FR-INTEGRATED-PART               VALUE 'I'.         
+                   88  SRVQ-FR-STAGED-PART                   VALUE 'S'.         
+                   88  SRVQ-FR-BASE-PART                     VALUE 'B'.         
+                   88  SRVQ-FR-EVENT                         VALUE 'E'.         
+                   88  SRVQ-FR-OPER-SYS                      VALUE 'O'.         
+               10  SRVQ-FR-MISC-CHARGE-CODE    PIC X(03).                       
+               10  SRVQ-FR-PRICE               PIC S9(13)V9(4).                 
+               10  SRVQ-FR-COST                PIC S9(13)V9(4).                 
+               10  SRVQ-FR-ADJ-COST            PIC S9(13)V9(4).                 
+               10  SRVQ-FR-ORDER-KEY.                                           
+                   15  SRVQ-FR-ORDER-CO-CD         PIC X(02).                   
+                   15  SRVQ-FR-COMPANY-CODE REDEFINES                   JAR01054
+                       SRVQ-FR-ORDER-CO-CD         PIC X(02).           JAR01054
+                   15  SRVQ-FR-ORDER-NUMBER.                                    
+                       20 SRVQ-FR-ORDER-BR         PIC X(02).                   
+                       20 SRVQ-FR-ORDER-NBR        PIC X(05).                   
+                       20 SRVQ-FR-ORDER-DIST       PIC X(01).                   
+                       20 SRVQ-FR-ORDER-SHIP       PIC X(01).                   
+               10  SRVQ-FR-ORDER-DATE-CCYYMMDD PIC 9(08).                       
+               10  SRVQ-FR-ORDER-LINE-NBR      PIC 9(03).                       
+               10  SRVQ-FR-CURRENCY-CODE       PIC X(03).                       
+      *** THESE ARE NEEDED TO WRITE TO AN ORDER.                                
+               10  SRVQ-FR-STATUS              PIC X(01).                       
+                   88  SRVQ-FR-DELETED                       VALUE 'D'.         
+                   88  SRVQ-FR-BACKORDERED                   VALUE 'B'.         
+               10  SRVQ-FR-SPECIFIC-KEY        PIC X(20).                       
+               10  SRVQ-FR-SRV-DESCRIPTION     PIC X(30).                       
+               10  SRVQ-FR-UNIT-TYPE           PIC X(01).                       
+                   88  SRVQ-FR-UNIT-AMOUNT                   VALUE 'A'.         
+                   88  SRVQ-FR-UNIT-PERCENT                  VALUE 'P'.         
+               10  SRVQ-FR-SOURCE              PIC X(01).                       
+                   88  SRVQ-FR-MANUAL-ENTRY                  VALUE 'M'.         
+                   88  SRVQ-FR-AUTO-ENTRY                    VALUE 'A'.         
+                   88  SRVQ-FR-QTY-PER-ENTRY                 VALUE 'Q'.         
+      *** THESE ARE NEEDED TO WRITE TO THE SERVICES RENDERED DB2 TABLE          
+               10  SRVQ-FR-SERV-REND-TS        PIC X(26).                       
+               10  SRVQ-FR-CUSTOMER-ID.                                         
+                   15  SRVQ-FR-CUST-CO-CD      PIC X(02).                       
+                   15  SRVQ-FR-CUST-BR-NBR     PIC X(02).                       
+                   15  SRVQ-FR-CUST-NBR        PIC X(06).                       
+                   15  SRVQ-FR-CUST-BILL-SFX   PIC X(03).                       
+               10  SRVQ-FR-VENDOR-ID.                                           
+                   15  SRVQ-FR-VEND-CO-CD      PIC X(02).                       
+                   15  SRVQ-FR-VEND-TYPE       PIC X(01).                       
+                   15  SRVQ-FR-VEND-NBR        PIC X(04).                       
+               10  SRVQ-FR-GROUP-ID            PIC X(04).                       
+               10  SRVQ-FR-EVENT-ID            PIC X(04).                       
+               10  SRVQ-FR-SRV-ID              PIC X(04).                       
+               10  SRVQ-FR-QTY                 PIC S9(5).                       
+               10  SRVQ-FR-QTY-PER             PIC 9(3).                        
+               10  SRVQ-FR-OPER-ID             PIC X(04).                       
+               10  SRVQ-FR-BILLING-FRQNCY      PIC X(01).                       
+               10  SRVQ-FR-SERVICE-BR-NBR      PIC X(02).                       
+               10  SRVQ-FR-PART                PIC X(12).                       
+               10  SRVQ-FR-PRC-ORID-FLG        PIC X(01).               JAR01054
+      *        10  SRVQ-FR-FRGN-CCY-RATE-AMT   PIC S9(1)V9(6) COMP-3.   JAR01054
+               10  SRVQ-FR-CUST-CCY-RATE-AMT   PIC S9(7)V9(6) COMP-3.   JAR01054
+               10  SRVQ-FR-SRV-RND-TXTAVL-FLG  PIC X(01).               JAR01054
+               10  SRVQ-FR-INVC-LINE-NBR       PIC X(03).               JAR01054
+               10  SRVQ-FR-INVC-DATE-CCYYMMDD  PIC 9(08).               JAR01054
+               10  SRVQ-FR-CHG-OPER-ID         PIC X(04).               JAR01054
+               10  SRVQ-FR-TERMS-CD            PIC X(03).               JAR01054
+               10  SRVQ-FR-SRV-REND-DTLTBL-CD  PIC X(01).               JAR01054
+               10  SRVQ-FR-CHG-PGM-ID          PIC X(08).               JAR01054
+               10  SRVQ-FR-LAST-CHG-TS         PIC X(26).               JAR01054
+               10  SRVQ-FR-FEE-CAUSING-LINE-NBR PIC 9(03).              JER02015
+               10  SRVQ-FR-FEE-DESC-FORMAT     PIC X(01).               JER02015
+               10  SRVQ-FR-UNIT-PRICE          PIC S9(12)V9(4).         WFP02079
+               10  SRVQ-FR-ORDER-PROCESS-SW    PIC X(01).               MEP03271
+                   88 SRVQ-FR-END-ORDER-PGM     VALUE 'E'.              MEP03271
+                   88 SRVQ-FR-TOTAL-ORDER-PGM   VALUE 'T'.              MEP03271
+               10  FILLER                      PIC X(204).              MEP03271

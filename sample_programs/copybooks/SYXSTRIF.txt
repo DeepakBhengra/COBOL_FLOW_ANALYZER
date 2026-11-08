@@ -1,0 +1,114 @@
+﻿*     *****************************************************************         
+*     *** YEAR 2000 READY                                               PWLY9022
+*     *****************************************************************         
+         MACRO                                                          00000010
+         IF    &BOOL,&BOP                                               00000020
+         GBLA  &LVLA                                                    00000030
+         GBLA  &CNTA(100)                                               00000040
+         GBLC  &LVLC,&SGEN                                              00000050
+         GBLC  &IFON                                                    00000060
+         GBLC  &CNTC                                                    00000070
+         GBLC  &TYPC(100)                                               00000080
+         GBLC  &COND,&NCOND                                             00000090
+         LCLC  &B                                                       00000100
+         AIF   (&LVLA NE 0).ARND                                        00000110
+         $INCRLV                                                        00000120
+.ARND    AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00000130
+.ANEXT   ANOP                                                           00000140
+&TYPC(&LVLA) SETC 'I'                                                   00000150
+         $CKCOND &BOOL                                                  00000160
+         AIF   ('&COND' NE '-').COK                                     00000170
+         MNOTE 0,'INVALID OPERAND - &BOOL'                              00000180
+.COK     ANOP                                                           00000190
+         AIF   ('&BOP' EQ 'OR').IFOR                                    00000200
+.*                                     BRANCH TO ELSE/IFEND             00000210
+         AIF  ('&IFON' NE 'ON').IFOFF                                   00000220
+         MNOTE 'I&LVLC.C&CNTC'                                          00000230
+.IFOFF   B&NCOND I&LVLC.C&CNTC                                          00000240
+         AIF   ('&BOP' EQ 'AND').MEND                                   00000250
+         $INCRLV                                                        00000260
+         AGO   .MEND                                                    00000270
+.IFOR    ANOP                                                           00000280
+         B&COND T&LVLC.C&CNTC                                           00000290
+.MEND    AIF   ('&SYSPARM' NE 'LIST').EXIT                              00000300
+.EXIT    ANOP                                                           00000310
+         MEND                                                           00000320
+         EJECT                                                          00000330
+         MACRO                                                          00000340
+         THEN                                                           00000350
+         GBLA  &LVLA                                                    00000360
+         GBLC  &LVLC,&CNTC,&TYPC(100),&SGEN                             00000370
+.*    'THEN' MAY BE OMITTED FROM 'IF' STATEMENTS IF DESIRED             00000380
+         AIF   (&LVLA EQ 1).NOTOK                                       00000390
+         $DECRLV                                                        00000400
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'I').OK                          00000410
+.NOTOK   ANOP                                                           00000420
+         MNOTE 0,'NESTING ERROR - STATEMENT IGNORED'                    00000430
+         $INCRLV                                                        00000440
+         MEXIT                                                          00000450
+.OK      AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00000460
+.ANEXT   ANOP                                                           00000470
+T&LVLC.C&CNTC DS 0H                                                     00000480
+         $INCRLV                                                        00000490
+         AIF   ('&SYSPARM' NE 'LIST').EXIT                              00000500
+.EXIT    ANOP                                                           00000510
+         MEND                                                           00000520
+         EJECT                                                          00000530
+         MACRO                                                          00000540
+         ELSE                                                           00000550
+         GBLA  &LVLA,&CNTA(100)                                         00000560
+         GBLC  &LVLC,&CNTC,&TYPC(100),&SGEN                             00000570
+         GBLC  &IFON                                                    00000580
+         LCLC  &OCNTC                                                   00000590
+         AIF   (&LVLA EQ 1).NOTOK                                       00000600
+         $DECRLV                                                        00000610
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'I').OK                          00000620
+.NOTOK   ANOP                                                           00000630
+         MNOTE 0,'NESTING ERROR - STATEMENT IGNORED'                    00000640
+         $INCRLV                                                        00000650
+         MEXIT                                                          00000660
+.OK      AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00000670
+.ANEXT   ANOP                                                           00000680
+         AIF  ('&IFON' NE 'ON').IFOFF2                                  00000690
+         MNOTE 'I&LVLC.C&CNTC'                                          00000700
+.IFOFF2  ANOP                                                           00000710
+&OCNTC   SETC  '&CNTC'                                                  00000720
+         $INCRCT                                                        00000730
+.*                                     BRANCH TO IFEND                  00000740
+         AIF  ('&IFON' NE 'ON').IFOFF3                                  00000750
+         MNOTE 'I&LVLC.C&CNTC'                                          00000760
+.IFOFF3  B     I&LVLC.C&CNTC                                            00000770
+.*                                     GENERATE ELSE CLAUSE LABEL       00000780
+I&LVLC.C&OCNTC DS 0H                                                    00000790
+         $INCRLV                                                        00000800
+         AIF   ('&SYSPARM' NE 'LIST').EXIT                              00000810
+.EXIT    ANOP                                                           00000820
+         MEND                                                           00000830
+         EJECT                                                          00000840
+         MACRO                                                          00000850
+         IFEND                                                          00000860
+         GBLA  &LVLA,&CNTA(100)                                         00000870
+         GBLC  &LVLC,&CNTC,&TYPC(100),&SGEN                             00000880
+         GBLC  &IFON                                                    00000890
+         AIF   (&LVLA EQ 1).NOTOK                                       00000900
+         $DECRLV                                                        00000910
+         AIF   ('&TYPC(&LVLA)'(1,1) EQ 'I').OK                          00000920
+.NOTOK   ANOP                                                           00000930
+         MNOTE 0,'NESTING ERROR - STATEMENT IGNORED'                    00000940
+         $INCRLV                                                        00000950
+         MEXIT                                                          00000960
+         AIF  ('&IFON' NE 'ON').OK                                      00000970
+         MNOTE '&LVLC'                                                  00000980
+.OK      AIF   ('&SYSPARM' NE 'LIST').ANEXT                             00000990
+.ANEXT   ANOP                                                           00001000
+.* .NOLBL   ANOP                                                        00001010
+&TYPC(&LVLA) SETC ' '                                                   00001020
+.*                                     GENERATE IFEND LABEL             00001030
+         AIF  ('&IFON' NE 'ON').IFOFF4                                  00001040
+         MNOTE 'I&LVLC.C&CNTC'                                          00001050
+.IFOFF4  ANOP                                                           00001060
+I&LVLC.C&CNTC DS 0H                                                     00001070
+         $INCRCT                                                        00001080
+         AIF   ('&SYSPARM' NE 'LIST').EXIT                              00001090
+.EXIT    ANOP                                                           00001100
+         MEND                                                           00001110

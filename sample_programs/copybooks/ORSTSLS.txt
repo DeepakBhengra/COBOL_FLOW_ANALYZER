@@ -1,0 +1,268 @@
+﻿      *================================================================*        
+      *  PURPOSE:                                                      *        
+      *  =======                                                       *        
+      *  PROCESS LOGICS TO GET ORDER LINE TOTAL SALES, COST, ETC FOR   *        
+      *  DISPLAYING ORDER LINE TOTALS AND MARGINS IN THE REVIEW        *        
+      *  SCREENS FOR CNP B2B/REPL ORDERS CONSIDERING THE ORDERED QTY   *        
+      *  AS THE SHIP QTY.                                              *        
+      *  THIS PROCESS IS DRIVEN BY THE SWITCH                          *        
+      *    -TB-CPO7-B2B-REPL-PCT-DIS-SW                                *        
+      *================================================================*        
+      *                                                                *        
+      * REVISION INFO:                                                 *        
+      * 05/01/22 SPR COMMON LOGICS TO CALCULATE TOTAL VALUES FOR       *SPR22121
+      *              B2B/REPL ORDERS IN REVIEW SCREENS                 *SPR22121
+      *================================================================*        
+                                                                                
+       ORSTSLS-INIT-REPL-B2B-SW.                                                
+                                                                                
+           IF TB-CPO7-NORESP                                                    
+              IF  TB-CPO7-NP-REPL-B2B-ALLOWED                                   
+              AND TB-CPO7-B2B-REPL-PCT-DIS-Y                                    
+                  SET WS-CPO7-B2B-REPL-PCT-DIS-Y                                
+                                       TO TRUE                                  
+              ELSE                                                              
+                  SET WS-CPO7-B2B-REPL-PCT-DIS-N                                
+                                       TO TRUE                                  
+              END-IF                                                            
+           ELSE                                                                 
+              SET WS-CPO7-B2B-REPL-PCT-DIS-N                                    
+                                       TO TRUE                                  
+           END-IF.                                                              
+                                                                                
+       ORSTSLS-INIT-EXIT.                                                       
+           EXIT.                                                                
+                                                                                
+       ORSTSLS-CHECK-B2B-REPL-ORDER.                                            
+                                                                                
+           IF NOT WS-DLI-SCHEDULED                                              
+              PERFORM 980-SCHEDULE-DLI                                          
+           END-IF.                                                              
+                                                                                
+           MOVE TC-COMPANY             TO WS-ORSHED-CO                          
+           MOVE TC-ORDER-BR-NBR        TO WS-ORSHED-BR                          
+           MOVE TC-ORDER-NBR           TO WS-ORSHED-NBR                         
+           MOVE '0'                    TO WS-ORSHEDOF-NBR                       
+           MOVE ' '                    TO WS-ORSHEDOF-IO-SW                     
+           PERFORM 1201-GU-ORSHEDOF                                             
+           IF WS-ORSHEDOF-NORESP                                                
+              MOVE ORHOF-ORSHEDOF      TO ORHOF-ORSHEDOF-0                      
+           ELSE                                                                 
+              MOVE SPACES              TO ORHOF-NP-ORDER-IND                    
+           END-IF.                                                              
+                                                                                
+           IF ORHOF-NP-ORDER-REPLNISHMNT                                        
+           OR ORHOF-NP-ORDER-BACK-2-BACK                                        
+              SET WS-B2B-REPL-TOTALS-VIEW                                       
+                                       TO TRUE                                  
+              SET WS-OTTL-TS-NO-DATA   TO TRUE                                  
+              INITIALIZE WS-OTTL-TS-RECORD                                      
+           ELSE                                                                 
+              SET WS-REGULAR-ORDER-VIEW                                         
+                                       TO TRUE                                  
+           END-IF.                                                              
+                                                                                
+       ORSTSLS-CHECK-B2B-REPL-EXIT.                                             
+           EXIT.                                                                
+                                                                                
+       ORSTSLS-PROC-B2B-REPL-LNE-TOT.                                           
+                                                                                
+           MOVE 'P'                    TO WS-ORSLNE3-TYPE.                      
+           MOVE ZEROES                 TO WS-ORSH-TOTAL-SLS                     
+                                          WS-ORSH-TOTAL-COST                    
+                                          WS-ORSH-FGN-TOT-SLS                   
+                                          WS-ORSH-TOTAL-TAX                     
+                                          WS-ORSH-FGN-TOTAL-TAX                 
+                                          WS-ORSH-ADJ-COST.                     
+                                                                                
+           IF WS-OTTL-TS-DATA-PRESENT                                           
+              MOVE WS-OTTL-TS-ORSH-TOT-SLS                                      
+                                       TO WS-ORSH-TOTAL-SLS                     
+              MOVE WS-OTTL-TS-ORSH-TOT-CST                                      
+                                       TO WS-ORSH-TOTAL-COST                    
+              MOVE WS-OTTL-TS-ORSH-FGN-TOT-SLS                                  
+                                       TO WS-ORSH-FGN-TOT-SLS                   
+              MOVE WS-OTTL-TS-ORSH-TOT-TAX                                      
+                                       TO WS-ORSH-TOTAL-TAX                     
+              MOVE WS-OTTL-TS-ORSH-FGN-TOT-TAX                                  
+                                       TO WS-ORSH-FGN-TOTAL-TAX                 
+              MOVE WS-OTTL-TS-ORSH-ADJ-CST                                      
+                                       TO WS-ORSH-ADJ-COST                      
+           ELSE                                                                 
+              MOVE SPACES              TO WS-ORSLNE-IO-SW                       
+              PERFORM ORSTSLS-READ-PART-LINES                                   
+                 THRU ORSTSLS-READ-PART-EXIT                                    
+                UNTIL WS-READ-LINE-END                                          
+              IF WS-ORSH-TOTAL-SLS > ZEROES                                     
+              AND WS-VAT-TAX-RATE > ZEROES                                      
+                  COMPUTE WS-ORSH-TOTAL-TAX ROUNDED =                           
+                          WS-ORSH-TOTAL-SLS   * WS-VAT-TAX-RATE                 
+              END-IF                                                            
+              IF WS-ORSH-FGN-TOT-SLS > ZEROES                                   
+              AND WS-VAT-TAX-RATE > ZEROES                                      
+                  COMPUTE WS-ORSH-FGN-TOTAL-TAX ROUNDED =                       
+                          WS-ORSH-FGN-TOT-SLS * WS-VAT-TAX-RATE                 
+              END-IF                                                            
+              PERFORM ORSTSLS-WRITE-OTTL-QUEUE                                  
+                 THRU ORSTSLS-WRITE-OTTL-EXIT                                   
+              PERFORM 1202-GU-ORSSHH                                            
+           END-IF.                                                              
+                                                                                
+           IF WS-ORSH-TOTAL-SLS > ZEROES                                        
+              MOVE WS-ORSH-TOTAL-SLS   TO ORSH-TOTAL-SALES                      
+           END-IF.                                                              
+                                                                                
+           IF WS-ORSH-TOTAL-COST  > ZEROES                                      
+              MOVE WS-ORSH-TOTAL-COST  TO ORSH-TOTAL-COST                       
+           END-IF.                                                              
+                                                                                
+           IF WS-ORSH-FGN-TOT-SLS > ZEROES                                      
+              MOVE WS-ORSH-FGN-TOT-SLS TO ORSH-FOREIGN-TOTAL-SALES              
+           END-IF.                                                              
+                                                                                
+           IF WS-ORSH-TOTAL-TAX > ZEROES                                        
+              MOVE WS-ORSH-TOTAL-TAX   TO ORSH-TOTAL-TAX                        
+           END-IF.                                                              
+                                                                                
+           IF WS-ORSH-FGN-TOTAL-TAX > ZEROES                                    
+              MOVE WS-ORSH-FGN-TOTAL-TAX                                        
+                                       TO ORSH-FOREIGN-TOTAL-TAX                
+           END-IF.                                                              
+                                                                                
+           IF WS-ORSH-ADJ-COST > ZEROES                                         
+              MOVE WS-ORSH-ADJ-COST    TO ORSH-ADJUSTED-COST                    
+           END-IF.                                                              
+                                                                                
+       ORSTSLS-PROCESS-EXIT.                                                    
+           EXIT.                                                                
+      *                                                                         
+       ORSTSLS-READ-OTTL-QUEUE.                                                 
+                                                                                
+           MOVE TC-OPER-ID             TO WS-OTTL-TS-OPER-ID                    
+           MOVE LENGTH OF WS-OTTL-TS-RECORD                                     
+                                       TO WS-OTTL-TS-REC-LENGTH.                
+                                                                                
+           EXEC CICS                                                            
+                READQ TS                                                        
+                QUEUE (WS-OTTL-TS-QUEUE-NAME)                                   
+                INTO  (WS-OTTL-TS-RECORD)                                       
+                LENGTH(WS-OTTL-TS-REC-LENGTH)                                   
+                ITEM  (WS-OTTL-TS-ITEM-NBR)                                     
+                RESP  (WS-EIBRESP)                                              
+           END-EXEC.                                                            
+                                                                                
+           IF NOT WS-EIB-NORESP                                                 
+              INITIALIZE WS-OTTL-TS-RECORD                                      
+              SET WS-OTTL-TS-NO-DATA   TO TRUE                                  
+           END-IF.                                                              
+                                                                                
+       ORSTSLS-READ-OTTL-EXIT.                                                  
+           EXIT.                                                                
+      *                                                                         
+       ORSTSLS-READ-PART-LINES.                                                 
+                                                                                
+           SET WS-READ-LINE-OPEN       TO TRUE                                  
+           MOVE ZEROES                 TO WS-FACTOR                             
+                                          WS-EXT-WEIGHT                         
+                                          WS-EXT-ORD-WEIGHT                     
+                                          WS-EXT-ORDERED-SALES                  
+                                          WS-EXT-FOREIGN-ORDERED-SALES          
+                                          WS-EXT-CUBE-FOR-TOT                   
+                                          WS-EXT-COST-FOR-TOT                   
+                                          WS-EXT-SALES-FOR-TOT                  
+                                          WS-EXT-ADJ-COST                       
+                                          WS-EXT-FOREIGN-SALES.                 
+                                                                                
+           PERFORM 3220-GN-ORSLNE.                                              
+           IF WS-ORSLNE-NORESP AND                                              
+              ORL-OPEN-LINE                                                     
+              CONTINUE                                                          
+           ELSE                                                                 
+              SET WS-READ-LINE-END     TO TRUE                                  
+           END-IF.                                                              
+                                                                                
+           IF WS-READ-LINE-OPEN                                                 
+              MOVE ORL-QTY-ORDERED     TO ORL-QTY-SHIPPED                       
+              PERFORM SYOTOTAL-EXTEND-SALES                                     
+              COMPUTE WS-ORSH-TOTAL-SLS   = WS-ORSH-TOTAL-SLS                   
+                                          + WS-EXT-SALES-FOR-TOT                
+              COMPUTE WS-ORSH-TOTAL-COST  = WS-ORSH-TOTAL-COST                  
+                                          + WS-EXT-COST-FOR-TOT                 
+              COMPUTE WS-ORSH-FGN-TOT-SLS = WS-ORSH-FGN-TOT-SLS                 
+                                          + WS-EXT-FOREIGN-SALES                
+              COMPUTE WS-ORSH-ADJ-COST    = WS-ORSH-ADJ-COST                    
+                                          + WS-EXT-ADJ-COST                     
+           END-IF.                                                              
+                                                                                
+       ORSTSLS-READ-PART-EXIT.                                                  
+           EXIT.                                                                
+      *                                                                         
+       ORSTSLS-WRITE-OTTL-QUEUE.                                                
+                                                                                
+           MOVE TC-OPER-ID             TO WS-OTTL-TS-OPER-ID                    
+           MOVE WS-ORSH-TOTAL-SLS      TO WS-OTTL-TS-ORSH-TOT-SLS.              
+           MOVE WS-ORSH-TOTAL-COST     TO WS-OTTL-TS-ORSH-TOT-CST.              
+           MOVE WS-ORSH-FGN-TOT-SLS    TO WS-OTTL-TS-ORSH-FGN-TOT-SLS.          
+           MOVE WS-ORSH-ADJ-COST       TO WS-OTTL-TS-ORSH-ADJ-CST.              
+           MOVE WS-ORSH-TOTAL-TAX      TO WS-OTTL-TS-ORSH-TOT-TAX.              
+           MOVE WS-ORSH-FGN-TOTAL-TAX  TO WS-OTTL-TS-ORSH-FGN-TOT-TAX.          
+           MOVE TC-COMPANY             TO WS-OTTL-CO-CD                         
+           MOVE TC-ORDER-BR-NBR        TO WS-OTTL-ORDER-BR                      
+           MOVE TC-ORDER-NBR           TO WS-OTTL-ORDER-NBR                     
+           MOVE TC-DIST-SHIP-NBR       TO WS-OTTL-DIST-SHIP.                    
+           SET  WS-OTTL-TS-DATA-PRESENT                                         
+                                       TO TRUE.                                 
+           SET  WS-TOGGLE-TOTALS-TRUE  TO TRUE.                                 
+                                                                                
+           MOVE LENGTH OF WS-OTTL-TS-RECORD                                     
+                                       TO WS-OTTL-TS-REC-LENGTH.                
+                                                                                
+           EXEC CICS                                                            
+                WRITEQ TS                                                       
+                QUEUE (WS-OTTL-TS-QUEUE-NAME)                                   
+                FROM  (WS-OTTL-TS-RECORD)                                       
+                LENGTH(WS-OTTL-TS-REC-LENGTH)                                   
+                ITEM  (WS-OTTL-TS-ITEM-NBR)                                     
+                RESP  (WS-EIBRESP)                                              
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              CONTINUE                                                          
+           ELSE                                                                 
+              MOVE EIBRCODE            TO WS-STATUS                             
+              MOVE '291C'              TO WS-ABCODE                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+       ORSTSLS-WRITE-OTTL-EXIT.                                                 
+           EXIT.                                                                
+      *                                                                         
+       ORSTSLS-DELT-OTTL-QUEUE.                                                 
+                                                                                
+           MOVE TC-OPER-ID             TO WS-OTTL-TS-OPER-ID.                   
+           EXEC CICS                                                            
+                DELETEQ TS                                                      
+                QUEUE (WS-OTTL-TS-QUEUE-NAME)                                   
+                RESP  (WS-EIBRESP)                                              
+           END-EXEC.                                                            
+                                                                                
+       ORSTSLS-DELT-OTTL-EXIT.                                                  
+           EXIT.                                                                
+      *                                                                         
+       ORSTSLS-REWRITE-OTTL-QUEUE.                                              
+                                                                                
+           MOVE TC-OPER-ID             TO WS-OTTL-TS-OPER-ID.                   
+           MOVE LENGTH OF WS-OTTL-TS-RECORD                                     
+                                       TO WS-OTTL-TS-REC-LENGTH.                
+           EXEC CICS                                                            
+                WRITEQ TS                                                       
+                QUEUE (WS-OTTL-TS-QUEUE-NAME)                                   
+                FROM  (WS-OTTL-TS-RECORD)                                       
+                LENGTH(WS-OTTL-TS-REC-LENGTH)                                   
+                ITEM  (WS-OTTL-TS-ITEM-NBR)                                     
+                REWRITE                                                         
+                RESP  (WS-EIBRESP)                                              
+           END-EXEC.                                                            
+                                                                                
+       ORSTSLS-REWRITE-OTTL-EXIT.                                               
+           EXIT.                                                                

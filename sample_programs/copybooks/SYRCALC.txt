@@ -1,0 +1,301 @@
+      **======================  S Y R C A L C  =======================**        
+      **               COPYBOOK MEMBER NAME : SYRCALC                 **        
+      **               PRICE  RECALCULATION  WORK-AREA                **        
+      **            CREATED  ON  07-28-95  BY  AKTAR HUDA             **        
+      **--------------------------------------------------------------**        
+      ** REVISION                                                     **        
+      ** 02/19/97  MCV  VNSHED SSA SAVE AREA TOO SMALL                **MCV97050
+      **--------------------------------------------------------------**        
+      **                                                                        
+      **  A.  THIS COPYBOOK MEMBER MUST BE COPIED IN WORKING STORAGE            
+      **      SECTION OF THE PROGRAM THAT PERFORMS :                            
+      **      8000-RECALCULATE-PRODUCT-PRICE - COPY BOOK MEMBER SYHCALCA        
+      **                               OR                                       
+      **      9000-RECALCULATE-PRODUCT-PRICE - COPY BOOK MEMBER SYHCALCB        
+      **                                                                        
+      **  B.  ALSO, COPYBOOK MEMBER 'SYREXTSC' MUST BE COPIED IN WORKING        
+      **      STORAGE SECTION, PREFERABLY IMMEDIATELY FOLLOWING SYRCALC         
+      **                                                                        
+      **  IN  ADDITION :                                                        
+      **                                                                        
+      **  C.  THE FOLLOWING COPYBOOK MEMBERS MUST BE COPIED IN WORKING          
+      **      STORAGE SECTION FOR PROGRAMS THAT USE THIS COPYBOOK               
+      **      MEMBER AND COPYBOOK MEMBER SYHCALCA :                             
+      **      ORSHED, ORSSHH, ORSLNE, VNSHED, ORKHED, ORKSHH, ORKLNE,           
+      **      VNKHED, ORIO1200, ORIO1202, ORIO1210, ORIO1258, ORIO1276,         
+      **      ORIO1312, ORIO1314, ORIO1316, VNIO1750.                           
+      **                                                                        
+      **  D.  THE FOLLOWING COPYBOOK MEMBERS MUST BE COPIED IN WORKING          
+      **      STORAGE SECTION FOR PROGRAMS THAT USE THIS COPYBOOK               
+      **      MEMBER AND COPYBOOK MEMBER SYHCALCB :                             
+      **      ARLOPNE, ORRHWS, XREFDOH, ARKOPN, ORKHST, DRKHST, DRKHXR.         
+      **==============================================================**        
+      **                MODIFICATION  HISTORY                         **        
+      **==============================================================**        
+      ** 01/17/25 RZS  ADDED NEW WORKING STORAGE VARIABLE TO FIX THE  **RZS25017
+      **               DECIMAL ROUND OFF ISSUE OF UNIT PRICE AND TOTAL**RZS25017
+      **               PRICE ON SCREEN ORP540 FOR BRAZIL REGION.      **RZS25017
+      ** 05/06/22 TGF  HARDBUNDLE - BRAZIL - ADDED ORDER-TOTAL-NO-TAX **TGF22126
+      ** 08/07/20 AP3  CISCO NET PRICING PROJECT.                     **APX20220
+      **               ADDED NEW FIELD TO HOLD BRAZIL TAX VALUES.     **APX20220
+      ** 01/25/07 KLM  ADDED NEW FIELD TO SAVE THE ACTUAL EXCHG RATE  **KLM07025
+      ** 11/21/01 JAR  EXPANDED SSA AREAS.                            **JAR01325
+      ** 10/05/01 KLM  ADD NEW FIELDS WS-UNIT-PRICE-RSLR-NO-DEC AND   **KLM01278
+      **               WS-EXCHG-RATE-CHANGED-SW.                      **KLM01278
+      ** 02/29/00 TGF  ADDED BRAZIL FIELDS.                           **TGF00060
+      ** 10/01/99 TGF  ADDED NEW FIELD WS-ORL-NEW-UNIT-PRICE-NO-DEC   **TGF99274
+      ** 01/08/99 KLM  ADDED NEW FIELDS FOR BRAZIL                      KLM99008
+      ** 10/31/95 APH  ADDED NEW FIELDS FOR SYHCALCB MODULE.                    
+      **==============================================================**        
+                                                                                
+       01  WS-PRICE-RECALCULATION-AREA.                                         
+                                                                                
+           05  WS-SSA-SAVE-AREA.                                                
+                                                                                
+               10  WS-ORSHED-SSA-SAVE          PIC  X(33) VALUE  SPACES.JAR01325
+               10  WS-ORSSHH-SSA-SAVE          PIC  X(26) VALUE  SPACES.JAR01325
+               10  WS-ORSLNE-SSA-SAVE          PIC  X(27) VALUE  SPACES.JAR01325
+               10  WS-VNSHED-SSA-SAVE          PIC  X(29) VALUE  SPACES.MCV97050
+                                                                                
+           05  WS-DATABASE-IO-PARAMETERS.                                       
+                                                                                
+               10  WS-RECALC-COMPANY-NBR       PIC  X(2)  VALUE  SPACE.         
+               10  WS-RECALC-BRANCH-NBR        PIC  X(2)  VALUE  SPACE.         
+               10  WS-RECALC-ORDER-NBR         PIC  X(5)  VALUE  SPACE.         
+               10  WS-RECALC-DIST-NBR          PIC  9(1)  VALUE  ZERO.          
+               10  WS-RECALC-SHIP-NBR          PIC  9(1)  VALUE  ZERO.          
+               10  WS-RECALC-REC-SEQ-NBR       PIC  X(1)  VALUE  ZERO.          
+                                                                                
+           05  WS-PRICE-RECALC-SWITCHES.                                        
+                                                                                
+               10  WS-PRICE-RECALCULATION-SW       PIC  X  VALUE  SPACE.        
+                   88  PRICE-RECALCULATION-REQD            VALUE  'Y'.          
+                   88  PRICE-RECALCULATION-NOT-REQD        VALUE  SPACE.        
+                                                                                
+               10  WS-ORH-PRICE-RECALC-SW      PIC  X  VALUE  LOW-VALUE.        
+                   88  WS-VALID-ORH-PRICE-RECALC-SW VALUE  'Y' 'N'  ' '.        
+                                                                                
+               10  WS-ORSH-SPLIT-INV-SW        PIC  X  VALUE  LOW-VALUE.        
+                   88  WS-VALID-ORSH-SPLIT-INV-SW   VALUE  'Y' 'N'  ' '.        
+                                                                                
+               10  WS-DLI-SCHDL-PRICE-RECALC-SW    PIC  X  VALUE  SPACE.        
+                   88  DLI-SCHDLD-FOR-PRC-RECALC           VALUE  'Y'.          
+                   88  DLI-NOT-SCHDLD-FOR-PRC-RECALC       VALUE  SPACE.        
+                                                                                
+               10  WS-DB-UPDATE-FOR-EXCHG-RATE-SW  PIC  X  VALUE  SPACE.        
+                   88  DB-UPDT-FOR-EXCHG-RATE-REQD         VALUE  'Y'.          
+                   88  DB-UPDT-FOR-EXCHGRATE-NOT-REQD      VALUE  SPACE.        
+                                                                                
+               10  WS-ORSLINE-UPDATE-SW            PIC  X  VALUE  SPACE.        
+                   88  ORSLINE-TO-BE-UPDATED               VALUE  'Y'.          
+                   88  ORSLINE-NOT-TO-BE-UPDATED           VALUE  SPACE.        
+                                                                                
+               10  WS-SHIP-HEADER-PROCESS-SW       PIC  X  VALUE  SPACE.        
+                   88  ALL-SHIP-HEADERS-PROCESSED          VALUE  'Y'.          
+                   88  ALL-SHIP-HEADERS-NOT-PROCESSED      VALUE  SPACE.        
+                                                                                
+               10  WS-SHIP-LINES-PROCESS-SW        PIC  X  VALUE  SPACE.        
+                   88  ALL-SHIP-LINES-PROCESSED            VALUE  'Y'.          
+                   88  ALL-SHIP-LINES-NOT-PROCESSED        VALUE  SPACE.        
+                                                                                
+               10  WS-RECALC-ORD-HDR-READ-SW       PIC  X  VALUE  SPACE.        
+                   88  ORHH-FIRST-HDR-ALREADY-READ         VALUE  'Y'.          
+                   88  ORHH-FIRST-HDR-NOT-YET-READ         VALUE  SPACE.        
+                                                                                
+               10  WS-INVC-LINES-RETRIEVAL-SW      PIC  X  VALUE  SPACE.        
+                   88  INVC-LINES-FOUND-IN-ORDHST          VALUE  'O'.          
+                   88  INVC-LINES-NOT-FOUND-IN-ORDHST      VALUE  SPACE.        
+                   88  INVC-LINES-FOUND-IN-DRHST           VALUE  'D'.          
+                   88  INVC-LINES-NOT-FOUND-IN-DRHST       VALUE  SPACE.        
+                                                                                
+               10  WS-DISPLAY-FOREIGN-SW   PIC X(01)   VALUE 'N'.       KLM99008
+                   88  DISPLAY-FOREIGN-CURRENCY        VALUE 'Y'.       KLM99008
+                                                                        KLM99008
+               10  WS-PRICE-FROM-ORDER-DB-SW PIC X(01)   VALUE 'N'.     KLM99008
+                   88  PRICE-FROM-ORDER-DB               VALUE 'Y'.     KLM99008
+                                                                        KLM99008
+               10  WS-EXCHG-RATE-CHANGED-SW  PIC X(01)   VALUE 'N'.     KLM01278
+                   88  EXCHG-RATE-CHANGED                VALUE 'Y'.     KLM01278
+                                                                        KLM01278
+           05  WS-RECALC-MISC-FIELDS.                                           
+                                                                                
+               10  WS-CURRENT-EXCHG-RATE        PIC  S9(9)V9(6)  COMP-3         
+                                                          VALUE  ZERO.          
+                                                                                
+               10  WS-ACTUAL-EXCHG-RATE         PIC  S9(9)V9(6)  COMP-3         
+                                                          VALUE  ZERO.          
+                                                                                
+               10  WS-TOTAL-TAX-RATE            PIC  S9(11)V9(6) COMP-3         
+                                                          VALUE  ZERO.          
+                                                                                
+               10  WS-TOTAL-TAX-SAVE            PIC  S9(13)V9(2)  COMP-3KLM99008
+                                                           VALUE  ZERO. KLM99008
+                                                                                
+               10  WS-ACT-EXCHG-RATE-SAVE       PIC  S9(9)V9(6)   COMP-3KLM07025
+                                                          VALUE   ZERO. KLM07025
+                                                                        KLM07025
+               10  WS-ORL-OLD-UNIT-PRICE        PIC  S9(13)V9(2)  COMP-3        
+                                                           VALUE  ZERO.         
+                                                                                
+               10  WS-ORL-NEW-UNIT-PRICE        PIC  S9(13)V9(2)  COMP-3        
+                                                           VALUE  ZERO.         
+                                                                                
+               10  WS-ORL-NEW-UNIT-PRICE-NO-DEC PIC  S9(15)       COMP-3TGF99274
+                                                           VALUE  ZERO. TGF99274
+                                                                        TGF99274
+               10  WS-UNIT-PRICE-RSLR-NO-DEC    PIC  S9(15)       COMP-3KLM01278
+                                                           VALUE  ZERO. KLM01278
+                                                                        KLM01278
+               10  WS-FGN-UNIT-PRICE            PIC  S9(13)V9(2)  COMP-3KLM99008
+                                                           VALUE  ZERO. KLM99008
+                                                                        KLM99008
+               10  WS-UNIT-PRICE-SAVE           PIC  S9(13)V9(2)  COMP-3KLM99008
+                                                           VALUE  ZERO. KLM99008
+                                                                        KLM99008
+               10  WS-ORL-PRICE-WTAX            PIC  S9(13)V9(2)  COMP-3KLM99008
+                                                           VALUE  ZERO. KLM99008
+                                                                        KLM99008
+               10  WS-ORL-PRICE-WTAX-FOREIGN    PIC  S9(13)V9(2)  COMP-3KLM99008
+                                                           VALUE  ZERO.         
+                                                                                
+               10  WS-DROP-ORD-HIST-FILE-NAME.                                  
+                   15  WS-DROP-ORD-HIST-FILE-PRFX   PIC  X(6)                   
+                                                        VALUE  'DRLHST'.        
+                   15  WS-DROP-ORD-HIST-FILE-SUFX   PIC  X(2)                   
+                                                        VALUE   SPACES.         
+                                                                                
+               10  WS-DRXH-XREF-KEY-SAVE                VALUE  SPACES.          
+                   15  WS-DRXH-XREF-RECORD-TYPE-SAVE    PIC  X.                 
+                   15  WS-DRXH-XREF-GENERIC-KEY-SAVE    PIC  X(11).             
+                                                                                
+               10  WS-ARL-GENERIC-KEY-SAVE    PIC  X(12)  VALUE SPACES.         
+                                                                                
+               10  WS-ORHH-GENERIC-KEY-SAVE   PIC  X(12)  VALUE SPACES.         
+               10  WS-BRAZIL-FRGN-TL-COST       PIC S9(15)V9(2) COMP-3  TGF00060
+                                                           VALUE +0.    TGF00060
+               10  WS-BRAZIL-FRGN-ADJ-TL-COST   PIC S9(15)V9(2) COMP-3  TGF00060
+                                                           VALUE +0.    TGF00060
+               10  WS-BRAZIL-FRGN-UNIT-COST     PIC S9(15)V9(2) COMP-3  TGF00060
+                                                           VALUE +0.    TGF00060
+               10  WS-BRAZIL-FRGN-UNIT-ADJ-COST PIC S9(15)V9(2) COMP-3  TGF00060
+                                                           VALUE +0.    TGF00060
+           05  WS-RECALC-ACCUMULATION-FIELDS.                                   
+                                                                                
+               10  WS-LINE-NEW-SALES-AMT        PIC  S9(15)V99    COMP-3        
+                                                           VALUE  ZERO.         
+                                                                                
+               10  WS-TOTAL-LINES-OLD-SALES-AMT PIC  S9(15)V99    COMP-3        
+                                                           VALUE  ZERO.         
+                                                                                
+               10  WS-TOTAL-LINES-NEW-SALES-AMT PIC  S9(15)V99    COMP-3        
+                                                         VALUE    ZERO.         
+                                                                                
+               10  WS-AR-TOTAL-NEW-SALES-AMT    REDEFINES                       
+                   WS-TOTAL-LINES-NEW-SALES-AMT PIC  S9(15)V99   COMP-3.        
+                                                                                
+               10  WS-AR-TOTAL-NEW-DISC-AMT     PIC  S9(15)V99    COMP-3        
+                                                         VALUE    ZERO.         
+                                                                                
+               10  WS-AR-TOTAL-SALES            PIC S9(15)V99    COMP-3         
+                                                         VALUE    ZERO.         
+                                                                                
+               10  WS-AR-TOTAL-NEW-ST-TAX-AMT   PIC S9(15)V99    COMP-3         
+                                                         VALUE    ZERO.         
+                                                                                
+               10  WS-TOTAL-LINES-OLD-ORDER-AMT PIC  S9(15)V99   COMP-3         
+                                                         VALUE   ZERO.          
+                                                                                
+               10  WS-TOTAL-LINES-NEW-ORDER-AMT PIC  S9(15)V99   COMP-3         
+                                                         VALUE   ZERO.          
+                                                                                
+           05  WS-RECALC-TABLES.                                                
+                                                                                
+               10  WS-MAX-ORSLINE-TABLE-ENTRIES     PIC  S9(03)  COMP-3         
+                                                         VALUE   +999.          
+               10  WS-ORSLINE-TABLE.                                            
+                   15  WS-ORSLINE-TABLE-ENTRY   OCCURS  999  TIMES              
+                                                DEPENDING    ON                 
+                                            WS-MAX-ORSLINE-TABLE-ENTRIES        
+                                            INDEXED  BY  WS-LINE-IDX.           
+                                                                                
+                       20  WS-ORL-LINE-NBR     PIC  S9(03)       COMP-3.        
+                       20  WS-ORL-UNIT-PRICE   PIC  S9(13)V9(2)  COMP-3.        
+                       20  WS-ORL-EXCHG-RATE   PIC  S9(05)V9(4)  COMP-3.        
+                       20  WS-ORL-TOTAL-PRICE  PIC  S9(13)V9(2)  COMP-3.KLM99008
+                       20  WS-ORL-TOTAL-PRICE-FOREIGN                   KLM99008
+                                               PIC  S9(13)V9(2)  COMP-3.KLM99008
+                       20  WS-ORL-TAX-PRICE    PIC  S9(13)V9(2)  COMP-3.KLM99008
+                       20  WS-ORL-TAX-PRICE-FOREIGN                     KLM99008
+                                               PIC  S9(13)V9(2)  COMP-3.KLM99008
+                                                                                
+       01  WS-HB-TEMP-HOLD-AREA.                                        APX20220
+           05  WS-HB-PROCESS-FLAG            PIC X(01)     VALUE ' '.   APX20220
+           05  WS-BRT-TOTAL-TAX-AMT          PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BT-ICMS-TOTAL-TAX          PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-IPI-TOTAL-TAX          PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-ISS-TOTAL-TAX          PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-PC-TOTAL-TAX           PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-ORDER-TOTAL-NOTAX      PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-ORDER-TOTAL-NOTAX-1    PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-ORDER-TOTAL-NOTAX-C    PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-ORDER-TOTAL-NOTAX-FGN  PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-ORDER-TOTAL-NOTAX-FGN-1 PIC S9(15)V99 COMP-3      TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-ORDER-TOTAL-NOTAX-FGN-C PIC S9(15)V99 COMP-3      TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-TOTAL-TAX-AMT-1        PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-TOTAL-TAX-AMT-C        PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-TOTAL-TAX-AMT-FGN      PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-TOTAL-TAX-AMT-FGN-1    PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-TOTAL-TAX-AMT-FGN-C    PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-ORDER-TOTAL-TAX        PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-ORDER-TOTAL-TAX-1      PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-ORDER-TOTAL-TAX-C      PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-ORDER-TOTAL-TAX-FGN    PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-ORDER-TOTAL-TAX-FGN-1  PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BRT-ORDER-TOTAL-TAX-FGN-C  PIC S9(15)V99 COMP-3       APX20220
+                                                           VALUE +0.    APX20220
+           05  WS-BT-ICMS-TOTAL-TAX-1        PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-IPI-TOTAL-TAX-1        PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-ISS-TOTAL-TAX-1        PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-PC-TOTAL-TAX-1         PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BT-ICMS-TOTAL-TAX-C        PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-IPI-TOTAL-TAX-C        PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-ISS-TOTAL-TAX-C        PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-PC-TOTAL-TAX-C         PIC S9(15)V99 COMP-3       TGF22126
+                                                           VALUE +0.    TGF22126
+           05  WS-BRT-UNIT-PRICE-TAX-FGN     PIC S9(15)V99 COMP-3       RZS25017
+                                                           VALUE +0.    RZS25017
+           05  WS-BRT-EXT-PRICE-TAX-FGN      PIC S9(15)V99 COMP-3       RZS25017
+                                                           VALUE +0.    RZS25017
+           05  WS-BRT-EXT-PRICE-TAX          PIC S9(15)V99 COMP-3       RZS25017
+                                                           VALUE +0.    RZS25017
+                                                                        APX20220
+      **=====================  END  OF  SYRCALC   ====================**        
+      /                                                                         

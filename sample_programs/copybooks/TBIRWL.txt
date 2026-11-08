@@ -1,0 +1,212 @@
+﻿      ********************************************************                  
+      *  NAME= TBIRWL                                        *                  
+      *  COPY BOOK USED FOR RANDOM WAREHOUSE CONTROL TABLE   *                  
+      *  THE 'V.PR50.TBLMST' FILE                            *                  
+      ********************************************************                  
+      * REVISION INFORMATION:                                *                  
+      * CNTL (PAR)  PROGRAMMER             START   COMPLETE  *                  
+      * ----------  ----------            -------- --------  *                  
+      * 10/19/99    JJD99292  RENAMED THE FLAG,              *          JJD99292
+      *                       TB-RWL-MOVEMENT-PRIORITY TO    *          JJD99292
+      *                       TB-RWL-CICS-AUTO-SW            *          JJD99292
+      * 04-19-99    SGB99090  ADDED FLAG TB-RWL-REPL-TO-DAYS *          SGB99090
+      *                       TO TB-RWL-REPL-METHOD-SW       *          SGB99090
+      * 07-09-97    MWO97190                                 *          MWO97190
+      *  ADDED SHIP LABEL PRINT OPTION FIELD TO INDICATE LBL *          MWO97190
+      *  PRINTS AT TIME OF PICK ASSIGNMENT.  REPLACES UNUSED *          MWO97190
+      *  AUTO CYCLE COUNT SW.  ALSO ADD ROUTING BC 88-LEVEL. *          MWO97190
+      * 03-17-97    ETJ ADDED REPLENISHMENT SWITCH TO        *          ETJ97107
+      *                 PROVIDE OPTION TO FULFILL ORDER      *          ETJ97107
+      *                 QUANTITY ONLY DURING HOT REPL.       *          ETJ97107
+      * 04-28-97    GMM97118                                 *          GMM97118
+      *  ADDED 88 LEVEL  TB-RWL-USES-SIX-INCH-LABEL          *          GMM97118
+      * 04-04-97    GMM97094                                 *          GMM97094
+      *  ADDED TB-RWL-USE-MOD-LABEL-SW                       *          GMM97094
+      *  REUSED TB-RWL-INVOICE-SW WHICH WAS NOT BEING USED.  *          GMM97094
+      * 02-19-97    JJD ADD SOME 88 LEVEL                    *          JJD97050
+      * 01-08-97    GMM97008                                 *          GMM97008
+      *  ADDED RPT SUMMARY BR SW FOR DC BATCH SUMMARY REPORT *          GMM97008
+      *  REUSED PRINT-1-OF-SW WHICH WAS NOT BEING USED       *          GMM97008
+      * 11-07-96    SRJ96312                                 *          SRJ96312
+      *  CHANGED TB-RWL-SIZE-SW                              *          SRJ96312
+      *  TO TB-RWL-USES-STATION-ID-BILLING-SW                *          SRJ96312
+      * 08-30-96    MWO96240                                 *          MWO96240
+      *  ADDED BR TO BR TRANSFER LICENSE PLATE SWITCH        *          MWO96240
+      * 05-01-96    GEH96122                                 *          GEH96122
+      *  ADDED MANPOWER SWITCH FOR DC PROCESSING             *          GEH96122
+      * 03-11-96    GEH96071                                 *          GEH96071
+      *  ADDED TWO SWITCHES FOR ROUTING ENHANCEMENT LOGIC    *          GEH96071
+      * 08/24/95    JJD95236                                 *          JJD95236
+      *  ADDED HOT REPL SW                                   *          JJD95236
+      * 03/08/95    CMI95070                                 *          CMI95070
+      *  ADDED QA AND PRODUCT LABEL SW                       *          CMI95070
+      * 09/03/93    DMR93242              09/03/93 09/03/93  *                  
+      * 1. PUT BRANCH USES REPLENISHMENT EA INDICATOR BACK   *                  
+      *    PER LARRY SULLENS.                                *                  
+      * 08/30/93    DMR93242              08/30/93 08/30/93  *                  
+      * 1. REMOVE BRANCH USES REPLENISHMENT EA INDICATOR     *                  
+      *    PER LARRY SULLENS.                                *                  
+      * 08/09/93    DMR93221              08/09/93 08/09/93  *                  
+      * 1. ADD BRANCH USES REPLENISHMENT EA INDICATOR        *                  
+      * 07/08/93    DMR93189              07/08/93 07/08/93  *                  
+      * 1. ADD REPLENISHMENT FULLCASE INDICATOR FOR PALLETS  *                  
+      * 05/10/93    DMR93130              05/10/93 05/10/93  *                  
+      * 1. ADD REPLENISHMENT INDICATORS                      *                  
+      * 04/03/93    DMR93093              04/03/93 04/03/93  *                  
+      * 1. ADD REPACK CASEPACK CALCULATION Y/N INDICATOR     *                  
+      * 08/27/92    DMR92240              08/27/92 08/27/92  *                  
+      * 1. ADD NUMBER OF RETENTION DAYS FOR BIN TRACE        *                  
+      * 2. PICK LIST PRINTING SW                             *                  
+      * 3. 88 LEVELS                                         *                  
+      * 05/18/92    DMR                   05/18/92 05/18/92  *                  
+      * 1. NEW WAREHOUSE TABLE.                              *                  
+      ********************************************************                  
+      *                                                                         
+       01  TB-RWL-TABLE-IA.                                                     
+           05  TB-RWL-REQUEST-CODE     PIC X(01)      VALUE 'K'.                
+               88  TB-RWL-ALL                         VALUE 'A'.                
+               88  TB-RWL-KEY                         VALUE 'K'.                
+               88  TB-RWL-NEXT                        VALUE 'N'.                
+               88  TB-RWL-CLOSE                       VALUE 'C'.                
+           05  TB-RWL-RETURN-CODE      PIC X(01)      VALUE SPACES.             
+               88  TB-RWL-NORESP                      VALUE 'Y'.                
+               88  TB-RWL-TABLE-NOTFND                VALUE 'T'.                
+               88  TB-RWL-ENTRY-NOTFND                VALUE 'N'.                
+               88  TB-RWL-EOT                         VALUE 'E'.                
+               88  TB-RWL-NO-ROOM                     VALUE 'R'.                
+           05  TB-RWL-COMPANY          PIC X(02)      VALUE '$$'.               
+           05  TB-RWL-TB-NAME          PIC X(08)      VALUE 'TBXRWL  '.         
+           05  TB-DO-NOT-USE-AREA      PIC X(20)      VALUE LOW-VALUES.         
+           05  TB-RWL-ENTRY.                                                    
+               10  TB-RWL-ENTRY-KEY.                                            
+                   15  TB-RWL-CO       PIC X(02).                               
+                   15  TB-RWL-BR       PIC X(02).                               
+               10  TB-RWL-DATA.                                                 
+                   15  TB-RWL-ZONE-SW  PIC X(01).                               
+                       88  TB-RWL-ZONE-REQUIRED       VALUE 'R'.                
+                   15  TB-RWL-ZONE-PRIORITY                                     
+                                       PIC X(01).                               
+                   15  TB-RWL-PUT-BIN-TYPE-SW                                   
+                                       PIC X(01).                               
+                       88  TB-RWL-PUT-BIN-TYPE-REQUIRED                         
+                                                      VALUE 'R'.                
+                   15  TB-RWL-PUT-BIN-TYPE-PRIORITY                             
+                                       PIC X(01).                               
+                   15  TB-RWL-STORAGE-SW                                        
+                                       PIC X(01).                               
+                       88  TB-RWL-STORAGE-REQUIRED    VALUE 'R'.                
+                   15  TB-RWL-STORAGE-PRIORITY                                  
+                                       PIC X(01).                               
+                   15  TB-RWL-MOVEMENT-SW                                       
+                                       PIC X(01).                               
+                       88  TB-RWL-MOVEMENT-REQUIRED   VALUE 'R'.                
+                   15  TB-RWL-CICS-AUTO-SW                              JJD99292
+                                       PIC X(01).                               
+                   15  TB-RWL-USES-STATION-ID-BILL-SW                   SRJ96312
+                                       PIC X(01).                       SRJ96312
+                       88  TB-RWL-USES-STATION-ID-BILL VALUE 'Y'.       SRJ96312
+                   15  TB-RWL-SIZE-PRIORITY                                     
+                                       PIC X(01).                               
+                   15  TB-RWL-PICK-RULE                                         
+                                       PIC X(02).                               
+                       88  TB-RWL-PICK-FROM-FIXED     VALUE 'PF'.               
+                       88  TB-RWL-PICK-TO-REPLENISH   VALUE 'PR'.               
+                       88  TB-RWL-PICK-FIX-REPLENISH  VALUE 'FR'.               
+                       88  TB-RWL-PICK-TO-CLEAN       VALUE 'PC'.               
+                       88  TB-RWL-PICK-FIFO           VALUE 'FI'.               
+                       88  TB-RWL-PICK-FOR-SPEED      VALUE 'SP'.               
+                       88  TB-RWL-PICK-LOT-MATCH      VALUE 'LM'.               
+                   15  TB-RWL-PALLET-BIN-TYPE                                   
+                                       PIC X(02).                               
+                   15  TB-RWL-CASE-BIN-TYPE                                     
+                                       PIC X(02).                               
+                   15  TB-RWL-UNIT-BIN-TYPE                                     
+                                       PIC X(02).                               
+                   15  TB-RWL-CYCLE-COUNT-PICKS                                 
+                                       PIC S9(03)     COMP-3.                   
+                   15  TB-RWL-CYCLE-COUNT-DAYS                                  
+                                       PIC S9(03)     COMP-3.                   
+                   15  TB-RWL-REPL-ORDER-BIN-SW                         ETJ97107
+                                       PIC X(01).                       ETJ97107
+                       88  TB-RWL-REPL-ORDER-ONLY     VALUE 'O'.        ETJ97107
+                   15  TB-RWL-SHIP-LBL-PRINT-OPTION                     MWO97190
+                                       PIC X(01).                       MWO97190
+                       88  TB-RWL-SHIP-LBL-PRINT-AT-PA VALUE 'P'.       MWO97190
+                   15  TB-RWL-PUTAWAY-METHOD-SW                                 
+                                       PIC X(01).                               
+                       88  TB-RWL-PUTAWAY-EXISTING    VALUE 'E'.                
+                       88  TB-RWL-PUTAWAY-FIXED       VALUE 'F'.                
+                       88  TB-RWL-PUTAWAY-RANDOM      VALUE 'R'.                
+                       88  TB-RWL-PUTAWAY-CURRENT     VALUE 'C'.                
+                   15  TB-RWL-PICK-CONFIRM-METHOD-SW                            
+                                       PIC X(01).                               
+                       88  TB-RWL-PICK-CONFIRM-AUTO   VALUE 'A'.                
+                       88  TB-RWL-PICK-CONFIRM-MANUAL VALUE 'M' ' '.            
+                       88  TB-RWL-PICK-CONFIRM-RF     VALUE 'R'.                
+                       88  TB-RWL-PICK-PICK-LISTS     VALUE 'P'.                
+                       88  TB-RWL-PICK-SHIP-ORDERS    VALUE 'S'.                
+                   15  TB-RWL-RPT-SUMMARY-BR-SW                         GMM97008
+                                       PIC X(01).                       GMM97008
+                       88  TB-RWL-RPT-SUMMARY-BR      VALUE 'Y'.        GMM97008
+                   15  TB-RWL-USE-MOD-LABEL-SW                          GMM97094
+                                       PIC X(01).                       GMM97094
+                       88  TB-RWL-USE-MOD-LABEL       VALUE 'Y'.        GMM97094
+                   15  TB-RWL-BIN-RETAIN-DAYS                                   
+                                       PIC S9(03)     COMP-3.                   
+                   15  TB-RWL-PICK-LIST-TYPE-SW                                 
+                                       PIC X(01).                               
+                       88  TB-RWL-PICK-LIST-MMSSL     VALUE 'M'.                
+                       88  TB-RWL-PICK-LIST-PPLTPL    VALUE 'P'.                
+                       88  TB-RWL-PICK-LIST-SLTPL     VALUE 'H'.                
+                   15  TB-RWL-REPACK-CASEPACK-SW                                
+                                       PIC X(01).                               
+                       88  TB-RWL-REPACK-CASEPACK     VALUE 'Y'.                
+                   15  TB-RWL-REPL-SW  PIC X(01).                               
+                       88  TB-RWL-REPL-BAT-ONLINE     VALUE 'Y'.        JJD97050
+                       88  TB-RWL-REPL-NONE           VALUE 'N'.        JJD97050
+                       88  TB-RWL-REPL-ONLINE         VALUE 'O'.        JJD97050
+                       88  TB-RWL-REPL-BATCH          VALUE 'B'.        JJD97050
+                   15  TB-RWL-REPL-METHOD-SW                                    
+                                       PIC X(01).                               
+                       88  TB-RWL-REPL-TO-PERCENT     VALUE ' '                 
+                                                            'P'.                
+                       88  TB-RWL-REPL-TO-SALES       VALUE 'S'.                
+                       88  TB-RWL-REPL-TO-BIN         VALUE 'B'.                
+                       88  TB-RWL-REPL-TO-DAYS        VALUE 'D'.        SGB99090
+                   15  TB-RWL-REPL-REPORT-SW                                    
+                                       PIC X(01).                               
+                       88  TB-RWL-REPL-RPT-LABLES     VALUE ' '                 
+                                                            'L'.                
+                       88  TB-RWL-REPL-RPT-REPORT     VALUE 'R'.                
+                       88  TB-RWL-REPL-RPT-BOTH       VALUE 'B'.                
+                   15  TB-RWL-REPL-FULLCASE-SW                                  
+                                       PIC X(01).                               
+                       88  TB-RWL-REPL-FULLCASE       VALUE ' '                 
+                                                            'Y'.                
+                   15  TB-RWL-BR-USES-REPL-EA-SW                                
+                                       PIC X(01).                               
+                       88  TB-RWL-BR-USES-REPL-EA     VALUE ' '                 
+                                                            'Y'.                
+                   15  TB-RWL-BR-PRODUCES-SKU-LAB-SW                    CMI95070
+                                       PIC X(01).                       CMI95070
+                     88  TB-RWL-BR-PRODUCES-SKU-LABEL VALUE 'Y'.        CMI95070
+                   15  TB-RWL-BR-DOES-QA-SW                             CMI95070
+                                       PIC X(01).                       CMI95070
+                     88  TB-RWL-BR-DOES-QA            VALUE 'Y'.        CMI95070
+                   15  TB-RWL-HOT-REPL-SW                               JJD95236
+                                       PIC X(01).                       JJD95236
+                     88  TB-RWL-HOT-REPL-BR           VALUE 'Y'.        JJD95236
+                   15 TB-RWL-USES-LANE-DIVERT-SW                        GEH96071
+                                       PIC X(01).                       GEH96071
+                     88  TB-RWL-USES-LANE-DIVERT      VALUE 'Y'.        GEH96071
+                     88  TB-RWL-USES-SIX-INCH-LABEL   VALUE 'S'.        GMM97118
+                   15 TB-RWL-USES-ROUTING-BC-SW                         GEH96071
+                                       PIC X(01).                       GEH96071
+                     88  TB-RWL-USES-ROUTING-BC       VALUE 'Y'.        GEH96071
+                     88  TB-RWL-USES-SMART-ROUTING-BC VALUE 'S'.        MWO97190
+                   15 TB-RWL-USES-MANPOWER-SYS-SW                       GEH96122
+                                       PIC X(01).                       GEH96122
+                     88  TB-RWL-USES-MANPOWER-SYS     VALUE 'Y'.        GEH96122
+                   15 TB-RWL-USES-BR-TO-BR-PALLET-SW                    MWO96240
+                                       PIC X(01).                       MWO96240
+                     88  TB-RWL-USES-BR-TO-BR-PALLET  VALUE 'Y'.        MWO96240

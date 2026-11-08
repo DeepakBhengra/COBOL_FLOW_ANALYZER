@@ -1,0 +1,46 @@
+﻿      ************************************************************              
+      *  COPY SYXEXT                                                            
+      * PURPOSE:  USED FOR CHINA.  CHINA USES GB2312 FORMAT FOR                 
+      *  PRINTING.  GB2312 IS AN ASCII FORMAT THAT HAS CHINESE CHAR.            
+      *  CHINA ALSO USES AN OLD UNSUPPORTED EMULATOR CALLED "EXTRA".            
+      *  'EXTRA' SAVE THE DATA IN EBCDIC FORMAT.   SO IT USES SIMPLE            
+      *  SINGLE BYTE TRANSLATION, EVEN THOUGH CHINESE CHARACTERS ARE            
+      *  IN DOUBLE BYTE FORMAT.  THE FINAL FORMAT ON MAINFRAME IN               
+      *  'EXTRA' FORMAT IS NOT ACCORDING TO ANY STANDARD, BUT WHAT              
+      *  'EXTRA' USES.   WE NEED TO DO ISO 8559-1 TO CODEPAGE 037               
+      *  SINGLE BYTE TRANSLATION  WHEN BRINGING IN DATA FROM OUTSIDE            
+      *  SOURCES (IE WEB).  WEB WILL PROVIDE DATA IN UTF8 FORMAT FOR            
+      *  CERTAIN FIELDS THAT CAN CONTAIN CHINESE CHARACTERS.  INSIDE            
+      *  LINE WILL CONVERT THOSE FIELDS FROM UTF8 TO GB2312 (CODEPAGE           
+      *  1383) USING STANDARD COBOL FUNCTION COMMANDS.  THEN THIS               
+      *  CODE WILL BE USED TO CONVERT THE GB2312 FORAMT INTO EBCDIC             
+      *  FORMAT THAT EMULATOR 'EXTRA' USES ON MAINFRAME.                        
+      *  SAME FOR DATA GOING FROM MAINFRAME BACK TO WEB.  HERE WE FIRST         
+      *  CONVERT 037 TO GB2312. THEN INSIDE LINE PGMS WILL CONVERT THE          
+      *  GB2312 TO UTF8 USING NORMAL COBOL FUNCTION COMMANDS.                   
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 01/08/22   RP1 FIX CODE TO ALLOW THE 32K AS IT SET ALREADY    * RP122008
+      * 01/09/21   ROR FIX CODE TO AVOID COMPILATION ERRORS.          * ROR21009
+      *                NEW COPYBOOK                                   * ROR21009
+      ***************************************************************           
+      *                                                                         
+      *                                                                         
+       SYXEXT-000-MAINLINE.                                                     
+      *    IF SYWEXT-INPUT-LENGTH GREATER THAN 16000                    RP122008
+      *        MOVE 16000                    TO SYWEXT-INPUT-LENGTH.    RP122008
+                                                                                
+           MOVE SYWEXT-037-BYTES             TO SYWEXT-037-AREA.                
+           MOVE SYWEXT-GB2312-BYTES          TO SYWEXT-GB2312-AREA.             
+           IF SYWEXT-DIR-037-TO-GB2312                                          
+               INSPECT SYWEXT-INPUT-FIELD(1:SYWEXT-INPUT-LENGTH)                
+                   CONVERTING SYWEXT-037-AREA                                   
+                   TO         SYWEXT-GB2312-AREA.                               
+                                                                                
+           IF SYWEXT-DIR-GB2312-TO-037                                          
+               INSPECT SYWEXT-INPUT-FIELD(1:SYWEXT-INPUT-LENGTH)                
+                   CONVERTING SYWEXT-GB2312-AREA                                
+                   TO         SYWEXT-037-AREA.                                  
+       SYXEXT-000-EXIT.                                                         
+           EXIT.                                                                
+      *                                                                         

@@ -1,0 +1,216 @@
+﻿      *****************************************************************         
+      *                                                               *         
+      *      >> STRATEGIC PRICING PD CPYBOOK <<                       *         
+      *                                                               *         
+      *   ORSEXPD - PD CPYBOOK TO CREATE ORTSPE TSQ FOR XCTL          *         
+      *            TO ORP556, SP EXPLAIN SCREEN                       *         
+      *                                                               *         
+      *   USAGE: 1.   THIS COPYBOOK IS USED BY PROGRAMS               *         
+      *               TRANSFERRING CONTROL TO ORP556.                 *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 07/19/17 SAS  CICS UPGRADE PHASE II -                         * SAS17200
+      *               DELETED THE CICS TRANSLATED CODE AND            * SAS17200
+      *               UNCOMMENTED THE EXEC CICS STATEMENTS.           * SAS17200
+      * 11/02/04 MXK       *** STRATEGIC PRICING - FULL SOLUTION ***  * MXK04307
+      *               1. CREATED COPYBOOK.                            *         
+      *****************************************************************         
+      *****************************************************************         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      *****************************************************************         
+      *                                                                         
+       SP400-DISPLAY-SP-EXPLAIN.                                                
+      *                                                                         
+           PERFORM SP410-READ-ORTSPE.                                           
+                                                                                
+           MOVE SYWSPE-EXPLAIN-DATA-AREA(SYWSPSRS-IDX)                          
+                                          TO ORTSPE-EXPLAIN-DATA-AREA           
+           IF WS-EIB-NORESP                                                     
+              PERFORM SP430-REWRITE-ORTSPE                                      
+           ELSE                                                                 
+              PERFORM SP420-WRITE-ORTSPE.                                       
+                                                                                
+           PERFORM SP450-READ-ORTEXPLN.                                         
+           PERFORM SP630-SETUP-EXPL-PLAN-Q-DISPL.                               
+           IF WS-EIB-NORESP                                                     
+              PERFORM SP470-REWRITE-ORTEXPLN                                    
+           ELSE                                                                 
+              PERFORM SP460-WRITE-ORTEXPLN.                                     
+                                                                                
+      *                                                                         
+       SP400-EXIT.                                                              
+             EXIT.                                                              
+      *                                                                         
+      *                                                                         
+       SP410-READ-ORTSPE.                                                       
+      *                                                                         
+            MOVE WS-CTL-TRANS(1)            TO ORKSPE-TRANS-ID                  
+            MOVE LENGTH OF ORTSPE-TS-QUEUE  TO ORKSPE-REC-LENGTH.               
+            MOVE TC-OPER-ID                 TO ORKSPE-QUEUE-OPER-ID.            
+           EXEC CICS                                                    SAS17200
+                READQ TS                                                SAS17200
+                QNAME  (ORKSPE-QUEUE-NAME)                              SAS17200
+                INTO   (ORTSPE-TS-QUEUE)                                SAS17200
+                LENGTH (ORKSPE-REC-LENGTH)                              SAS17200
+                ITEM   (ORKSPE-ITEM-NBR)                                SAS17200
+                RESP   (WS-EIBRESP)                                     SAS17200
+           END-EXEC.                                                    SAS17200
+                                                                                
+       SP420-WRITE-ORTSPE.                                                      
+      *                                                                         
+            MOVE WS-CTL-TRANS(1)            TO ORKSPE-TRANS-ID                  
+            MOVE LENGTH OF ORTSPE-TS-QUEUE  TO ORKSPE-REC-LENGTH.               
+            MOVE TC-OPER-ID                 TO ORKSPE-QUEUE-OPER-ID.            
+           EXEC CICS                                                    SAS17200
+                WRITEQ TS                                               SAS17200
+                QNAME  (ORKSPE-QUEUE-NAME)                              SAS17200
+                FROM   (ORTSPE-TS-QUEUE)                                SAS17200
+                LENGTH (ORKSPE-REC-LENGTH)                              SAS17200
+                ITEM   (ORKSPE-ITEM-NBR)                                SAS17200
+                RESP   (WS-EIBRESP)                                     SAS17200
+           END-EXEC.                                                    SAS17200
+      *                                                                         
+           IF NOT WS-EIB-NORESP                                                 
+              MOVE 'S420'              TO WS-ABCODE                             
+              MOVE EIBRCODE            TO WS-STATUS                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+      *                                                                         
+      *                                                                         
+       SP430-REWRITE-ORTSPE.                                                    
+      *                                                                         
+            MOVE WS-CTL-TRANS(1)            TO ORKSPE-TRANS-ID                  
+            MOVE LENGTH OF ORTSPE-TS-QUEUE  TO ORKSPE-REC-LENGTH.               
+            MOVE TC-OPER-ID                 TO ORKSPE-QUEUE-OPER-ID.            
+           EXEC CICS                                                    SAS17200
+                WRITEQ TS                                               SAS17200
+                QNAME  (ORKSPE-QUEUE-NAME)                              SAS17200
+                FROM   (ORTSPE-TS-QUEUE)                                SAS17200
+                LENGTH (ORKSPE-REC-LENGTH)                              SAS17200
+                ITEM   (ORKSPE-ITEM-NBR)                                SAS17200
+                RESP   (WS-EIBRESP)                                     SAS17200
+                REWRITE                                                 SAS17200
+           END-EXEC.                                                    SAS17200
+                                                                                
+           IF NOT WS-EIB-NORESP                                                 
+              MOVE 'S430'              TO WS-ABCODE                             
+              MOVE EIBRCODE            TO WS-STATUS                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+      *                                                                         
+       SP440-DELETE-ORTSPE.                                                     
+      *                                                                         
+           MOVE WS-CTL-TRANS(1)            TO ORKSPE-TRANS-ID                   
+           MOVE LENGTH OF ORTSPE-TS-QUEUE  TO ORKSPE-REC-LENGTH.                
+           MOVE TC-OPER-ID                 TO ORKSPE-QUEUE-OPER-ID.             
+           EXEC CICS                                                    SAS17200
+                DELETEQ TS                                              SAS17200
+                QNAME   (ORKSPE-QUEUE-NAME)                             SAS17200
+                RESP    (WS-EIBRESP)                                    SAS17200
+           END-EXEC.                                                    SAS17200
+                                                                                
+      *    IF NOT WS-EIB-NORESP                                                 
+      *       MOVE 'S440'              TO WS-ABCODE                             
+      *       MOVE EIBRCODE            TO WS-STATUS                             
+      *       PERFORM 999-ABEND                                                 
+      *    END-IF.                                                              
+      *                                                                         
+      *                                                                         
+       SP450-READ-ORTEXPLN.                                                     
+                                                                                
+           MOVE LENGTH OF ORTEXPLN-TS-QUEUE TO ORKEXPLN-REC-LENGTH              
+           MOVE TC-OPER-ID                  TO ORKEXPLN-QUEUE-OPER-ID.          
+      *                                                                         
+           EXEC CICS                                                    SAS17200
+                READQ TS                                                SAS17200
+                QNAME  (ORKEXPLN-QUEUE-NAME)                            SAS17200
+                INTO   (ORTEXPLN-TS-QUEUE)                              SAS17200
+                LENGTH (ORKEXPLN-REC-LENGTH)                            SAS17200
+                ITEM   (ORKEXPLN-ITEM-NBR)                              SAS17200
+                RESP   (WS-EIBRESP)                                     SAS17200
+           END-EXEC.                                                    SAS17200
+      *                                                                         
+           IF  WS-EIB-NORESP                                                    
+           AND ORTEXPLN-IND-DISPLAY-TSQ                                         
+               CONTINUE                                                         
+           ELSE                                                                 
+               INITIALIZE  ORTEXPLN-TS-QUEUE.                                   
+      *                                                                         
+      *                                                                         
+       SP460-WRITE-ORTEXPLN.                                                    
+      *                                                                         
+           MOVE LENGTH OF ORTEXPLN-TS-QUEUE TO ORKEXPLN-REC-LENGTH              
+           MOVE TC-OPER-ID                  TO ORKEXPLN-QUEUE-OPER-ID.          
+            EXEC CICS                                                   SAS17200
+                 WRITEQ TS                                              SAS17200
+                 QNAME  (ORKEXPLN-QUEUE-NAME)                           SAS17200
+                 FROM   (ORTEXPLN-TS-QUEUE)                             SAS17200
+                 LENGTH (ORKEXPLN-REC-LENGTH)                           SAS17200
+                 ITEM   (ORKEXPLN-ITEM-NBR)                             SAS17200
+                 RESP   (WS-EIBRESP)                                    SAS17200
+            END-EXEC.                                                   SAS17200
+      *                                                                         
+           IF NOT WS-EIB-NORESP                                                 
+              MOVE 'S460'              TO WS-ABCODE                             
+              MOVE EIBRCODE            TO WS-STATUS                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       SP470-REWRITE-ORTEXPLN.                                                  
+      *                                                                         
+           MOVE LENGTH OF ORTEXPLN-TS-QUEUE TO ORKEXPLN-REC-LENGTH              
+           MOVE TC-OPER-ID                  TO ORKEXPLN-QUEUE-OPER-ID.          
+            EXEC CICS                                                   SAS17200
+                 WRITEQ TS                                              SAS17200
+                 QNAME  (ORKEXPLN-QUEUE-NAME)                           SAS17200
+                 FROM   (ORTEXPLN-TS-QUEUE)                             SAS17200
+                 LENGTH (ORKEXPLN-REC-LENGTH)                           SAS17200
+                 ITEM   (ORKEXPLN-ITEM-NBR)                             SAS17200
+                 RESP   (WS-EIBRESP)                                    SAS17200
+                 REWRITE                                                SAS17200
+            END-EXEC.                                                   SAS17200
+      *                                                                         
+           IF NOT WS-EIB-NORESP                                                 
+              MOVE 'S470'              TO WS-ABCODE                             
+              MOVE EIBRCODE            TO WS-STATUS                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+      *                                                                         
+      *                                                                         
+       SP480-DELETE-ORTEXPLN.                                                   
+      *                                                                         
+           MOVE LENGTH OF ORTEXPLN-TS-QUEUE TO ORKEXPLN-REC-LENGTH              
+           MOVE TC-OPER-ID                  TO ORKEXPLN-QUEUE-OPER-ID.          
+           EXEC CICS                                                    SAS17200
+                DELETEQ TS                                              SAS17200
+                QNAME   (ORKEXPLN-QUEUE-NAME)                           SAS17200
+                RESP    (WS-EIBRESP)                                    SAS17200
+           END-EXEC.                                                    SAS17200
+                                                                                
+      *    IF NOT WS-EIB-NORESP                                                 
+      *       MOVE 'S480'              TO WS-ABCODE                             
+      *       MOVE EIBRCODE            TO WS-STATUS                             
+      *       PERFORM 999-ABEND                                                 
+      *    END-IF.                                                              
+                                                                                
+      *                                                                         
+       SP490-DISPLAY-SP-EXPLAIN-ORDER.                                          
+      *                                                                         
+           PERFORM SP450-READ-ORTEXPLN.                                         
+      *                                                                         
+           PERFORM SP620-SETUP-EXPL-PLAN-Q-order.                               
+      *                                                                         
+           IF WS-EIB-NORESP                                                     
+              PERFORM SP470-REWRITE-ORTEXPLN                                    
+           ELSE                                                                 
+              PERFORM SP460-WRITE-ORTEXPLN.                                     
+      *                                                                         
+       SP490-EXIT.  EXIT.                                                       
+      *                                                                         
+      *                                                                         
+      *SP620-SETUP-EXPL-PLAN-Q-ORDER.                                           
+      *SP630-SETUP-EXPL-PLAN-Q-DISPL.                                           
+             COPY ORSXEXP.                                                      

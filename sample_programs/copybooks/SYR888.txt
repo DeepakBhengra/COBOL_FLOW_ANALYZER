@@ -1,0 +1,264 @@
+      ******************************************************************        
+      *  COPYBOOK:  SYR888                                             *        
+      *  PROGRAMS:  SYV888 - FORMATS AMOUNTS FOR FILE STORAGE BASED    *        
+      *                      ON CURRENCY CODE                          *        
+      *  PURPOSE:   1.) RETURN PROPERLY FORMATTED VALUES FOR 0-        *        
+      *                 AND 2-DECIMAL CURRENCIES                       *        
+      *             2.) RETURN BASIC CALCULATION RESULTS FOR AMOUNTS   *        
+      *                 IN CORRECT 0- AND 2-DECIMAL CURRENCIES         *        
+      *             3.) RETURN PROPERLY CONVERTED LOCAL TO FOREIGN     *        
+      *                 OR FOREIGN TO LOCAL AMOUNTS FOR 0- AND 2-DEC   *        
+      *                 CURRENCIES                                     *        
+      *                                                                *        
+      *        FOR PARTICULARS ON HOW TO USE COPYBOOK, SEE             *        
+      *            'USAGE EXPLANATION' FOLLOWING THE DATA FIELDS       *        
+      *        FOR FEEDBACK GIVEN BY THE SUBROUTINE, SEE               *        
+      *            'ROUTINE RESPONSES' FOLLOWING THE USAGE EXAMPLES    *        
+      *                                                                *        
+      *  LENGTH:  175 BYTES                                            *        
+      ******************************************************************        
+      * REVISIONS:                                                     *        
+      *  DATE    PGMR    DESCRIPTION                                   *        
+      * -------- ---- -------------------------------------------------*        
+      * 03/06/00 DOK  ADDED ADDITIONAL FIELDS FOR 4-DEC FOREIGN VALUES *DOK01114
+      * 02/15/00 DOK  NEW                                              *DOK00070
+      ******************************************************************        
+                                                                                
+       01 SY888-PARM-DATA.                                                      
+          05 SY888-INPUT-FIELDS.                                                
+             10 SY888-IN-BASE-FIELDS.                                           
+                15 SY888-CURRENCY-CODE       PIC X(03) VALUE SPACES.            
+                   88  SY888-NO-DECIMAL-CURRENCY       VALUE 'ITL',             
+                                                             'JPY',             
+                                                             'BEF',             
+                                                             'ARA',             
+                                                             'KRW',             
+                                                             'IDR',             
+                                                             'CLP',             
+                                                             'PTE',             
+                                                             'ESP'.             
+                15 SY888-FOREIGN-CURRENCY-CODE                                  
+                                             PIC X(03) VALUE SPACES.            
+                   88  SY888-FOR-NO-DECIMAL-CURRENCY   VALUE 'ITL',             
+                                                             'JPY',             
+                                                             'BEF',             
+                                                             'ARA',             
+                                                             'KRW',             
+                                                             'IDR',             
+                                                             'CLP',             
+                                                             'PTE',             
+                                                             'ESP'.             
+                                                                                
+                15 SY888-CURRENCY-RATE       PIC S9(07)V9(6) VALUE +0.          
+                15 FILLER                    PIC  X(05).                        
+             10 SY888-IN-VAR-FIELDS.                                            
+                15 SY888-FOR-TO-LOCAL-OVERRIDE-SW                               
+                                             PIC X(01) VALUE SPACES.            
+                   88 SY888-FOR-TO-LOCAL-OVERRIDE      VALUE 'F'.               
+                   88 SY888-LOCAL-TO-FOR-DEFAULT       VALUE ' '.       DOK01114
+                                                                        DOK01114
+                15 SY888-IN-AMT-NBR-DEC-OVERRIDE                                
+                                             PIC 9(01) VALUE  0.                
+                   88  SY888-IN-AMT-WITH-4-DEC         VALUE  4.                
+                15 SY888-OUT-AMT-NBR-DEC-OVERRIDE                               
+                                             PIC 9(01) VALUE  0.                
+                   88  SY888-OUT-AMT-WITH-4-DEC        VALUE  4.                
+                15 SY888-OUT-CMP-NBR-DEC-OVERRIDE                       DOK01114
+                                             PIC 9(01) VALUE  0.        DOK01114
+                   88  SY888-OUT-CMP-WITH-4-DEC        VALUE  4.        DOK01114
+                                                                                
+                15 SY888-IN-AMT-2-DEC        PIC S9(15)V9(2) VALUE +0.          
+                15 SY888-IN-AMT-4-DEC                                           
+                                  REDEFINES SY888-IN-AMT-2-DEC                  
+                                             PIC S9(13)V9(4).                   
+                15 SY888-IN-AMT   REDEFINES SY888-IN-AMT-2-DEC                  
+                                             PIC X(17).                         
+                15 SY888-IN-PERCENT          PIC  S9(02)V9(03)                  
+                                                        VALUE +0.               
+                15 SY888-IN-PERCENT-X                                           
+                                  REDEFINES SY888-IN-PERCENT                    
+                                             PIC  X(05).                        
+                15 SY888-IN-QTY              PIC S9(07)V9(4)            DOK01114
+                                                       VALUE +0.        DOK01114
+                15 SY888-IN-QTY-X REDEFINES SY888-IN-QTY                        
+                                             PIC  X(11).                DOK01114
+                                                                                
+          05 SY888-OUTPUT-FIELDS.                                               
+             10 SY888-OUT-AMT-2-DEC          PIC S9(15)V9(2) VALUE +0.          
+             10 SY888-OUT-AMT-4-DEC                                             
+                                  REDEFINES SY888-OUT-AMT-2-DEC                 
+                                             PIC S9(13)V9(4).                   
+                                                                        DOK01114
+             10 SY888-OUT-FOR-AMT            PIC S9(15)V9(2) VALUE +0.          
+             10 SY888-OUT-FOR-AMT-4-DEC                                 DOK01114
+                                  REDEFINES SY888-OUT-FOR-AMT           DOK01114
+                                             PIC S9(13)V9(4).           DOK01114
+                                                                        DOK01114
+             10 SY888-OUT-CMP-AMT-2-DEC      PIC S9(15)V9(2) VALUE +0.          
+             10 SY888-OUT-CMP-AMT-4-DEC                                         
+                                  REDEFINES SY888-OUT-CMP-AMT-2-DEC             
+                                             PIC S9(13)V9(4).                   
+                                                                        DOK01114
+             10 SY888-OUT-CMP-FOR-AMT        PIC S9(15)V9(2) VALUE +0.          
+             10 SY888-OUT-CMP-FOR-AMT-4-DEC                             DOK01114
+                                  REDEFINES SY888-OUT-CMP-FOR-AMT       DOK01114
+                                             PIC S9(13)V9(4).           DOK01114
+                                                                        DOK01114
+             10 SY888-OUT-ERR-FLDS.                                             
+                15 SY888-OUT-ERR-CODE        PIC X(01) VALUE SPACES.            
+                15 SY888-OUT-WARN-CODE       PIC X(01) VALUE SPACES.            
+                15 SY888-OUT-MSG             PIC X(30) VALUE SPACES.            
+                   88  SY888-ERR-REQD-INFO-MISSING     VALUE                    
+                                   'CURR CODE AND AMT REQUIRED    '.            
+                   88  SY888-ERR-INVALID-RATE          VALUE                    
+                                   'INVALID CURRENCY RATE         '.            
+                   88  SY888-ERR-FOR-CCY-MISSING       VALUE                    
+                                   'RATE PROVIDED BUT NO FOR CURR '.            
+                   88  SY888-ERR-CALC-FLDS-LOADED      VALUE                    
+                                   'REQUEST ONLY PCT OR QTY CALC  '.            
+                   88  SY888-WARN-FLD-LOST-PRECISION   VALUE                    
+                                   'FIELD HAS LOST PRECISION      '.            
+                   88  SY888-WARN-DEFLT-TO-2-DEC       VALUE                    
+                                   'DEFAULTED TO 2-DEC FOR IN AMT '.            
+             10 FILLER                       PIC X(14).                         
+                                                                                
+      ******************************************************************        
+      * USAGE EXPLANATION:                                             *        
+      *                                                                *DOK01114
+      * CALL FORMAT(S): BATCH - CALL 'SYV888' USING SY888-PARM-DATA   * DOK01114
+      *                 CICS  - CALL 'SYU888' USING DFHEIBLK          * DOK01114
+      *                                             DFHCOMMAREA       * DOK01114
+      *                                             SY888-PARM-DATA   * DOK01114
+      * !!IMPORTANT!! - THE ROUTINE ASSUMES 2-DECIMAL FORMAT UNLESS   * DOK01114
+      *               IT IS OVERRIDDEN USING THE VARIOUS DECIMAL      * DOK01114
+      *               OVERRIDES:                                      * DOK01114
+      *               SY888-IN-AMT-NBR-DEC-OVERRIDE,                  * DOK01114
+      *               SY888-OUT-AMT-NBR-DEC-OVERRIDE, AND             * DOK01114
+      *               SY888-OUT-CMP-NBR-DEC-OVERRIDE.                 * DOK01114
+      *               - REGARDLESS OF WHICH WAY YOU WISH TO CONVERT   * DOK01114
+      *               AN AMOUNT (FOREIGN TO LOCAL, OR LOCAL TO        * DOK01114
+      *               FOREIGN), LOAD YOUR LOCAL CURRENCY (AS FOUND    * DOK01114
+      *               ON THE CORP FILE) TO THE CURRENCY-CODE FIELD    * DOK01114
+      *               AND THE FOREIGN CURRENCY TO THE OTHER; IF THE   * DOK01114
+      *               VALUE YOU WISH TO CONVERT IS A FOREIGN VALUE,   * DOK01114
+      *               SET FLAG SY888-FOREIGN-TO-LOCAL-OVERRIDE TO 'F' * DOK01114
+      *                                                               * DOK01114
+      * BASIC EXAMPLE 1: TO OBTAIN THE PROPER UNIT PRICE IN LOCAL      *        
+      *                  CURRENCY (THE CURRENCY YOU WOULD EXPECT TO    *        
+      *                  FIND ON TB-CPO-CURRENCY-CODE FOR THAT COMPANY)*        
+      *                  (ASSUMING UNIT-PRICE IS A 4-DEC FIELD)        *DOK01114
+      *       INITIALIZE SY888-INPUT-FIELDS                            *        
+      *       MOVE CURRENCY CODE TO SY888-CURRENCY-CODE                *        
+      *       MOVE 4             TO SY888-IN-AMT-NBR-DEC-OVERRIDE      *        
+      *       MOVE 4             TO SY888-OUT-AMT-NBR-DEC-OVERRIDE     *        
+      *       MOVE UNIT PRICE    TO SY888-IN-AMT-4-DEC                 *        
+      *       CALL 'SYV888'  USING SY888-PARM-DATA        (STATIC CALL)*        
+      *                 (THE CALL COULD ALSO BE DYNAMIC)               *DOK01114
+      *       IF SYV888-OUT-ERR-FLDS  =  SPACES                        *        
+      *          MOVE SY888-OUT-AMT-4-DEC  TO PGM-UNIT-PRICE           *        
+      *       ELSE                                                     *        
+      *          MOVE 'ERR/WARN MESSAGE'   TO OUTPUT-FIELD.            *        
+      *                                                                *        
+      * BASIC EXAMPLE 2: TO OBTAIN THE PROPER UNIT PRICE IN LOCAL AND  *        
+      *                  FOREIGN CURRENCIES                            *        
+      *       INITIALIZE SY888-INPUT-FIELDS                            *        
+      *       MOVE CURRENCY CODE TO SY888-CURRENCY-CODE                *        
+      *       MOVE FOREIGN CURRENCY CODE                               *        
+      *                          TO SY888-FOREIGN-CURRENCY-CODE        *        
+      *       MOVE CONVERSION RATE (AS FOUND ON TBXCONR)               *        
+      *                          TO SY888-CURRENCY-RATE                *        
+      *       MOVE 4             TO SY888-IN-AMT-NBR-DEC-OVERRIDE      *        
+      *       MOVE 4             TO SY888-OUT-AMT-NBR-DEC-OVERRIDE     *        
+      *       MOVE UNIT PRICE    TO SY888-IN-AMT-4-DEC                 *        
+      *       CALL 'SYV888'  USING SY888-PARM-DATA        (STATIC CALL)*        
+      *       IF SYV888-OUT-ERR-FLDS  =  SPACES                        *        
+      *          MOVE SY888-OUT-AMT-4-DEC  TO PGM-UNIT-PRICE           *        
+      *          MOVE SY888-OUT-FOR-AMT-4-DEC                          *DOK01114
+      *                                    TO PGM-FOREIGN-UNIT-PRICE   *DOK01114
+      *       ELSE                                                     *        
+      *          MOVE 'ERR/WARN MESSAGE'   TO OUTPUT-FIELD.            *        
+      *                                                                *        
+      *   A.) ONCE THE BASIC FIELDS OF CURRENCY CODE, FOREIGN CURRENCY *DOK01114
+      *       CODE AND RATE ARE LOADED, THOSE FIELDS CAN REMAIN INTACT *        
+      *       BY SUBSEQUENTLY INITIALIZING ONLY SY888-IN-VAR-FIELDS    *        
+      *                                                                *        
+      * BASIC EXAMPLE 3: TO OBTAIN THE EXTENDED PRICE IN LOCAL AND     *        
+      *                  FOREIGN CURRENCIES FOR AN ITEM                *        
+      *       INITIALIZE SY888-INPUT-FIELDS                            *        
+      *       MOVE CURRENCY CODE TO SY888-CURRENCY-CODE                *        
+      *       MOVE FOREIGN CURRENCY CODE                               *        
+      *                          TO SY888-FOREIGN-CURRENCY-CODE        *        
+      *       MOVE CONVERSION RATE (AS FOUND ON TBXCONR)               *        
+      *                          TO SY888-CURRENCY-RATE                *        
+      *       MOVE 4             TO SY888-IN-AMT-NBR-DEC-OVERRIDE      *        
+      *       MOVE UNIT PRICE    TO SY888-IN-AMT-4-DEC                 *        
+      *       MOVE QTY           TO SY888-IN-QTY                       *        
+      *       CALL 'SYV888'  USING SY888-PARM-DATA        (STATIC CALL)*        
+      *       IF SYV888-OUT-ERR-FLDS  =  SPACES                        *        
+      *          MOVE SY888-OUT-CMP-AMT-2-DEC                          *        
+      *                                    TO PGM-EXTENDED-PRICE       *        
+      *          MOVE SY888-OUT-CMP-FOR-AMT TO PGM FOREIGN-EXT-PRICE   *        
+      *       ELSE                                                     *        
+      *          MOVE 'ERR/WARN MESSAGE'   TO OUTPUT-FIELD.            *        
+      *                                                                *        
+      * BASIC EXAMPLE 4: TO OBTAIN SALES TAX AT THE LINE LEVEL         *        
+      *       INITIALIZE SY888-INPUT-FIELDS                            *        
+      *       MOVE CURRENCY CODE   TO SY888-CURRENCY-CODE              *        
+      *       MOVE EXTENDED PRICE  TO SY888-IN-AMT-2-DEC               *        
+      *       MOVE SYLTAX PERCENT  TO SY888-IN-PERCENT                 *        
+      *               (ROUTINE WILL DIVIDE THE INPUT RATE BY 100)      *        
+      *       CALL 'SYV888'  USING SY888-PARM-DATA        (STATIC CALL)*        
+      *       IF SYV888-OUT-ERR-FLDS  =  SPACES                        *        
+      *          ADD  SY888-OUT-CMP-AMT-2-DEC                          *        
+      *                             TO PGM-ACCUM-TAX                   *        
+      *       ELSE                                                     *        
+      *          MOVE 'ERR/WARN MESSAGE'   TO OUTPUT-FIELD.            *        
+      *                                                                *        
+      * BASIC EXAMPLE 5: TO OBTAIN FOREIGN SALES TAX AT THE LINE       *        
+      *                  LEVEL                                         *        
+      *       INITIALIZE SY888-INPUT-FIELDS                            *        
+      *       MOVE CURRENCY CODE   TO SY888-CURRENCY-CODE              *        
+      *       MOVE FOREIGN CURRENCY CODE                               *        
+      *                            TO SY888-FOREIGN-CURRENCY-CODE      *        
+      *       MOVE CONVERSION RATE (AS FOUND ON TBXCONR)               *        
+      *                            TO SY888-CURRENCY-RATE              *        
+      *       MOVE 'F'             TO SY888-FOR-TO-LOCAL-OVERRIDE-SW   *        
+      *               (THIS TELLS THE ROUTINE THE AMT PROVIDED IS A    *        
+      *                FOREIGN ONE)                                    *        
+      *       MOVE FOREIGN EXTENEDED PRICE                             *        
+      *                            TO SY888-IN-AMT-2-DEC               *        
+      *       MOVE SYLTAX PERCENT  TO SY888-IN-PERCENT                 *        
+      *               (ROUTINE WILL DIVIDE THE INPUT RATE BY 100)      *        
+      *       CALL 'SYV888'  USING SY888-PARM-DATA        (STATIC CALL)*        
+      *       IF SYV888-OUT-ERR-FLDS  =  SPACES                        *        
+      *          ADD  SY888-OUT-CMP-FOR-AMT                            *        
+      *                             TO PGM-ACCUM-FOREIGN-TAX           *        
+      *       ELSE                                                     *        
+      *          MOVE 'ERR/WARN MESSAGE'   TO OUTPUT-FIELD.            *        
+      *                                                                *        
+      *     A.)  WHEN WORKING A MULTI-CURRENCY ORDER, AMTS MUST BE     *        
+      *          ACCUMULATED SEPARATELY IN BOTH LOCAL AND FOREIGN      *        
+      *          CURRENCIES (ACCUMULATING IN LOCAL ONLY AND CONVERTING *        
+      *          AT A SUMMARY LEVEL CREATES ROUNDING ERRORS)           *        
+      *                                                                *        
+      *                                                                *        
+      *   ROUTINE RESPONSES:                                           *        
+      *            SPACES IN SY888-OUT-ERR-FLDS INDICATES THE INPUT    *        
+      *                   PROVIDED WAS GOOD FOR THE REQUEST MADE       *        
+      *      ERROR RESPONSES:   (SY888-OUT-ERR-CODE)                   *        
+      *           (NOT ENOUGH OR TOO MUCH DATA PROVIDED TO ROUTINE TO  *        
+      *                   GIVE A VALID RESPONSE)                       *        
+      *            '1 ' - REQUIRED INFO NOT PROVIDED                   *        
+      *            '2 ' - INVALID CURRENCY RATE PROVIDED               *        
+      *            '3 ' - CONVERSION RATE PROVIDED, BUT NO             *        
+      *                   VALID FOREIGN CURRENCY GIVEN                 *        
+      *            '4 ' - BOTH QTY AND % PROVIDED FOR CALC;            *        
+      *                   CAN ONLY REQUEST ONE AT A TIME               *        
+      *      WARNING RESPONSES: (SY888-OUT-WARN-CODE)                  *        
+      *             (PROCESS COMPLETE, BUT RESPONSE MAY NOT BE         *        
+      *                   MEANINGFUL)                                  *        
+      *              (NONE AT THIS TIME )                              *DOK01114
+      *                                                                *        
+      ******************************************************************        
+      *               END OF COPYBOOK SYR888                           *        
+      ******************************************************************        

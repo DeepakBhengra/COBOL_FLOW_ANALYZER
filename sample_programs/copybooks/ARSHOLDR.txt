@@ -1,0 +1,222 @@
+      ******************************************************************        
+      *      NAME: ARSHOLDR                                                     
+      *            COPYLIB CLONED FROM SYHHOLDR FOR USE                         
+      *            IN CREDIT SUBROUTINES ARVHLD & ARUHLD.                       
+      *-----------------------------------------------------------------        
+      *      PURPOSE: COPYBOOK USED IN CONJUNCTION WITH ARSHOLD                 
+      *               SET ORDER HOLD REASON CODE AND STATUS USED.               
+      *=================================================================        
+      * REVISIONS:                                                              
+      *------+-------+------+-------------------------------------------        
+      * PTE# | DATE  | PGMR | DESCRIPTION                                       
+      *------+-------+------+-------------------------------------------        
+      *      | 24056 | SMP  | BYPASS CREDIT HOLDS LOGIC.                SMP24056
+      *      | 23251 | PXS  | BYPASS CONFIG HOLDS.                      PXS23251
+      *      | 19193 | AP3  | PORTUGAL CONVERSION                       APX19193
+      *      | 13109 | DAK  | ADDED BRIGHT POINT INDIA                  RLH13109
+      *      |       | JMW  | REMOVE FF HOLD , REQUESTED BY SPAIN.      JMW05342
+      * 40639| 05277 | TRR  | CLONED FROM SYHHOLDR, ADDED NEW REASON    TRR05277
+      *      |       |      | CODES FOR TECH PAC PROJECT.               TRR05277
+      *=================================================================        
+      *---------------------------------------------------------------*         
+      *  BYPASS IF 3100-CHECK-STATUS ROUTINE FAILED TO ESTABLISH HOLD           
+      *---------------------------------------------------------------*         
+           IF WS-BYPASS-ORDER-HOLD                                              
+              GO TO 3100-EXIT.                                                  
+                                                                                
+      *---------------------------------------------------------------*         
+      *  SET WS-HOLD-REASON  - TO BECOME NEW ORSH-HOLD-REASON                   
+      *  WS-ORDER-HOLD-??? IS SET IN ROUTINE 3000-CHECK-STATUS                  
+      *---------------------------------------------------------------*         
+           IF WS-ORDER-HOLD-WEB-CREDIT-CARD                                     
+              MOVE 'CW'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-CR-CARD                                             
+              MOVE 'C8'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-CREDIT-HOLD                                              
+              MOVE 'CH'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-OVER-LIMIT                                               
+              MOVE 'CL'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-ORDER                                               
+              MOVE 'CO'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-FLOORING                                            
+              MOVE 'FL'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-CRED-FLOOR                                          
+              MOVE 'F9'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-POST-DATED-CHECK                                    
+      *----------------------------------------------------------------*        
+      *  SPECIAL TECH PAC CHECK FOR INDIA                                       
+      *----------------------------------------------------------------*        
+              IF ORH-COMPANY  =  'IA' OR 'BI'                           RLH13109
+                 MOVE 'BC'             TO WS-HOLD-REASON                        
+              ELSE                                                              
+                 MOVE 'PF'             TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-TAG-HOLD                                            
+              MOVE 'GH'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-MIN                                                 
+              MOVE 'MO'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+      **** COMMENTED OUT THE PIECE OF CODE TO BYPASS THE CONFIG HOLD.   PXS23251
+      *    IF WS-ORDER-HOLD-PENDING                                     PXS23251
+      *       MOVE 'SN'                TO WS-HOLD-REASON                PXS23251
+      *    ELSE                                                         PXS23251
+           IF WS-ORDER-PSTDUE-OVRLMT                                            
+              MOVE 'PC'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-PAST-DUE                                                 
+              MOVE 'PD'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-PREPAID                                             
+              MOVE 'PP'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-SALES-HOLD-FRT                                           
+              MOVE 'SF'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-SALES-HOLD                                               
+              MOVE 'SH'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-SALES-WAIVE-MIN                                          
+              MOVE 'SM'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-SALES-PRICE-MIN                                          
+              MOVE 'S2'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-SALES-HOLD-PRICE                                         
+              MOVE 'SP'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-SALES-HOLD-GM                                            
+              MOVE 'GM'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-SALES-HOLD-LT                                            
+              MOVE 'LT'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-SALES-HOLD-IMAGINE                                       
+              MOVE 'SG'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-CAPS-AUTO                                           
+      *----------------------------------------------------------------*        
+      *  SPECIAL TECH PAC CHECK FOR INDIA                                       
+      *----------------------------------------------------------------*        
+              IF ORH-COMPANY  =  'IA' OR 'BI'                           RLH13109
+                 MOVE 'CF'             TO WS-HOLD-REASON                        
+              ELSE                                                              
+                 MOVE 'ZE'             TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-CAPS-CUST                                           
+      *----------------------------------------------------------------*        
+      *  SPECIAL TECH PAC CHECK FOR ASIA/PACIFIC                                
+      *----------------------------------------------------------------*        
+              IF TB-CPO-ASIA-PACIFIC-CNTRY                                      
+                 MOVE 'BT'             TO WS-HOLD-REASON                        
+              ELSE                                                              
+                 MOVE 'ZR'             TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-DEF-REPL                                            
+              MOVE 'C2'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-PPD-XFER                                            
+              MOVE 'C3'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-PPD-LOC                                             
+              MOVE 'C4'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-PPD-CCHK                                            
+              MOVE 'C5'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-PPD-WIRE                                            
+              MOVE 'C6'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-PPD-CASH                                            
+              MOVE 'C7'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-CRED-CRD                                            
+              MOVE 'C8'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+      *----------------------------------------------------------------*        
+      *  SPECIAL TECH PAC CHECK FOR ASIA/PACIFIC AND INDIA                      
+      *----------------------------------------------------------------*        
+           IF WS-ORDER-HOLD-APAC-CUST                                           
+           AND (ORH-COMPANY  =  'IA' OR 'BI')                           RLH13109
+              MOVE 'B1'                TO WS-HOLD-REASON                        
+           ELSE                                                                 
+              GO TO 3100-EXIT.                                                  
+                                                                                
+           IF ORH-COMPANY  =  'ES' OR 'PT'                              APX19193
+              IF ORH-TERMS  =  993                                              
+                   MOVE 'C9'           TO WS-HOLD-REASON.                       
+                                                                                
+           MOVE ORH-COMPANY            TO TB-HLD-COMPANY.               SMP24056
+           MOVE WS-HOLD-REASON         TO TB-HLD-CODE.                  SMP24056
+           CALL WS-IMPULSE-TABLE    USING TB-HOLD-PROC-IA.              SMP24056
+                                                                        SMP24056
+           IF TB-HLD-NORESP                                             SMP24056
+              CONTINUE                                                  SMP24056
+           ELSE                                                         SMP24056
+              MOVE 'N'                 TO TB-HLD-BYPASS-SW              SMP24056
+           END-IF.                                                      SMP24056
+      *----------------------------------------------------------------*        
+      *  - SET ORSH-STATUS / ORSH-HOLD-REASON                                   
+      *  WHEN A PREVIOUSLY DETERMINED STATUS IS A SALES, PENDING, TAG-          
+      *  AND-HOLD, OR CAPS HOLD - AND THE NEW STATUS IS A CREDIT HOLD,          
+      *  THE NEW STATUS/REASON IS HELD IN THE "BEFORE" FIELDS TO BE             
+      *  USED WHEN ORDER IS NEXT RELEASED.                                      
+      *----------------------------------------------------------------*        
+           IF ORSH-SALES-HOLD                                                   
+           OR ORSH-CAPS-HOLD                                                    
+           OR ORSH-HOLD-PENDING                                                 
+           OR ORSH-HOLD-TAG-HOLD                                                
+              IF TB-HLD-DO-NOT-SET                                      SMP24056
+                 MOVE SPACES           TO WS-HOLD-REASON                SMP24056
+                                          WS-ORDER-HOLD-SW              SMP24056
+              ELSE                                                      SMP24056
+                 IF WS-ORDER-HOLD-CREDIT                                SMP24056
+                    MOVE 'C'           TO ORSH-STATUS-BEFORE-HOLD       SMP24056
+                    MOVE WS-HOLD-REASON TO ORSH-REASON-BEFORE-HOLD      SMP24056
+                    GO TO 3100-EXIT                                     SMP24056
+                 END-IF                                                 SMP24056
+              END-IF                                                    SMP24056
+           ELSE                                                         SMP24056
+              IF TB-HLD-DO-NOT-SET                                      SMP24056
+                 MOVE SPACES           TO WS-HOLD-REASON                SMP24056
+                                          WS-ORDER-HOLD-SW              SMP24056
+              END-IF                                                    SMP24056
+           END-IF.                                                      SMP24056
+                                                                                
+           MOVE WS-HOLD-REASON         TO ORSH-HOLD-REASON.                     
+                                                                                
+      *    IF WS-ORDER-HOLD-PENDING                                             
+      *       MOVE 'P'                 TO ORSH-STATUS                           
+      *    ELSE                                                                 
+           IF WS-ORDER-HOLD-TAG-HOLD                                            
+              MOVE 'G'                 TO ORSH-STATUS                           
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-SALES                                               
+              MOVE 'S'                 TO ORSH-STATUS                           
+           ELSE                                                                 
+           IF WS-ORDER-HOLD-CAPS                                                
+      *----------------------------------------------------------------*        
+      *  SPECIAL TECH PAC CHECK FOR ASIA/PACIFIC                                
+      *----------------------------------------------------------------*        
+              IF TB-CPO-ASIA-PACIFIC-CNTRY                                      
+                 MOVE 'C'              TO ORSH-STATUS                           
+              ELSE                                                              
+                 MOVE 'D'              TO ORSH-STATUS                           
+              END-IF                                                    SMP24056
+           ELSE                                                                 
+              IF TB-HLD-DO-NOT-SET                                      SMP24056
+                 NEXT SENTENCE                                          SMP24056
+              ELSE                                                      SMP24056
+                 MOVE 'C'              TO ORSH-STATUS                   SMP24056
+              END-IF                                                    SMP24056
+           END-IF.                                                      SMP24056
+                                                                                
+       3100-EXIT.                                                               
+            EXIT.                                                               

@@ -1,0 +1,86 @@
+﻿      *****************************************************************         
+      *ORSBOCRT COPY BOOK USED TO CREATE '00' BACKORDER                         
+      *****************************************************************         
+      * REVISIONS                                                               
+      *   DATE    ID   DESCRIPTION                                              
+      *----------------------------------------------------------------         
+      * 10/04/24  TXV  NEW COPY BOOK TO HANDLE BACKORDER '00' DURING    TXV24278
+      *                NEW LINE ADD                                             
+      *****************************************************************         
+      *----------------------------------------------------------------         
+       600-ISRT-NEW-DIST.                                                       
+      *----------------------------------------------------------------         
+                                                                                
+           IF TB-CPO7-OMS-ENABLED                                               
+              CONTINUE                                                          
+           ELSE                                                                 
+              PERFORM 600-ISRT-NEW-DIST-EXIT                                    
+           END-IF                                                               
+                                                                                
+           MOVE ZERO                   TO WS-ORSSHHOF-NBR                       
+           PERFORM 1206-GU-ORSSHHOF                                             
+           IF WS-ORSSHHOF-NORESP                                                
+               MOVE ORSHOF-ORSSHHOF    TO ORSHOF-ORSSHHOF-0                     
+           END-IF                                                               
+                                                                                
+           IF ORSH-STOCK-ORDER       OR                                         
+              ORSH-BR-TRANSFER-ORDER OR                                         
+              ORSH-CASH-ORDER                                                   
+              CONTINUE                                                          
+           ELSE                                                                 
+              GO TO 600-ISRT-NEW-DIST-EXIT                                      
+           END-IF                                                               
+                                                                                
+           IF ORSHOF-ESD-DIST OR                                                
+              ORSHOF-VIRTUAL-DIST                                               
+              GO TO 600-ISRT-NEW-DIST-EXIT                                      
+           END-IF                                                               
+                                                                                
+      * CHECK FOR '00' BACKORDER DIST EXIST                                     
+                                                                                
+           MOVE '00'                   TO WS-ORSSHH-KEY-VALUE                   
+           PERFORM 1202-GU-ORSSHH.                                              
+           IF WS-ORSSHH-NORESP                                                  
+              SET WS-SHIPMENT-FOUND        TO TRUE                              
+           ELSE                                                                 
+              SET WS-SHIPMENT-NOT-FOUND    TO TRUE                              
+           END-IF.                                                              
+                                                                                
+                                                                                
+           IF WS-SHIPMENT-NOT-FOUND                                             
+              IF ORSH-CUST-CONFIG-ORDER  OR                                     
+                 ORSH-BR-TRANSFER-ORDER                                         
+                 CONTINUE                                                       
+              ELSE                                                              
+                 PERFORM Z9000-ZIPBR THRU Z9000-EXIT                            
+                 IF ORSH-BR-NBR-SHIP-FROM > SPACES                              
+                    IF ORH-COMPANY = 'FT'                                       
+                       IF ORH-STATE-CODE = 'NU' OR 'MB'                         
+                          MOVE '40'    TO ORSH-BR-NBR-SHIP-FROM                 
+                       END-IF                                                   
+                    END-IF                                                      
+                 END-IF                                                         
+              END-IF                                                            
+                                                                                
+              MOVE '00'                TO WS-ORSSHH-KEY-VALUE                   
+                                          ORSH-KEY-ORSSHH                       
+                                                                                
+              MOVE 'ORSSHH   '         TO WS-UNQUAL-SSA                         
+              PERFORM 1334-ISRT-ORSSHH                                          
+                                                                                
+              IF WS-ORSSHH-NORESP                                               
+                                                                                
+                  MOVE ORSHOF-ORSSHHOF-0                                        
+                                       TO ORSHOF-ORSSHHOF                       
+                  MOVE 'ORSSHHOF '     TO WS-UNQUAL-SSA                         
+                  PERFORM 1335-ISRT-ORSSHHOF                                    
+                                                                                
+              END-IF                                                            
+           END-IF.                                                              
+           IF TB-CPO7-OMS-ENABLED                                               
+              MOVE ORSH-DIST-NBR       TO TC-DIST-NBR                           
+              MOVE ORSH-SHIP-NBR       TO TC-SHIP-NBR                           
+           END-IF.                                                              
+                                                                                
+       600-ISRT-NEW-DIST-EXIT.                                                  
+           EXIT.                                                                

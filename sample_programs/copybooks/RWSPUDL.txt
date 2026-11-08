@@ -1,0 +1,56 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8302
+      ******************************************************************        
+      *****************************************************************         
+      *  PROCESS CSW-DOWNLOAD - PROCEDURE DIVISION COPYBOOK           *         
+      *              P U R C H A S I N G   D O W N L O A D            *         
+      *                     A T T R I B U T E S                       *         
+      *                                                               *         
+      *  PURPOSE:  CSW PROJECT -                                      *         
+      *            WHEN CHANGE TO PURCHASING INFORMATION OCCURS       *         
+      *            WRITE A RWLTRN RECORD TO INITIATE THE APPC         *         
+      *            PROGRAM THAT WILL SEND INFORMATION TO CSW          *         
+      *                                                               *         
+      *  NOTE 1:   PROGRAMS USING THIS COPYBOOK MUST HAVE ACCESS TO   *         
+      *            THE FOLLOWING:                                     *         
+      *            DATABASE: PURCHASING                               *         
+      *            SEGMENTS: HEADER                                   *         
+      *            COPYBOOKS: PUSHED, RWLTRN, RWKTRN, SYXCOM          *         
+      *****************************************************************         
+      * ============================================================= *         
+      *  RWSPUDL - PROCESS RWLTRN RECORD                              *         
+      * ============================================================= * LLV03255
+      *  09/12/03  LLV  IMFIRST CANADA: (GENERIC BRANCH CODE 'CA')    * LLV03255
+      *                 FOR 'SINGLE REGION MULTI BR PROCESSING'.      * LLV03255
+      *  09/02/99  RJA  RWTRN-SUB-SEQ NOW A NUMERIC DATAFIELD, HENCE  * RJA00062
+      *                 MOVE OF ZEROES AND NOT LOW-VALUES             * RJA00062
+      *  04/13/99  TFM  CREATION OF COPYBOOK                          * TFM99103
+      * ============================================================= *         
+      *                                                                         
+           MOVE SPACES                 TO RWTRN-RWRTRN.                         
+           MOVE ZEROES                 TO RWTRN-START-DATE                      
+                                          RWTRN-START-TIME                      
+                                          RWTRN-DELAY-TIME                      
+                                          RWTRN-APPC-ATTEMPTS.                  
+           MOVE PUH-COMPANY            TO RWTRN-COMPANY                         
+           MOVE 'O'                    TO RWTRN-FLOW-CODE.                      
+           MOVE '3'                    TO RWTRN-PRIORITY.                       
+           MOVE EIBTIME                TO RWTRN-SEQ-NBR                         
+                                          RWTRN-START-TIME.                     
+           MOVE ZEROES                 TO RWTRN-SUB-SEQ.                RJA00062
+           MOVE 'PUDL'                 TO RWTRN-TRANS-CODE.                     
+           MOVE EIBDATE                TO RWTRN-START-DATE.                     
+           MOVE 1                      TO RWTRN-APPC-ATTEMPTS.                  
+           MOVE ZEROES                 TO RWTRN-DELAY-TIME.                     
+           MOVE ' '                    TO RWTRN-POR-DOWNLOAD-SW.                
+           IF TB-CSW-SNGLE-REG-MULTI-BR-CONN                            LLV03255
+               MOVE TB-CSW-IM-FIRST-BRANCH TO RWTRN-BR-NBR              LLV03255
+               MOVE PUH-BR-NBR         TO RWTRN-OVERRIDE-BR-NBR         LLV03255
+                                          RWTRN-POR-PO-NBR(1:2)         LLV03255
+           ELSE                                                         LLV03255
+               MOVE PUH-BR-NBR         TO RWTRN-POR-PO-NBR(1:2)         LLV03255
+                                          RWTRN-BR-NBR.                 LLV03255
+           MOVE PUH-PO-NBR             TO RWTRN-POR-PO-NBR(3:5).                
+      *   PO REQUEST  RWTRN-PO-REQUEST                                          
+           MOVE '04'                   TO RWTRN-TRANS-TYPE.                     
+           MOVE RWTRN-KEY-AREA         TO WS-RWTRN-KEY-AREA.                    

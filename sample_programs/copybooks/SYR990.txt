@@ -1,0 +1,111 @@
+      ******************************************************************        
+      *   *  COPYBOOK: SYR990                                          *        
+      *   *                                                            *        
+      *   *  PURPOSE : HOLDS THE VARIABLES USED TO INSERT LOG DATA INTO*        
+      *   *            IMPULSE APPLICATION ERROR LOG TABLE.            *        
+      *   *            THIS COPYBOOK IS USED ALONG WITH SYU990/SYV990. *        
+      *   *                                                            *        
+      *   *  USAGE   :                                                 *        
+      *   *  ---------                                                 *        
+      *   *  PLUG IN INSTRUCTIONS -                                    *        
+      *   *          - IDENTIFY THE PROCESS NEEDS LOGGER.              *        
+      *   *          - INSERT THE LOG PROCESS IN DB2 TABLE             *        
+      *   *            IMP_APP_ERR_LOG_PRS WITH EVENT LOGGER SWITCH    *        
+      *   *             DATA VALIDATION -                              *        
+      *   *             DB2 COLUMN   VS COMMAREA FIELD                 *        
+      *   *             LOG_PROCS_CD =  SYR990-LOG-PROCS-CD            *        
+      *   *             PGM_ID       =  SYR990-PGM-ID                  *        
+      *   *             CO_CD        =  SYR990-CO-CD                   *        
+      *   *             EVENT_LOG_SW =  Y - LOG THE EVENT              *        
+      *   *                             N - SKIP LOGGING               *        
+      *   *          - ADD COPYBOOK SYR990 IN WORKING SECTION.         *        
+      *   *          - USE COMMON VARIABLE FOR FOLLOWING MANDATORY     *        
+      *   *            FIELDS TO IDENTIFY LAST CHANGES IN THE PROGRAM  *        
+      *   *               WS-REVISION-LEVEL-STAMP  - REVISION STAMP    *        
+      *   *               WS-LAST-CONTAINER-CHANGE - CONTAINER #       *        
+      *   *               FOR BATCH                                    *        
+      *   *               ~~~~~~~~~                                    *        
+      *   *               WS-PROGRAM - PROGRAM NAME                    *        
+      *   *          - FORMAT THE DATA NEEDS TO BE LOOGED IN THE DB2   *        
+      *   *            FROM SOURCE VARIABLES TO SYR990-IN-AREA.        *        
+      *   *          - PERFORM 990-IMP-ERR-MSG                         *        
+      *   *               THRU 990-IMP-ERR-MSG-EXIT                    *        
+      *   *          - ADD COPYBOOK IN PROCEDURAL DIVISION             *        
+      *   *               SYSERREC - FOR ONLINE MODULES                *        
+      *   *               SYSERREB - FOR BATCH  MODULES                *        
+      *   *          - REFER PUP393 FOR ONLINE SAMPLE - STARTED TASK   *        
+      *   *          - REFER PUP657 FOR BATCH  SAMPLE - CALLED ROUTINE *        
+      *   *          - IF SYU990 IS TRIGGERED AS LINKED MODULE BY      *        
+      *   *            PASSING VALUE IN SYR990-ROUTINE - ENSURE DLI IS *        
+      *   *            TERMINATED AS PER PROGRAM FLOW.                 *        
+      *   *          - ERROR LOG TABLE NAME IMPULSE_APPL_ERR_LOG       *        
+      *   *  ----------------------------------------------------------*        
+      *   *  07/19/24  AP3 ADDED CORRELATION DATA FIELDS TO THE FILLER *AP324201
+      *   *  05/12/23  SYJ INITIAL COPYBOOK.                           *SYJ23132
+      ******************************************************************        
+      *                                                                         
+       01 SYR990-IO-AREA.                                                       
+      *THIS WILL BE SET IN PARAGRAPH FROM SOURCE PGM IF ERROR ROUTINE           
+      *NEEDS TO BE TRIGGERED AS LINKED MODULE.                                  
+          05 SYR990-ROUTINE          PIC X(8)   VALUE SPACES.                   
+             88 SYR990-ONLINE                   VALUE 'SYU990'.                 
+             88 SYR990-BATCH                    VALUE 'SYV990'.                 
+      *THIS WILL BE SET IN PARAGRAPH 990-IMP-ERR-MSG FROM SOURCE PGM            
+      *BY DEFAULT FOR TRANSFER CONTROL                                          
+          05 SYR990-XCTL-ID          PIC X(4)   VALUE 'ELGR'.                   
+             88 SYR990-ELGR                     VALUE 'ELGR'.                   
+          05 SYR990-IN-AREA.                                                    
+      *MANDATE FIELDS TO BE PASSED FROM THE SOURCE PROGRAM                      
+             10 SYR990-CO-CD         PIC X(2).                                  
+             10 SYR990-LOG-DOC-CD    PIC X(2).                                  
+             10 SYR990-LOG-PROCS-CD  PIC X(8).                                  
+      *WILL BE PULLED AUTOMATICALLY FROM SOURCE PROGRAM IN THE                  
+      *PARAGRAPH 990-IMP-ERR-MSG - DONT POPULATE                                
+             10 SYR990-TASK-ID       PIC S9(7)V USAGE COMP-3.                   
+             10 SYR990-PGM-ID        PIC X(8).                                  
+             10 SYR990-TRAN-ID       PIC X(4).                                  
+             10 SYR990-LAST-REV-ID   PIC X(8).                                  
+             10 SYR990-LAST-CONTAINER-NBR                                       
+                                     PIC X(10).                                 
+             10 SYR990-LAST-CMPL-TXT PIC X(21).                                 
+      *PASS THE DATA AS YOU HOLD FROM SOURCE PROGRAM                            
+             10 SYR990-SO-BR-NBR     PIC X(2).                                  
+             10 SYR990-SO-ORDR-NBR   PIC X(5).                                  
+             10 SYR990-SO-ORDR-DT    PIC S9(5)  USAGE COMP-3.                   
+             10 SYR990-SO-DIST-NBR   PIC X(1).                                  
+             10 SYR990-SO-SHIP-NBR   PIC X(1).                                  
+             10 SYR990-SO-LINE-NBR   PIC X(3).                                  
+             10 SYR990-PO-CO-CD      PIC X(2).                                  
+             10 SYR990-PO-BR-NBR     PIC X(2).                                  
+             10 SYR990-PO-NBR        PIC X(5).                                  
+             10 SYR990-PO-LNE-NBR    PIC X(3).                                  
+             10 SYR990-PART-NBR      PIC X(12).                                 
+             10 SYR990-VEND-CLS-CD   PIC X(1).                                  
+             10 SYR990-VEND-NBR      PIC X(4).                                  
+             10 SYR990-VEND-SFX      PIC X(1).                                  
+             10 SYR990-CUST-BR-NBR   PIC X(2).                                  
+             10 SYR990-CUST-NBR      PIC X(6).                                  
+             10 SYR990-CUST-SFX      PIC X(3).                                  
+             10 SYR990-ACOP-IMP-TRK-NBR                                         
+                                     PIC S9(9)  USAGE COMP.                     
+             10 SYR990-ACOP-GDS-TRK-NBR                                         
+                                     PIC S9(18) USAGE COMP.                     
+             10 SYR990-OPER-ID       PIC X(4).                                  
+      *FORMAT THE MESSAGE AND PASS AS NEEDED                                    
+             10 SYR990-MSG1-TXT      PIC X(128).                                
+             10 SYR990-MSG2-TXT      PIC X(128).                                
+             10 SYR990-MSG3-TXT      PIC X(128).                                
+             10 SYR990-MSG4-TXT      PIC X(128).                                
+             10 SYR990-CORRELATION-KEY                                  AP324201
+                                     PIC X(10).                         AP324201
+             10 SYR990-CORRELATION-TYP-CD                               AP324201
+                                     PIC X(05).                         AP324201
+             10 FILLER               PIC X(885).                        AP324201
+          05 SYR990-OUT-AREA.                                                   
+             10 SYR990-FND-LOOP-SW   PIC X(1) VALUE ' '.                        
+                88 SYR990-LOOP                VALUE 'L'.                        
+             10 SYR990-RESPONSE      PIC X(1) VALUE ' '.                        
+                88 SYR990-SUCCESS             VALUE 'Y'.                        
+                88 SYR990-ERROR               VALUE 'E'.                        
+             10 SYR990-MESSAGE       PIC X(80).                                 
+             10 FILLER               PIC X(100).                                

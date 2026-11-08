@@ -1,0 +1,426 @@
+      *****************************************************************         
+      *  EDSVPN- PD COPYBOOK TO FETCH IM PART NBR OR EXTENDED VENDOR  *         
+      *          PART NUMBER FROM PL_PARTS_LOCATOR TABLE FOR CROSS    *         
+      *          REFERENCE.                                           *         
+      *                                                               *         
+      *  HOW TO USE THIS FROM A CALLING PROGRAM:                      *         
+      *  THIS PD COPYBOOK CAN PERFORM 2 ACTIONS==>                    *         
+      *  1. FETCH THE EXTENDED VPN WHEN IM PART IS AVAILABLE FROM DB2 *         
+      *     TABLE PL_PARTS_LOCATOR.                                   *         
+      *     FOR THIS OPERATION, IN CALLING PROGRAM DO THE FOLLOWING:  *         
+      *     A. INCLUDE WORKING STORAGE COPYBOOK EDWVPN                *         
+      *     B. INITIALIZE EDWVPN-IP-CO-CD & EDWVPN-IP-IM-PART-NBR     *         
+      *     C. SET EDWVPN-FETCH-EXVPN TO TRUE                         *         
+      *     D. MOVE THE COMPANY CODE TO EDWVPN-IP-CO-CD               *         
+      *     E. MOVE THE IM PART NUMBER TO EDWVPN-IP-IM-PART-NBR       *         
+      *     F. PERFORM E100-EDSVPN-PROCESS-REQ THRU E100-EDSVPN-EXIT  *         
+      *     G. CHECK THE OUTPUT SWITCH EDWVPN-DATA-FOUND-SW:          *         
+      *        'Y' (EDWVPN-DATA-FOUND) = DATA IS FOUND FOR REQUEST    *         
+      *        'N' (EDWVPN-DATA-NOT-FND) = DATA NOT FOUND FOR REQUEST *         
+      *     H. REQUESTED EXTENDED VPN WILL BE AVAILABLE IN FIELD      *         
+      *        EDWVPN-OP-EXT-VPN                                      *         
+      *                                                               *         
+      *  2. FETCH THE IM PART WHEN EXTENDED VPN IS AVAILABLE FROM DB2 *         
+      *     TABLE PL_PARTS_LOCATOR.                                   *         
+      *     FOR THIS OPERATION, IN CALLING PROGRAM DO THE FOLLOWING:  *         
+      *     A. INCLUDE WORKING STORAGE COPYBOOK EDWVPN                *         
+      *     B. INITIALIZE EDWVPN-IP-CO-CD & EDWVPN-IP-EXT-VPN         *         
+      *     C. INITIALIZE EDWVPN-PARTIAL-SKU1 & EDWVPN-PARTIAL-SKU2   * KZC18097
+      *     D. SET EDWVPN-FETCH-IMPART TO TRUE                        * KZC18097
+      *     E. MOVE THE COMPANY CODE TO EDWVPN-IP-CO-CD               * KZC18097
+      *     F. MOVE THE EXTENDED VPN TO EDWVPN-IP-EXT-VPN             * KZC18097
+      *     G. SPLIT EDWVPN-IP-EXT-VP INTO EDWVPN-PART-ALIGN1 AND     * KZC18097
+      *        AND EDWVPN-PART-ALIGN2. THESE WILL BE USED TO          * KZC18097
+      *        CALCULATE THE SCRUBBED EVPN EDWVPN-IP-SCR-EXT-VPN      * KZC18097
+      *     H. PERFORM E100-EDSVPN-PROCESS-REQ THRU E100-EDSVPN-EXIT  * KZC18097
+      *        HERE THE SCRUBBED EVPN WILL BE USED TO FETCH IMPART.   * KZC18097
+      *     I. CHECK THE OUTPUT SWITCH EDWVPN-AUTH-DATA-FOUND-SW:     * KZC18097
+      *        'Y' (EDWVPN-AUTH-DATA-FOUND) = DATA IS FOUND           *         
+      *        'N' (EDWVPN-AUTH-DATA-NOT-FND) = DATA NOT FOUND        *         
+      *     J. REQUESTED IM PART WILL BE AVAILABLE IN FIELD           * KZC18097
+      *        EDWVPN-OP-IM-PART-NBR                                  *         
+      *                                                               *         
+      * NOTES:                                                        *         
+      * IF THE CALLING PROGRAM IS NOT A DB2 PROGRAM, THEN THE         *         
+      * FOLLOWING STATEMENT NEEDS TO BE INCLUDED.                     *         
+      * DB2STAT                                                       *         
+      * SYWDB2ER                                                      *         
+      * CALLING PROGRAM MUST HAVE BELOW AUTHORIZATON ROUTINES INCLUDED*         
+      * SYXAUTH                                                       *         
+      * SYCAUTH                                                       *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * WHEN       WHO WHY                                            *         
+      * ---------- --- ---------------------------------------------- *         
+      * 08/06/18   RYD MUST ZERO OUT CNTRS USED IN TALLY COMMANDS FIRST RYD18218
+      * 04/07/2018 KZC CHANGES TO SCRUB THE EXTENDED VENDOR PART BEFORE KZC18097
+      *                QUERYING THE PL_PARTS_LOCATOR TABLE              KZC18097
+      * 08/05/2017 SXR NEW COPYBOOK FOR EXTENDED VPN PROJECT          *         
+      *****************************************************************         
+      *                                                                         
+       E100-EDSVPN-PROCESS-REQ.                                                 
+      *                                                                         
+           MOVE ' '                   TO EDWVPN-DUPLICATE-FOUND-SW              
+                                         EDWVPN-ENDOF-IMPART-FETCH-SW.          
+           MOVE 'N'                   TO EDWVPN-DATA-FOUND-SW                   
+                                         EDWVPN-AUTH-DATA-FOUND-SW              
+           MOVE SPACES                TO EDWVPN-OP-IM-PART-NBR                  
+                                         EDWVPN-OP-EXT-VPN.                     
+           MOVE ZEROS                 TO EDWVPN-IMPART-FETCH-COUNT.             
+      *                                                                         
+           EVALUATE TRUE                                                        
+              WHEN EDWVPN-FETCH-EXVPN                                           
+                   PERFORM E110-EDSVPN-FVPN THRU E110-EDSVPN-EXIT               
+              WHEN EDWVPN-FETCH-IMPART                                          
+                   PERFORM E120-EDSVPN-FIMP THRU E120-EDSVPN-EXIT               
+           END-EVALUATE.                                                        
+      *                                                                         
+       E100-EDSVPN-EXIT.                                                        
+           EXIT.                                                                
+                                                                                
+       E110-EDSVPN-FVPN.                                                        
+      *                                                                         
+           EXEC SQL                                                             
+                 OPEN EXVPN_CSR                                                 
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO EDWVPN-SQLCODE-STATUS                 
+                                          SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'E110'           TO WS-ABCODE                             
+                 MOVE 'E110-SELECT-EXT-VPN'                                     
+                                       TO EDWVPN-DB2-ERROR-PARA                 
+                 MOVE 'EDSVPN'                                                  
+                                       TO EDWVPN-DB2-PGM-ERROR                  
+                 MOVE EDWVPN-EXTRA-MESSAGE-1                                    
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR OPEN EXVPN_CSR'                                    
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+      *                                                                         
+           EXEC SQL                                                             
+                FETCH  EXVPN_CSR                                                
+                 INTO  :EDWVPN-OP-EXT-VPN                                       
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO EDWVPN-SQLCODE-STATUS                 
+                                          SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    SET EDWVPN-DATA-FOUND                                       
+                                       TO TRUE                                  
+               WHEN DB2-NOT-FOUND                                               
+                    SET EDWVPN-DATA-NOT-FND                                     
+                                       TO TRUE                                  
+               WHEN OTHER                                                       
+                 MOVE 'E110'           TO WS-ABCODE                             
+                 MOVE 'E110-SELECT-EXT-VPN'                                     
+                                       TO EDWVPN-DB2-ERROR-PARA                 
+                 MOVE 'EDSVPN'                                                  
+                                       TO EDWVPN-DB2-PGM-ERROR                  
+                 MOVE EDWVPN-EXTRA-MESSAGE-1                                    
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR FETCH EXVPN_CSR'                                   
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+      *                                                                         
+           EXEC SQL CLOSE                                                       
+                    EXVPN_CSR                                                   
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO EDWVPN-SQLCODE-STATUS                 
+                                          SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'E110'           TO WS-ABCODE                             
+                 MOVE 'E110-SELECT-EXT-VPN'                                     
+                                       TO EDWVPN-DB2-ERROR-PARA                 
+                 MOVE 'EDSVPN'                                                  
+                                       TO EDWVPN-DB2-PGM-ERROR                  
+                 MOVE EDWVPN-EXTRA-MESSAGE-1                                    
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR CLOSE EXVPN_CSR'                                   
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+       E110-EDSVPN-EXIT.                                                        
+           EXIT.                                                                
+                                                                                
+       E120-EDSVPN-FIMP.                                                        
+      *                                                                         
+           MOVE SPACES                 TO EDWVPN-PARTIAL-SKU1.          KZC18097
+           MOVE SPACES                 TO EDWVPN-PARTIAL-SKU2.          KZC18097
+           PERFORM E123-SCRUB-EXT-VPN   THRU  E123-EXIT.                KZC18097
+                                                                        KZC18097
+           EXEC SQL                                                             
+                 OPEN PARTS_CSR                                                 
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO EDWVPN-SQLCODE-STATUS                 
+                                          SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'E120'           TO WS-ABCODE                             
+                 MOVE 'E120-SELECT-IM-PART'                                     
+                                       TO EDWVPN-DB2-ERROR-PARA                 
+                 MOVE 'EDSVPN'                                                  
+                                       TO EDWVPN-DB2-PGM-ERROR                  
+                 MOVE EDWVPN-EXTRA-MESSAGE-1                                    
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR OPEN PARTS_CSR'                                    
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+      *                                                                         
+           PERFORM E121-EDSVPN-FETCH-IMPART THRU E121-EDSVPN-EXIT               
+                              UNTIL EDWVPN-AUTH-DATA-FOUND                      
+                                 OR EDWVPN-ENDOF-IMPART-FETCH.                  
+           IF EDWVPN-IMPART-FETCH-COUNT > 1                                     
+              SET EDWVPN-DUPLICATE-FOUND   TO TRUE                              
+           ELSE                                                                 
+              SET EDWVPN-DUPLICATE-NOT-FND TO TRUE                              
+           END-IF.                                                              
+      *                                                                         
+           EXEC SQL CLOSE                                                       
+                    PARTS_CSR                                                   
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO EDWVPN-SQLCODE-STATUS                 
+                                          SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+                 MOVE 'E120'           TO WS-ABCODE                             
+                 MOVE 'E120-SELECT-IM-PART'                                     
+                                       TO EDWVPN-DB2-ERROR-PARA                 
+                 MOVE 'EDSVPN'                                                  
+                                       TO EDWVPN-DB2-PGM-ERROR                  
+                 MOVE EDWVPN-EXTRA-MESSAGE-1                                    
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR CLOSE PARTS_CSR'                                   
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+                                                                                
+       E120-EDSVPN-EXIT.                                                        
+           EXIT.                                                                
+                                                                                
+       E121-EDSVPN-FETCH-IMPART.                                                
+      *                                                                         
+           EXEC SQL                                                             
+                FETCH  PARTS_CSR                                                
+                 INTO  :EDWVPN-OP-IM-PART-NBR                                   
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO EDWVPN-SQLCODE-STATUS                 
+                                          SQLCODE-STATUS.                       
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    SET EDWVPN-DATA-FOUND                                       
+                                       TO TRUE                                  
+                    ADD 1              TO EDWVPN-IMPART-FETCH-COUNT             
+                    PERFORM E122-EDSVPN-SKU-AUTH-CHECK                          
+                                       THRU E122-EDSVPN-EXIT                    
+               WHEN DB2-END-OF-FILE                                             
+                    SET EDWVPN-ENDOF-IMPART-FETCH                               
+                                       TO TRUE                                  
+               WHEN OTHER                                                       
+                 MOVE 'E121'           TO WS-ABCODE                             
+                 MOVE 'E121-SELECT-IM-PART'                                     
+                                       TO EDWVPN-DB2-ERROR-PARA                 
+                 MOVE 'EDSVPN'                                                  
+                                       TO EDWVPN-DB2-PGM-ERROR                  
+                 MOVE EDWVPN-EXTRA-MESSAGE-1                                    
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                 MOVE 'ERROR FETCH PARTS_CSR'                                   
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                 PERFORM 990-SQL-MESSAGE                                        
+                 PERFORM 999-ABEND                                              
+           END-EVALUATE.                                                        
+      *                                                                         
+       E121-EDSVPN-EXIT.                                                        
+           EXIT.                                                                
+      *                                                                         
+       E122-EDSVPN-SKU-AUTH-CHECK.                                              
+      *                                                                         
+           MOVE SPACES                  TO WS-INSHED-IO-SW.                     
+           MOVE EDWVPN-IP-CO-CD         TO WS-INAL2-CO.                         
+           MOVE EDWVPN-OP-IM-PART-NBR   TO WS-INAL2-PART.                       
+           PERFORM 1550-GU-INSHED-VIA-PART.                                     
+           IF WS-INSHED-NORESP                                                  
+              PERFORM 7000-SYXAUTH THRU 7000-SYXAUTH-EXIT                       
+              IF WS-SYXAUTH-UNAUTHORIZED                                        
+                 CONTINUE                                                       
+              ELSE                                                              
+                 IF WS-SYXAUTH-CULVNA-ERROR                                     
+                    CONTINUE                                                    
+                 ELSE                                                           
+                    IF WS-SYXAUTH-AUTHORIZED                                    
+                       SET EDWVPN-AUTH-DATA-FOUND TO TRUE                       
+                    END-IF                                                      
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+      *                                                                         
+       E122-EDSVPN-EXIT.                                                        
+           EXIT.                                                                
+                                                                                
+      ***************************************************************   KZC18097
+      *** THIS PARA WILL USE THE ROUTINE SYU06A TO SCRUB THE       **   KZC18097
+      *** EXTENDED VENDOR PART RECEIVED FROM CUSTOMER TO FORM THE  **   KZC18097
+      *** SCRUBBED EVPN. THIS SCRUBBED EVPN WOULD THEN BE USED TO  **   KZC18097
+      *** QUERY THE PL_PARTS_LOCATOR TABLE TO FETCH THE IM PART NBR**   KZC18097
+      ***************************************************************   KZC18097
+       E123-SCRUB-EXT-VPN.                                              KZC18097
+           MOVE EDWVPN-IP-EXT-VPN(1:20)   TO  EDWVPN-PART-ALIGN1.       KZC18097
+           MOVE EDWVPN-IP-EXT-VPN(21:20)  TO  EDWVPN-PART-ALIGN2.       KZC18097
+           MOVE ZEROS                     TO  EDWVPN-CNTR00             RYD18218
+                                              EDWVPN-CNTR0              RYD18218
+                                              EDWVPN-CNTR1              RYD18218
+                                              EDWVPN-CNTR2              RYD18218
+                                              EDWVPN-CNTR3              RYD18218
+                                              EDWVPN-CNTR4              RYD18218
+                                              EDWVPN-CNTR5              RYD18218
+                                              EDWVPN-CNTR6              RYD18218
+                                              EDWVPN-CNTR7              RYD18218
+                                              EDWVPN-CNTR8              RYD18218
+                                              EDWVPN-CNTR9.             RYD18218
+           INSPECT FUNCTION REVERSE(EDWVPN-PART-ALIGN1)                 KZC18097
+                   TALLYING EDWVPN-CNTR00 FOR LEADING SPACES            KZC18097
+           COMPUTE EDWVPN-CNTR0 =                                       KZC18097
+                   LENGTH OF EDWVPN-PART-ALIGN1 - EDWVPN-CNTR00         KZC18097
+           INSPECT EDWVPN-PART-ALIGN1  TALLYING                         KZC18097
+                   EDWVPN-CNTR1 FOR ALL '-'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1                                   KZC18097
+                   REPLACING ALL '-' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1  TALLYING                         KZC18097
+                   EDWVPN-CNTR2 FOR ALL '_'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1                                   KZC18097
+                   REPLACING ALL '_' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1  TALLYING                         KZC18097
+                   EDWVPN-CNTR3 FOR ALL '#'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1                                   KZC18097
+                   REPLACING ALL '#' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1  TALLYING                         KZC18097
+                   EDWVPN-CNTR4 FOR ALL '('.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1                                   KZC18097
+                   REPLACING ALL '(' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1  TALLYING                         KZC18097
+                   EDWVPN-CNTR5 FOR ALL ')'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1                                   KZC18097
+                   REPLACING ALL ')' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1  TALLYING                         KZC18097
+                   EDWVPN-CNTR6 FOR ALL '>'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1                                   KZC18097
+                   REPLACING ALL '>' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1  TALLYING                         KZC18097
+                   EDWVPN-CNTR7 FOR ALL '<'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1                                   KZC18097
+                   REPLACING ALL '<' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1  TALLYING                         KZC18097
+                   EDWVPN-CNTR8 FOR ALL '/'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1                                   KZC18097
+                   REPLACING ALL '/' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1  TALLYING                         KZC18097
+                   EDWVPN-CNTR9 FOR ALL '*'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN1                                   KZC18097
+                   REPLACING ALL '*' BY ' '.                            KZC18097
+           CALL 'SYU06A'       USING      EDWVPN-PART-ALIGN1.           KZC18097
+                                                                        KZC18097
+           COMPUTE EDWVPN-CNTR10 = EDWVPN-CNTR0 - (EDWVPN-CNTR1         KZC18097
+                                + EDWVPN-CNTR2 + EDWVPN-CNTR3           KZC18097
+                                + EDWVPN-CNTR4 + EDWVPN-CNTR5           KZC18097
+                                + EDWVPN-CNTR6 + EDWVPN-CNTR7           KZC18097
+                                + EDWVPN-CNTR8 + EDWVPN-CNTR9)          KZC18097
+                                                                        KZC18097
+           MOVE EDWVPN-PART-ALIGN1(1:EDWVPN-CNTR10)                     KZC18097
+                                          TO EDWVPN-PARTIAL-SKU1        KZC18097
+*********************************************************************** KZC18097
+           MOVE ZEROES                    TO EDWVPN-CNTR                KZC18097
+           MOVE ZEROS                     TO  EDWVPN-CNTR00             RYD18218
+                                              EDWVPN-CNTR0              RYD18218
+                                              EDWVPN-CNTR1              RYD18218
+                                              EDWVPN-CNTR2              RYD18218
+                                              EDWVPN-CNTR3              RYD18218
+                                              EDWVPN-CNTR4              RYD18218
+                                              EDWVPN-CNTR5              RYD18218
+                                              EDWVPN-CNTR6              RYD18218
+                                              EDWVPN-CNTR7              RYD18218
+                                              EDWVPN-CNTR8              RYD18218
+                                              EDWVPN-CNTR9.             RYD18218
+           INSPECT FUNCTION REVERSE(EDWVPN-PART-ALIGN2)                 KZC18097
+                   TALLYING EDWVPN-CNTR00 FOR LEADING SPACES            KZC18097
+           COMPUTE EDWVPN-CNTR0 =                                       KZC18097
+                   LENGTH OF EDWVPN-PART-ALIGN2 - EDWVPN-CNTR00         KZC18097
+           INSPECT EDWVPN-PART-ALIGN2  TALLYING                         KZC18097
+                   EDWVPN-CNTR1 FOR ALL '-'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2                                   KZC18097
+                   REPLACING ALL '-' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2  TALLYING                         KZC18097
+                   EDWVPN-CNTR2 FOR ALL '_'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2                                   KZC18097
+                   REPLACING ALL '_' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2  TALLYING                         KZC18097
+                   EDWVPN-CNTR3 FOR ALL '#'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2                                   KZC18097
+                   REPLACING ALL '#' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2  TALLYING                         KZC18097
+                   EDWVPN-CNTR4 FOR ALL '('.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2                                   KZC18097
+                   REPLACING ALL '(' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2  TALLYING                         KZC18097
+                   EDWVPN-CNTR5 FOR ALL ')'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2                                   KZC18097
+                   REPLACING ALL ')' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2  TALLYING                         KZC18097
+                   EDWVPN-CNTR6 FOR ALL '>'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2                                   KZC18097
+                   REPLACING ALL '>' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2  TALLYING                         KZC18097
+                   EDWVPN-CNTR7 FOR ALL '<'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2                                   KZC18097
+                   REPLACING ALL '<' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2  TALLYING                         KZC18097
+                   EDWVPN-CNTR8 FOR ALL '/'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2                                   KZC18097
+                   REPLACING ALL '/' BY ' '.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2  TALLYING                         KZC18097
+                   EDWVPN-CNTR9 FOR ALL '*'.                            KZC18097
+           INSPECT EDWVPN-PART-ALIGN2                                   KZC18097
+                   REPLACING ALL '*' BY ' '.                            KZC18097
+           CALL 'SYU06A'       USING      EDWVPN-PART-ALIGN2.           KZC18097
+                                                                        KZC18097
+           COMPUTE EDWVPN-CNTR10 = EDWVPN-CNTR0 - (EDWVPN-CNTR1         KZC18097
+                                + EDWVPN-CNTR2 + EDWVPN-CNTR3           KZC18097
+                                + EDWVPN-CNTR4 + EDWVPN-CNTR5           KZC18097
+                                + EDWVPN-CNTR6 + EDWVPN-CNTR7           KZC18097
+                                + EDWVPN-CNTR8 + EDWVPN-CNTR9)          KZC18097
+                                                                        KZC18097
+           MOVE EDWVPN-PART-ALIGN2(1:EDWVPN-CNTR10)                     KZC18097
+                                      TO EDWVPN-PARTIAL-SKU2            KZC18097
+                                                                        KZC18097
+           IF EDWVPN-PART-ALIGN1  > SPACES                              KZC18097
+               STRING EDWVPN-PARTIAL-SKU1 , EDWVPN-PARTIAL-SKU2         KZC18097
+                   DELIMITED BY SPACE INTO EDWVPN-IP-SCR-EXT-VPN        KZC18097
+           ELSE                                                         KZC18097
+               MOVE     SPACES        TO   EDWVPN-IP-SCR-EXT-VPN        KZC18097
+           END-IF.                                                      KZC18097
+       E123-EXIT.                                                       KZC18097
+           EXIT.                                                        KZC18097
+      *                                                                 KZC18097

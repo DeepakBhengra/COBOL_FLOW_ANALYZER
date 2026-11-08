@@ -1,0 +1,153 @@
+000100******************************************************************        
+000100*** YEAR 2000 READY                                              *AMAY9248
+000100******************************************************************        
+000100******************************************************************        
+000200* COPYBOOK SASNONEG - PROCEDURE DIVISION                                  
+000300*                                                                         
+000400* PURPOSE: DETERMINE IF A MANUAL PRICE CHANGE CAN BE MADE OR              
+000500*          THE PRICE IS NON NEGOTIABLE.                                   
+000600*                                                                         
+000700* REFERENCES FIELDS FROM THE FOLLOWING COPYBOOKS:                         
+000800*                                  01. SAWNONEG                           
+000900*                                  02. TBICORP2                           
+001000*                                  03. TBIRCODE                           
+001100*                                  04. OERTSQA                            
+001200*                                  05. SYXCOM                             
+001300*                                                                         
+001400* REVISIONS:                                                              
+001500*                                                                         
+      * 09/15/06 JMW  ADDED SKU FLOOR MARGIN FOR TECH PAC/SLS1 PROJ.    JMW06258
+      *               SFM IF APPLICABLE, SUPERSEDE VFM CHECK.           JMW06258
+001600* 07/15/99 RXD  ADDED CAPABILITY TO BLOCK ALL PRICE CHANGES AT A  RXD99197
+001600*               CUSTOMER LEVEL.                                   RXD99197
+001600* 05/12/99 TXM  NEW COPYBOOK.                                     TXM99132
+001700******************************************************************        
+001800                                                                          
+001900 N010-PRICE-NEGOTIATION.                                                  
+002000* -- DEFAULT TO PRICE IS NEGOTIABLE                                       
+002100     MOVE SPACE TO SAWNONEG-NON-NEGOT-STATUS                              
+                         SAWNONEG-FM-CHECK-IND                          JMW06258
+002200                   SAWNONEG-OVRD-SW.                                      
+002300                                                                          
+      *********************************************************         RXD99197
+      ** IF CU-NO-PRICE-OVRD-SW SET TO 'N', THEN THIS CUSTOMER          RXD99197
+      ** IS NOT ALLOWED ANY PRICE CHANGES.                              RXD99197
+      *********************************************************         RXD99197
+           IF SAWNONEG-CU-NO-PRICE-CHANGES                              RXD99197
+               MOVE 'S' TO SAWNONEG-NON-NEGOT-STATUS                    RXD99197
+               GO TO N010-EXIT.                                         RXD99197
+                                                                                
+002400* -- IS THIS COMPANY SUBJECT TO PRICE NEGOTIATION LOGIC                   
+002500     IF  TB-CPO2-PRICE-NEGOTIATION                                        
+002600         NEXT SENTENCE                                                    
+002700     ELSE                                                                 
+002800         GO TO N010-EXIT.                                                 
+002900                                                                          
+003000* -- IS THIS CUSTOMER EXEMPT FROM PRICE NEGOTIATION LOGIC                 
+003100     IF  SAWNONEG-NO-PRC-CHG-OVRD                                         
+003200         GO TO N010-EXIT.                                                 
+003300                                                                          
+003400* -- ARE CUSTOMER SWITCHES SET TO BYPASS PRICE NEGOTIATION LOGIC          
+003500     IF  SAWNONEG-NO-NEGOT-OVRD                                           
+003600     AND SAWNONEG-VND-AGP-PCT-OVRD                                        
+003700         GO TO N010-EXIT.                                                 
+003800                                                                          
+003900* -- NO CUSTOMER OVERRIDE AND SKU NON NEGOTIABLE                          
+004000* --   THEN PRICE IS NON NEGOTIABLE                                       
+004100     IF  NOT (SAWNONEG-NO-NEGOT-OVRD)                                     
+004200     AND     (SAWNONEG-INS-NO-NEGOT)                                      
+004300         MOVE 'S'   TO SAWNONEG-NON-NEGOT-STATUS                          
+004400         GO TO N010-EXIT.                                                 
+004500                                                                          
+      ****NO SFM  , NO VFM,  NEED TO GO THRU GM HOLD CHECK              JMW06258
+      ****                                                                      
+           IF SAWNONEG-SKU-FLOOR-MARGIN = ZERO    AND                   JMW06258
+004900          SAWNONEG-VNH-FLOOR-MARGIN = ZERO                        JMW06258
+                  MOVE 'Z'  TO SAWNONEG-FM-CHECK-IND                    JMW06258
+                  GO TO N010-EXIT.                                      JMW06258
+      ***                                                               JMW06258
+004900     IF SAWNONEG-SKU-FLOOR-MARGIN NOT = ZERO                      JMW06258
+005000         IF SAWNONEG-PRICE-CHG-MARGIN NOT LESS                    JMW06258
+005100            SAWNONEG-SKU-FLOOR-MARGIN                             JMW06258
+005200               MOVE 'G' TO SAWNONEG-FM-CHECK-IND                  JMW06258
+005000               IF SAWNONEG-PRICE-CHG-MARGIN < 0                   JMW06258
+      *              IF SAWNONEG-SKU-FLOOR-MARGIN < 0                   JMW06258
+                         MOVE 'N'  TO SAWNONEG-FM-CHECK-IND             JMW06258
+                     END-IF                                             JMW06258
+                     GO TO N010-EXIT                                    JMW06258
+005300         ELSE                                                     JMW06258
+                   MOVE 'S'  TO SAWNONEG-FM-CHECK-IND                   JMW06258
+      *** SFM APPLIES SUPERSEDE VFM CHECK                               JMW06258
+                   GO TO N010-CONTINUE                                  JMW06258
+               END-IF.                                                          
+      *                                                                         
+004800     IF  SAWNONEG-VND-AGP-PCT-OVRD                                JMW06258
+004900        OR   SAWNONEG-VNH-FLOOR-MARGIN = ZERO                     JMW06258
+                  MOVE 'Z'  TO SAWNONEG-FM-CHECK-IND                    JMW06258
+                  GO TO N010-EXIT.                                      JMW06258
+                                                                        JMW06258
+004600* -- NO CUSTOMER OVERRIDE AND VENDOR PCT GREATER ZERO             JMW06258
+004700* --   THEN COMPARE MARGIN PERCENTS                               JMW06258
+                                                                        JMW06258
+004900     IF SAWNONEG-VNH-FLOOR-MARGIN NOT =   ZERO                    JMW06258
+005000         IF SAWNONEG-PRICE-CHG-MARGIN NOT LESS                    JMW06258
+005100            SAWNONEG-VNH-FLOOR-MARGIN                             JMW06258
+005200             MOVE 'G' TO SAWNONEG-FM-CHECK-IND                    JMW06258
+005000             IF SAWNONEG-PRICE-CHG-MARGIN < 0                     JMW06258
+      *            IF SAWNONEG-VNH-FLOOR-MARGIN < 0                     JMW06258
+                       MOVE 'N'  TO SAWNONEG-FM-CHECK-IND               JMW06258
+                   END-IF                                               JMW06258
+005200             GO TO N010-EXIT                                      JMW06258
+005300         ELSE                                                     JMW06258
+005200             MOVE 'V' TO SAWNONEG-FM-CHECK-IND                    JMW06258
+005400         END-IF.                                                  JMW06258
+                                                                        JMW06258
+       N010-CONTINUE.                                                   JMW06258
+      *                                                                         
+005800* -- DETERMINE IF TBXRCODE TABLE WAS READ                                 
+      *                                                                         
+005900     IF  TB-RCODE-CO   EQUAL TC-COMPANY                                   
+006000     AND TB-RCODE-CODE EQUAL OET-REP-CODE                                 
+006100         NEXT SENTENCE                                                    
+006200     ELSE                                                                 
+006300         MOVE TC-COMPANY     TO TB-RCODE-CO                               
+006400         MOVE OET-REP-CODE   TO TB-RCODE-CODE                             
+006500         CALL 'SYU510' USING    TB-RCODE-TABLE-IA                         
+006600         IF  TB-RCODE-NORESP                                              
+006700             NEXT SENTENCE                                                
+006800         ELSE                                                             
+006900             MOVE SPACE      TO TB-RCODE-VND-AGP-PCT-OVRD-SW      JMW06258
+006900             MOVE SPACE      TO TB-RCODE-SKU-AGP-PCT-OVRD-SW.     JMW06258
+007000                                                                          
+007100* -- NEW PRICE HAS MARGIN PCT LOWER THAN SKU FLOOR MARGIN(SFM)    JMW06258
+007200* --   IF THIS REP-CODE IS NOT AUTHORIZED TO OVERRIDE             JMW06258
+007300* --      THEN PRICE IS NON NEGOTIABLE                            JMW06258
+007400* --   IF THIS REP-CODE IS     AUTHORIZED TO OVERRIDE             JMW06258
+007500* --      THEN SET SWITCH SO WARNING MSG CAN BE SENT              JMW06258
+                                                                                
+           IF SAWNONEG-FM-LESS-SKU                                      JMW06258
+007600         IF TB-RCODE-SKU-AGP-PCT-OVRD                             JMW06258
+007700            MOVE 'F'   TO SAWNONEG-OVRD-SW                        JMW06258
+005000            IF SAWNONEG-PRICE-CHG-MARGIN < 0                      JMW06258
+                     MOVE 'N'  TO SAWNONEG-FM-CHECK-IND                 JMW06258
+                  END-IF                                                JMW06258
+007800         ELSE                                                     JMW06258
+007900             MOVE 'F'   TO SAWNONEG-NON-NEGOT-STATUS.             JMW06258
+008000                                                                          
+007100* -- NEW PRICE HAS MARGIN PCT LOWER THAN VENDOR PCT                       
+007200* --   IF THIS REP-CODE IS NOT AUTHORIZED TO OVERRIDE                     
+007300* --      THEN PRICE IS NON NEGOTIABLE                                    
+007400* --   IF THIS REP-CODE IS     AUTHORIZED TO OVERRIDE                     
+007500* --      THEN SET SWITCH SO WARNING MSG CAN BE SENT                      
+      *                                                                         
+           IF SAWNONEG-FM-LESS-VEN                                      JMW06258
+007600     IF  TB-RCODE-VND-AGP-PCT-OVRD                                        
+007700         MOVE 'V'   TO SAWNONEG-OVRD-SW                                   
+005000         IF SAWNONEG-PRICE-CHG-MARGIN < 0                         JMW06258
+                  MOVE 'N'  TO SAWNONEG-FM-CHECK-IND                    JMW06258
+               END-IF                                                   JMW06258
+007800     ELSE                                                                 
+007900         MOVE 'V'   TO SAWNONEG-NON-NEGOT-STATUS.                         
+008000                                                                          
+008100 N010-EXIT.  EXIT.                                                        
+008200                                                                          

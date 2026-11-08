@@ -1,0 +1,91 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *                                                                         
+      **   ORDER HEADER SHIP COMPLETE FILLED SWITCH ROUTINE                     
+      *                                                                         
+      * THE FOLLOWING WORKING STORAGE FIELDS MUST BE SET PRIOR TO               
+      * PERFORMING THIS ROUTINE.                                                
+      * WS-ORSHED-SSA                                                           
+      * PARA 890-SYXOSC-UPDT-OSC-FILL-SW MUST BE PERFORMED THRU                 
+      *      890-SYSOSC-UPDT-OSC-FILL-EXIT                                      
+      *                                                                         
+      ** REVISION INFO:                                                         
+      **   03/08/19   TGF  ADDED CONDITION FOR WARRANTY ORDER TO BYPASS TGF19067
+      **   06/10/99   LMH  ORDER SHIP COMPLETE SWITCH UPDATE PROCESS    LMH99???
+      *                                                                         
+      *                                                                         
+       890-SYXOSC-UPDT-OSC-FILL-SW.                                             
+      *                                                                         
+           IF NOT WS-ORSHED-NORESP     OR                                       
+              NOT ORH-ORDER-SHIP-COMPLETE                                       
+              GO TO 890-SYXOSC-UPDT-OSC-FILL-EXIT.                              
+                                                                                
+           SET WS-OD-RESET-STD-PROCESSING                                       
+                                        TO  TRUE                                
+           MOVE SPACES                  TO  WS-OD-MISC-SWITCHES                 
+                                                                                
+           IF ORH-ORDER-SHIP-COMPLETE                                           
+              SET WS-OD-COMPLETE-SHIPMENT                                       
+                  WS-OD-CHECK-COMPLETENESS                                      
+                                        TO  TRUE.                               
+                                                                                
+           MOVE '('                     TO  WS-ORSSHH-QUAL.                     
+           MOVE 0                       TO  WS-ORSSHH-DIST                      
+                                            WS-ORSSHH-SHIP.                     
+           MOVE '>='                    TO  WS-ORSSHH-SEARCH.                   
+                                                                                
+           PERFORM 892-SYXOSC-GET-NEXT-SHIPMENT                                 
+               UNTIL WS-OD-TERMINATE-PROCESSING.                                
+                                                                                
+           PERFORM 894-SYXOSC-UPDATE-HEADER THRU 894-SYXOSC-EXIT.               
+      *                                                                         
+       890-SYXOSC-UPDT-OSC-FILL-EXIT.  EXIT.                                    
+      *                                                                         
+      *                                                                         
+       892-SYXOSC-GET-NEXT-SHIPMENT.                                            
+      *                                                                         
+           PERFORM 1218-GN-ORSSHH.                                              
+                                                                                
+           IF WS-ORSSHH-NORESP                                                  
+              MOVE '0'     TO WS-ORSSHHOF-KEY-VALUE                     TGF19067
+              PERFORM 1259-GNP-ORSSHHOF                                 TGF19067
+              IF WS-ORSSHHOF-NORESP                                     TGF19067
+                 MOVE ORSHOF-ORSSHHOF TO ORSHOF-ORSSHHOF-0              TGF19067
+              END-IF.                                                   TGF19067
+                                                                        TGF19067
+           IF WS-ORSSHH-NORESP                                                  
+              IF ORSH-SHIP-COMPLETE                 AND                         
+                 NOT ORSH-SHIP-COMPLETE-ORD-FILLED  AND                 TGF19067
+                 NOT (ORSHOF-ESD-DIST               OR                  TGF19067
+                     ORSHOF-VIRTUAL-DIST)                               TGF19067
+                 SET WS-OD-INCOMPLETE-SHIPMENT                                  
+                     WS-OD-FAIL-COMPLETENESS     TO TRUE                        
+              END-IF                                                            
+              IF WS-OD-FAIL-COMPLETENESS                                        
+                 SET WS-OD-TERMINATE-PROCESSING  TO TRUE                        
+              END-IF                                                            
+           ELSE                                                                 
+              SET WS-OD-TERMINATE-PROCESSING     TO TRUE.                       
+      *                                                                         
+      *                                                                         
+       894-SYXOSC-UPDATE-HEADER.                                                
+      *                                                                         
+           IF (ORH-ORDER-SHIP-COMPLETE   AND                                    
+               NOT WS-OD-BYPASS-COMPLETE-SHIPMENT)                              
+               NEXT SENTENCE                                                    
+           ELSE                                                                 
+              GO TO 894-SYXOSC-EXIT.                                            
+                                                                                
+           PERFORM 1208-GHU-ORSHED                                              
+                                                                                
+           IF (ORH-ORDER-SHIP-COMPLETE   AND                                    
+              NOT WS-OD-BYPASS-COMPLETE-SHIPMENT)                               
+              MOVE WS-OD-COMPLETE-SHIPMENT-SW                                   
+                                        TO  ORH-ORDER-COMPLETE-FILL-SW.         
+                                                                                
+           PERFORM 1312-REPL-ORSHED.                                            
+      *                                                                         
+       894-SYXOSC-EXIT.  EXIT.                                                  
+      *                                                                         
+      *                                                                         

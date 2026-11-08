@@ -1,0 +1,52 @@
+      *****************************************************************         
+      *  ICSCOP27- CNP- NET PRICE ORDER TYPE                          *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 10/07/2022 SYJ ADDED FINISHED GOOD ORDER TO TREAT AS STOCK    * SYJ22280
+      * 10/08/2021 TGF CNP - EMEA TREAT DIRECT AS STOCK               * TGF21281
+      * 08/06/2021 SYJ CNP - B2B/REP/DIRECT IS DIRECT PATH ELSE MAKE  * SYJ21218
+      *                IT SIMILAR TO STOCK PATH.                      * SYJ21218
+      * 04/16/2021 TGF CISCO NET PRICING PROJECT. INITIAL RELEASE     * TGF21106
+      *****************************************************************         
+       PROCESS-NET-PRICE-ORDR-TYPE.                                             
+                                                                                
+           IF ORHOF-NP-ORDER-IND > SPACE                                        
+              EVALUATE TRUE                                                     
+                  WHEN ORHOF-NP-ORDER-BACK-2-BACK                               
+                  WHEN ORHOF-NP-ORDER-REPLNISHMNT                               
+                  WHEN ORHOF-NP-TREAT-AS-STOCK                          TGF21281
+                       MOVE ORHOF-NP-ORDER-IND                                  
+                                       TO ICWCOP-NP-ORDER-IND                   
+                  WHEN OTHER                                                    
+                       MOVE ORSH-ORDER-TYPE                                     
+                                       TO ICWCOP-NP-ORDER-IND                   
+              END-EVALUATE                                                      
+           ELSE                                                                 
+              IF ORSH-ORDER-TYPE > SPACES                                       
+                 MOVE ORSH-ORDER-TYPE  TO ICWCOP-NP-ORDER-IND                   
+              ELSE                                                              
+                 IF OET-ORDER-TYPE > SPACES                                     
+                    MOVE OET-ORDER-TYPE                                         
+                                       TO ICWCOP-NP-ORDER-IND                   
+                 ELSE                                                           
+                   MOVE SPACE          TO ICWCOP-NP-ORDER-IND                   
+                 END-IF                                                         
+              END-IF                                                    SYJ21218
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP-NP-DIRECT-ORDER  AND                               SYJ22280
+              ORHOF-SAP-FG-ORD                                          SYJ22280
+              MOVE ORHOF-SAP-FG-ORD-SW TO ICWCOP-NP-ORDER-IND           SYJ22280
+           END-IF.                                                      SYJ22280
+      *                                                                         
+           IF ICWCOP-NP-DIRECT-ORDER                                    SYJ21218
+           OR ORHOF-NP-ORDER-BACK-2-BACK                                SYJ21218
+           OR ORHOF-NP-ORDER-REPLNISHMNT                                SYJ21218
+           OR ORHOF-SAP-FG-ORD                                          SYJ22280
+              CONTINUE                                                  SYJ21218
+           ELSE                                                         SYJ21218
+              MOVE 'S'                 TO ICWCOP-NP-ORDER-IND           SYJ21218
+           END-IF.                                                      SYJ21218
+                                                                        SYJ21218
+       NET-PRICE-ORDR-TYP-EXIT.                                                 
+           EXIT.                                                                

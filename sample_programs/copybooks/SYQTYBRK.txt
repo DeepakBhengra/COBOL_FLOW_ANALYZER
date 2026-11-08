@@ -1,0 +1,377 @@
+﻿      ******************************************************************TLKY8337
+      *** YEAR 2000 READY                                              *TLKY8337
+      ******************************************************************TLKY8337
+      ******************************************************************        
+      *                                                                *        
+      *   CALCULATE QUANTITY BREAK PRICING ORDER QUANTITIES AND        *        
+      *   PRICING BASED ON DEALER PRICE AND STANDARD CASE SIZE         *        
+      *                                                                *        
+      *   THIS COPYBOOK IS USED IN CONJUCTION WITH COPYBOOK SYCSTBAS , *        
+      *   COMPUTE COST BASIS FOR PRICING.                              *        
+      ******************************************************************        
+      * 06/08/94 MCV VARIABLE DEALER ROUNDED AS FUNCTION OF COST BASIS. MCV94159
+      *           EXCLUDE IF DEALER PRICE < $20.                        MCV94159
+      *           MINIMIM PRICE = AVERAGE COST.                         MCV94159
+      *           USE QTY BREAKS FOR HIGHEST PRICE POINT                MCV94159
+      *           DEALER PRICE MANUALLY SET.                            MCV94159
+      * 09/30/93  EXCLUDE CATEGORY 99 AND VENDOR/TO-BE DISCONTINUED     MCV93273
+      * 09/20/93  ACTIVATE NEW QTY BREAK ELIGIBILITY RULES              MCV93263
+      * 09/03/93  ADD QTY BREAK ELIGIBILITY TESTS                               
+      ******************************************************************        
+      *                                                                         
+      *    SEE IF ITEM QUALIFIES FOR QUANTITY BREAK PRICING                     
+      *                                                                         
+           PERFORM 9420-QUANTITY-BREAK-ITEM-TEST.                       MCV93246
+      *                                                                 MCV93246
+      *    GENERATE QUANTITY BREAKS IF ELIGIBLE , ELSE DELETE THEM      MCV93246
+      *                                                                 MCV93246
+           IF WS-ELIGIBLE-QTY-BREAK                                     MCV93246
+              PERFORM 9400-QTY-BREAK-PRICING THRU 9400-EXIT             MCV93246
+           ELSE                                                         MCV93246
+              PERFORM 9600-DELETE-QTY-BREAKS.                           MCV93246
+      *                                                                         
+       9400-QTY-BREAK-PRICING.                                                  
+      *                                                                         
+      ******************************************************************        
+      *                                                                *        
+      *   GENERATE QUANITITY BREAK OVERRIDES                           *        
+      *            CONDITIONALLY UPDATE QUANTITY BREAK MARGINS         *        
+      *               AND QUANITITY LEVELS.                            *        
+      *                                                                *        
+      ******************************************************************        
+      *                                                                         
+           PERFORM 9500-DEFAULT-QUANTITY-BREAK THRU 9500-EXIT                   
+      *                                                                         
+           IF NOT WS-INSMSC-NORESP                                              
+              PERFORM 9600-DELETE-QTY-BREAKS                                    
+              GO TO 9400-EXIT.                                                  
+      *                                                                         
+      *    GET AVERAGE COST FOR MINIMUM PRICE TEST                              
+      *                                                                         
+           PERFORM 9350-USER-EXIT                                       MCV99999
+      *                                                                         
+      *   GET CURRENT QUANTITY BREAK PRICING SEGMENT #1                         
+      *                                                                         
+           MOVE INM-QB-OVERRIDE-DATA      TO  WS-INM-QB-OVERRIDE-DATA           
+           MOVE '1'                       TO  WS-INSMSC-SEG-IND                 
+           MOVE '**'                      TO  WS-INSMSC-BR-IND                  
+      *                                                                         
+           PERFORM 1566-GHU-INSMSC-VIA-PART                                     
+      *                                                                         
+           IF NOT WS-INSMSC-NORESP                                              
+              INITIALIZE                      INM-PRICE-QTY-BREAK-DATA          
+              MOVE WS-INSMSC-KEY-VALUE    TO  INM-SEGMENT-KEY.                  
+      *                                                                         
+           SET INM-QTY-BREAK-PRICE-USED   TO  TRUE                              
+           SET INM-PRICE-QTY-INX          TO  1                                 
+      *                                                                         
+      *    SET QTY BREAK VECTOR                                                 
+      *                                                                         
+           PERFORM 9510-SET-QUANTITY-BREAK-PRICE                                
+                   VARYING WS-INM-QB-INX                                        
+                   FROM    1                                                    
+                   BY      1                                                    
+                   UNTIL   WS-INM-QB-INX > 4.                                   
+      *                                                                         
+      *    IF ANY QUANTITY BREAKS GENERATED                                     
+      *       ZERO OUT REMAINING ENTRIES                                        
+      *       INSERT/REPLACE SEGMENT                                            
+      *    ELSE                                                                 
+      *       DELETE EXISTING SEGMENT                                           
+      *                                                                         
+           IF INM-PRICE-QTY-INX > 1                                             
+              PERFORM                                                           
+                 VARYING INM-PRICE-QTY-INX                                      
+                 FROM    INM-PRICE-QTY-INX                                      
+                 BY      1                                                      
+                 UNTIL   INM-PRICE-QTY-INX > 4                                  
+                         MOVE ZEROES       TO  INM-PRICE-QTY                    
+                                                  (INM-PRICE-QTY-INX)           
+                                               INM-PRICE-BREAK                  
+                                                  (INM-PRICE-QTY-INX)           
+              END-PERFORM                                                       
+              IF WS-INSMSC-NORESP                                               
+                 PERFORM 1658-REPL-INSMSC-VIA-PART                              
+              ELSE                                                              
+                 MOVE SPACES              TO  WS-INSMSC-QUAL                    
+                 PERFORM 1674-ISRT-INSMSC-VIA-PART                              
+                 MOVE '('                 TO  WS-INSMSC-QUAL                    
+           ELSE                                                                 
+              IF WS-INSMSC-NORESP                                               
+                 PERFORM 1636-DLET-INSMSC-VIA-PART.                             
+      *                                                                         
+       9400-EXIT.                                                               
+            EXIT.                                                               
+      *                                                                         
+       9420-QUANTITY-BREAK-ITEM-TEST.                                   MCV93246
+      *                                                                 MCV93246
+      *    SET ELIGIBILITY OF ITEM FOR QUANTITY BREAK PRICING           MCV93246
+      *                                                                 MCV93246
+           IF INI-CONSTRAINED-ITEM           OR                         MCV93263
+              INI-DISCONTINUED               OR                         MCV93263
+              INI-TO-BE-DISCONTINUED         OR                         MCV93273
+              INI-VENDOR-DISCONTINUED        OR                         MCV93273
+              INI-CATEGORY = '99'            OR                         MCV93273
+              INI-DEALER-PRICE < +20.00      OR                         MCV94159
+              INI-INELIGIBLE-QUANTITY-BREAKS                            MCV93263
+                 SET WS-INELIGIBLE-QTY-BREAK                            MCV93263
+                                         TO  TRUE                       MCV93263
+           ELSE                                                         MCV93263
+              IF WS-COST-BASIS > +0.01                                  MCV93263
+                 SET WS-ELIGIBLE-QTY-BREAK                              MCV93263
+                                         TO  TRUE                       MCV93263
+              ELSE                                                      MCV93263
+                 SET WS-INELIGIBLE-QTY-BREAK                            MCV93263
+                                         TO  TRUE.                      MCV93263
+      *                                                                         
+       9440-PRICING-TABLE-RETRIEVAL.                                    MCV94159
+      *                                                                 MCV94159
+      *    USE QTY BREAK PARMS FOR HIGHEST COST BASIS                   MCV94159
+      *    WHEN THE DEALER PRICE/MARGIN HAS BEEN MANUALLY SET.          MCV94159
+      *                                                                 MCV94159
+           IF INI-DEALER-VELOCITY                                       MCV94159
+              PERFORM 9360-DEALER-PRICING-TABLE                         MCV94159
+           ELSE                                                         MCV94159
+              MOVE WS-COST-BASIS         TO  WS-NEW-PRICE-BREAK         MCV94159
+              MOVE +999999999999999.99   TO  WS-COST-BASIS              MCV94159
+              PERFORM 9360-DEALER-PRICING-TABLE                         MCV94159
+              MOVE WS-NEW-PRICE-BREAK    TO  WS-COST-BASIS.             MCV94159
+      *                                                                         
+       9500-DEFAULT-QUANTITY-BREAK.                                             
+      *                                                                         
+      *       SET DEFAULT QTY BREAK ENTRIES                                     
+      *            IF NOT FOUND OR RESET SPECIFIED.                             
+      *            CONDITIONALLY UPDATE QUANTITY BREAK MARGINS         *        
+      *               AND QUANITITY LEVELS.                            *        
+      *                                                                         
+      *    DELETE ALL QUANTITY BREAK SEGMENTS IF THE OVERRIDE                   
+      *    TABLE RESPONSE IS NOT NORMAL !                                       
+      *                                                                         
+           MOVE '0'                       TO  WS-INSMSC-SEG-IND                 
+           MOVE '**'                      TO  WS-INSMSC-BR-IND                  
+           MOVE 'INSMSC'                  TO  WS-UNQUAL-SSA                     
+           MOVE 'S'                       TO  WS-INSSTD-SEG-IND                 
+      *                                                                         
+           IF WS-SET-QB-MANUAL-OVERRIDES   OR                                   
+              WS-SET-QB-ALL-FIELDS         OR                                   
+              WS-SET-QB-NOT-OVERRIDEN                                           
+                 IF WS-SET-QB-ALL-FIELDS    OR                                  
+                       WS-SET-QB-NOT-OVERRIDEN                                  
+                    PERFORM 9440-PRICING-TABLE-RETRIEVAL                MCV94159
+                    IF NOT WS-TBLIMD-NORESP                                     
+                       SET WS-INSMSC-NOTFND TO TRUE                             
+                       GO TO 9500-EXIT                                          
+                    END-IF                                                      
+                    PERFORM 1558-GU-INSSTD-VIA-PART                             
+                 END-IF                                                         
+                 PERFORM 1566-GHU-INSMSC-VIA-PART                               
+                 IF WS-INSMSC-NOTFND                                            
+                    IF NOT (WS-SET-QB-ALL-FIELDS   OR                           
+                            WS-SET-QB-NOT-OVERRIDEN )                           
+                       PERFORM 9440-PRICING-TABLE-RETRIEVAL             MCV94159
+                       IF NOT WS-TBLIMD-NORESP                                  
+                          SET WS-INSMSC-NOTFND TO  TRUE                         
+                          GO TO 9500-EXIT                                       
+                       END-IF                                                   
+                    END-IF                                                      
+                    PERFORM 1558-GU-INSSTD-VIA-PART                             
+                 END-IF                                                         
+           ELSE                                                                 
+              PERFORM 1556-GU-INSMSC-VIA-PART                                   
+              IF WS-INSMSC-NOTFND                                               
+                 PERFORM 9440-PRICING-TABLE-RETRIEVAL                   MCV94159
+                 IF WS-TBLIMD-NORESP                                            
+                    PERFORM 1558-GU-INSSTD-VIA-PART                             
+                 ELSE                                                           
+                    GO TO 9500-EXIT.                                            
+      *                                                                         
+           IF WS-INSMSC-NOTFND OR WS-SET-QB-ALL-FIELDS                          
+              MOVE SPACES                TO  INM-QB-OVERRIDE-DATA               
+              MOVE WS-INSMSC-KEY-VALUE   TO  INM-SEGMENT-KEY.                   
+      *                                                                         
+           IF WS-INSMSC-NOTFND           OR                                     
+              WS-SET-QB-ALL-FIELDS       OR                                     
+              WS-SET-QB-NOT-OVERRIDEN                                           
+                 PERFORM 9540-SET-MARGINS                                       
+                    VARYING PTR                                                 
+                    FROM    1                                                   
+                    BY      1                                                   
+                    UNTIL   PTR > 4.                                            
+      *                                                                         
+      *    RESET QUANTITY BREAK LEVELS                                          
+      *                                                                         
+           IF WS-INSMSC-NOTFND           OR                                     
+                WS-SET-QB-ALL-FIELDS     OR                                     
+                  WS-SET-QB-NOT-OVERRIDEN                                       
+              MOVE SPACES                TO  INM-QB-QTY-SW (1)                  
+                                             INM-QB-QTY-SW (2)                  
+                                             INM-QB-QTY-SW (3)                  
+                                             INM-QB-QTY-SW (4)                  
+              IF WS-INSSTD-NOTFND        OR                                     
+                 INS-CASE-SIZE < +2                                             
+                    MOVE +3              TO  INM-QB-QTY (1)                     
+                    MOVE +6              TO  INM-QB-QTY (2)                     
+                    MOVE +12             TO  INM-QB-QTY (3)                     
+                    MOVE +48             TO  INM-QB-QTY (4)                     
+              ELSE                                                              
+                 COMPUTE INM-QB-QTY (3) =    ( INS-CASE-SIZE + 9 )              
+                                                / INS-CASE-SIZE                 
+                 COMPUTE INM-QB-QTY (3) =    INM-QB-QTY (3)                     
+                                                * INS-CASE-SIZE                 
+                 COMPUTE INM-QB-QTY (4) =    ( INS-CASE-SIZE + 46 )             
+                                                / INS-CASE-SIZE                 
+                 COMPUTE INM-QB-QTY (4) =    INM-QB-QTY (4)                     
+                                                * INS-CASE-SIZE                 
+                 IF INS-CASE-SIZE < +5                                          
+                    COMPUTE INM-QB-QTY (1) = INS-CASE-SIZE                      
+                    COMPUTE INM-QB-QTY (2) = INS-CASE-SIZE * 2                  
+                 ELSE                                                           
+                    IF INS-CASE-SIZE < +10                                      
+                       MOVE +3           TO  INM-QB-QTY (1)                     
+                       MOVE INS-CASE-SIZE TO INM-QB-QTY (2)                     
+                    ELSE                                                        
+                       MOVE +3           TO  INM-QB-QTY (1)                     
+                       MOVE +6           TO  INM-QB-QTY (2)                     
+                       IF INM-QB-QTY (3) > +47                                  
+                          COMPUTE INM-QB-QTY (4) =                              
+                                  INM-QB-QTY (3) * 2.                           
+      *                                                                         
+           IF WS-SET-QB-MANUAL-OVERRIDES                                        
+              PERFORM 9540-OPTIONAL-USER-EXIT.                                  
+      *                                                                         
+           IF WS-INSMSC-NORESP                                                  
+              IF WS-SET-QB-MANUAL-OVERRIDES    OR                               
+                 WS-SET-QB-ALL-FIELDS          OR                               
+                 WS-SET-QB-NOT-OVERRIDEN                                        
+                    PERFORM 1658-REPL-INSMSC-VIA-PART                           
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE SPACES                 TO  WS-INSMSC-QUAL                    
+              PERFORM 1674-ISRT-INSMSC-VIA-PART                                 
+              MOVE '('                    TO  WS-INSMSC-QUAL.                   
+      *                                                                         
+       9500-EXIT.                                                               
+            EXIT.                                                               
+      *                                                                         
+       9510-SET-QUANTITY-BREAK-PRICE.                                           
+      *                                                                         
+           IF WS-INM-QB-QTY (WS-INM-QB-INX) > ZERO                              
+              IF WS-INM-QB-PRICE-ENTRY  (WS-INM-QB-INX)                         
+                 MOVE  WS-INM-QB-PRICE  (WS-INM-QB-INX)                         
+                                         TO  WS-NEW-PRICE-BREAK                 
+                 PERFORM 9530-GET-DOWN                                          
+              ELSE                                                              
+                 IF WS-INM-QB-MARGIN-ENTRY  (WS-INM-QB-INX)                     
+                    PERFORM 9520-QUANTITY-BREAK-MARGIN                          
+                    PERFORM 9530-GET-DOWN.                                      
+      *                                                                         
+       9520-QUANTITY-BREAK-MARGIN.                                              
+      *                                                                         
+      *     COMPUTE PRICE AS MARGIN OF DEALER PRICE                             
+      *                                                                         
+           COMPUTE WS-NEW-PRICE-BREAK ROUNDED =                                 
+                   INI-DEALER-PRICE                                             
+                      / ( 1 + WS-INM-QB-MARGIN (WS-INM-QB-INX) )                
+      *                                                                         
+           IF WS-COST-BASIS < +80.00                                    MCV94159
+              COMPUTE WS-ROUND-TO-QUARTER =                             MCV94159
+                      ( WS-NEW-PRICE-BREAK + 0.24 ) / 0.25              MCV94159
+              COMPUTE WS-NEW-PRICE-BREAK = WS-ROUND-TO-QUARTER          MCV94159
+                                          * 0.25                        MCV94159
+           ELSE                                                         MCV94159
+              IF WS-COST-BASIS < +500.00                                MCV94159
+                 COMPUTE WS-ROUND-TO-QUARTER =                          MCV94159
+                         ( WS-NEW-PRICE-BREAK + 0.49 ) / 0.50           MCV94159
+                 COMPUTE WS-NEW-PRICE-BREAK = WS-ROUND-TO-QUARTER       MCV94159
+                                             * 0.50                     MCV94159
+              ELSE                                                      MCV94159
+                 COMPUTE WS-ROUND-TO-QUARTER =                          MCV94159
+                         ( WS-NEW-PRICE-BREAK + 0.99 )                  MCV94159
+                 COMPUTE WS-NEW-PRICE-BREAK = WS-ROUND-TO-QUARTER.      MCV94159
+      *                                                                         
+       9530-GET-DOWN.                                                           
+      *                                                                         
+      *    PRICES MUST BE IN DESCENDING SEQUENCE BUT ALSO THE RELATIVE          
+      *    POSITIONS MUST REMAIN THE SAME AS THE OVERRIDE VECTOR.               
+      *    THIS MAY LEAD TO MULTIPLE QUANTITY BREAKS WITH THE SAME              
+      *    PRICE.   IF THE FIRST PRICE GENERATED IS INVALID , THEN              
+      *    DON'T GENERATE ANY QUANTITY BREAKS !                                 
+      *                                                                         
+      *     MINIMUM PRICE = 4% ADJUSTED GROSS MARGIN                            
+      *                                                                         
+           IF WS-NEW-PRICE-BREAK < WS-COST-BASIS / +0.96                        
+              MOVE INI-DEALER-PRICE   TO  WS-NEW-PRICE-BREAK.                   
+      *                                                                         
+      *    ABSOLUTE MINIMUM = AVERAGE COST                              MCV94159
+      *                                                                 MCV94159
+           IF WS-INSBRN-NORESP                   AND                    MCV94159
+              INB-AVG-COST > +0.01               AND                    MCV94159
+              INB-AVG-COST > WS-NEW-PRICE-BREAK                         MCV94159
+                 MOVE INB-AVG-COST         TO  WS-NEW-PRICE-BREAK.      MCV94159
+      *                                                                         
+           IF INM-PRICE-QTY-INX = 1                                             
+              IF WS-NEW-PRICE-BREAK > ZERO                                      
+                 MOVE WS-NEW-PRICE-BREAK   TO  INM-PRICE-BREAK                  
+                                                  (INM-PRICE-QTY-INX)           
+                 MOVE WS-INM-QB-QTY (WS-INM-QB-INX)                             
+                                           TO  INM-PRICE-QTY                    
+                                                  (INM-PRICE-QTY-INX)           
+                 SET INM-PRICE-QTY-INX     UP  BY  1                            
+              ELSE                                                              
+                 SET WS-INM-QB-INX         TO  4                                
+           ELSE                                                                 
+              IF WS-NEW-PRICE-BREAK > ZERO     AND                              
+                 WS-NEW-PRICE-BREAK < INM-PRICE-BREAK                           
+                                         (INM-PRICE-QTY-INX - 1)                
+                   MOVE WS-NEW-PRICE-BREAK TO  INM-PRICE-BREAK                  
+                                                  (INM-PRICE-QTY-INX)           
+                   MOVE WS-INM-QB-QTY (WS-INM-QB-INX)                           
+                                           TO  INM-PRICE-QTY                    
+                                                  (INM-PRICE-QTY-INX)           
+                   SET INM-PRICE-QTY-INX   UP  BY  1                            
+              ELSE                                                              
+                   MOVE INM-PRICE-BREAK (INM-PRICE-QTY-INX - 1)                 
+                                           TO  INM-PRICE-BREAK                  
+                                                  (INM-PRICE-QTY-INX)           
+                   MOVE WS-INM-QB-QTY (WS-INM-QB-INX)                           
+                                           TO  INM-PRICE-QTY                    
+                                                  (INM-PRICE-QTY-INX)           
+                   SET INM-PRICE-QTY-INX   UP  BY  1.                           
+      *                                                                         
+       9540-SET-MARGINS.                                                        
+      *                                                                         
+           SET INM-QB-INX           TO  PTR                                     
+      *                                                                         
+           IF WS-INSMSC-NOTFND            OR                                    
+              WS-SET-QB-ALL-FIELDS        OR                                    
+              ( WS-SET-QB-NOT-OVERRIDEN      AND                                
+                NOT INM-QB-PRICE-OVERRIDE (INM-QB-INX) )                        
+                    MOVE TB-IMD-CP-QTY-BRK-MARGIN (PTR)                         
+                                    TO  INM-QB-MARGIN   (INM-QB-INX)            
+                    MOVE 'D'        TO  INM-QB-COL      (INM-QB-INX)            
+                    MOVE SPACES     TO  INM-QB-PRICE-SW (INM-QB-INX)            
+                    SET INM-QB-MARGIN-ENTRY (INM-QB-INX)                        
+                                    TO  TRUE.                                   
+      *                                                                         
+       9600-DELETE-QTY-BREAKS.                                                  
+      *                                                                         
+      *    DEFAULT/OVERRIDE SEGMENT                                             
+      *                                                                         
+           MOVE '0'                       TO  WS-INSMSC-SEG-IND                 
+           MOVE '**'                      TO  WS-INSMSC-BR-IND                  
+      *                                                                         
+           PERFORM 1566-GHU-INSMSC-VIA-PART                                     
+      *                                                                         
+           IF WS-INSMSC-NORESP                                                  
+              PERFORM 1636-DLET-INSMSC-VIA-PART.                                
+      *                                                                         
+      *    PRICING SEGMENT                                                      
+      *                                                                         
+           MOVE '1'                       TO  WS-INSMSC-SEG-IND                 
+           MOVE '**'                      TO  WS-INSMSC-BR-IND                  
+      *                                                                         
+           PERFORM 1566-GHU-INSMSC-VIA-PART                                     
+      *                                                                         
+           IF WS-INSMSC-NORESP                                                  
+              PERFORM 1636-DLET-INSMSC-VIA-PART.                                
+      *                                                                         

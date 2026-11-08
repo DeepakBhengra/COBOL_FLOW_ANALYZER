@@ -1,0 +1,126 @@
+      ****************************************************************          
+      *   PROGRAM:                                                   *          
+      *      CICS: SYU601 - LINKED TO                                *          
+      *     BATCH: SYV601 - CALLED BY (NOTE: IF THE BRANCH PROFILE   *          
+      *                                      IS TO BE UPDATED IN     *          
+      *                                      SYV601, THE FILE CANNOT *          
+      *                                      BE OPEN FOR UPDATE IN   *          
+      *                                      THE CALLING PROGRAM.    *          
+      *                                      THE CALLING PROGRAM     *          
+      *                                      INSURE THAT THE PROGRAM *          
+      *                                      IS ACCESSED TO CLOSE    *          
+      *                                      BPLMST AND TBXCORP3     *          
+      *                                      PRIOR TO ENDING.)       *          
+      *                                                              *          
+      ****************************************************************          
+      ****************************************************************          
+      *                                                              *          
+      *  COPYBOOK: SYW601                                            *          
+      *                                                              *          
+      *  PROGRAM FUNCTION:                                           *          
+      *                                                              *          
+      *  THE PROGRAMS ARE DESIGNED TO ACCESS TBXCORP3 AND BPLMST.    *          
+      *  THEY WILL RETURN EITHER THE NEXT SALES ORDER NUMBER OR      *          
+      *  THE NEXT SEQUENTIAL INVOICE NUMBER OR BOTH IF BOTH ARE      *          
+      *  REQUESTED. IF THE SALES ORDER NUMBER IS REQUESTED, TBXCORP3,*          
+      *  BPLMST, AND CUSHED WILL DETERMINE IF THE NUMBER WILL BE IN  *          
+      *  NUMERIC OR ALPHANUMERIC FORMAT.                             *          
+      *                                                              *          
+      *  COMPANY AND BRANCH MUST ALWAYS BE PASSED FROM THE CALLING   *          
+      *  PROGRAM.                                                    *          
+      *  1. REQUESTING THE SALES ORDER NUMBER FROM BPLMST:           *          
+      *     A. SET THE ORDER PROCESS MODE FLAG TO UPDATE OR READ     *          
+      *        ONLY. THE SALES ORDER NUMBER TO BE USED WILL BE       *          
+      *        RETURNED IN EITHER MODE, HOWEVER BPLMST WILL BE       *          
+      *        UPDATED WITH THE NEXT NUMBER TO BE USED ONLY IF       *          
+      *        UPDATE MODE IS SELECTED.                              *          
+      *     B. POPULATE SY601-CU-ALPHA-ORD-SW WITH THE VALUE IN      *          
+      *        CU-USE-ALPHA-ORD-SW. THIS WILL ALLOW THE PROGRAM      *          
+      *        TO DETERMINE WHETHER A NUMERIC OR ALPHANUMERIC ORDER  *          
+      *        NUMBER SHOULD BE RETURNED. IF THIS FIELD IS BLANK,    *          
+      *        THE NUMERIC FORMAT WILL ALWAYS BE USED.               *          
+      *     C. THE SALES ORDER NUMBER TO BE USED WILL BE RETURNED    *          
+      *        IN THE SY601-ORDER-NBR FIELD.                         *          
+      *                                                              *          
+      *  2. REQUESTING THE SEQUENTIAL INVOICE NUMBER FROM BPLMST:    *          
+      *     A. SET THE SEQUENTIAL INVOICE NUMBER MODE FLAG TO        *          
+      *        UPDATE OR READ ONLY. THE SEQUENTIAL INVOICE NUMBER    *          
+      *        TO BE USED WILL BE RETURNED IN EITHER MODE, HOWEVER   *          
+      *        BPLMST WILL BE UPDATED WITH THE NEXT NUMBER TO BE     *          
+      *        USED ONLY IF UPDATE MODE IS SELECTED.                 *          
+      *     B. IF BRANCH LEVEL SEQUENTIAL INVOICING IS BEING USED    *  RDM04114
+      *        (SWITCH ON TBXBRN3) SET SY601-ALT-SEQ-INV-NBR-SW TO 'B'  RDM04114
+      *        PRIOR TO CALLING SYV601 (ORP804 CURRENTLY DOES THIS). *  RDM04114
+      *     C. THE SEQUENTIAL INVOICE NUMBER AND THE SEQUENTIAL      *  RDM04114
+      *        INVOICE SWITCH WILL BE RETURNED IN THE                *          
+      *        SY601-SEQ-INV-NBR AND SY601-SEQ-INV-NBR-SW FIELDS.    *          
+      *                                                              *          
+      *  3. IF UPDATE MODE IS SELECTED FOR EITHER OR BOTH OF THE     *          
+      *     NUMBERS, BPLMST WILL BE OPENED FOR UPDATE. IF THIS IS    *          
+      *     THE CASE, BPLMST CANNOT BE OPENED FOR UPDATE IN THE      *          
+      *     CALLING PROGRAM DURING BATCH PROCESSING.                 *          
+      *                                                              *          
+      *  4. THE BATCH VERSION OF THE PROGRAM HAS ITS OWN DD TO       *          
+      *     ACCESS BPLMST. IF THE CALLING PROGRAM ALSO REQUIRES      *          
+      *     ACCESS TO BPLMST, A SEPERATE DD MUST BE IN THE JCL       *          
+      *     AND THE CALLING PROGRAM CANNOT OPEN THE FILE FOR UPDATE. *          
+      *                                                              *          
+      * NOTE:  TO INSURE THAT ONLY A NUMERIC SALES ORDER NUMBER      *          
+      *        IS RETURNED BY SYU601 AND SYV601 MAKE THE FIELD       *          
+      *        SY601-CU-ALPHA-ORD-SW BLANK.                          *          
+      *        IF THIS FIELD IS 'Y', AN ALPHANUMERIC ORDER NUMBER    *          
+      *        MAY BE RETURNED BASED UPON TBXCORP3 AND BPLMST.       *          
+      *                                                              *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                11/09/04  PAG   ADD 88 LEVEL ERROR - TBXCORP5 *  PAG04314
+      *                04/23/04  RDM   ADD BRANCH LEVEL SEQUENTIAL   *  RDM04114
+      *                                INVOICE SWITCH.               *  RDM04114
+      *                07/18/00  LXA   ADD 88 LEVELS THAT ARE UNIQUE *  LXA00200
+      *                                FOR EACH RETURN CODE.         *  LXA00200
+      *                04/26/00  MJF   ORIGINAL...                   *  MJF00117
+      ****************************************************************          
+                                                                                
+       01  SY601-LINK-DATA.                                                     
+           05  SY601-AREA-LENGTH          PIC S9(4) COMP VALUE ZERO.            
+           05  SY601-CNV-PROGRAM          PIC X(08) VALUE 'SYU601  '.           
+                                                                                
+       01  SY601-PARM-DATA.                                                     
+           05  SY601-REQUEST-CODE         PIC X(01).                            
+               88  SY601-CLOSE-FILE          VALUE 'C'.                         
+           05  SY601-RETURN-CODE          PIC X(02).                            
+               88  SY601-NORESP              VALUE '00'.                        
+               88  SY601-COMPUTE-ERROR       VALUE '01'.                        
+               88  SY601-TBXCORP3-ERROR      VALUE '02'.                        
+               88  SY601-BPLMST-READ-ERROR   VALUE '03'.                LXA00200
+               88  SY601-INCOMPLETE-DATA     VALUE '04'.                        
+               88  SY601-NO-PROCESS          VALUE '05'.                        
+               88  SY601-BPLMST-BAD-REWRITE  VALUE '06'.                LXA00200
+               88  SY601-PROCESS-MODE-ERROR  VALUE '07'.                LXA00200
+               88  SY601-INV-ALPHA-ORD-NBR   VALUE '08'.                LXA00200
+               88  SY601-INV-ALPHA-ORD-SW    VALUE '09'.                LXA00200
+               88  SY601-BLPMST-OPEN-ERROR   VALUE '10'.                LXA00200
+               88  SY601-BPLMST-CLOSE-ERROR  VALUE '11'.                LXA00200
+               88  SY601-TBXCORP5-ERROR      VALUE '12'.                PAG04314
+           05  SY601-COMPANY              PIC X(02).                            
+           05  SY601-BR-NBR               PIC X(02).                            
+           05  SY601-CU-ALPHA-ORD-SW      PIC X(01).                            
+               88  SY601-CU-USE-ALPHA-ORD    VALUE 'Y'.                         
+           05  SY601-ORDER-PROCESS-MODE   PIC X(01).                            
+               88  SY601-ORDER-UPDATE        VALUE 'U'.                         
+               88  SY601-ORDER-READ-ONLY     VALUE 'R'.                         
+           05  SY601-ORDER-NBR            PIC X(05).                            
+           05  SY601-SEQ-INV-PROCESS-MODE PIC X(01).                            
+               88  SY601-SEQ-INV-UPDATE      VALUE 'U'.                         
+               88  SY601-SEQ-INV-READ-ONLY   VALUE 'R'.                         
+           05  SY601-SEQ-INV-NBR-SW       PIC X(01).                            
+               88  SY601-USE-SEQ-INV         VALUE 'Y'.                         
+           05  SY601-SEQ-INV-NBR          PIC 9(07).                            
+           05  SY601-ERROR-MESSAGE        PIC X(50).                            
+           05  SY601-ALT-SEQ-INV-NBR-SW   PIC X(01).                    RDM04114
+               88  SY601-USE-BR-SEQ-INV      VALUE 'B'.                 RDM04114
+           05  FILLER                     PIC X(26).                    RDM04114

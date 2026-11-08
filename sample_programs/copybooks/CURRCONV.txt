@@ -1,0 +1,77 @@
+﻿      ******************************************************************TLKY8337
+      *** YEAR 2000 READY                                              *TLKY8337
+      ******************************************************************TLKY8337
+      *REVISION                                                         JMW01169
+      *01/15/02 GYS  OPTION II-REMOVE HARDCODED 88 LEVELS               GYS02015
+      *10/24/01 SML  CHANGE CURR-CALC FOR IT/EUR EURO PROJ              SML01297
+      *06/18/01 JMW  EUROPE.  WITH COMPONENT (T) OR SUNRISE (W) SKUS    JMW01169
+      *              USE GL RATE INSTEAD OF BUY RATE TO CONVERT PO COST JMW01169
+000700****************************************************************          
+000800*    * 06/91    JMB CHANGE TO REFERENCE NEW CURRENCY TABLE                
+000700****************************************************************          
+000800*    * THIS ROUTINE CALCULATES INI-PO-COST GIVEN CURRENCY                 
+000900*    * CONVERSION DATA.                                                   
+001000*    * DEFINE THESE DATA IN W/S:                               *          
+001100*    *  WS-CONV-AMT       PIC S9(7)V9(4)                                  
+001100*    *  WS-CONV-AMT1      PIC S9(7)V9(4)                                  
+001100*    *  WS-CONV-AMT2      PIC S9(7)V9(4)                                  
+001100*    *  WS-CONV-PO-COSTT  PIC S9(7)V9(2)                                  
+      *    *  CHANGED TB-CURR-RATE,TB-DUTY-RATE AND TB-TAX-RATE TO 1            
+      *    *  MOVE ZERO TO INI-CONV-MISC-COST IF VALUE MISSING                  
+      *    *  MOVE ZERO TO INI-CONV-BASE-PRICE IF VALUE MISSING         LMV89276
+001200*    *                                                                    
+001500****************************************************************          
+171000*                                                                         
+171000*                                                                         
+           IF INI-CONV-BASE-PRICE NOT NUMERIC                           LMV89276
+              MOVE ZERO TO INI-CONV-BASE-PRICE.                         LMV89276
+           IF INI-CONV-BASE-PRICE = ZERO                                LMV89276
+              GO TO 301-EXIT.                                           LMV89276
+           MOVE TC-COMPANY               TO TB-CPO-COMPANY-CODE.        JMB91164
+           CALL 'SYU510'           USING TB-CORP-PROC-IA.               JMB91164
+089200     MOVE TC-COMPANY               TO TB-CURR-CO                          
+089300     MOVE INI-CONV-CURR-TABLE-CODE TO TB-CURR-FROM-CURR-CODE      JMB91164
+           MOVE TB-CPO-CURRENCY-CODE     TO TB-CURR-TO-CURR-CODE        JMB91164
+089400     CALL 'SYU510'           USING TB-CURR-TABLE-IA                       
+089500     IF NOT TB-CURR-NORESP                                                
+089500*       GO                         TO 301-EXIT.                   LMV89237
+              MOVE 1 TO TB-CURR-RATE.                                   LMV89237
+                                                                                
+089500                                                                          
+089200     MOVE TC-COMPANY               TO TB-DUTY-CO                          
+089300     MOVE INI-CONV-DUTY-TABLE-CODE TO TB-DUTY-CODE                        
+089400     CALL 'SYU510'           USING TB-DUTY-TABLE-IA                       
+089500     IF NOT TB-DUTY-NORESP                                                
+089500*       GO                         TO 301-EXIT.                   LMV89237
+089200        MOVE 1 TO TB-DUTY-RATE.                                   LMV89237
+089200     MOVE TC-COMPANY               TO TB-TAX-CO                           
+089300     MOVE INI-CONV-TAX-TABLE-CODE  TO TB-TAX-CODE                         
+089400     CALL 'SYU510'           USING TB-TAX-TABLE-IA                        
+089500     IF NOT TB-TAX-NORESP                                                 
+089500*       GO                         TO 301-EXIT.                   LMV89237
+171200       MOVE 1 TO TB-TAX-RATE.                                     LMV89237
+                                                                        JMW01169
+           IF TB-CPO3-COMPONENT-IH-USED      AND                        GYS02015
+              TB-ENISH-NORESP                AND                        GYS02015
+              TB-ENISH-INVENTORY-SELLING                                GYS02015
+                  MOVE TB-CURR-GL-RATE  TO  TB-CURR-RATE.               GYS02015
+                                                                        JMW01169
+           IF INI-CONV-MISC-COST NOT NUMERIC                                    
+              MOVE ZERO TO INI-CONV-MISC-COST.                                  
+                                                                        SML01297
+           IF  (TB-CPO-CURRENCY-CODE EQUAL 'EUR'                        SML01297
+           AND INI-CONV-CURR-TABLE-CODE EQUAL 'ITL'                     SML01297
+           AND TB-CURR-RATE EQUAL .000516)                              SML01297
+               COMPUTE WS-CONV-AMT ROUNDED =                            SML01297
+                       INI-CONV-BASE-PRICE / 1936.27                    SML01297
+           ELSE                                                         SML01297
+               COMPUTE WS-CONV-AMT = INI-CONV-BASE-PRICE *              SML01297
+                                     TB-CURR-RATE.                      SML01297
+                                                                        SML01297
+171300     COMPUTE WS-CONV-AMT1         = WS-CONV-AMT * TB-DUTY-RATE.           
+171300     COMPUTE WS-CONV-AMT2         = WS-CONV-AMT1 * TB-TAX-RATE.           
+171300     COMPUTE WS-CONV-PO-COST  ROUNDED = WS-CONV-AMT2 +                    
+171300                                    INI-CONV-MISC-COST.                   
+171300 301-EXIT.                                                                
+171300     EXIT.                                                                
+171300                                                                          

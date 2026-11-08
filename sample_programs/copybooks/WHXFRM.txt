@@ -1,0 +1,303 @@
+      ******************************************************************        
+      *FREIGHT RULES MODULE COMMAREA                                   *        
+      ******************************************************************        
+      ******************************************************************        
+      * REVISIONS:                                                     *        
+      * 10/04/24  BXD  ADD FRMR-IM-CHOICE-FRT-AMT-AP AS PART OF CR4716 *BXD24278
+      * 10/04/19  KMP  ADD FRM-ORDER-HAS-VIRTUAL-SW                    *KMP19277
+      * 07/19/17  TND  ADD SHIP CONDITION FIELD                        *TND17312
+      * 02/27/17  TND  CHANGE FOR EA PROJECT                           *TND17058
+      * 06/08/16  TND  ADD FRM-EST-DIM AS PART OF DIM WEIGHTS PROJECT  *TND16160
+      * 08/03/13  RXC  ADD FRM-UPGRADE-SW FOR APPLE TMS PROJECT        *RZS13215
+      * 06/15/11  ROR  SUPPORT ENDEAVOUR-CANADA PROJECT                 ROR11166
+      * 04/07/10  PRI  ADD TRUCKLOAD SWITCH FOR TRUCKLOAD BASERATE      PRI10097
+      * 07/13/09  MCV  ADD HEAVYWEIGHT FREIGHT, EXPANDED FILLER, AND    MCV09194
+      *                MOVE LENGTH FIELDS TO END OF COPYBOOK.           MCV09194
+      * 06/22/09  TND  TRANSPORTATION DEBIT MEMO AND DIRECT             TND09173
+      * 04/10/09  MCV  TRANSPORTATION POSTAL PROJECT                    MCV09100
+      *                SHIPMENT LIMIT AND BYPASS SWITCH  *              MCV09100
+      * 05/30/07  TND  ADD NEW FRM-DAS-SW - DAS PROJECT                *SML07150
+      * 03/08/05  TND  ADD NEW FRM-AOD-SW - CANADA POST PROJECT        *TND05068
+      *                REMOVED OLD OVERSIZE COUNTERS                   *TND05068
+      * 01/17/05  TND  ADD NEW FIELDS FOR THIRD PARTY ASSIGNMENT       *TND05017
+      * 11/12/04  TND  ADD NEW FIELDS FOR EXEPECTED DELIVERY PROCESS   *TND04317
+      * 10/21/04  TND  ADD NEW FIELDS FOR DIRECTSHIP FREIGHT RECOVERY  *TND04295
+      * 10/17/04  TND  ADD TERM-ID FIELD                               *TND04291
+      * 03/24/04  TND  ADD NEW FIELD FOR CHOICE ADVANTAGE PROJECT      *TND04084
+      * 11/03/03  TND  ADD UPS MIS OPTIONS                             *TND03317
+      *                ADDITIONAL OVERSIZE COUNTERS, WEIGHT BY OZ      *TND03317
+      *                ADDITIONAL WEIGHT PARAMETERS                    *TND03317
+      * 10/01/03  TND  RENAME THE CUST-SUFFIX TO CUST-SHIP-TO-SUF      *TND03274
+      * 06/04/03  TND  FREIGHT MODULE COMMAREA                         *        
+      ******************************************************************        
+                                                                                
+       01  FRM-COMMAREA.                                                        
+      * COMMON INPUT                                                            
+           03  FRM-INPUT-AREA.                                                  
+      * COMMON FIELDS THAT ARE REQUIRED FOR ALL ROUTINES                        
+               05  FRM-COMPANY-CODE            PIC X(02) VALUE SPACES.          
+                   88  FRM-US-MODEL-COMPANY    VALUE 'MD' 'MS' 'CQ'.            
+               05  FRM-OPER-ID                 PIC X(04) VALUE SPACES.          
+               05  FRM-CUST-NBR.                                                
+                   10  FRM-CUST-BR             PIC X(02) VALUE SPACES.          
+                   10  FRM-CUST-NUMBER         PIC X(06) VALUE SPACES.          
+                   10  FRM-CUST-SHIP-TO-SUF    PIC X(03) VALUE SPACES.  TND03274
+               05  FRM-SALES-ORDER-NBR.                                         
+                   10  FRM-SO-BR               PIC X(02) VALUE SPACES.          
+                   10  FRM-SO-NBR              PIC X(05) VALUE SPACES.          
+                   10  FRM-SO-DIST-SHIP        PIC X(02) VALUE SPACES.          
+               05  FRM-ORDER-TERM-ID           PIC X(04) VALUE SPACES.  TND04291
+               05  FRM-CALLING-PROGRAM         PIC X(06) VALUE SPACES.          
+               05  FRM-CALLING-MODULE-IND      PIC X(01) VALUE SPACE.           
+                   88  FRM-CS-FRT-FOC-CALL     VALUE ' '.                       
+                   88  FRM-CS-CALL             VALUE '1'.                       
+                   88  FRM-CS-FRT-CALL         VALUE '2'.                       
+                   88  FRM-FRT-CALL            VALUE '3'.                       
+                   88  FRM-FOC-CALL            VALUE '4'.                       
+                   88  FRM-FRT-FOC             VALUE '5'.                       
+               05  FRM-ORDER-TYPE              PIC X(01) VALUE SPACES.          
+                   88  FRM-DIRECT-ORDER        VALUE 'D'.               TND09173
+               05  FRM-THIRD-PARTY-FRT-ACCT    PIC X(12) VALUE SPACES.          
+               05  FRM-FOC                     PIC X(01) VALUE SPACES.          
+                   88  FRM-LTL-3RD-PARTY       VALUE 'T'.                       
+                   88  FRM-LTL-COLLECT         VALUE 'C'.                       
+                   88  FRM-DEBIT-GROUND        VALUE 'G'.               TND09173
+               05  FRM-FULFILLMENT-SW          PIC X(01) VALUE SPACES.          
+                   88  FRM-FULFILLMENT         VALUE 'C' , 'Y', 'E'.    TND03317
+      * CARRIER FLAG IS NOT REQUIRED WHEN CALL 'CS' ROUTINE                     
+               05  FRM-CARRIER-FLAG            PIC X(01) VALUE SPACES.          
+                   88  FRM-IM-CHOICE           VALUE 'I'.                       
+                   88  FRM-CUST-CHOICE         VALUE 'C'.                       
+                   88  FRM-SPLIT               VALUE 'S'.                       
+                   88  FRM-EXPEDITED-MODE      VALUE 'E'.                       
+                   88  FRM-TRANSIT-DAYS        VALUE 'T'.                       
+                   88  FRM-SPLIT-AIR           VALUE 'A'.                       
+                   88  FRM-TRANSIT-EDD         VALUE 'D'.               TND04317
+      * CARRIER SWITCH INPUT                                                    
+               05  FRM-CUST-REQ-CARR-CODE      PIC X(02) VALUE SPACE.           
+               05  FRM-CUST-REQ-TRANSIT-DAYS   PIC 9(03) VALUE ZEROES.          
+               05  FRM-CUST-REQ-MODE           PIC X(04) VALUE SPACES.          
+               05  FRM-CUST-DEFAULT-CARR-CODE  PIC X(02) VALUE SPACES.          
+      * UPS MI CUSTOMER ELIGIBILITY                                     TND03317
+               05  FRM-SML-CARR-SW             PIC X(01) VALUE SPACE.   TND03317
+                   88  FRM-SML-CARR-USED       VALUE 'Y' , SPACES.      MCV09100
+                   88  FRM-SML-CARR-NOT-USED   VALUE 'N'.               TND03317
+      * UPS MI SKU CATEGORY ELIGIBILITY                                 TND03317
+               05  FRM-SML-CARR-EXCL-SW        PIC X(01) VALUE SPACE.   TND03317
+                   88  FRM-SML-CARR-ELIGIBLE    VALUE 'N'.              TND03317
+                   88  FRM-SML-CARR-INELIGIBLE  VALUE 'Y'.              TND03317
+               05  FRM-CUST-SPLIT-CODE         PIC X(02) VALUE SPACES.          
+                   88  FRM-GRD-ONLY-SPLIT-S    VALUE 'GO'.                      
+                   88  FRM-AIR-ONLY-SPLIT-S    VALUE 'AO'.                      
+                   88  FRM-GRD-OR-AIR-SPLIT-S  VALUE 'GA'.                      
+                   88  FRM-AIR-GRD-SPLIT-S     VALUE 'AG'.                      
+                   88  FRM-ALL-SPLIT-S         VALUE 'AL'.                      
+                   88  FRM-NO-SPLIT-S          VALUE 'NO'.                      
+               05  FRM-CUST-ALW-CHOOSE-CARR-CD PIC X(02) VALUE SPACES.          
+                   88  FRM-GRD-ONLY-CHOICE     VALUE 'GO'.                      
+                   88  FRM-AIR-ONLY-CHOICE     VALUE 'AO'.                      
+                   88  FRM-GRD-AIR-CHOICE      VALUE 'GA'.                      
+                   88  FRM-NO-CC-CHOICE        VALUE 'NO'.                      
+                   88  FRM-AIR-DIRECT-SHIP     VALUE 'AR'.              TND04295
+                   88  FRM-GRD-DIRECT-SHIP     VALUE 'GR'.              TND04295
+               05  FRM-CUST-ALW-TRNSIT-DAYS-SW PIC X(01) VALUE SPACES.          
+                   88  FRM-ALW-TRANSIT-DAYS    VALUE 'Y'.               TND04317
+                   88  FRM-ALW-EDD             VALUE 'D', 'B'.          TND05017
+                   88  FRM-ALW-EDD-3RD         VALUE 'B'.               TND05017
+                   88  FRM-ALW-3RD             VALUE 'T', 'B'.          TND05017
+                   88  FRM-ALW-3RD-ONLY        VALUE 'T'.               TND05017
+      * FREIGHT INPUT                                                           
+               05  FRM-REQUEST-TYPE            PIC X(01) VALUE SPACES.  TND03317
+                   88  FRM-RETURN-ONE          VALUE '1'.               TND03317
+                   88  FRM-RETURN-LIST         VALUE 'L'.               TND03317
+                   88  FRM-TELEMARKETING       VALUE 'T'.               TND03317
+                   88  FRM-CARRIER-AND-LIST    VALUE 'B'.               TND03317
+               05  FRM-RESIDENTIAL-SW          PIC X(01).                       
+               05  FRM-CUST-GENR-ROUTE-CODE    PIC X(05) VALUE SPACES.          
+               05  FRM-CUST-RATING-GROUP-CODE  PIC X(01) VALUE SPACES.  TND03317
+               05  FRM-POSTAL-CODE.                                             
+                   10  FRM-ZIP-CODE            PIC S9(9) COMP-3.                
+                   10  FILLER                  PIC X(01).                       
+               05  FRM-TERMS                   PIC X(03) VALUE SPACES.          
+                   88  FRM-COD          VALUE '000' '004' '900' '996'.          
+               05  FRM-FREIGHT-FORWARDER       PIC X(03) VALUE SPACES.          
+               05  FRM-BR-NBR-SHIP-FROM        PIC X(02) VALUE SPACES.          
+                   88 FRM-SF-EA                VALUE                    TND17058
+                         '03', '04', '08', '24', '28', '45', '54'.      TND17058
+               05  FRM-EXPORT-ORD-IND          PIC X(01) VALUE SPACES.          
+               05  FRM-OVERSIZE-METHOD-SW      PIC X(01) VALUE SPACES.          
+               05  FRM-BACKORDER-STATUS        PIC X(01) VALUE SPACES.          
+               05  FRM-AOD-SW                  PIC X(01) VALUE SPACES.  TND05068
+               05  FRM-DEBIT-TYPE              PIC X(01) VALUE SPACE.   TND09173
+                   88  FRM-DEBIT-STOCK-BAL  VALUE 'S'.                  TND09173
+                   88  FRM-DEBIT-DEFECTIVE  VALUE 'D'.                  TND09173
+               05  FRM-VENDOR-SW               PIC X(01) VALUE SPACE.   TND09173
+                   88  FRM-VEND-PAY         VALUE 'V'.                  TND09173
+                   88  FRM-VEND-PAY-THRESHOLD  VALUE 'G'.               TND09173
+               05  FRM-VEND-FREIGHT-LIMIT      PIC S9(05)V99 COMP-3     TND09173
+                                                    VALUE ZERO.         TND09173
+               05  FRM-FRT-ECOM-PO-3PARTY      PIC X(01) VALUE SPACE.   TND09173
+                   88  FRM-VEND-NO-3PARTY   VALUE 'N'.                  TND09173
+               05  FRM-VENDOR-NBR              PIC X(04) VALUE SPACE.   TND09173
+                                                                        TND03317
+      * GIRTH TABLE EXPANSION TO 10.                                    TND03317
+               05  FRM-SIZE.                                            TND03317
+                   10  FRM-SIZE-1-CNT          PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-2-CNT          PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-3-CNT          PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-4-CNT          PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-5-CNT          PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-6-CNT          PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-7-CNT          PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-8-CNT          PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-9-CNT          PIC S9(3) COMP-3 VALUE 0.TND03317
+               05  FRM-SIZE-SHP-CMP.                                    TND03317
+                   10  FRM-SIZE-1-SHP-CMP-CNT  PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-2-SHP-CMP-CNT  PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-3-SHP-CMP-CNT  PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-4-SHP-CMP-CNT  PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-5-SHP-CMP-CNT  PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-6-SHP-CMP-CNT  PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-7-SHP-CMP-CNT  PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-8-SHP-CMP-CNT  PIC S9(3) COMP-3 VALUE 0.TND03317
+                   10  FRM-SIZE-9-SHP-CMP-CNT  PIC S9(3) COMP-3 VALUE 0.TND03317
+               05  FRM-TOTAL-WEIGHT-OZ         PIC S9(11)V99 COMP-3     TND03317
+                                                               VALUE 0. TND03317
+               05  FRM-TOTAL-WEIGHT            PIC S9(9)V99 COMP-3              
+                                                                VALUE 0.        
+               05  FRM-TOTAL-ORD-WEIGHT        PIC S9(9)V99 COMP-3              
+                                                                VALUE 0.        
+               05  FRM-ESTIMATED-CARTONS       PIC 9(03) COMP-3         TND03317
+                                                                VALUE 0.TND03317
+               05  FRM-ESTIMATED-WEIGHT-TABLE.                          TND03317
+                   10 FRM-EST-CARTON-ENTRIES   OCCURS 50 TIMES.         TND16160
+                      15 FRM-EST-CARTON-WEIGHT PIC S9(3)V99 COMP-3.     TND16160
+                      15 FRM-EST-DIM-WEIGHT    PIC S9(5)V99 COMP-3.     TND16160
+                      15 FRM-EST-GIRTH         PIC X(1).                TND16160
+                                                                                
+               05  FRM-DIRECT-AREA        REDEFINES                     TND09173
+                                 FRM-ESTIMATED-WEIGHT-TABLE.            TND09173
+                   10  FRM-DIRECT-TOT-LIC-QTY   PIC 9(6).               TND09173
+                   10  FRM-DIRECT-TOTAL-WEIGHT  PIC 9(9)V99.            TND09173
+                   10  FRM-DIRECT-TOTAL-PRICE   PIC 9(15)V99.           TND09173
+                   10  FILLER                   PIC X(366).             TND16160
+      * FREIGHT OUT CODE INPUT                                                  
+               05  FRM-NON-STANDARD-ORDER-SW   PIC X(01) VALUE SPACES.          
+                   88  FRM-NON-STANDARD-ORDER  VALUE 'Y'.                       
+               05  FRM-CUST-PRESET-FOC         PIC X(01) VALUE SPACES.          
+               05  FRM-VEND-PRESET-FOC REDEFINES FRM-CUST-PRESET-FOC    TND09173
+                                                  PIC X(01).            TND09173
+                   88  FRM-VEND-PRESET-FOC-VENDOR-PAY  VALUE 'V'.       TND09173
+                   88  FRM-VEND-PRESET-FOC-INGRAM-PAY  VALUE 'I' 'P'.   TND09173
+                   88  FRM-VEND-DEBIT-GROUND           VALUE 'G'.       TND09173
+               05  FRM-ORDER-VALUE-AT-ADD      PIC S9(15)V99 COMP-3             
+                                                             VALUE 0.           
+               05  FRM-CUST-FREIGHT-LIMIT      PIC S9(05)V99 COMP-3             
+                                                             VALUE 0.           
+               05  FRM-CORP-FREIGHT-LIMIT      PIC S9(05)V99 COMP-3             
+                                                             VALUE 0.           
+      * ADDITIONAL FOC INPUT REQUIRED WHEN ONLY CALL THE FOC ROUTINE            
+               05  FRM-IM-CHOICE-CARR-CODE     PIC X(02).                       
+               05  FRM-ORDER-CARR-CODE         PIC X(02).                       
+               05  FRM-IM-FRT-AMT              PIC S9(15)V99 VALUE 0.           
+               05  FRM-ORDER-FRT-OUT-AMT       PIC S9(15)V99 VALUE 0.           
+               05  FRM-CUST-FRT-OVERRIDE-FLAG  PIC X(01) VALUE SPACE.   TND04084
+               05  FRM-ORDER-ENTRY-METHOD      PIC X(01) VALUE SPACES.  TND04291
+               05  FRM-ORDER-TOTAL-SALES       PIC S9(15)V99 COMP-3     TND04295
+                                                             VALUE 0.   TND04295
+      * BYPASS AUTOMATED DIRECT SHIP FREIGHT RECOVERY LOGIC             TND04295
+               05  FRM-DIRECTSHIP-EXCL-SW      PIC X(01) VALUE SPACE.   TND04295
+                   88  FRM-DIRECTSHIP-EXCLUDED       VALUE 'N' ' '.     TND04295
+                   88  FRM-DIRECTSHIP-INCLUDED       VALUE 'Y'.         TND04295
+               05  FRM-EDD                     PIC  9(07) COMP-3        TND04317
+                                                             VALUE 0.   TND04317
+               05  FRM-EXTRA-TRNSIT-DAYS       PIC 9(01) VALUE ZERO.    TND04317
+               05  FRM-CUST-PGM-CARR-BYPASS    PIC X(01).               MCV09100
+               05  FRM-POSTAL-DIST-LIMIT       PIC S9(09) COMP-3.       MCV09100
+               05  FRM-ORDER-PROCESS-SW        PIC X(01).               TND09173
+               05  FRM-HVY-SKU-CARTON-TABLE.                            MCV09194
+                   10  FRM-HVY-SKU-CARTON-SW   OCCURS 50 TIMES          MCV09194
+                                               INDEXED BY HVYSKUX       MCV09194
+                                               PIC  X(01).              MCV09194
+                       88  FRM-HVY-SKU-CARTON             VALUE 'Y'.    MCV09194
+               05  FRM-HEAVYWEIGHT-FEE-SW      PIC  X(01).              MCV09194
+               05  FRM-TOT-HVY-SKU-WEIGHT      PIC S9(06)V9(2) COMP.    MCV09194
+               05  FRM-HEAVYWEIGHT-FEE-ORIG-SW PIC  X(01).              MCV09194
+               05  FRM-TRUCKLOAD-FLAG          PIC X(01).               PRI10097
+                   88 FRM-TRUCKLOAD-ORDER   VALUE 'T' 'M'.              PRI10097
+               05  FRM-UPGRADE-SW              PIC X(1)   VALUE SPACE.  RZS13215
+               05  FRM-ORDER-ENTRY-DATE        PIC S9(5) COMP-3.        TND16160
+               05  FRM-SHIP-CONDITION          PIC X(01)  VALUE SPACE.  TND17312
+               05  FRM-ORDER-HAS-VIRTUAL-SW    PIC X(01)  VALUE SPACE.  KMP19277
+                   88 FRM-ORDER-HAS-VIRTUAL               VALUE 'Y'.    KMP19277
+               05  FILLER                      PIC X(256) VALUE SPACE.  KMP19277
+      *******************************************************************       
+      **********************     OUTPUT     ***************************         
+      *****************************************************************         
+           03  FRMR-OUTPUT-AREA.                                                
+               05  FRMR-RESIDENTIAL-SW                 PIC X(01).               
+               05  FRMR-ERROR-RETURN                   PIC 9(03).               
+                   88  FRMR-NO-ERROR               VALUE 0.                     
+                   88  FRMR-RATED-FAILED           VALUE 1 THRU 999.            
+               05  FRMR-ERROR-MSG.                                              
+                   10  FRMR-ERROR-MSG1                 PIC X(7).                
+                   10  FRMR-ERROR-MSG2                 PIC X(43).               
+               05  FRMR-ERROR-RET-MODULE               PIC X(03).               
+               05  FRMR-RESPONSE-AREA.                                          
+                   10  FRMR-RESPONSE-TABLE1 OCCURS 9 TIMES.                     
+                       15  FRMR-SALES-ORDER-NBR.                                
+                           20  FRMR-SO-BR              PIC X(02).               
+                           20  FRMR-SO-NBR             PIC X(05).               
+                       15  FRMR-SO-NBR-DIST-SHIP       PIC X(02).               
+                       15  FRMR-SHIP-FROM-BR           PIC X(02).               
+                       15  FRMR-ERROR-CODE             PIC X(02).               
+                       15  FRMR-TOTAL-WEIGHT                                    
+                                          PIC S9(5)V99 COMP-3.                  
+                       15  FRMR-CARRIER-FLAG           PIC X(01).               
+                       15  FRMR-IM-CHOICE-CARR-CODE    PIC X(02).               
+                       15  FRMR-IM-CHOICE-FRT-AMT                               
+                                          PIC S9(5)V99 COMP-3.                  
+                       15  FRMR-IM-CHOICE-CARR-MODE    PIC X(04).               
+                       15  FRMR-IM-CHOICE-TRANSIT-DAYS PIC 9(02).               
+                       15  FRMR-IM-FRT-OUT-CODE        PIC X(01).               
+                       15  FRMR-ORDER-CARR-CODE        PIC X(02).               
+                       15  FRMR-ORDER-CARR-NAME        PIC X(12).               
+                       15  FRMR-ORDER-FRT-AMT                                   
+                                          PIC S9(5)V99 COMP-3.                  
+                       15  FRMR-ORDER-CUS-FRT-AMT                               
+                                          PIC S9(5)V99 COMP-3.                  
+                       15  FRMR-ORDER-CARR-MODE        PIC X(04).               
+                       15  FRMR-ORDER-TRANSIT-DAYS     PIC 9(02).               
+                       15  FRMR-ORDER-FRT-OUT-CODE     PIC X(01).               
+                       15  FRMR-FRT-OUT-OVERRIDE-CODE  PIC X(01).               
+                       15  FRMR-TSBR-SUB               PIC 9(02).               
+                       15  FRMR-ORDER-COD-FEE                                   
+                                          PIC S9(5)V99 COMP-3.                  
+                       15  FRMR-START-DATE             PIC 9(7) COMP-3. TND04317
+                       15  FRMR-THIRD-PARTY-ACCOUNT    PIC X(12).       TND05017
+                       15  FRMR-DAS-SW                 PIC X(01).       SML07150
+                       15  FRMR-DS-WHO-PAYS            PIC X(01).       TND09173
+                       15  FRMR-ORDER-HVY-SKU-FEE-AMT                   MCV09194
+                                          PIC S9(5)V99 COMP-3.          MCV09194
+                       15  FRMR-HEAVYWEIGHT-FEE-SW     PIC X(01).       MCV09194
+                       15  FRMR-ALIAS-SHIP-FROM-BR     PIC X(02).       ROR11166
+                       15  FRMR-DIM-WGT-SW             PIC X(01).       TND16160
+                       15  FRMR-IM-CHOICE-FRT-AMT-AP                    BXD24278
+                                          PIC S9(5)V99 COMP-3.          BXD24278
+                       15  FILLER                      PIC X(118).      BXD24278
+                       15  FRMR-LIST-CARRIERS OCCURS 50 TIMES.          TND16160
+                           20  FRMR-CARRIER-CODE       PIC X(02).               
+                           20  FRMR-CARRIER-FRT-AMT                             
+                                          PIC S9(5)V99 COMP-3.                  
+                           20  FRMR-CARRIER-MODE       PIC X(04).               
+                           20  FRMR-TRANSIT-DAYS       PIC 9(02).               
+                           20  FRMR-CARRIER-NAME       PIC X(12).               
+                           20  FRMR-CARRIER-HVY-SKU-FEE-AMT             MCV09194
+                                          PIC S9(5)V99 COMP-3.          MCV09194
+                           20  FRMR-CARRIER-DIM-SW     PIC X(01).       TND16160
+                           20  FILLER                  PIC X(07).       TND16160
+               05  FRMR-SUB                            PIC 9(02).               
+               05  FILLER                              PIC X(149).      MCV09194
+                                                                                
+       01  FRM-LINK-DATA.                                               MCV09194
+           05  FRM-COMMAREA-LENGTH           PIC S9(4) COMP VALUE ZERO. MCV09194

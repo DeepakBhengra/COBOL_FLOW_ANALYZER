@@ -1,0 +1,754 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8350
+      ******************************************************************        
+      *****************************************************************         
+      ****  COPYBOOK  WHSNOFRT  ***************************************         
+      ****  PROCEDURE DIVISION LOGIC FOR NORWAY FREIGHT               *         
+      ****  WORKING STORAGE FIELDS ARE IN WHWNOFRT                    *         
+      ****   THIS IS USED IN ORP560 & MDP600                          *         
+      ****    10/01/00     JLF    FREIGHT/MINIMUM ORDER LIMIT FOR     * JLF00275
+      ****                        CUSTOMER WEB LIMIT: REPLACE         * JLF00275
+      ****                        CU-FRT-LIMIT-AMT BY WS-FRT-LIMIT-AMT* JLF00275
+      ****    07/21/00     TLC    CHANGE TO LINJEGODS FRT REV         * TLC00220
+      ****    06/26/00     WGW    FIX TO LINJEGODS HOME               * WGW00178
+      ****    05/22/00     WGW    CHANGE TO LINJEGODS                 * WGW00143
+      ****    09/27/99     CMB    NEW CARRIER LINJEGODS               * CMB99270
+      ****    01/28/98     SPE    EXTEND BEDRIFTSPAKKE PROCESSING     * SPE99028
+      ****                         TO READ ORLRTE AND ORLZONE FILES   * SPE99028
+      ****                         TO CALCULATE THE FREIGHT CHARGE.   * SPE99028
+      ****    02/11/99     SPE    CHANGE FRT CHG FOR TOLLPOST >1000KGS* SPE98331
+      ****                        AND TO UPDATE REBATE RATES          * SPE98331
+      ****    11/13/98     SPE    CHANGE FRT RATES FOR TOLLPOST       * SPE98316
+      ****                         - INCREASE CHARGES BY 6%           * SPE98316
+      ****                         - INCREASE MINIMUMS BY 6 NOK       * SPE98316
+      ****    03/02/98     DMA    UPDATE TOLLPOST LOGIC               * DMA98062
+      ****                        UPDATE BEDRIFTSPAKKE LOGIC          * DMA98062
+      ****                        ADD JETPAC LOGIC                    * DMA98062
+      ****    05/12/97     DMA    UPDATE TOLLPOST LOGIC               * DMA97132
+      ****    03/07/97     DMA    UPDATE FREE FREIGHT LOGIC           * DMA97066
+      ****    02/17/97     DMA    UPDATE MIN FREIGHT LOGIC            * DMA97049
+      ****    02/13/97     DMA    NUMERIC CHECK ON MANIFEST FIELD     * DMA97044
+      ****    12/02/96     DMA    INITIAL COPYBOOK                    * DMA96336
+      ****                        CHANGE TO USE WS ZONES FOR TOM'S    * DMA96336
+      *****************************************************************         
+428900*                                                                         
+428900 499C-NORWAY-FREIGHT.                                                     
+428900                                                                          
+      ***** INCREASE TOLLPOST WEIGHT TO ACCOUNT FOR VOLUME WEIGHT       DMA97132
+           IF WS-TOL-NORWAY OR WS-TPD-NORWAY                            DMA97132
+429400       IF WS-HOLD-RTE-WEIGHT > 35                                 SPE98316
+429400          OR SM-NO-OF-CARTONS > 1                                 SPE98316
+               COMPUTE WS-HOLD-RTE-WEIGHT ROUNDED EQUAL                 DMA97132
+                       WS-HOLD-RTE-WEIGHT * 1.5.                        DMA97132
+428900                                                                  DMA97132
+432300     PERFORM 499-NORWAY-REBATE-MARGIN THRU 499-REBT-EXIT.                 
+428900                                                                          
+      **** CHARGE AT COST FOR ALL BACKORDERS                                    
+           IF ORSH-SHIP-NBR > 1                                                 
+ 72163         MOVE  WS-FRT-DISC-PERC   TO WS-CUST-FRT-DISC-PERC.               
+           IF SM-IM-NBR-OF-PALLETS IS NOT NUMERIC                       DMA97044
+               MOVE ZERO TO SM-IM-NBR-OF-PALLETS.                       DMA97044
+432500                                                                          
+            EVALUATE TRUE                                                       
+            WHEN (WS-TOL-NORWAY OR WS-TPD-NORWAY) AND                           
+                     WS-NORWAY-LOCAL-ZIPCODE AND                                
+              ((SM-NO-OF-CARTONS > 1) OR (WS-HOLD-RTE-WEIGHT > 35))     SPE98316
+                 AND WS-HOLD-RTE-WEIGHT < 1000                          SPE98331
+              PERFORM 499-NORWAY-TOL-LOC-GUAR THRU 499-TOL-LOCAL-EXIT           
+            WHEN (WS-TOL-NORWAY OR WS-TPD-NORWAY) AND                   DMA98062
+              ((SM-NO-OF-CARTONS = 1) AND (WS-HOLD-RTE-WEIGHT <= 35))   SPE98316
+              PERFORM 499-NORWAY-TOL-PARCEL THRU 499-TOL-PARCEL-EXIT    DMA98062
+            WHEN WS-BUDBIL-NORWAY                                               
+                PERFORM 499-NORWAY-BUDBIL THRU 499-BUDBILL-EXIT                 
+            WHEN WS-FEDRIKSEN-NORWAY                                            
+                PERFORM 499-NORWAY-FEDRIKSEN THRU 499-FEDRIKSEN-EXIT            
+            WHEN WS-AIR-NORWAY                                                  
+                PERFORM 499-NORWAY-AIR THRU 499-AIR-EXIT                        
+            WHEN WS-BEDRIFTSPAKKE-NORWAY                                SPE99028
+                PERFORM 499-NORWAY-BEDRIFTSPAKKE                        SPE99028
+            WHEN WS-LJE-NORWAY                                          CMB99270
+                PERFORM 499-NORWAY-LINJEGODS THRU 499-LJE-EXIT          CMB99270
+            WHEN OTHER                                                          
+                PERFORM 499-NORWAY-ZNERTE THRU 499-ZNERTE-EXIT                  
+            END-EVALUATE.                                                       
+435100                                                                          
+432300     PERFORM 499-NORWAY-MIN-FREIGHT THRU 499-MIN-EXIT.                    
+432500                                                                          
+721543****  FREE FREIGHT IF SALES > CORP FRT LIMIT                      DMA97066
+721544     IF ORH-ORDER-VALUE-AT-ADD > TB-CPO-FRT-LIMIT-AMT             DMA97066
+721545         MOVE ZERO             TO WS-NOR-FREIGHT-CUST.            DMA97066
+721547                                                                  DMA97066
+721548****  CUSTOMER IS NOT CHARGED FREIGHT IF ORDER VALUE EXCEEDS      DMA97066
+721549****  THE INDIVIDUAL CUSTOMER FREIGHT LIMIT AMOUNT                DMA97066
+721550     IF WS-FRT-LIMIT-AMT  >  0                                    JLF00275
+721551         IF ORH-ORDER-VALUE-AT-ADD > WS-FRT-LIMIT-AMT             JLF00275
+721552             MOVE ZERO          TO WS-NOR-FREIGHT-CUST.           DMA97066
+721554                                                                  DMA97066
+           MOVE 'P' TO ORSH-FRT-OUT-CODE.                                       
+435100*                                                                         
+435000 499C-EXIT. EXIT.                                                         
+435100*                                                                         
+       499-NORWAY-REBATE-MARGIN.                                                
+ 72163     MOVE 1.00                TO WS-FRT-DISC-PERC.                        
+ 72163     MOVE 1.00                TO WS-CUST-FRT-DISC-PERC.                   
+           IF WS-FEDRIKSEN-NORWAY                                               
+ 72163         MOVE 1.00                TO WS-FRT-DISC-PERC                     
+ 72163         MOVE 1.10                TO WS-CUST-FRT-DISC-PERC                
+ 72163         IF WS-CARR-CODE(3:2) = 'FV' AND                                  
+ 72163            WS-HOLD-RTE-WEIGHT < 300                                      
+                   MOVE 1.60                TO WS-CUST-FRT-DISC-PERC            
+                   GO TO 499-REBT-EXIT                                          
+               ELSE                                                             
+                   GO TO 499-REBT-EXIT.                                         
+           IF WS-BEDRIFTSPAKKE-NORWAY OR WS-AIR-NORWAY                          
+ 72163         MOVE 1.00                TO WS-FRT-DISC-PERC                     
+ 72163         MOVE 1.10                TO WS-CUST-FRT-DISC-PERC                
+721632     ELSE                                                                 
+           IF WS-BUDBIL-NORWAY OR WS-IL-NORWAY                                  
+ 72163         MOVE 1.00                TO WS-FRT-DISC-PERC                     
+ 72163         MOVE 1.06                TO WS-CUST-FRT-DISC-PERC                
+           ELSE                                                                 
+429100*** PARCEL FREIGHT - 1 CARTON ORDER AND LESS THAN 36 KG           DMA98062
+              IF WS-TOL-NORWAY                                          SPE98331
+      * FOR TOLLPOST IN NORWAY THE CUSTOMER MULTIPLIER IS 15% DIRECT    SPE98331
+      * INCREASE ON THE FREIGHT WE PAY.                                 SPE98331
+ 72163          MOVE 1.15              TO WS-CUST-FRT-DISC-PERC         SPE98331
+                IF (SM-NO-OF-CARTONS = 1) AND (WS-HOLD-RTE-WEIGHT < 36) SPE98331
+                   PERFORM 499N-PARCEL-FREIGHT-REBATE                   SPE98331
+                           THRU 499N-PARCEL-EXIT                        SPE98331
+                ELSE                                                    SPE98331
+                   IF WS-HOLD-RTE-WEIGHT < 1000                         SPE98331
+ 72163                MOVE 0.54             TO WS-FRT-DISC-PERC         SPE98331
+                   ELSE                                                 SPE98331
+ 72163                MOVE 0.50             TO WS-FRT-DISC-PERC.        SPE98331
+                                                                                
+       499-REBT-EXIT.  EXIT.                                                    
+                                                                                
+       499N-PARCEL-FREIGHT-REBATE.                                              
+                                                                                
+              IF  WS-NORWAY-LOCAL-ZIPCODE                                       
+                  EVALUATE TRUE                                                 
+                  WHEN WS-HOLD-RTE-WEIGHT <= 5                                  
+                      MOVE 0.73                TO WS-FRT-DISC-PERC      DMA98062
+                  WHEN WS-HOLD-RTE-WEIGHT <= 10                                 
+                      MOVE 0.60                TO WS-FRT-DISC-PERC      DMA98062
+                  WHEN WS-HOLD-RTE-WEIGHT <= 15                                 
+                      MOVE 0.65                TO WS-FRT-DISC-PERC              
+                  WHEN WS-HOLD-RTE-WEIGHT <= 20                                 
+                      MOVE 0.65                TO WS-FRT-DISC-PERC      DMA98062
+                  WHEN WS-HOLD-RTE-WEIGHT <= 25                                 
+                      MOVE 0.65                TO WS-FRT-DISC-PERC      DMA98062
+                  WHEN WS-HOLD-RTE-WEIGHT <= 35                         DMA98062
+                      MOVE 0.65                TO WS-FRT-DISC-PERC      DMA98062
+                  END-EVALUATE                                                  
+              ELSE                                                              
+                  EVALUATE TRUE                                                 
+                  WHEN WS-HOLD-RTE-WEIGHT <= 5                          DMA98062
+                      MOVE 0.73                TO WS-FRT-DISC-PERC      DMA98062
+                  WHEN WS-HOLD-RTE-WEIGHT <= 35                         DMA98062
+                      MOVE 0.60                TO WS-FRT-DISC-PERC      DMA98062
+                  END-EVALUATE.                                                 
+       499N-PARCEL-EXIT.  EXIT.                                                 
+                                                                                
+       499N-GUARANTEE-FREIGHT-REBATE.                                           
+                                                                                
+              IF  WS-NORWAY-LOCAL-ZIPCODE                                       
+                      MOVE 1.00                TO WS-FRT-DISC-PERC              
+                      MOVE 1.10                TO WS-CUST-FRT-DISC-PERC         
+              ELSE                                                              
+                  EVALUATE TRUE                                                 
+                  WHEN WS-HOLD-RTE-WEIGHT <= 50                                 
+                      MOVE 0.615               TO WS-FRT-DISC-PERC              
+                      MOVE 0.67                TO WS-CUST-FRT-DISC-PERC         
+                  WHEN OTHER                                                    
+                      MOVE 0.58                TO WS-FRT-DISC-PERC              
+                      MOVE 0.67                TO WS-CUST-FRT-DISC-PERC         
+                  END-EVALUATE.                                                 
+       499N-GUARANTEE-EXIT.   EXIT.                                             
+      *                                                                         
+       499-NORWAY-BUDBIL.                                                       
+435900     MOVE ORH-COMPANY            TO TB-RTE-CO.                            
+436000     MOVE '**'                   TO TB-RTE-SF.                            
+436100     MOVE WS-CARR-CODE(3:2)      TO TB-RTE-CC.                            
+436100                                                                          
+436200     EVALUATE TRUE                                                        
+           WHEN WS-NORWAY-FREIGHT-TO-ZONE01                             DMA96336
+               MOVE '01'               TO TB-RTE-ZONE                           
+           WHEN WS-NORWAY-FREIGHT-TO-ZONE02                             DMA96336
+               MOVE '02'               TO TB-RTE-ZONE                           
+           WHEN OTHER                                                           
+               MOVE '00'               TO TB-RTE-ZONE                           
+436300     END-EVALUATE.                                                        
+436400*                                                                         
+436500     CALL 'SYU510'           USING TB-RATE-NAME-IA.                       
+436600     IF  NOT TB-RTE-NORESP                                                
+               MOVE ZERO TO TB-RTE-UNIT1  TB-RTE-BASE-RATE.                     
+                                                                                
+436700     COMPUTE WS-NOR-FREIGHT-CUST                                          
+436800          = (TB-RTE-BASE-RATE * WS-CUST-FRT-DISC-PERC).                   
+436700     COMPUTE WS-NOR-FREIGHT-IM                                            
+436800          = (TB-RTE-BASE-RATE * WS-FRT-DISC-PERC).                        
+434800                                                                          
+       499-BUDBILL-EXIT.   EXIT.                                                
+434800                                                                          
+       499-NORWAY-FEDRIKSEN.                                                    
+      *****  ZIP MUST BE IN THE ZIPCODE TABLE                                   
+           IF NOT WS-NORWAY-FREIGHT-FE-ZONE01                                   
+               GO TO 499-FEDRIKSEN-EXIT.                                        
+435900     MOVE ORH-COMPANY            TO TB-RTE-CO.                            
+436000     MOVE '**'                   TO TB-RTE-SF.                            
+436100     MOVE WS-CARR-CODE(3:2)      TO TB-RTE-CC.                            
+           IF WS-CARR-CODE(3:2) EQUAL 'FV'                                      
+               MOVE '01'               TO TB-RTE-ZONE                           
+           ELSE                                                                 
+               MOVE '01'               TO TB-RTE-ZONE                           
+               IF WS-HOLD-RTE-WEIGHT >= 500                                     
+                   MOVE '02'           TO TB-RTE-ZONE.                          
+436400*                                                                         
+436500     CALL 'SYU510'           USING TB-RATE-NAME-IA.                       
+436600     IF  NOT TB-RTE-NORESP                                                
+               MOVE ZERO TO WS-NOR-FREIGHT-IM                                   
+                            WS-NOR-FREIGHT-CUST                                 
+           ELSE                                                                 
+               PERFORM 499-FEDRIKSEN-CALC THRU 499-CALC-EXIT.                   
+       499-FEDRIKSEN-EXIT. EXIT.                                                
+434800                                                                          
+       499-FEDRIKSEN-CALC.                                                      
+436200     EVALUATE TRUE                                                        
+           WHEN WS-HOLD-RTE-WEIGHT <= TB-RTE-HIGH                               
+436700         COMPUTE WS-NOR-FREIGHT-CUST                                      
+436800              = (TB-RTE-BASE-RATE * WS-CUST-FRT-DISC-PERC)                
+436700         COMPUTE WS-NOR-FREIGHT-IM                                        
+436800              = (TB-RTE-BASE-RATE * WS-FRT-DISC-PERC)                     
+           WHEN WS-HOLD-RTE-WEIGHT <= TB-RTE-HIGH1                              
+436700         COMPUTE WS-NOR-FREIGHT-CUST                                      
+436800              = (TB-RTE-UNIT1 * WS-CUST-FRT-DISC-PERC)                    
+436700         COMPUTE WS-NOR-FREIGHT-IM                                        
+436800              = (TB-RTE-UNIT1 * WS-FRT-DISC-PERC)                         
+           WHEN WS-HOLD-RTE-WEIGHT <= TB-RTE-HIGH2                              
+436700         COMPUTE WS-NOR-FREIGHT-CUST                                      
+436800              = (TB-RTE-UNIT2 * WS-CUST-FRT-DISC-PERC)                    
+436700         COMPUTE WS-NOR-FREIGHT-IM                                        
+436800              = (TB-RTE-UNIT2 * WS-FRT-DISC-PERC)                         
+           WHEN WS-HOLD-RTE-WEIGHT <= TB-RTE-HIGH3                              
+436700         COMPUTE WS-NOR-FREIGHT-CUST                                      
+436800              = (TB-RTE-UNIT3 * WS-CUST-FRT-DISC-PERC)                    
+436700         COMPUTE WS-NOR-FREIGHT-IM                                        
+436800              = (TB-RTE-UNIT3 * WS-FRT-DISC-PERC)                         
+           WHEN OTHER                                                           
+               SUBTRACT 1000 FROM WS-HOLD-RTE-WEIGHT                            
+436700         COMPUTE WS-NOR-FREIGHT-CUST                                      
+436800              = (TB-RTE-UNIT3 +                                           
+436800                 TB-RTE-UNIT4 * WS-HOLD-RTE-WEIGHT)                       
+436800                 * WS-CUST-FRT-DISC-PERC                                  
+436700         COMPUTE WS-NOR-FREIGHT-IM                                        
+436800              = (TB-RTE-UNIT3 +                                           
+436800                 TB-RTE-UNIT4 * WS-HOLD-RTE-WEIGHT)                       
+436800                 * WS-FRT-DISC-PERC                                       
+436300     END-EVALUATE.                                                        
+434800                                                                          
+       499-CALC-EXIT.   EXIT.                                                   
+434800*                                                                         
+      *  "AIR JORDAN" THIS ISN'T                                                
+      *                                                                         
+       499-NORWAY-AIR.                                                          
+435900     MOVE ORH-COMPANY            TO TB-RTE-CO.                            
+436000     MOVE '**'                   TO TB-RTE-SF.                            
+436100     MOVE WS-CARR-CODE(3:2)      TO TB-RTE-CC.                            
+434800                                                                          
+436200     EVALUATE TRUE                                                        
+           WHEN WS-NORWAY-FREIGHT-AIR-ZONE01                                    
+               MOVE '01'               TO TB-RTE-ZONE                           
+           WHEN WS-NORWAY-FREIGHT-AIR-ZONE02                                    
+               MOVE '02'               TO TB-RTE-ZONE                           
+           WHEN WS-NORWAY-FREIGHT-AIR-ZONE03                                    
+               MOVE '03'               TO TB-RTE-ZONE                           
+           WHEN OTHER                                                           
+               MOVE '00'               TO TB-RTE-ZONE                           
+436300     END-EVALUATE.                                                        
+436400*                                                                         
+436500     CALL 'SYU510'           USING TB-RATE-NAME-IA.                       
+436600     IF  NOT TB-RTE-NORESP                                                
+               MOVE ZERO TO TB-RTE-UNIT1  TB-RTE-BASE-RATE.                     
+      *                                                                         
+436700     COMPUTE WS-NOR-FREIGHT-CUST                                          
+436700         = ((SM-NO-OF-CARTONS * TB-RTE-UNIT1 + TB-RTE-BASE-RATE)          
+436800             * WS-CUST-FRT-DISC-PERC).                                    
+436700     COMPUTE WS-NOR-FREIGHT-IM                                            
+436700         = ((SM-NO-OF-CARTONS * TB-RTE-UNIT1 + TB-RTE-BASE-RATE)          
+436800             * WS-FRT-DISC-PERC).                                         
+434800                                                                          
+       499-AIR-EXIT.  EXIT.                                                     
+      *                                                                         
+       499-NORWAY-TOL-PARCEL.                                           DMA98062
+436200     EVALUATE TRUE                                                DMA98062
+               WHEN WS-NORWAY-FREIGHT-TP-ZONE01                         DMA98062
+                  PERFORM 499-TOL-PARCEL-ZONE01                         DMA98062
+               WHEN WS-NORWAY-FREIGHT-TP-ZONE02                         DMA98062
+                  PERFORM 499-TOL-PARCEL-ZONE02                         DMA98062
+               WHEN WS-NORWAY-FREIGHT-TP-ZONE03                         DMA98062
+                  PERFORM 499-TOL-PARCEL-ZONE03                         DMA98062
+               WHEN WS-NORWAY-FREIGHT-TP-ZONE04                         DMA98062
+                  PERFORM 499-TOL-PARCEL-ZONE04                         DMA98062
+               WHEN WS-NORWAY-FREIGHT-TP-ZONE05                         DMA98062
+                  PERFORM 499-TOL-PARCEL-ZONE05                         DMA98062
+436300     END-EVALUATE.                                                DMA98062
+436700     COMPUTE WS-NOR-FREIGHT-IM                                    DMA98062
+436800          = (TB-RTE-BASE-RATE * WS-FRT-DISC-PERC).                DMA98062
+      * FOR TOLLPOST IN NORWAY THE CUSTOMER MULTIPLIER IS 15% DIRECT    SPE98331
+      * INCREASE ON THE FREIGHT WE PAY.                                 SPE98331
+           COMPUTE WS-NOR-FREIGHT-CUST                                  SPE98331
+                = (TB-RTE-BASE-RATE * WS-FRT-DISC-PERC                  SPE98331
+                                    * WS-CUST-FRT-DISC-PERC).           SPE98331
+                                                                        DMA98062
+       499-TOL-PARCEL-EXIT.  EXIT.                                      DMA98062
+                                                                        DMA98062
+       499-TOL-PARCEL-ZONE01.                                           DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 3                                DMA98062
+               MOVE 48.76    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 5                                DMA98062
+               MOVE 53       TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 10                               DMA98062
+               MOVE 67.84    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 15                               DMA98062
+               MOVE 82.68    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 20                               DMA98062
+               MOVE 96.46    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 25                               DMA98062
+               MOVE 115.54   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 30                               DMA98062
+               MOVE 134.62   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 36                               DMA98062
+               MOVE 159      TO  TB-RTE-BASE-RATE                       SPE98316
+           END-IF.                                                      DMA98062
+                                                                        DMA98062
+       499-TOL-PARCEL-ZONE02.                                           DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 3                                DMA98062
+               MOVE 53       TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 5                                DMA98062
+               MOVE 57.24    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 10                               DMA98062
+               MOVE 72.08    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 15                               DMA98062
+               MOVE 86.92    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 20                               DMA98062
+               MOVE 100.7    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 25                               DMA98062
+               MOVE 121.9    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 30                               DMA98062
+               MOVE 139.92   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 36                               DMA98062
+               MOVE 169.6    TO  TB-RTE-BASE-RATE                       SPE98316
+           END-IF.                                                      DMA98062
+                                                                        DMA98062
+       499-TOL-PARCEL-ZONE03.                                           DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 3                                DMA98062
+               MOVE 57.24    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 5                                DMA98062
+               MOVE 61.48    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 10                               DMA98062
+               MOVE 76.32    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 15                               DMA98062
+               MOVE 92.22    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 20                               DMA98062
+               MOVE 110.24   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 25                               DMA98062
+               MOVE 128.26   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 30                               DMA98062
+               MOVE 149.46   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 36                               DMA98062
+               MOVE 175.96   TO  TB-RTE-BASE-RATE                       SPE98316
+           END-IF.                                                      DMA98062
+                                                                        DMA98062
+       499-TOL-PARCEL-ZONE04.                                           DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 3                                DMA98062
+               MOVE 59.36    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 5                                DMA98062
+               MOVE 63.6     TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 10                               DMA98062
+               MOVE 79.5     TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 15                               DMA98062
+               MOVE 96.46    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 20                               DMA98062
+               MOVE 113.42   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 25                               DMA98062
+               MOVE 132.5    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 30                               DMA98062
+               MOVE 153.7    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 36                               DMA98062
+               MOVE 180.2    TO  TB-RTE-BASE-RATE                       SPE98316
+           END-IF.                                                      DMA98062
+                                                                        DMA98062
+       499-TOL-PARCEL-ZONE05.                                           DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 3                                DMA98062
+               MOVE 65.72    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 5                                DMA98062
+               MOVE 69.96    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 10                               DMA98062
+               MOVE 85.86    TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 15                               DMA98062
+               MOVE 103.88   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 20                               DMA98062
+               MOVE 120.84   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 25                               DMA98062
+               MOVE 142.04   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 30                               DMA98062
+               MOVE 162.18   TO  TB-RTE-BASE-RATE                       SPE98316
+           ELSE                                                         DMA98062
+           IF WS-HOLD-RTE-WEIGHT IS <= 36                               DMA98062
+               MOVE 190.8    TO  TB-RTE-BASE-RATE                       SPE98316
+           END-IF.                                                      DMA98062
+                                                                        DMA98062
+       499-NORWAY-ZNERTE.                                                       
+422700*                                                                         
+427600     MOVE ORH-COMPANY             TO WS-RTE-CO   WS-ZNE-CO.               
+427700     MOVE WS-CARR-CODE(3:2)       TO WS-RTE-CC   WS-ZNE-CC.               
+429800        PERFORM C75-READ-ORLZONE-GTEQ THRU C75-EXIT                       
+422700*                                                                         
+425700*** DOING 'GTEQ' READ, CHECK THAT CARRIER CODE DIDN'T CHANGE              
+425800*** FROM ORIGINAL KEY FOR READ                                            
+422700*                                                                         
+422700        IF (WS-ZNE-NORESP) AND (ZNE-CC = WS-ZNE-CC)                       
+                  IF (WS-TOL-NORWAY OR WS-TPD-NORWAY)                           
+430400                COMPUTE WS-TOL-ZONE  = ZNE-FROM-FRT1 +                    
+430500                                       ZNE-FROM-FRT2 +                    
+430600                                       ZNE-FROM-FRT3                      
+430700                MOVE  WS-TOL-ZONE (1:2)   TO WS-RTE-ZONE                  
+430900                MOVE  WS-TOL-ZONE (3:1)   TO WS-RTE-FUTURE                
+431100            ELSE                                                          
+430700                MOVE  ZNE-ZONE            TO WS-RTE-ZONE                  
+430900                MOVE  SPACE               TO WS-RTE-FUTURE                
+431100        ELSE                                                              
+ 22700            GO TO 499-ZNERTE-EXIT.                                        
+                                                                                
+           MOVE WS-HOLD-RTE-WEIGHT         TO WS-HOLD-RTE-WEIGHT-CONV.  SPE98316
+           MOVE WS-HOLD-RTE-WEIGHT-CONV    TO WS-RTE-WEIGHT.            SPE98316
+432600     PERFORM C74-READ-ORLRTE-GTEQ THRU C74-EXIT.                          
+422700*                                                                         
+425700*** DOING 'GTEQ' READ, CHECK THAT CARRIER CODE DIDN'T CHANGE              
+425800*** FROM ORIGINAL KEY FOR READ                                            
+422700*                                                                         
+422700                                                                          
+432700     IF WS-RTE-NORESP AND                                                 
+ 22700         RTE-CC  EQUAL  ZNE-CC AND                                        
+ 22700         RTE-ZONE  EQUAL  WS-RTE-ZONE                             DMA97132
+432900           MOVE RTE-RATE         TO WS-HOLD-BASE-RATE                     
+                                                                        SPE98331
+                 IF WS-TOL-NORWAY AND WS-HOLD-RTE-WEIGHT >= 1000        SPE98331
+                    COMPUTE WS-HOLD-BASE-RATE =                         SPE98331
+                       (WS-HOLD-BASE-RATE / 100) *                      SPE98331
+                       (WS-HOLD-RTE-WEIGHT / 100)                       SPE98331
+                 ELSE                                                   SPE98331
+                    COMPUTE WS-HOLD-BASE-RATE =                         SPE98331
+                       (WS-HOLD-BASE-RATE / 100)                        SPE98331
+                 END-IF                                                 SPE98331
+433000                                                                          
+433400           COMPUTE WS-HOLD-RATE                                           
+433500                 = (WS-HOLD-BASE-RATE * WS-FRT-DISC-PERC)                 
+433600           MOVE WS-HOLD-RATE     TO WS-NOR-FREIGHT-IM.                    
+                                                                        SPE98331
+      * FOR TOLLPOST IN NORWAY THE CUSTOMER MULTIPLIER IS 15% DIRECT    SPE98331
+      * INCREASE ON THE FREIGHT WE PAY.                                 SPE98331
+                 IF WS-TOL-NORWAY                                       SPE98331
+                    COMPUTE WS-HOLD-RATE                                SPE98331
+                       = (WS-HOLD-BASE-RATE  * WS-FRT-DISC-PERC         SPE98331
+                                             * WS-CUST-FRT-DISC-PERC)   SPE98331
+                 ELSE                                                   SPE98331
+                    COMPUTE WS-HOLD-RATE                                SPE98331
+                       = (WS-HOLD-BASE-RATE  * WS-CUST-FRT-DISC-PERC)   SPE98331
+                 END-IF.                                                SPE98331
+                 MOVE WS-HOLD-RATE     TO WS-NOR-FREIGHT-CUST.          SPE98331
+                                                                        SPE98331
+       499-ZNERTE-EXIT.  EXIT.                                                  
+721635*                                                                         
+432500                                                                          
+       499-NORWAY-TOL-LOC-GUAR.                                                 
+           MOVE ZERO TO WS-NOR-FREIGHT-AMOUNT.                                  
+           EVALUATE TRUE                                                        
+              WHEN WS-HOLD-RTE-WEIGHT <= 100                                    
+                  COMPUTE WS-NOR-FREIGHT-AMOUNT =                               
+                       1.53 * WS-HOLD-RTE-WEIGHT                        SPE98316
+              WHEN WS-HOLD-RTE-WEIGHT <= 200                                    
+                  COMPUTE WS-NOR-FREIGHT-AMOUNT =                               
+                       1.13 * WS-HOLD-RTE-WEIGHT                        SPE98316
+              WHEN WS-HOLD-RTE-WEIGHT <= 400                                    
+                  COMPUTE WS-NOR-FREIGHT-AMOUNT =                               
+                       0.91 * WS-HOLD-RTE-WEIGHT                        SPE98316
+              WHEN OTHER                                                SPE98331
+                  COMPUTE WS-NOR-FREIGHT-AMOUNT =                               
+                       0.69 * WS-HOLD-RTE-WEIGHT                        SPE98316
+           END-EVALUATE.                                                        
+434800                                                                          
+      * FOR TOLLPOST IN NORWAY THE CUSTOMER MULTIPLIER IS 15% DIRECT    SPE98331
+      * INCREASE ON THE FREIGHT WE PAY.                                 SPE98331
+436700     COMPUTE WS-NOR-FREIGHT-IM                                            
+436700         =     WS-NOR-FREIGHT-AMOUNT                                      
+436800             * WS-FRT-DISC-PERC.                                          
+           IF WS-TOL-NORWAY                                             SPE98331
+              COMPUTE WS-NOR-FREIGHT-CUST                               SPE98331
+                    = WS-NOR-FREIGHT-AMOUNT                             SPE98331
+                         * WS-FRT-DISC-PERC                             SPE98331
+                         * WS-CUST-FRT-DISC-PERC                        SPE98331
+           ELSE                                                         SPE98331
+              COMPUTE WS-NOR-FREIGHT-CUST                               SPE98331
+                    = WS-NOR-FREIGHT-AMOUNT                             SPE98331
+                         * WS-CUST-FRT-DISC-PERC                        SPE98331
+           END-IF.                                                      SPE98331
+434800                                                                          
+       499-TOL-LOCAL-EXIT.    EXIT.                                             
+435100                                                                          
+432300 499-NORWAY-MIN-FREIGHT.                                                  
+           IF WS-TOL-NORWAY OR WS-TPD-NORWAY                                    
+429400       IF ((SM-NO-OF-CARTONS > 1) OR (WS-HOLD-RTE-WEIGHT >= 36))  DMA98062
+               IF  WS-NORWAY-LOCAL-ZIPCODE                                      
+                   IF WS-NOR-FREIGHT-IM < 86                            SPE98316
+                       MOVE 86 TO WS-NOR-FREIGHT-IM                     SPE98316
+                       IF ORSH-SHIP-NBR > 1                             DMA97049
+                           MOVE 86 TO WS-NOR-FREIGHT-CUST               SPE98316
+                       ELSE                                             DMA97049
+                           MOVE 94   TO WS-NOR-FREIGHT-CUST             SPE98316
+                       END-IF                                           DMA98062
+                   END-IF                                               DMA98062
+               END-IF                                                   DMA98062
+             ELSE                                                       DMA98062
+               IF  WS-NORWAY-LOCAL-ZIPCODE                              DMA98062
+                   IF WS-NOR-FREIGHT-IM < 46                            SPE98316
+                       MOVE 46 TO WS-NOR-FREIGHT-IM                     SPE98316
+                       IF ORSH-SHIP-NBR > 1                             DMA98062
+                           MOVE 46 TO WS-NOR-FREIGHT-CUST               SPE98316
+                       ELSE                                             DMA98062
+                           MOVE 50   TO WS-NOR-FREIGHT-CUST             SPE98316
+                       END-IF                                           DMA98062
+                   END-IF                                               DMA98062
+               ELSE                                                     DMA98062
+                   IF WS-NOR-FREIGHT-IM < 53                            SPE98316
+                       MOVE 53 TO WS-NOR-FREIGHT-IM                     SPE98316
+                       IF ORSH-SHIP-NBR > 1                             DMA98062
+                           MOVE 53 TO WS-NOR-FREIGHT-CUST               SPE98316
+                       ELSE                                             DMA98062
+                           MOVE 58   TO WS-NOR-FREIGHT-CUST             SPE98316
+                       END-IF                                           DMA98062
+                   END-IF.                                              DMA98062
+                                                                                
+432300 499-MIN-EXIT.      EXIT.                                                 
+                                                                        SPE99028
+       499-NORWAY-BEDRIFTSPAKKE.                                        SPE99028
+      * BILLING BY INDIVIDUAL PACKAGE WEIGHT FOR BEDRIFTSPAKKE.         SPE99028
+      * READS THROUGH THE WORKING STORAGE ARRAY WS-BEDRIFTSPAKKE-WGT    SPE99028
+      * ACCESSING THE ORLRTE FILE FOR THE PRICE FOR THE INDIVIDUAL      SPE99028
+      * CARTONS BASED ON THE ORLZONE ENTRY AND TOTALS THE               SPE99028
+      * INDIVIDUAL COSTS TO GIVE THE FREIGHT COST AS IT GOES.           SPE99028
+                                                                        SPE99028
+           SET WS-BEDRIFTSPAKKE-NO-ERRORS TO TRUE.                      SPE99028
+           MOVE ORH-COMPANY               TO WS-RTE-CO                  SPE99028
+                                             WS-ZNE-CO.                 SPE99028
+           MOVE WS-CARR-CODE(3:2)         TO WS-RTE-CC                  SPE99028
+                                             WS-ZNE-CC.                 SPE99028
+           PERFORM C75-READ-ORLZONE-GTEQ THRU C75-EXIT.                 SPE99028
+                                                                        SPE99028
+      * CHECK THAT WE HAVEN'T READ OFF THE END OF CARRIER CODES,        SPE99028
+      * DROP THROUGH IF WE HAVE.                                        SPE99028
+                                                                        SPE99028
+           IF (WS-ZNE-NORESP) AND (ZNE-CC = WS-ZNE-CC)                  SPE99028
+              MOVE  ZNE-ZONE              TO WS-RTE-ZONE                SPE99028
+              MOVE  SPACE                 TO WS-RTE-FUTURE              SPE99028
+           ELSE                                                         SPE99028
+              SET WS-BEDRIFTSPAKKE-ERROR  TO TRUE                       SPE99028
+           END-IF.                                                      SPE99028
+                                                                        SPE99028
+      * PERFORM THE 499-CALC-BEDRIFTSPAKKE-COST PARAGRAPH FOR EACH      SPE99028
+      * CARTON ACCESSING THE ORLRTE FILE FOR EACH. THIS IS DONE         SPE99028
+      * RATHER THAN BUILDING A TABLE OF VALUES AS THE NUMBER OF BANDS   SPE99028
+      * MAY VARY BUT IS PRESENTLY AT 9 AND THE NUMBER OF CARTONS        SPE99028
+      * PER ORDER IS PROBABLY GOING TO BE LESS THAN 9 IN THE MAJORITY   SPE99028
+      * OF CASES, HENCE THIS WAY HAS LESS EXPECTED I/O OPERATIONS.      SPE99028
+                                                                        SPE99028
+           MOVE ZEROS                     TO WS-BEDRIFTSPAKKE-CUST      SPE99028
+                                             WS-BEDRIFTSPAKKE-IM.       SPE99028
+                                                                        SPE99028
+           PERFORM 499-CALC-BEDRIFTSPAKKE-COST                          SPE99028
+              THRU 499-BEDRIFTSPAKKE-COST-EXIT                          SPE99028
+                VARYING WS-BEDRIFTSPAKKE-SUBSCRIPT                      SPE99028
+                  FROM 1 BY 1 UNTIL WS-BEDRIFTSPAKKE-SUBSCRIPT          SPE99028
+                                    > WS-BEDRIFTSPAKKE-INDEX            SPE99028
+                    OR WS-BEDRIFTSPAKKE-ERROR.                          SPE99028
+                                                                        SPE99028
+           IF WS-BEDRIFTSPAKKE-NO-ERRORS                                SPE99028
+              MOVE WS-BEDRIFTSPAKKE-CUST  TO WS-NOR-FREIGHT-CUST        SPE99028
+              MOVE WS-BEDRIFTSPAKKE-IM    TO WS-NOR-FREIGHT-IM          SPE99028
+           END-IF.                                                      SPE99028
+                                                                        SPE99028
+       499-BEDRIFTSPAKKE-EXIT. EXIT.                                    SPE99028
+                                                                        SPE99028
+       499-CALC-BEDRIFTSPAKKE-COST.                                     SPE99028
+      * CALCULATE FREIGHT COST FOR CARTON NUMBER                        SPE99028
+      * WS-BEDRIFTSPAKKE-SUBSCRIPT BY ACCESSING ORLRTE.                 SPE99028
+      * NOTE RESET OF ORLRATE KEY AT END OF                             SPE99028
+      * CALC-BEDRIFTSPAKKE-COST FOR NEXT ITERATION.                     SPE99028
+                                                                        SPE99028
+           MOVE WS-BEDRIFTSPAKKE-WGT(WS-BEDRIFTSPAKKE-SUBSCRIPT)        SPE99028
+                                         TO WS-HOLD-RTE-WEIGHT-CONV.    SPE99028
+           MOVE WS-HOLD-RTE-WEIGHT-CONV  TO WS-RTE-WEIGHT.              SPE99028
+           PERFORM C74-READ-ORLRTE-GTEQ THRU C74-EXIT.                  SPE99028
+                                                                        SPE99028
+      * CHECK THAT WE HAVEN'T READ OFF THE END OF CARRIER CODES,        SPE99028
+      * DROP THROUGH IF WE HAVE. OTHERWISE                              SPE99028
+      * CALCULATE CUST AND IM RATES AND ADD TO RUNNING TOTALS           SPE99028
+                                                                        SPE99028
+           IF WS-RTE-NORESP AND                                         SPE99028
+               RTE-CC = ZNE-CC AND RTE-ZONE = WS-RTE-ZONE               SPE99028
+                 MOVE RTE-RATE           TO WS-HOLD-BASE-RATE           SPE99028
+                 COMPUTE WS-HOLD-BASE-RATE = (WS-HOLD-BASE-RATE / 100)  SPE99028
+                 COMPUTE WS-HOLD-RATE                                   SPE99028
+                       = (WS-HOLD-BASE-RATE  * WS-CUST-FRT-DISC-PERC)   SPE99028
+                 ADD WS-HOLD-RATE        TO WS-BEDRIFTSPAKKE-CUST       SPE99028
+                 COMPUTE WS-HOLD-RATE                                   SPE99028
+                       = (WS-HOLD-BASE-RATE * WS-FRT-DISC-PERC)         SPE99028
+                 ADD WS-HOLD-RATE        TO WS-BEDRIFTSPAKKE-IM         SPE99028
+           ELSE                                                         SPE99028
+              SET WS-BEDRIFTSPAKKE-ERROR TO TRUE                        SPE99028
+           END-IF.                                                      SPE99028
+                                                                        SPE99028
+       499-BEDRIFTSPAKKE-COST-EXIT. EXIT.                               SPE99028
+      *                                                                 CMB99270
+       499-NORWAY-LINJEGODS.                                            CMB99270
+           MOVE +0                        TO  WS-NOR-FREIGHT-IM         CMB99270
+                                              WS-NOR-FREIGHT-CUST       CMB99270
+      * CARRIER CODES LL (LOCAL) AND LP (PROVINCIAL) ARE BILLED BY      CMB99270
+      * TOTAL SHIPMENT WEIGHT AND ZONE.                                 CMB99270
+                                                                        CMB99270
+           IF NOT WS-LJE-NORWAY-HOME                                    CMB99270
+              MOVE ORH-COMPANY            TO WS-RTE-CO                  CMB99270
+                                             WS-ZNE-CO                  CMB99270
+              MOVE '**'                   TO WS-RTE-SF                  WGW00143
+                                             WS-ZNE-SF                  WGW00143
+              IF ORSH-NUM-OF-CARTONS  NOT NUMERIC                       WGW00143
+                   MOVE ZEROES TO  ORSH-NUM-OF-CARTONS                  WGW00143
+              END-IF                                                    WGW00143
+              IF WS-LJE-NORWAY-PROV                                     WGW00143
+      * TEST ORSH-NUM-OF-CARTONS TO MAKE S RELEASE WORK                 WGW00143
+      * TEST SM-NO-OF-CARTONS    TO MAKE P RELEASE WORK                 WGW00143
+      * NEITHER WILL DO BOTH S AND P RELEASE                            WGW00143
+                 IF (ORSH-NUM-OF-CARTONS = 1                            WGW00143
+                     OR SM-NO-OF-CARTONS = 1 )                          WGW00143
+                    AND WS-HOLD-RTE-WEIGHT NOT > 30                     WGW00143
+                         MOVE '01'      TO WS-RTE-SF                    WGW00143
+                                           WS-ZNE-SF                    WGW00143
+                 ELSE                                                   WGW00143
+                         COMPUTE WS-HOLD-RTE-WEIGHT =                   WGW00143
+                                 WS-HOLD-RTE-WEIGHT * 1.5               WGW00143
+                 END-IF                                                 WGW00143
+              END-IF                                                    WGW00143
+              IF WS-LJE-NORWAY-EXPRESS                                  WGW00143
+                 IF (ORSH-NUM-OF-CARTONS = 1                            WGW00143
+                     OR SM-NO-OF-CARTONS = 1 )                          WGW00143
+                    AND WS-HOLD-RTE-WEIGHT NOT > 30                     WGW00143
+                         MOVE '01'      TO WS-RTE-SF                    WGW00143
+                                           WS-ZNE-SF                    WGW00143
+                 END-IF                                                 WGW00143
+              END-IF                                                    WGW00143
+              MOVE WS-CARR-CODE(3:2)      TO WS-RTE-CC                  CMB99270
+                                             WS-ZNE-CC                  CMB99270
+              MOVE ZEROES                 TO WS-ZNE-ZIP                 CMB99270
+              MOVE ORH-POSTAL-CODES(1:4)  TO WS-ZNE-ZIP(2:4)            CMB99270
+              PERFORM C75-READ-ORLZONE-GTEQ THRU C75-EXIT               CMB99270
+              IF NOT WS-ZNE-NORESP OR ZNE-CC NOT = WS-ZNE-CC            CMB99270
+                 GO TO 499-LJE-EXIT                                     CMB99270
+              END-IF                                                    CMB99270
+              MOVE WS-HOLD-RTE-WEIGHT      TO WS-HOLD-RTE-WEIGHT-CONV   CMB99270
+              MOVE WS-HOLD-RTE-WEIGHT-CONV TO WS-RTE-WEIGHT             CMB99270
+              MOVE ZNE-LJE-ZONE            TO WS-RTE-ZONE               CMB99270
+432600        PERFORM C74-READ-ORLRTE-GTEQ THRU C74-EXIT                CMB99270
+              IF WS-RTE-NORESP                                          CMB99270
+                 IF WS-LJE-NORWAY-PROV AND                              CMB99270
+                    WS-HOLD-RTE-WEIGHT-CONV > 1000                      CMB99270
+                    COMPUTE WS-HOLD-RTE-WEIGHT-CONV ROUNDED =           WGW00143
+                            WS-HOLD-RTE-WEIGHT-CONV / 100               CMB99270
+                    MOVE RTE-RATE        TO WS-HOLD-RATE                CMB99270
+                    COMPUTE WS-HOLD-RATE = WS-HOLD-RATE / 100           CMB99270
+                    COMPUTE WS-NOR-FREIGHT-IM =                         CMB99270
+                          WS-HOLD-RATE * WS-HOLD-RTE-WEIGHT-CONV        CMB99270
+                    COMPUTE WS-NOR-FREIGHT-CUST =                       WGW00143
+                          WS-NOR-FREIGHT-IM * 1.3                       TLC00220
+                 ELSE                                                   CMB99270
+                    IF WS-LJE-NORWAY-LOCAL AND                          CMB99270
+                       WS-HOLD-RTE-WEIGHT-CONV > 500                    CMB99270
+                       MOVE RTE-RATE     TO WS-HOLD-RATE                CMB99270
+                       COMPUTE WS-HOLD-RATE = WS-HOLD-RATE / 100        CMB99270
+                       COMPUTE WS-NOR-FREIGHT-IM =                      CMB99270
+                             WS-HOLD-RATE * WS-HOLD-RTE-WEIGHT-CONV     CMB99270
+                       COMPUTE WS-NOR-FREIGHT-CUST =                    WGW00143
+                                    WS-NOR-FREIGHT-IM * 1.3             TLC00220
+                    ELSE                                                CMB99270
+                    IF WS-LJE-NORWAY-EXPRESS AND                        WGW00143
+                       WS-RTE-SF = '**'                                 WGW00143
+                       MOVE RTE-RATE     TO WS-HOLD-RATE                WGW00143
+                       COMPUTE WS-HOLD-RATE = WS-HOLD-RATE / 100        WGW00143
+                       COMPUTE WS-NOR-FREIGHT-IM =                      WGW00143
+                             (RTE-CUSTOMER-CHG-R                        WGW00143
+                                          * WS-HOLD-RTE-WEIGHT)         WGW00143
+                                          + WS-HOLD-RATE                WGW00143
+                       COMPUTE WS-NOR-FREIGHT-CUST =                    WGW00143
+                                    WS-NOR-FREIGHT-IM * 1.2             WGW00143
+                    ELSE                                                WGW00143
+                       MOVE RTE-RATE           TO WS-HOLD-RATE          CMB99270
+                       COMPUTE WS-HOLD-RATE = WS-HOLD-RATE / 100        CMB99270
+                       MOVE WS-HOLD-RATE       TO WS-NOR-FREIGHT-IM     CMB99270
+                       COMPUTE WS-NOR-FREIGHT-CUST =                    WGW00143
+                                    WS-NOR-FREIGHT-IM * 1.3             TLC00220
+                       IF WS-LJE-NORWAY-EXPRESS                         TLC00220
+                          COMPUTE WS-NOR-FREIGHT-CUST =                 TLC00220
+                                       WS-NOR-FREIGHT-IM * 1.2          TLC00220
+                       END-IF                                           TLC00220
+                     END-IF                                             WGW00178
+                    END-IF                                              CMB99270
+                 END-IF                                                 CMB99270
+              END-IF                                                    CMB99270
+           ELSE                                                         CMB99270
+      * HOME DELIVERY CHARGES ARE DECIDED ON INDIVIDUAL CASES. HOWEVER, CMB99270
+      * THERE IS A STANDARD PRICE PER ORDER, HELD ON TBXRATE.           CMB99270
+              MOVE ORH-COMPANY         TO TB-RTE-CO                     CMB99270
+              MOVE '**'                TO TB-RTE-SF                     CMB99270
+              MOVE WS-CARR-CODE(3:2)   TO TB-RTE-CC                     CMB99270
+              MOVE '**'                TO TB-RTE-ZONE                   CMB99270
+              CALL 'SYU510'        USING TB-RATE-NAME-IA                CMB99270
+              IF TB-RTE-NORESP                                          CMB99270
+                 MOVE TB-RTE-BASE-RATE TO WS-NOR-FREIGHT-IM             CMB99270
+                 MOVE TB-RTE-UNIT1     TO WS-NOR-FREIGHT-CUST           CMB99270
+              END-IF                                                    CMB99270
+           END-IF.                                                      CMB99270
+       499-LJE-EXIT. EXIT.                                              CMB99270

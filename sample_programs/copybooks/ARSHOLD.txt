@@ -1,0 +1,742 @@
+      ******************************************************************        
+      *     NAME: ARSHOLD                                                       
+      *           CLONED FROM SYHHOLDT FOR USE                                  
+      *           IN CREDIT SUBROUTINES ARVHLD & ARUHLD.                        
+      *-----------------------------------------------------------------        
+      *     FUNCTION: FIRST, ICP554MD READS THROUGH THE CUSTOMER HEADERS        
+      *               AND ZEROES OUT ALL CU-OPEN-ORDERS FIELDS.  AS THE         
+      *               PROGRAM ICP555MD DETERMINES SHIPPABLE QUANTITY FOR        
+      *               EACH ORDER, IT THEN ADDS THAT OPEN ORDER AMOUNT TO        
+      *               THE CU-OPEN-ORDERS FIELD FOR THAT CUSTOMER, SO            
+      *               THAT CREDIT HOLD PROCESSING IN THIS ROUTINE IS            
+      *               CUMULATIVE, FIFO.  ANY ORDER WITH A SHIPPABLE             
+      *               AMOUNT ENTERS THIS LOGIC.  ORDERS THAT HAVE BEEN          
+      *               PRINTED OR VOIDED BYPASS ANY FURTHER PROCESSING.          
+      *               CREDIT MEMOS, MEMO ORDERS, AND FUTURE ORDERS ALSO         
+      *               DROP OUT AND ARE NOT PROCESSED FURTHER.  ALL              
+      *               ORDERS THAT HAVE A CREDIT HOLD VALUE SET FOR THEM         
+      *               IN THIS ROUTINE WILL HAVE A CREDIT HOLD RECORD            
+      *               CREATED FOR THEM WHICH WILL SHOW ON THE                   
+      *               APPROPRIATE ORDER REVIEW SCREEN.  IF THE CUSTOMER         
+      *               IS ON "HARD-9" CREDIT HOLD, THEN THE ORDER IS PUT         
+      *               ON CREDIT HOLD, "C".  IF THE ORDER HAS A BILL-TO          
+      *               SUFFIX OF "111", THEN IT IS PUT ON CREDIT HOLD,           
+      *               "C".  IF THE CUSTOMER HAS A CREDIT OF "4", THEN           
+      *               THE ORDER IS PUT ON PAST-DUE/OVER-LIMIT HOLD, "B".        
+      *               IF THE CUSTOMER HAS A CREDIT OF "5", THEN THE             
+      *               ORDER IS PUT ON PAST-DUE HOLD, "P".  IF THE               
+      *               CUSTOMER HAS A CREDIT OF "6", THEN THE ORDER IS           
+      *               PUT ON OVER-LIMIT HOLD, "L".  FOR ANY ORDERS THAT         
+      *               HAVE NOT BEEN SET FOR CREDIT HOLD THE CUSTOMER'S          
+      *               OUTSTANDING BALANCE IS COMPUTED AND A/R RISK CLASS        
+      *               LIMIT MULTIPLIER IS SET.  THE BALANCE IS THE SUM          
+      *               OF ALL AGINGS FOR THE CUSTOMER AND ANY SHIPPABLE          
+      *               QUANTITIES PREVIOUSLY PROCESSED.  THE CUSTOMER'S          
+      *               OUTSTANDING BALANCE IS THEN COMPARED TO THE               
+      *               CUSTOMER'S ADJUSTED CREDIT LIMIT.  IF THE BALANCE         
+      *               IS GREATER, THEN THE ORDER IS PUT ON OVER-LIMIT           
+      *               HOLD, "B".  IF THE ORDER IS ON TAG-HOLD, THEN SET         
+      *               IT FOR TAG-HOLD, "G", SO THAT A REVIEW RECORD WILL        
+      *               BE CREATED FOR THE ORDER.  IF THE ORDER IS ON             
+      *               PENDING-HOLD, THEN SET IT FOR PENDING-HOLD, "N",          
+      *               SO A REVIEW RECORD WILL BE CREATED FOR THE ORDER.         
+      *-----------------------------------------------------------------        
+      *      PURPOSE: THIS ROUTINE WILL DO ALL PROCESSING FOR DECIDING          
+      *               HOW TO PUT AN ORDER ON CREDIT HOLD AS FOLLOWS:            
+      *                                                                         
+      *                SET FLAG SO THAT ALL ORDERS ARE CHECKED FOR HOLD.        
+      *                                                                         
+      *                BYPASS CREDIT HOLD TEST LOGIC IF THE ORDER IS A          
+      *                  THE ORDER HAS BEEN PRINTED,                            
+      *                  CREDIT-MEMO ORDER,                                     
+      *                  MEMO ORDER,                                            
+      *                  FUTURE ORDER,                                          
+      *                  OR THE ORDER HAS BEEN VOIDED                           
+      *                  ORDER-DATE-RELEASED IS THAN 7 DAYS OLD.                
+      *                                                                         
+      *                IF CHECK-ORDER-HOLD-STATUS                               
+      *                  IF CUSTOMER-HEADER-CREDIT-HOLD                         
+      *                    PUT ORDER ON CREDIT HOLD.                            
+      *                                                                         
+      *                IF CHECK-ORDER-HOLD-STATUS                               
+      *                  IF CUSTOMER-CREDIT-CODE = '4'                          
+      *                    PUT ORDER ON                                         
+      *                      BOTH-PAST-DUE-OVER-LIMIT CREDIT HOLD.              
+      *                                                                         
+      *                IF CHECK-ORDER-HOLD-STATUS                               
+      *                  IF CUSTOMER-CREDIT-CODE = '5'                          
+      *                    PUT ORDER ON PAST-DUE CREDIT HOLD.                   
+      *                                                                         
+      *                IF CHECK-ORDER-HOLD-STATUS                               
+      *                  IF CUSTOMER-CREDIT-CODE = '6'                          
+      *                    PUT ORDER ON OVER-LIMIT CREDIT HOLD.                 
+      *                                                                         
+      *                MOVE ZERO TO CUSTOMER-ORDER-BALANCE.                     
+      *                                                                         
+      *                COMPUTE CUSTOMER-ORDER-BALANCE.                          
+      *                                                                         
+      *                CHECK CUSTOMERS RISK CLASS AND USE THESE RULES           
+      *                  TO SEE IF ORDER PUTS CUSTOMER OVER CREDIT LIMIT        
+      *                                                                         
+      *                  RISK                                                   
+      *                  CLASS  OVER LIMIT                                      
+      *                  ----- ---------------------------------------          
+      *                    A    IF CREDIT LIMIT IS EXCEEDED                     
+      *                    B    IF CREDIT LIMIT + 10% IS EXCEEDED               
+      *                    C    IF CREDIT LIMIT + 15% IS EXCEEDED               
+      *                    D    IF CREDIT LIMIT + 20% IS EXCEEDED               
+      *                    E    IF CREDIT LIMIT + 25% IS EXCEEDED               
+      *                                                                         
+      *                IF CHECK-ORDER-HOLD-STATUS                               
+      *                  IF THE CUSTOMER DOES NOT HAVE UNLIMITED CREDIT         
+      *                    IF CHECK-CREDIT-LIMIT                                
+      *                      COMPUTE CUSTOMER-ORDER-BALANCE                     
+      *                      COMPUTE AVAILABLE CREDIT USING CHART               
+      *                      IF OVER CREDIT-LIMIT                               
+      *                        PUT ORDER ON OVER-LIMIT CREDIT HOLD.             
+      *                                                                         
+      *                IF ORDER STATUS = 'G'                                    
+      *                   SET TAG HOLD CREDIT HOLD STATUS.                      
+      *                                                                         
+      *                IF ORDER STATUS = 'N'                                    
+      *                   SET PENDING CREDIT HOLD STATUS.                       
+      *                                                                         
+      *=================================================================        
+      * REVISIONS:                                                              
+      *------+-------+------+-------------------------------------------        
+      * PTE# | DATE  | PGMR | DESCRIPTION                                       
+      *------+-------+------+-------------------------------------------        
+      * 04/04/25       VYA  | CREDIT ENGINE: ALLOW FL HOLD FOR FLOORING VYA25094
+      *                     | SUFFIX IF TB-CPO7-CRDT-CHK-API AND        VYA25094
+      *                     | CUOF-CRED-CHK-API ARE ENABLED             VYA25094
+      * 02/10/23       AP3  | CISCO SERIAL# & WARRANTY CHANGES          AP323041
+      *                     |  - PROCESS HOLD LOGIC FOR CISCO WARRANTY  AP323041
+      *                     |    ORDER EVEN IF PO IS LINKED TO SO.      AP323041
+      * 06/10/22       AP3  | CNP - LOGIC TO PROCESS HOLD LOGIC FOR     AP322161
+      *                     | B2B ORDER EVEN IF PO IS LINKED TO SO.     AP322161
+      * 05/07/21       TGF  | ADD LOGIC TO CONFIRM ORDER IS SHIPPABLE   TGF21127
+      *      | 19277 | SMP  | CREDIT PROCESS OPTIMIZATION PROJECT       SMP19277
+      *      |       |      | CHANGES MADE IN CREDIT HOLD CHECK         SMP19277
+      *      |       |      | NOT TO CONSIDER THE SALES-ORDER TOTAL     SMP19277
+      *      |       |      | OR CREDIT HOLD-TOTAL ACCUMULCATED IN      SMP19277
+      *      |       |      | NIGHTLY ORDER BATCH PROCESS               SMP19277
+      *      | 19221 | JKY  | CR1956-CR CODE-5 LOGIC CHANGE,FOR PUTTING JKY19221
+      *      |       |      | ALL ORDERS FOR CUSTOMERS WITH CR CODE-5   JKY19221
+      *      |       |      | ON CREDIT HOLD                            JKY19221
+      *      | 19221 | NXR  | SKIP THE CREDIT LOGIC FOR DIRECT ORDER    SMP19221
+      *      |       |      | HAVING THE PO NUMBER                      SMP19221
+      *      | 19193 | AP3  | PORTUGAL CONVERSION                       APX19193
+      *      | 18012 | MYR  | SE24681-NEW AGING BUCKETS: MODIFIED THE   MYR18012
+      *      |       |      | WS-PAST-DUE COMPUTATION, SUMS CU-AGE-3    MYR18012
+      *      |       |      | TO CU-AGE-6 AS CU-AGE-2 WAS SPLIT IN 2    MYR18012
+      *      | 17198 | TGF  | INDIA GST - ADD DEBIT MEMO                TGF17198
+      *      | 13109 | DAK  | ADD BRIGHT POINT INDIA                    RLH13109
+      * 65738| 09064 | DXB  | BYPASS PAST DUE CREDIT CHECK FOR PAST     DXB09071
+      *      | 09064 | DXB  | DUE RISK CODE OF 'S'                      DXB09071
+      *      | 08017 | TGF  | CHANGE TO EXECUTE 3000-BYPASS INSTEAD OF  TGF08017
+      *      |       |      | 3000-EXIT.                                TGF08017
+      * 40639¦ 06070 | SCT  | "CF" HOLD BEFORE PDC CHECK FOR INDIA      SCT06100
+      * 40639¦ 06061 | KLM  | ADDED SECURITY CHECK FOR INDIA            KLM06061
+      *        06019   KLM    UNCOMMENT LOGIC FOR INDIA C-FORM HOLD     MSI06018
+      *                JMW    DELETE FF  LOGICS FOR SPAIN               JMW05342
+      * 40639¦ 05319 | TGF  | MOVED APAC CHECK PARAGRAPH                TGF05319
+      * 40639¦ 05314 | TRR  | MOVED APAC CHECK PARAGRAPH                TRR05314
+      * 40639¦ 05277 | TRR  | CLONED FROM SYHHOLDT                      TRR05277
+      *      ¦       |      | WITH ADDITIONS FOR TECH PAC APAC/INDIA    TRR05277
+      *=================================================================        
+                                                                                
+           IF TB-CPO7-CNP-B2B-HOLD-PROCESS                              AP322161
+              IF WS-ORSHEDOF-NORESP                                     AP322161
+                 CONTINUE                                               AP322161
+              ELSE                                                      AP322161
+                 PERFORM 110-GET-ORSHEDOF                               AP322161
+                    THRU 110-EXIT                                       AP322161
+              END-IF                                                    AP322161
+           END-IF.                                                      AP322161
+                                                                        AP322161
+           MOVE ORH-COMPANY            TO WS-ORSHED-CO.                 AP323041
+           MOVE ORH-BR-NBR             TO WS-ORSHED-BR.                 AP323041
+           MOVE ORH-ORDER-NBR          TO WS-ORSHED-NBR.                AP323041
+           MOVE ORSH-DIST-NBR          TO WS-ORSSHH-DIST.               AP323041
+           MOVE ORSH-SHIP-NBR          TO WS-ORSSHH-SHIP.               AP323041
+           MOVE '0'                    TO WS-ORSSHHOF-KEY-VALUE.        AP323041
+           PERFORM 1206-GU-ORSSHHOF.                                    AP323041
+           IF WS-ORSSHHOF-NORESP                                        AP323041
+              MOVE ORSHOF-ORSSHHOF     TO ORSHOF-ORSSHHOF-0             AP323041
+           END-IF.                                                      AP323041
+                                                                        AP323041
+           MOVE 'Y'                    TO WS-ORDER-HOLD-SW.                     
+           MOVE 'T'                    TO TB-CPO-CHECK-BY-LIMIT.                
+      * INTIALIZE WORKING STORAGE                                               
+           MOVE ORH-CUST-ORDER-NBR     TO WS-DEBIT-IND.                         
+                                                                                
+      *---------------------------------------------------------------*         
+      *  BYPASS WEB ORDERS                                                      
+      *---------------------------------------------------------------*         
+           IF ORSH-IM-ONLINE-HOLD-STATUS                                        
+              MOVE ' '                 TO WS-ORDER-HOLD-SW                      
+              GO TO 3000-BYPASS.                                        TGF08017
+                                                                                
+      *---------------------------------------------------------------*         
+      *  BYPASS WEB CREDIT CARD CHECKING                                        
+      *---------------------------------------------------------------*         
+           IF ARX-CICS-PROCESSING                                               
+              IF ORSH-AUTH-CREDIT-CARD-SW  =  'W'                               
+                 MOVE ' '              TO WS-ORDER-HOLD-SW                      
+                 GO TO 3000-BYPASS                                      TGF08017
+              END-IF                                                            
+           ELSE                                                                 
+              IF ORSH-AUTH-CREDIT-CARD-SW  =  'W' OR 'Y'                        
+                 MOVE ' '              TO WS-ORDER-HOLD-SW                      
+                 GO TO 3000-BYPASS                                      TGF08017
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+      *---------------------------------------------------------------*         
+      *  BYPASS IF ORSH-BYPASS-SELL-CR-HOLD EQUALS 'Y'                          
+      *---------------------------------------------------------------*         
+           IF ORSH-BYPASS-HOLD-LOGIC                                            
+           AND NOT CU-CR-HOLD                                                   
+               MOVE ' '                TO WS-ORDER-HOLD-SW                      
+               GO TO 3000-BYPASS.                                       TGF08017
+                                                                                
+      *---------------------------------------------------------------*         
+      *  BYPASS AU COD ORDER IF CUST NOT HARD-NINE                              
+      *---------------------------------------------------------------*         
+           IF ORH-COMPANY EQUAL        TO 'AU'                                  
+              IF ORH-COD-ORDER                                                  
+                 IF CU-CR-CODE  NOT =  '9'                                      
+                    MOVE ' '           TO WS-ORDER-HOLD-SW                      
+                    GO TO 3000-BYPASS.                                  TGF08017
+                                                                                
+      *---------------------------------------------------------------*         
+      *  BYPASS IF CREDIT/DEBIT MEMO, FUTURE PAYMENT, AND VOIDED                
+      *---------------------------------------------------------------*         
+           IF ORSH-MEMO-ORDER                                                   
+           OR ORSH-CREDIT-MEMO                                                  
+           OR ORSH-DEBIT-MEMO                                           TGF17198
+           OR ORSH-FUTURE-ORDER                                                 
+           OR ORSH-QUOTE-ORDER                                                  
+           OR ORSH-VOIDED                                                       
+           OR ORSH-BR-TRANSFER-ORDER                                            
+              MOVE ' '                 TO WS-ORDER-HOLD-SW                      
+              GO TO 3000-BYPASS.                                        TGF08017
+                                                                                
+      *---------------------------------------------------------------*         
+      *  BYPASS IF ORDER HAS BEEN PRINTED.                                      
+      *---------------------------------------------------------------*         
+           IF ORSH-PRINT-COUNT NUMERIC                                          
+              IF ORSH-PRINT-COUNT  >  ZERO                                      
+                 MOVE ' '              TO WS-ORDER-HOLD-SW                      
+                 GO TO 3000-BYPASS.                                     TGF08017
+                                                                                
+      *---------------------------------------------------------------*         
+      *  BYPASS IF COMPANY IS SET TO CHECK AT PRINT AND PRINT SWITCH            
+      *  IS SET TO NOT PRINT                                                    
+      *---------------------------------------------------------------*         
+           IF TB-CPO-CHECK-AT-PRINT                                             
+           AND ORSH-DO-NOT-PRINT                                                
+           AND NOT(ORSHOF-PO-B4-SERIAL)                                 AP323041
+              MOVE ' '                 TO WS-ORDER-HOLD-SW                      
+              GO TO 3000-BYPASS                                         TGF08017
+      * ISSUE FOR GERMANY - NON-SHIPPALBE ORDERS ARE GOING TO CREDIT            
+      * HOLD - SEEMS EMEA IS NOT SET TO CHECK CREDIT AT PRINT SO                
+      * THIS MIGHT CORRECT THE REPORTED ISSUE                                   
+           ELSE                                                                 
+              IF TB-CPO3-SHPBLE-CREDIT-CK                               TGF21127
+                 IF (ORSH-TOTAL-SHIP-QTY NUMERIC AND                    TGF21127
+                     ORSH-TOTAL-SHIP-QTY = ZERO)                        TGF21127
+                    MOVE ' '           TO WS-ORDER-HOLD-SW              TGF21127
+                    GO TO 3000-BYPASS                                   TGF21127
+                 END-IF                                                 TGF21127
+              END-IF                                                    TGF21127
+           END-IF.                                                      TGF21127
+      *---------------------------------------------------------------* SMP19221
+      *  CREDIT CHECKING IS NOT NEEDED FOR ORDERS WITH PO CREATED       SMP19221
+      *  AND NOT IN FLOORING ORDER                                      SMP19277
+      *  - BYPASS IF ORDER NUMBER HAVE PO ATTACHED                      SMP19221
+      *---------------------------------------------------------------* SMP19221
+      *ORSH-STATUS AND ORSH-HOLD-REASON > SPACES IS USED ALONG          AP323041
+      *WITH ORSHOF-PO-B4-SERIAL CHECK SO AS TO AVOID ORDER HOLD LOOP    AP323041
+           IF ORH-FLOOR-SUF               OR                            AP323041
+              (TB-CPO7-CNP-B2B-HOLD-PROCESS AND                         AP323041
+              ORHOF-NP-ORDER-BACK-2-BACK) OR                            AP323041
+              (ORSHOF-PO-B4-SERIAL          AND                         AP323041
+               ORSH-STATUS      > SPACES    AND                         AP323041
+               ORSH-HOLD-REASON > SPACES)                               AP323041
+              NEXT SENTENCE                                             SMP19277
+           ELSE                                                         SMP19277
+              IF ORSH-PO-XREF > SPACES                                  SMP19277
+                 MOVE ' '              TO WS-ORDER-HOLD-SW              SMP19277
+                 GO TO 3000-BYPASS                                      SMP19277
+              END-IF                                                    SMP19277
+           END-IF.                                                      SMP19277
+      *---------------------------------------------------------------*         
+      *  BYPASS IF ORDER WAS RELEASED BY CREDIT TO ALLOW SALES                  
+      *  5 DAYS TO VIEW (CONTACT CUSTOMER) BEFORE GOING THROUGH                 
+      *  ANOTHER CREDIT CHECK - "THE WINDOW".                                   
+      *---------------------------------------------------------------*         
+           IF TB-CPO-CREDIT-CHECK-DAYS  NOT NUMERIC                             
+              MOVE ZEROES              TO TB-CPO-CREDIT-CHECK-DAYS.             
+                                                                                
+           IF ORSH-DATE-RELEASED  NUMERIC                                       
+           AND ORSH-WAS-ON-CRED-HOLD                                            
+           AND ORSH-DATE-RELEASED  >  ZERO                                      
+                                                                        AP322161
+              IF (TB-CPO7-CNP-B2B-HOLD-PROCESS AND                      AP322161
+                 ORHOF-NP-ORDER-BACK-2-BACK)                            AP322161
+              OR ORSHOF-PO-B4-SERIAL                                    AP323041
+                 NEXT SENTENCE                                          AP322161
+              END-IF                                                    AP322161
+                                                                        AP322161
+              CALL 'CAWINUP'    USING ORSH-DATE-RELEASED                        
+                                      SYHHLDWS-DEFAULT-WINDOW-SPEC              
+                                      SYHHLDWS-DECIMAL5-TYPE                    
+                                      SYHHLDWS-ORSH-DATE-REL-Y2K                
+                                      SYHHLDWS-THIS-YEAR-Y2K                    
+              CALL 'CAWINUP'    USING TB-DATE-AS-OF-JULIAN                      
+                                      SYHHLDWS-DEFAULT-WINDOW-SPEC              
+                                      SYHHLDWS-DECIMAL5-TYPE                    
+                                      SYHHLDWS-TB-DATE-AS-OF-JUL-Y2K            
+                                      SYHHLDWS-THIS-YEAR-Y2K                    
+              COMPUTE WS-DAY-DIFF  =                                            
+                      SYHHLDWS-TB-DATE-AS-OF-JUL-Y2K -                          
+                      SYHHLDWS-ORSH-DATE-REL-Y2K                                
+              IF WS-DAY-DIFF  >  365                                            
+                 SUBTRACT 635        FROM WS-DAY-DIFF                           
+                 IF WS-DAY-DIFF  NOT >  TB-CPO-CREDIT-CHECK-DAYS                
+                    MOVE ' '           TO WS-ORDER-HOLD-SW                      
+                    GO TO 3000-BYPASS                                   TGF08017
+                 ELSE                                                           
+                    NEXT SENTENCE                                               
+               ELSE                                                             
+                  IF WS-DAY-DIFF  NOT >  TB-CPO-CREDIT-CHECK-DAYS               
+                     MOVE ' '          TO WS-ORDER-HOLD-SW                      
+                     GO TO 3000-BYPASS.                                 TGF08017
+                                                                                
+      * ALLOW FL HOLD FOR CREDIT ENGINE ENABLED ORDER                   VYA25094
+           IF TB-CPO7-CRDT-CHK-API                                      VYA25094
+              IF ORH-FLOOR-SUF                                          VYA25094
+                 PERFORM 140-GET-CUSHEDOF                               VYA25094
+                    THRU 140-EXIT                                       VYA25094
+                 IF WS-CUSHEDOF-NORESP                                  VYA25094
+                    IF CUOF-CRED-CHK-API                                VYA25094
+                       IF WS-CHECK-ORDER-HOLD                           VYA25094
+                          IF CU-CR-HOLD  AND                            VYA25094
+                             (ORH-COMPANY  NOT =  'FT')                 VYA25094
+                             MOVE '9'     TO WS-ORDER-HOLD-SW           VYA25094
+                          ELSE                                          VYA25094
+                             MOVE 'A'     TO WS-ORDER-HOLD-SW           VYA25094
+                          END-IF                                        VYA25094
+                       END-IF                                           VYA25094
+                       GO TO 3000-BYPASS                                VYA25094
+                    END-IF                                              VYA25094
+                 END-IF                                                 VYA25094
+              END-IF                                                    VYA25094
+           END-IF.                                                      VYA25094
+      *---------------------------------------------------------------*         
+      *  -- CHECK ORDER FOR AUTOMATIC ORDER HOLD                                
+      *  CUSTOMERS ON CREDIT CODE '9' ONLY - AUTOMATIC HOLD                     
+      *  ORH-FLOOR-SUF (111-119) IS FOR FLOORING ONLY - AUTOMATIC HOLD          
+      *  CUST ON CRED HOLD '9' AND FLOORING - CREDIT/FLOORING HOLD              
+      *  TERMS CODE GREATER THAN 899  - AUTOMATIC HOLD                          
+      *  SPECIAL MEXICAN POST-DATED CHECK HOLD-TERMS CODE 915-931               
+      *---------------------------------------------------------------*         
+           IF WS-CHECK-ORDER-HOLD                                               
+              IF ORSH-AUTH-CREDIT-CARD-SW  =  'Z'                               
+                 MOVE 'W'                    TO WS-ORDER-HOLD-SW                
+                 GO TO 3000-BYPASS                                              
+              ELSE                                                              
+              IF (CU-CR-HOLD AND ORH-FLOOR-SUF                                  
+              AND (ORH-COMPANY  NOT =  'FT'))                                   
+                 MOVE '9'                    TO WS-ORDER-HOLD-SW                
+              ELSE                                                              
+                 IF (CU-CR-HOLD OR                                      JKY19221
+                     CU-COD-CHECK-WITH-HOLD)                            JKY19221
+                    MOVE 'C'                 TO WS-ORDER-HOLD-SW                
+                 ELSE                                                           
+                    IF ORH-FLOOR-SUF                                            
+                       MOVE 'A'              TO WS-ORDER-HOLD-SW                
+                    ELSE                                                        
+                       IF ORH-TERMS  >  899                                     
+                          IF TB-CPO3-POST-DATED-TERM-CODE                       
+                             NEXT SENTENCE                                      
+                          ELSE                                                  
+                             MOVE ORH-TERMS      TO WS-TERMS                    
+                             MOVE WS-TERMS-TYP   TO WS-ORDER-HOLD-SW.           
+                                                                                
+      *---------------------------------------------------------------*         
+      *  SPECIAL BYPASS ON CREDIT LIMIT/PAST DUE (UNLIMITED CREDIT)             
+      *---------------------------------------------------------------*         
+      *    (CU-CR-CODE EQUAL '1')                                               
+           IF CU-UNLIMITED                                                      
+              GO TO 3000-BYPASS.                                                
+                                                                                
+      *---------------------------------------------------------------* TGF05319
+      *  SPECIAL ASIA PACIFIC COUNTRY CREDIT CHECKS                     TGF05319
+      *---------------------------------------------------------------* TGF05319
+           IF WS-ORDER-HOLD-SW NOT = 'Y'                                TGF08017
+              GO TO 3000-BYPASS                                         TGF08017
+           ELSE                                                         TGF08017
+              IF TB-CPO-ASIA-PACIFIC-CNTRY                              TGF05319
+                 PERFORM 4000-PROCESS-APAC-COUNTRY   THRU 4000-EXIT     TGF05319
+                 IF WS-ORDER-HOLD-APAC                                  TGF05319
+                    GO TO 3000-BYPASS                                   TGF08017
+                 END-IF                                                 TGF08017
+              END-IF                                                    TGF05319
+           END-IF.                                                      TGF05319
+                                                                        TGF05319
+      *---------------------------------------------------------------*         
+      *  GET CURRENT TOTAL AND PAST-DUE AMOUNTS TO BE USED IN                   
+      *  OVER CREDIT LIMIT AND PAST-DUE CREDIT CHECKS                           
+      *---------------------------------------------------------------*         
+           MOVE ZERO                      TO WS-CUST-BALANCE.                   
+                                                                                
+           IF WS-ZERO-PASTDUE                                                   
+              COMPUTE WS-PAST-DUE = (CU-AGE-1 + CU-AGE-2 + CU-AGE-3 +           
+                                     CU-AGE-4 + CU-AGE-5 + CU-AGE-6)            
+           ELSE                                                                 
+              COMPUTE WS-PAST-DUE = (CU-AGE-2 + CU-AGE-3 + CU-AGE-4 +           
+                                     CU-AGE-5 + CU-AGE-6).                      
+                                                                        MYR18012
+      * FOR NEW AGING BUCKETS                                           MYR18012
+      * DISCARDING THE CU-AGE-2 AS THE FIRST BUCKET HAS BEEN SPLIT INTO MYR18012
+      * 2, SO SECOND PASTDUE BUCKETS WOULD BE FROM CU-AGE-3             MYR18012
+                                                                        MYR18012
+           MOVE ORH-COMPANY            TO TB-CPO5-COMPANY-CODE.         MYR18012
+           CALL WS-IMPULSE-TABLE    USING TB-CPO5-PROC-IA.              MYR18012
+                                                                        MYR18012
+           IF TB-CPO5-USE-AGE-GROUP-2                                   MYR18012
+              IF ( WS-ZERO-PASTDUE  ) OR                                MYR18012
+                 ( WS-FIRST-PASTDUE )                                   MYR18012
+                  CONTINUE                                              MYR18012
+              ELSE                                                      MYR18012
+                  COMPUTE WS-PAST-DUE = WS-PAST-DUE - CU-AGE-2          MYR18012
+              END-IF                                                    MYR18012
+           END-IF.                                                      MYR18012
+                                                                                
+           IF TB-CPO2-CR-ADJUSTS-AGING-AMT                                      
+           AND (NOT WS-ZERO-PASTDUE)                                            
+              IF CU-DISPUTED-AMT  >  ZERO                                       
+                 IF CU-DISPUTED-AMT  <=  WS-PAST-DUE                            
+                    COMPUTE WS-PAST-DUE  =                                      
+                            WS-PAST-DUE  -  CU-DISPUTED-AMT                     
+                 ELSE                                                           
+                    MOVE ZEROES           TO WS-PAST-DUE                        
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF                                                               
+                                                                                
+           IF WS-CHECK-ORDER-HOLD                                               
+              IF TB-CPO-LIMIT-CHECK                                             
+                 COMPUTE WS-CUST-BALANCE  =   (CU-CURR +                        
+                         CU-AGE-1 + CU-AGE-2 + CU-AGE-3 +                       
+                         CU-AGE-4 + CU-AGE-5 + CU-AGE-6)                        
+                 IF TB-CPO-LIMIT-CHK-CUR                                        
+                    ADD WS-NEW-SALES      TO WS-CUST-BALANCE                    
+                 ELSE                                                           
+                 IF TB-CPO-LIMIT-TOTAL                                          
+                    IF CU-OPEN-ORDERS  >  ZERO                                  
+                       ADD CU-OPEN-ORDERS TO WS-CUST-BALANCE                    
+                    END-IF                                                      
+                    ADD WS-NEW-SALES      TO WS-CUST-BALANCE                    
+                 ELSE                                                           
+                 IF CU-OPEN-ORDERS  >  ZERO                                     
+                    ADD CU-OPEN-ORDERS    TO WS-CUST-BALANCE.                   
+                                                                        SMP19277
+      ******************************************************************SMP19277
+      * CHECK IF TBXCORP2 SWITCH IS SET FOR CREDIT PROCESS,             SMP19277
+      * IF YES, DEDUCT CREDIT CARD TOTAL AND SALES TOTAL FROM CUSTOMER  SMP19277
+      * BALANCE SO THAT AVAILABLE CREDIT LIMIT FOR CUSTOMER IS          SMP19277
+      * INCREASED AND CREDIT HOLD CAN BE AVOIDED FOR THE CUSTOMER       SMP19277
+      ******************************************************************SMP19277
+           IF WS-CHECK-ORDER-HOLD                                       SMP19277
+              IF TB-CPO-LIMIT-CHECK                                     SMP19277
+                 IF TB-CPO2-NORESP                                      SMP19277
+                    IF TB-CPO2-CREDIT-OPTM                              SMP19277
+                       PERFORM 140-GET-CUSHEDOF                         SMP19277
+                          THRU 140-EXIT                                 SMP19277
+                       IF  WS-CUSHEDOF-NORESP                           SMP19277
+                           IF CUOF-CREDIT-CARD-TOTAL IS NUMERIC         SMP19277
+                              IF CUOF-CREDIT-CARD-TOTAL > +0            SMP19277
+                                 SUBTRACT CUOF-CREDIT-CARD-TOTAL        SMP19277
+                                          FROM WS-CUST-BALANCE          SMP19277
+                              END-IF                                    SMP19277
+                           END-IF                                       SMP19277
+                           IF CUOF-SALES-HOLD-TOTAL  IS NUMERIC         SMP19277
+                              IF CUOF-SALES-HOLD-TOTAL  > +0            SMP19277
+                                 SUBTRACT CUOF-SALES-HOLD-TOTAL         SMP19277
+                                          FROM WS-CUST-BALANCE          SMP19277
+                              END-IF                                    SMP19277
+                           END-IF                                       SMP19277
+                       END-IF                                           SMP19277
+                    END-IF                                              SMP19277
+                 END-IF                                                 SMP19277
+              END-IF                                                    SMP19277
+           END-IF                                                       SMP19277
+                                                                                
+           IF ORH-COMPANY  =  'ES' OR 'PT'                              APX19193
+           AND WS-CHECK-ORDER-HOLD                                              
+              ADD CU-DRAFTS-IP            TO WS-CUST-BALANCE.                   
+                                                                                
+      *---------------------------------------------------------------*         
+      *  SET FACTORS FOR RISK CLASS CHECKS                                      
+      *---------------------------------------------------------------*         
+              MOVE WS-HOLD-CREDIT-FACTOR  TO WS-CREDIT-FACTOR.                  
+              MOVE WS-HOLD-PSTDUE-FACTOR  TO WS-PSTDUE-FACTOR.                  
+                                                                                
+      *---------------------------------------------------------------*         
+      *  CREDIT CHECK BY LIMIT AND PAST DUE BASED ON RISK CLASS                 
+      *---------------------------------------------------------------*         
+           IF WS-CHECK-ORDER-HOLD                                               
+              IF NOT CU-UNLIMITED                                               
+                 IF TB-CPO-LIMIT-CHECK                                          
+                    COMPUTE WS-AVAIL-CREDIT =                                   
+                            (WS-CREDIT-FACTOR  *  CU-CR-LIMIT)                  
+                           - WS-CUST-BALANCE                                    
+                    IF WS-AVAIL-CREDIT  <  ZERO                                 
+                       MOVE 'L'        TO WS-ORDER-HOLD-SW.                     
+                                                                                
+           IF WS-CUST-BALANCE  <  ZERO                                          
+              MOVE ZERO                TO WS-CUST-BALANCE.                      
+                                                                                
+           IF (WS-CHECK-ORDER-HOLD OR                                   DXB09071
+               WS-ORDER-OVER-LIMIT) AND                                 DXB09071
+               NOT WS-IGNORE-PASTDUE                                    DXB09071
+              IF WS-PAST-DUE  >                                                 
+                 (WS-CUST-BALANCE  *  WS-PSTDUE-FACTOR)                         
+                 IF WS-ORDER-OVER-LIMIT                                         
+                    MOVE 'B'           TO WS-ORDER-HOLD-SW                      
+                 ELSE                                                           
+                    MOVE 'P'           TO WS-ORDER-HOLD-SW.                     
+                                                                                
+      *---------------------------------------------------------------*         
+      *  SET ORDER HOLD FOR SHIP HEADER ORDER HOLD                   *          
+      *---------------------------------------------------------------*         
+           IF WS-CHECK-ORDER-HOLD                                               
+              IF ORSH-STATUS  =  'G'                                            
+                 MOVE 'G'              TO WS-ORDER-HOLD-SW                      
+              ELSE                                                              
+                 IF ORSH-STATUS  =  'N'                                         
+                    MOVE 'N'           TO WS-ORDER-HOLD-SW.                     
+                                                                                
+      *---------------------------------------------------------------*         
+      *  IF STATUS REMAINS UNCHANGED - CLEAR FLAG FOR BYPASS OF                 
+      *                                3100-XXX SET STATUS/REASON               
+      *  RESET WORKING-STORAGE VALUES                                           
+      *---------------------------------------------------------------*         
+           IF WS-ORDER-HOLD-SW  =  'Y'                                          
+              MOVE SPACE               TO WS-ORDER-HOLD-SW.                     
+                                                                                
+      *--------------------------------------------------------------*          
+       3000-BYPASS.                                                             
+      *--------------------------------------------------------------*          
+           INITIALIZE WS-WORK-AREA.                                     TGF08017
+                                                                                
+       3000-EXIT.                                                               
+           EXIT.                                                                
+      *---------------------------------------------------------------*         
+       4000-PROCESS-APAC-COUNTRY.                                               
+      *---------------------------------------------------------------*         
+      *  CHECK ALL ASIA PACIFIC COUNTRIES FOR CUSTOMER & ORDER                  
+      *  TERMS DUE DAYS.                                                        
+      *  IF INDIA, DO SPECIAL INDIA PROCESSING.                                 
+      *---------------------------------------------------------------*         
+                                                                                
+           PERFORM 4100-CHECK-TERMS-DUE-DAYS      THRU 4100-EXIT.               
+                                                                                
+           IF WS-ORDER-HOLD-SW  =  'Z'                                          
+              NEXT SENTENCE                                             TGF08017
+           ELSE                                                                 
+              IF ORH-COMPANY  =  'IA' OR 'BI'                           RLH13109
+                 PERFORM 4200-PROCESS-INDIA       THRU 4200-EXIT                
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       4000-EXIT.                                                               
+           EXIT.                                                                
+      *---------------------------------------------------------------*         
+       4100-CHECK-TERMS-DUE-DAYS.                                               
+      *---------------------------------------------------------------*         
+      *  ORDER TERMS DUE DAYS SHOULD NOT BE GREATER THAN THE                    
+      *  CUSTOMER TERMS DUE DAYS.  IF SO PUT ON CREDIT HOLD.                    
+      *---------------------------------------------------------------*         
+                                                                                
+           PERFORM 4110-GET-ORDER-TERMS           THRU 4110-EXIT.               
+           PERFORM 4120-GET-CUST-TERMS            THRU 4120-EXIT.               
+                                                                                
+           IF WS-ORDER-HOLD-SW  =  'Z'                                          
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              IF WS-ORD-TERMS-DUE-DAYS  >  WS-CUS-TERMS-DUE-DAYS                
+                 MOVE 'Z'              TO WS-ORDER-HOLD-SW                      
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       4100-EXIT.                                                               
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       4110-GET-ORDER-TERMS.                                                    
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE ORH-COMPANY            TO TB-TERMS-CO.                          
+           MOVE ORH-TERMS              TO TB-TERMS-CODE.                        
+                                                                                
+           CALL WS-IMPULSE-TABLE    USING TB-TERMS-TABLE-AI.                    
+                                                                                
+           IF TB-TERMS-NORESP                                                   
+              MOVE TB-TERMS-DUE-DAYS   TO WS-ORD-TERMS-DUE-DAYS                 
+           ELSE                                                                 
+              MOVE 'Z'                 TO WS-ORDER-HOLD-SW                      
+           END-IF.                                                              
+                                                                                
+       4110-EXIT.                                                               
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       4120-GET-CUST-TERMS.                                                     
+      *--------------------------------------------------------------*          
+      *  IF CUSTOMER TERMS ARE THE SAME AS ORDER TERMS                          
+      *  NO NEED TO CALL TBXTERMS AGAIN                                         
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM 130-GET-CUSBRN                 THRU 130-EXIT.                
+                                                                                
+           IF WS-CUSBRN-NOTFND                                                  
+              MOVE 'Z'                 TO WS-ORDER-HOLD-SW                      
+              GO TO 4120-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           IF CUB-TERMS  =  ORH-TERMS                                           
+              MOVE TB-TERMS-DUE-DAYS   TO WS-CUS-TERMS-DUE-DAYS                 
+              GO TO 4120-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           MOVE CU-COMPANY             TO TB-TERMS-CO.                          
+           MOVE CUB-TERMS              TO TB-TERMS-CODE.                        
+                                                                                
+           CALL WS-IMPULSE-TABLE    USING TB-TERMS-TABLE-AI.                    
+                                                                                
+           IF TB-TERMS-NORESP                                                   
+              MOVE TB-TERMS-DUE-DAYS   TO WS-CUS-TERMS-DUE-DAYS                 
+           ELSE                                                                 
+              MOVE 'Z'                 TO WS-ORDER-HOLD-SW                      
+           END-IF.                                                              
+                                                                                
+       4120-EXIT.                                                               
+           EXIT.                                                                
+      *---------------------------------------------------------------*         
+       4200-PROCESS-INDIA.                                                      
+      *---------------------------------------------------------------*         
+      *  CHECK ORDER TERMS, BLANK CHECK COUNT, CREDIT STOP SWITCH,              
+      *  AND C FORM.                                                            
+      *---------------------------------------------------------------*         
+                                                                                
+           IF ORH-TERMS  =  0                                                   
+              MOVE 'Z'                 TO WS-ORDER-HOLD-SW                      
+              GO TO 4200-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           PERFORM 4210-CHECK-C-FORM              THRU 4210-EXIT.       SCT06100
+                                                                        SCT06100
+           IF WS-ORDER-HOLD-SW = 'X'                                    SCT06100
+              GO TO 4200-EXIT                                           SCT06100
+           ELSE                                                         SCT06100
+              PERFORM 140-GET-CUSHEDOF            THRU 140-EXIT         SCT06100
+              IF WS-CUSHEDOF-NOTFND                                     SCT06100
+                 GO TO 4200-EXIT                                        SCT06100
+              END-IF                                                    SCT06100
+           END-IF.                                                      SCT06100
+                                                                                
+           IF  CUOF-PDC-PAY-TYPE-SW  =  'B'                                     
+           AND CUOF-PDC-BLANK-CHECK-COUNT  <                                    
+                                          CUOF-PDC-MIN-CHECK-COUNT              
+              MOVE '1'                 TO WS-ORDER-HOLD-SW                      
+              GO TO 4200-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           IF CUOF-PDC-CREDIT-STOP-NSF-SW  =  'Y'                               
+              MOVE '#'                 TO WS-ORDER-HOLD-SW                      
+              GO TO 4200-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           IF  CUOF-PDC-SECURITY-CHECK-COUNT NUMERIC                    KLM06061
+              IF CUOF-PDC-SECURITY-CHECK-COUNT NOT > +0                 KLM06061
+                 MOVE '1'              TO WS-ORDER-HOLD-SW              KLM06061
+                 GO TO 4200-EXIT                                        KLM06061
+              END-IF                                                    KLM06061
+           ELSE                                                         KLM06061
+              MOVE '1'                 TO WS-ORDER-HOLD-SW              KLM06061
+              GO TO 4200-EXIT                                           KLM06061
+           END-IF.                                                      KLM06061
+                                                                                
+       4200-EXIT.                                                               
+           EXIT.                                                                
+      *---------------------------------------------------------------*         
+       4210-CHECK-C-FORM.                                                       
+      *---------------------------------------------------------------*         
+      * IF THE CST FLAG IS 'E' OR 'N' OR 'Y', THEN BYPASS C FORM CHECK.         
+      * OTHERWISE,                                                              
+      * CHECK THAT THE SHIP-TO STATE MATCHES THE SHIP-FROM STATE.               
+      * THE SHIP-FROM STATE COMES FROM THE BRANCH PROFILE.                      
+      * THE SHIP-TO STATE COMES FROM THE CUSTOMER UNLESS IT IS A                
+      * FULFILLMENT ORDER. THEN SHIP-TO STATE COMES FROM THE ORDER.             
+      * IF STATE CODES DO NOT MATCH, THEN ORDER GOES ON CREDIT HOLD.            
+      * FOR INDIA THE ORSA-STATE MAY OR MAY NOT BE POPULATED.                   
+      *---------------------------------------------------------------*         
+                                                                                
+           PERFORM 110-GET-ORSHEDOF               THRU 110-EXIT.                
+                                                                                
+           IF ORHOF-CST-FLAG  =  'E' OR 'N' OR 'Y'                              
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              PERFORM 300-GET-BRANCH-PROFILE      THRU 300-EXIT                 
+              IF ORH-FULFILLMENT                                                
+                 PERFORM 4211-CHECK-ORDER-SHIP-TO THRU 4211-EXIT                
+              ELSE                                                              
+                 PERFORM 4211-CHECK-ORDER-SHIP-TO THRU 4211-EXIT                
+                 IF WS-ORSSTO-NOTFND                                            
+                    PERFORM 4212-CHECK-CUSTOMER-ADDRESS                         
+                                                  THRU 4212-EXIT                
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       4210-EXIT.                                                               
+           EXIT.                                                                
+      *---------------------------------------------------------------*         
+       4211-CHECK-ORDER-SHIP-TO.                                                
+      *---------------------------------------------------------------*         
+      * CHECK ORDER SHIP TO SEGMEMT FOR STATE CODE                              
+      *---------------------------------------------------------------*         
+                                                                                
+           PERFORM 120-GET-ORSSTO                 THRU 120-EXIT.                
+                                                                                
+           IF ORSA-STATE  =  BP-SHIP-FROM-STATE                                 
+               NEXT SENTENCE                                                    
+           ELSE                                                                 
+               MOVE 'X'                TO WS-ORDER-HOLD-SW                      
+           END-IF.                                                              
+                                                                                
+       4211-EXIT.                                                               
+           EXIT.                                                                
+      *---------------------------------------------------------------*         
+       4212-CHECK-CUSTOMER-ADDRESS.                                             
+      *---------------------------------------------------------------*         
+      * CHECK CUSTOMER ADDRESS FOR SHIP TO STATE CODE                           
+      *---------------------------------------------------------------*         
+                                                                                
+           MOVE 'Y'                    TO WS-ORDER-HOLD-SW                      
+           PERFORM 150-GET-CUSADR              THRU 150-EXIT.                   
+                                                                                
+           IF WS-CUSADR-NOTFND                                                  
+              MOVE 'X'                 TO WS-ORDER-HOLD-SW                      
+           ELSE                                                                 
+              IF CUA-STATE-CODE  =  BP-SHIP-FROM-STATE                          
+                 NEXT SENTENCE                                                  
+              ELSE                                                              
+                 MOVE 'X'              TO WS-ORDER-HOLD-SW                      
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       4212-EXIT.                                                               
+           EXIT.                                                                

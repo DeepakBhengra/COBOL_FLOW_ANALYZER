@@ -1,0 +1,1179 @@
+000100******************************************************************        
+000200* 05-03-00     NEW COPYBOOK: ORSAPDOS                                     
+000300*  THIS COPYBOOK IS USED TO SET THE SHIPMENT HEADER AND ORDER HEADER      
+000400*  ACCORDING TO THE MAKEUP OF THE ORSLNES AS TO OUTSOURCE ITEMS THAT      
+000500*  ARE INCLUDED. OUTSOURCE TYPE IS SET. THE 9920- PARAGRAPHS ARE          
+000600*  EXECUTED TO SET THE OUTSOURCE TYPE ON THE SHIPMENT AND MUST BE         
+000700*  EXECUTED FOR EACH LINE OF THE SHIPMENT.  USE OF THIS COPYBOOK          
+000800*  REQUIRES THE USE OF ORSAPDWS COPIED INTO WORKING STORAGE.              
+000900*  IT ALSO REQUIRES THE USE OF ORRBT COPIED INTO WORKING STORAGE          
+000901******************************************************************        
+000910* REVISIONS:                                                     *        
+      *  11/01/24 AXL EVEREST: NEW HOLD GP- GPE COSTING ISSUE HOLD     *AXL24306
+      *  08/11/23 AP3 REMOVE GP HOLD CHECK. GP HOLD TO BE EA HOLD      *AP323223
+      *  07/07/23 JZW EVEREST - SET WS-SSEU-GP-HOLD FOR GPE HOLD       *JZW23188
+      *  03/04/22 NXP FIX TSQ QID ERROR IN PUP590 BY PASSING THE       *NXP22063
+      *               EIBTASK TO TSQ NAME SUFFIX.                      *NXP22063
+      *  01/10/20 TGF HPE - DSMF FOR STOCK ORDERS                      *TGF20010
+      *  04/05/19 UXK CR1906 - ADDED LOGIC TO FLAG A SHIPMENT TO BLOCK *UXK19095
+      *               FOR LINE CHANGE/ LINE VOID/ SHIPMENT VOID.       *UXK19095
+      *  07/19/17 SAS CICS UPGRADE PHASE II -                          *SAS17200
+      *               DELETED THE CICS TRANSLATED CODE AND             *SAS17200
+      *               UNCOMMENTED THE EXEC CICS STATEMENTS.            *SAS17200
+      *  10/21/16 BXD EA PROJECT CHANGE TO HAVE DSMF 'VR' HOLD LOGIC    BXD16295
+      *  08/07/15 TGF VIRTUAL INVENTORY                                 TGF15220
+      *  08/14/14 TGF ADD ESD PO TRIGGERING EVEN IF ORDER IS SET TO     TGF14226
+      *               NO PRINT.                                         TGF14226
+      *  02/12/13 TGF ADD ESD DSMF LOGIC TO LINE LOOP                   TGF13038
+      *  01/28/13 TGF ADD ESD VENDOR LOGIC.                             TGF13028
+      *  01/05/05 LXS ADD COMBINED 'L' AND SHIPPABLE                    JMW05005
+      *  10/21/04 JMW NAI RELATED. ADD ADDITIONAL CRITIERIA             JMW04295
+      *  09/22/04 JMW NAI PROJECT                                       JMW04266
+      *  09/24/04 AZM ADDED VR HOLD LOGIC FOR DIRECT SHIP MANDATORY FLD*AZM04268
+000920*  05/25/04 MXK REPLACE 1258- PARAGRAPH WITH 1743- PATH CALL FOR *MXK04146
+000930*               ORSLNE/ORSLNEOF                                  *MXK04146
+000940*               ADD 9997-SET-SSEU-HOLD-RSN                       *MXK04146
+001000*  07/18/01 LMH CHANGE CODE FOR SALES HOLD AND CREDIT HOLD CHECK  LMH01199
+001100*  07/13/00 DRK ADD WS-ORSH-CREATE-PO SWITCH                      DRK00195
+001200******************************************************************        
+001300*                                                                         
+001400* SET UP LOOP PERFORM FOR EVERY SINGLE ORDER LINE (ORSLNE).               
+001500*                                                                         
+001600 9900-SETUP-ORSLNE-LOOPS.                                                 
+001700     MOVE SPACES TO WS-SAV-ORSSHH-OS-TYPE,                        DRK00195
+001800                    WS-ORSH-CREATE-PO.                            DRK00195
+001900     PERFORM 1202-GU-ORSSHH-OS                                            
+002000     IF NOT WS-ORSSHH-NORESP                                              
+002100        GO TO 9900-SETUP-ORSLNE-EXIT.                                     
+002200                                                                  DRK00195
+002300     SET ORSH-OUTSOURCE-NOTSET TO TRUE.                           DRK00195
+002400                                                                          
+002500     SET WS-ORSLNE-NORESP   TO TRUE.                                      
+002600     MOVE '('               TO WS-ORSLNE-QUAL.                            
+002700     MOVE ' >'              TO WS-ORSLNE-SEARCH.                          
+002800     MOVE '000'             TO WS-ORSLNE-NBR.                             
+002810     MOVE '*D'              TO WS-ORSLNE-COMMAND-CODE             MXK04146
+002820     MOVE '0'               TO WS-ORSLNEOF-NBR                    MXK04146
+002830     MOVE SPACE             TO WS-SSEU-HOLD-REASON                MXK04146
+           MOVE SPACE             TO WS-SSEU-GP-PRESENT-SW.             AXL24306
+002900     MOVE 1                 TO WS-VEND-SUB.                               
+                                                                                
+           MOVE SPACES TO WS-ORLOF-DS-EU-NAMEADD-IND.                   AZM04268
+           MOVE SPACES TO WS-ORLOF-DS-OTH-LINE-INFO-IND.                AZM04268
+           INITIALIZE ORSAPDWS-RESTRICT-ORD-USAGE-SW.                   UXK19095
+003000     PERFORM 9910-PROCESS-ORSLNE-LOOPS THRU                               
+003100             9910-PROCESS-ORSLNE-EXIT                                     
+003200             UNTIL NOT WS-ORSLNE-NORESP.                                  
+003210     MOVE '*-'              TO WS-ORSLNE-COMMAND-CODE             MXK04146
+003300                                                                          
+003400*    REESTABILISH ORDER SHIP HEADER POSITION AND THE LAST VALUE           
+003500*    OF ORSH-OUTSOURCE-SKU-IND.                                           
+003600                                                                          
+003700     MOVE ORSH-KEY-ORSSHH        TO WS-ORSSHH-KEY-VALUE.          LMH01199
+003800     PERFORM 1210-GHU-ORSSHH-OS                                           
+003900     IF WS-ORSSHH-NORESP                                                  
+004000        MOVE WS-SAV-ORSSHH-OS-TYPE TO                                     
+004100             ORSH-OUTSOURCE-SKU-IND                                       
+              IF ORSH-CREATE-PO                                         JMW04266
+                  CONTINUE                                              JMW04266
+              ELSE                                                      JMW04266
+004200        MOVE WS-ORSH-CREATE-PO                                    DRK00195
+004300          TO ORSH-CREATE-PO-SW                                    DRK00195
+              END-IF                                                    JMW04266
+004400        PERFORM 1314-REPL-ORSSHH-OS                                       
+004500     END-IF.                                                              
+004600                                                                          
+004700 9900-SETUP-ORSLNE-EXIT.                                                  
+004800     EXIT.                                                                
+004900                                                                          
+005000                                                                  LMH01199
+005100 9905-RESET-OS-IND.                                               LMH01199
+005200     MOVE SPACES TO WS-SAV-ORSSHH-OS-TYPE,                        LMH01199
+005300                    WS-ORSH-CREATE-PO.                            LMH01199
+005400     PERFORM 1202-GU-ORSSHH-OS                                    LMH01199
+005500                                                                  LMH01199
+005600     IF NOT WS-ORSSHH-NORESP                                      LMH01199
+005700        GO TO 9905-RESET-OS-IND-EXIT.                             LMH01199
+005800                                                                  LMH01199
+005900     SET ORSH-OUTSOURCE-NOTSET TO TRUE.                           LMH01199
+006000     SET WS-ORSLNE-NORESP      TO TRUE.                           LMH01199
+006100     MOVE '('                  TO WS-ORSLNE-QUAL.                 LMH01199
+006200     MOVE ' >'                 TO WS-ORSLNE-SEARCH.               LMH01199
+006300     MOVE '000'                TO WS-ORSLNE-NBR.                  LMH01199
+006310     MOVE '*D'                 TO WS-ORSLNE-COMMAND-CODE          MXK04146
+006320     MOVE '0'                  TO WS-ORSLNEOF-NBR                 MXK04146
+006330     MOVE SPACE                TO WS-SSEU-HOLD-REASON             MXK04146
+           MOVE SPACE                TO WS-SSEU-GP-PRESENT-SW.          AXL24306
+006400     MOVE 1                    TO WS-VEND-SUB.                    LMH01199
+006500     PERFORM 9910-PROCESS-ORSLNE-LOOPS THRU                       LMH01199
+006600             9910-PROCESS-ORSLNE-EXIT                             LMH01199
+006700             UNTIL NOT WS-ORSLNE-NORESP.                          LMH01199
+006710     MOVE '*-'                 TO WS-ORSLNE-COMMAND-CODE          MXK04146
+006800                                                                  LMH01199
+006900*    REESTABILISH ORDER SHIP HEADER POSITION AND THE LAST VALUE   LMH01199
+007000*    OF ORSH-OUTSOURCE-SKU-IND.                                   LMH01199
+007100                                                                  LMH01199
+007200     PERFORM 1210-GHU-ORSSHH-OS                                   LMH01199
+007300     IF WS-ORSSHH-NORESP                                          LMH01199
+007400        MOVE WS-SAV-ORSSHH-OS-TYPE TO                             LMH01199
+007500             ORSH-OUTSOURCE-SKU-IND                               LMH01199
+007600        MOVE WS-ORSH-CREATE-PO                                    LMH01199
+007700          TO ORSH-CREATE-PO-SW                                    LMH01199
+007800                                                                  LMH01199
+007900        IF ORSH-TYP-OUTSOURCE-ONLY                                LMH01199
+008000           PERFORM 9920-SET-OS-ONLY-ORSSHH-FIELDS                 LMH01199
+008100              THRU 9920-SET-OS-ONLY-ORSSHH-EXIT                   LMH01199
+008200        END-IF                                                    LMH01199
+008300                                                                  LMH01199
+008400        PERFORM 1314-REPL-ORSSHH-OS                               LMH01199
+008500     END-IF.                                                      LMH01199
+008600                                                                  LMH01199
+008700 9905-RESET-OS-IND-EXIT.  EXIT.                                   LMH01199
+008800                                                                  LMH01199
+008900                                                                  LMH01199
+009000*                                                                         
+009100*PROCESS ORSLNE AND SET UP ORSSHH OUTSOURCE SWITCHES FOR EVERY            
+009200*SINGLE ORDER LINE (ORSLNE).                                              
+009300*                                                                         
+009400 9910-PROCESS-ORSLNE-LOOPS.                                               
+009500**   PERFORM 1258-GNP-ORSLNE-OS                                   MXK04146
+009510     PERFORM 1743-GNP-ORSLNE-ORSLNEOF                             MXK04146
+009600     IF NOT WS-ORSLNE-NORESP                                              
+009700        GO TO 9910-PROCESS-ORSLNE-EXIT.                                   
+009800                                                                          
+010200     IF ORL-VOIDED-LINE                                                   
+010300        GO TO 9910-PROCESS-ORSLNE-EXIT.                                   
+                                                                                
+           IF TB-CPO2-RESTRICT-ORD-USAGE                                UXK19095
+              IF ORSAPDWS-RESTRICT-ORD-USAGE-SW > SPACES                UXK19095
+                 NEXT SENTENCE                                          UXK19095
+              ELSE                                                      UXK19095
+                 MOVE TC-COMPANY       TO WS-VNSHED-CO                  UXK19095
+                 MOVE 'A'              TO WS-VNSHED-CLASS               UXK19095
+                 MOVE ORL-VENDOR-NBR   TO WS-VNSHED-VEND                UXK19095
+                 PERFORM 1750-GU-VNSHED                                 UXK19095
+                 IF WS-VNSHED-NORESP   AND                              UXK19095
+                    VNH-RESTRICT-ORD-USAGE-SW > SPACES                  UXK19095
+                    MOVE VNH-RESTRICT-ORD-USAGE-SW                      UXK19095
+                                      TO ORSAPDWS-RESTRICT-ORD-USAGE-SW UXK19095
+                 END-IF                                                 UXK19095
+              END-IF                                                    UXK19095
+           END-IF.                                                      UXK19095
+010400                                                                          
+           IF ORSH-DIRECT-ORDER                                         AZM04268
+           OR TB-CPO2-DSMF-STOCK-ORDER                                  TGF20010
+              IF ORL-LINE-TYPE = 'P' OR 'N'                             AZM04268
+                 IF ORLOF-DS-OTH-LINE-INFO-MISSING                      AZM04268
+                    SET WS-ORLOF-DS-OTH-LINE-INFO-MISS     TO TRUE      AZM04268
+                 END-IF                                                 AZM04268
+                 IF ORLOF-DS-EU-NAMEADD-MISSING                         AZM04268
+                    SET WS-ORLOF-DS-EU-NAMEADD-MISSING     TO TRUE      AZM04268
+                 END-IF                                                 AZM04268
+              END-IF                                                    AZM04268
+              IF ORLOF-ESD-VENDOR OR                                    TGF20010
+                 (TB-CPO5-NON-IMTS AND ORLOF-VIRTUAL-VENDOR)            TGF20010
+                 MOVE ORL-VENDOR-NBR   TO WS-ESD-VENDOR-NBR             TGF20010
+              END-IF                                                    TGF20010
+           ELSE                                                         TGF13028
+              IF ORLOF-ESD-VENDOR OR                                    BXD16295
+                 (TB-CPO5-NON-IMTS AND ORLOF-VIRTUAL-VENDOR)            BXD16295
+                 MOVE ORL-VENDOR-NBR   TO WS-ESD-VENDOR-NBR             TGF13028
+                 IF ORL-LINE-TYPE = 'P' OR 'N'                          TGF13038
+                    IF ORLOF-DS-OTH-LINE-INFO-MISSING                   TGF13038
+                       SET WS-ORLOF-DS-OTH-LINE-INFO-MISS     TO TRUE   TGF13038
+                    END-IF                                              TGF13038
+                    IF ORLOF-DS-EU-NAMEADD-MISSING                      TGF13038
+                       SET WS-ORLOF-DS-EU-NAMEADD-MISSING     TO TRUE   TGF13038
+                    END-IF                                              TGF13038
+                 END-IF                                                 TGF13038
+              END-IF                                                    TGF13028
+           END-IF.                                                      AZM04268
+                                                                                
+009900     IF NOT ORL-OUR-PART-NBR                                              
+010000        GO TO 9910-PROCESS-ORSLNE-EXIT.                                   
+010100                                                                          
+010500     PERFORM 9994-SET-ORSH-OUTSOURCE THRU                                 
+010600             9994-SET-ORSH-OUTSOURCE-EXIT.                                
+010700                                                                          
+010800     PERFORM 9997-SET-SSEU-HOLD-RSN  THRU                         MXK04146
+010900             9997-EXIT.                                           MXK04146
+011000                                                                          
+011100 9910-PROCESS-ORSLNE-EXIT.                                                
+011200     EXIT.                                                                
+011300                                                                  LMH01199
+011400*                                                                 LMH01199
+011500*PROCESS ORSLNE AND LOAD VENDOR TABLE                             LMH01199
+011600*SINGLE ORDER LINE (ORSLNE).                                      LMH01199
+011700*                                                                 LMH01199
+011800 9915-PROCESS-ORSLNE-LOOPS.                                       LMH01199
+011900     PERFORM 1204-GU-ORSLNE-OS.                                   LMH01199
+012000     IF NOT WS-ORSLNE-NORESP                                      LMH01199
+012100        GO TO 9915-PROCESS-ORSLNE-EXIT.                           LMH01199
+012200                                                                  LMH01199
+012300     MOVE WS-ORSLNE-NBR         TO WS-OS-LINE-NBR.                LMH01199
+012400     ADD 1                      TO WS-OS-LINE-NBR.                LMH01199
+012500     MOVE WS-OS-LINE-NBR        TO WS-ORSLNE-NBR.                 LMH01199
+012600                                                                  LMH01199
+012700     IF NOT ORL-OUR-PART-NBR                                      LMH01199
+012800        GO TO 9915-PROCESS-ORSLNE-EXIT.                           LMH01199
+012900                                                                  LMH01199
+013000     IF ORL-VOIDED-LINE                                           LMH01199
+013100        GO TO 9915-PROCESS-ORSLNE-EXIT.                           LMH01199
+013200                                                                  LMH01199
+013300     PERFORM 9984-DO-WE-WANT-AUTO-PO.                             LMH01199
+013400                                                                  LMH01199
+013500 9915-PROCESS-ORSLNE-EXIT.                                        LMH01199
+013600     EXIT.                                                        LMH01199
+013700*                                                                         
+013800* SET UP OUTSOURCE TYPE ORSSHH RECORDS FIELDS.                            
+013900*                                                                         
+014000* ORSH-CARRIER-ENTERED-FIELDS.                                            
+014100 9920-SET-OS-ONLY-ORSSHH-FIELDS.                                  LMH01199
+                                                                        TGF13028
+           IF ORSH-OUT-TYP-VIRTUAL                                      TGF15220
+              GO TO 9920-SET-OS-ONLY-ORSSHH-EXIT.                       TGF15220
+                                                                        TGF15220
+           IF ORSH-OUT-TYP-LICENSE AND (WS-ORSH-CREATE-PO = 'P'         JMW04295
+                                    OR  ORSH-CREATE-PO)                 JMW04295
+               MOVE  +0        TO ORSH-FRT-IN-AMT                       JMW04266
+                                  ORSH-FRT-OUT-AMT                      JMW04266
+               MOVE 'OUTSOURCE' TO ORSH-SHIP-VIA                        JMW04266
+               MOVE 'Q5'       TO ORSH-CARRIER-CODE                     JMW04266
+               GO TO 9920-SET-OS-ONLY-ORSSHH-EXIT                       JMW04266
+           ELSE                                                         JMW04266
+               IF ORSH-OUT-TYP-LIC-REG                                  JMW04266
+                   GO TO 9920-SET-OS-ONLY-ORSSHH-EXIT.                  JMW04266
+                                                                                
+           IF ORSH-CREDIT-HOLD-STATUS   OR                              TGF13028
+              ORSH-HOLD-ORDER-STATUS    OR                              TGF13028
+              ORSH-DO-NOT-PRINT                                         TGF13028
+              GO TO 9920-SET-OS-ONLY-ORSSHH-EXIT.                       TGF13028
+                                                                        TGF13028
+014700     MOVE 1              TO ORSH-PRINT-COUNT.                             
+014800     MOVE 'OUTSOURCE'    TO ORSH-SHIP-VIA.                                
+014900     MOVE 'Q5'           TO ORSH-CARRIER-CODE.                    DRK00195
+015000     MOVE 'Y'            TO ORSH-CARRIER-SW.                              
+015100     MOVE +0             TO ORSH-FRT-IN-AMT                       DRK00195
+015200                            ORSH-FRT-OUT-AMT.                     DRK00195
+015300     MOVE ZEROES         TO ORSH-GROUND-FRT-OUT-AMT,              DRK00195
+015400                            ORSH-TRANSIT-DAYS,                    DRK00195
+015500                            ORSH-ORIG-FRT-RATE-AMT,               DRK00195
+015600                            ORSH-FRT-CUS-PAYS.                    DRK00195
+015700     MOVE SPACES         TO ORSH-CARR-SERVICE                     DRK00195
+015800                            ORSH-CARR-TYPE.                       DRK00195
+           SET ORSH-INVOICE    TO TRUE.                                         
+015900     SET ORSH-IN-NO-BILL TO TRUE.                                 JMW04266
+           SET ORSH-SHIPPABLE  TO TRUE.                                         
+           SET ORSH-PRINTING-COMPLETE TO TRUE.                                  
+           SET ORSH-SHIP-COMPLETE-ORD-FILLED TO TRUE.                           
+           MOVE EIBDATE        TO ORSH-LAST-PRINT-DATE.                         
+           MOVE EIBDATE        TO ORSH-SHIP-DATE.                       DRK00195
+           MOVE EIBTIME        TO ORSH-LAST-PRINT-TIME.                         
+016700                                                                          
+016800 9920-SET-OS-ONLY-ORSSHH-EXIT.                                    LMH01199
+016900     EXIT.                                                                
+017000                                                                          
+017100                                                                          
+017200* SET UP OUTSOURCE TYPE ORSHED RECORDS FIELDS AND UPDATE ORSHED           
+017300                                                                          
+017400 9930-SET-OS-ORSHED-FIELDS.                                               
+017500     PERFORM 1208-GHU-ORSHED-OS.                                          
+017600     IF WS-ORSHED-NORESP                                                  
+017700         PERFORM 9996-SET-ORH-OUTSOURCE THRU                              
+017800                 9996-SET-ORH-OUTSOURCE-EXIT                              
+017900         PERFORM 1312-REPL-ORSHED-OS                                      
+018000     END-IF.                                                              
+                                                                                
+018200 9930-SET-OS-ORSHED-EXIT.                                                 
+018300     EXIT.                                                                
+018400                                                                          
+018500 9940-CREATE-AUTO-PO.                                                     
+018600     IF ORSH-CREATE-PO                                                    
+018700        IF ORSH-CREDIT-HOLD-STATUS   OR                           LMH01199
+018800           ORSH-HOLD-ORDER-STATUS    OR                           LMH01199
+018900           ORSH-DO-NOT-PRINT                                      LMH01199
+                 IF (ORHOF-ESD-VENDOR  AND                              TGF14226
+018900               ORSH-DO-NOT-PRINT)                                 TGF14226
+                 OR (ORHOF-VIRTUAL-VENDOR AND                           TGF15220
+018900               ORSH-DO-NOT-PRINT)                                 TGF15220
+                    MOVE 1             TO WS-VEND-SUB                   TGF14226
+                    PERFORM 9950-CREATE-SLR-BILLING-PO                  TGF14226
+                      UNTIL WS-VEND-NBR (WS-VEND-SUB) = SPACES          TGF14226
+                                     OR                                 TGF14226
+                          WS-VEND-SUB > 30                              TGF14226
+                 ELSE                                                   TGF14226
+                    NEXT SENTENCE                                       TGF14226
+                 END-IF                                                 TGF14226
+019100        ELSE                                                      LMH01199
+019200           MOVE 1                TO WS-VEND-SUB                   LMH01199
+019300           PERFORM 9950-CREATE-SLR-BILLING-PO                     LMH01199
+019400              UNTIL WS-VEND-NBR (WS-VEND-SUB) = SPACES            LMH01199
+019500                               OR                                 LMH01199
+019600                    WS-VEND-SUB > 30.                             LMH01199
+                                                                        TGF14226
+019700 9940-CREATE-AUTO-PO-EXIT. EXIT.                                          
+019800                                                                          
+019900************************************************************              
+020000************ BEGIN CODE LAID IN FROM ORP590IM **************              
+020100************************************************************              
+020200 9950-CREATE-SLR-BILLING-PO.                                              
+020300*                                                                         
+020400     MOVE SPACES                 TO ORBT-ORRBT.                           
+020500     SET ORBT-AD-INDX TO 1.                                               
+020600     PERFORM 9980-INITIALIZE-LINE-NBR                                     
+020700             VARYING ORBT-AD-INDX FROM ORBT-AD-INDX BY 1                  
+020800                     UNTIL ORBT-AD-INDX GREATER THAN 9.                   
+020900     SET ORBT-AD-INDX TO 1.                                               
+021000     PERFORM 9960-FORMAT-SLR-PO-DATA.                                     
+021100     MOVE 'F'                    TO ORBT-PROCESS-SW.                      
+021200     MOVE ZEROS                  TO ORBT-PO-NBR.                          
+021300     MOVE TC-SYXCOM              TO TC-SYXCOM-LINK-AREA.                  
+021400     MOVE ORBT-ORRBT             TO ORBT-ORRBT-LINK-AREA.                 
+021500     PERFORM 9990-WRITE-TS-RECORD                                         
+021600             THRU 9990-EXIT.                                              
+021700*                                                                         
+021800     COMPUTE WS-VEND-SUB = WS-VEND-SUB + 1.                               
+021900*                                                                         
+022000************************                                                  
+022100 9960-FORMAT-SLR-PO-DATA.                                                 
+022200************************                                                  
+022300*                                                                         
+022400     MOVE ORH-COMPANY            TO ORBT-COMPANY                          
+022500                                    TC-COMPANY.                           
+022600     MOVE ORH-BR-NBR             TO ORBT-BR-NBR.                          
+022700*                                                                         
+022800     MOVE WS-VEND-NBR (WS-VEND-SUB)                                       
+022900                                 TO ORBT-VEND-NBR                         
+023000                                    ORBT-VENDOR-INV.                      
+023100                                                                          
+023200     MOVE ORSH-BR-NBR-SHIP-FROM  TO ORBT-INV-BR-NBR                       
+023300                                    TC-BR-NBR-INV.                        
+023400     MOVE ORSH-ORDER-TYPE        TO ORBT-SO-TYPE.                         
+023500     MOVE 'A'                    TO ORBT-DIVISION.                        
+023600     MOVE ORSH-REL-CUST-BR       TO ORBT-CUST-BR-NBR.                     
+023700     MOVE ORH-BR-NBR             TO ORBT-ORDER-FROM-BR                    
+023800                                    TC-BR-NBR.                            
+023900     MOVE ORH-ORDER-NBR          TO ORBT-ORDER-NBR.                       
+024000     MOVE ORSH-DIST-NBR          TO ORBT-DIST-NBR.                        
+024100     MOVE ORSH-SHIP-NBR          TO ORBT-SHIP-NBR.                        
+024200     MOVE ORBT-DS-NBR        TO ORBT-AD-DIST-SHIP (ORBT-AD-INDX).         
+024300     MOVE ORBT-VEND-NBR      TO ORBT-AD-VENDOR-INV (ORBT-AD-INDX).        
+024400     MOVE ORH-BILL-TO-CUST-NBR   TO ORBT-CUST-NBR.                        
+024500     MOVE ORH-BILL-TO-SUFFIX     TO ORBT-CUST-SUF.                        
+024600     MOVE SPACES                 TO ORBT-SO-PRT-SW.                       
+024700     MOVE ZEROS                  TO ORBT-BT-SO-NBR.                       
+024800     MOVE 'Y'                    TO ORBT-SHIP-SW.                         
+024900     MOVE ORH-SHIP-TO-SUFFIX     TO ORBT-SHIP-TO-NBR.                     
+025000     MOVE ORSH-SHIP-VIA          TO ORBT-SHIP-VIA.                        
+025100     MOVE ORSH-BACKORDER-STATUS  TO ORBT-BO-CODE.                         
+025200*                                                                         
+025300************************                                                  
+025400 9980-INITIALIZE-LINE-NBR.                                                
+025500************************                                                  
+025600*                                                                         
+025700     MOVE SPACES                 TO ORBT-AUTO-DIRECTS-TABLE               
+025800                                   (ORBT-AD-INDX).                        
+025900*                                                                         
+026000 9984-DO-WE-WANT-AUTO-PO.                                                 
+026100     IF ORL-CREATE-PO                                                     
+026200        MOVE 'P' TO WS-ORSH-CREATE-PO                             DRK00195
+026300        PERFORM 9985-TABLE-VENDOR-NBR                                     
+026400                 THRU 9985-EXIT.                                          
+026500*                                                                         
+026600 9985-TABLE-VENDOR-NBR.                                                   
+                                                                        TGF15220
+      * FOR VIRTUAL - TREAT ORH-DIR-ORD-VEND-NBR AS LINE AS VIRTUAL     TGF15220
+      * VIRTUAL WILL HOLD INVENTORY VENDOR ON THE LINE, BUT HEADER      TGF15220
+      * VENDOR NEEDS TO PROCESS.                                        TGF15220
+           IF ORSH-OUT-TYP-VIRTUAL                                      TGF15220
+              MOVE ORH-DIR-ORD-VEND-NBR                                 TGF15220
+                                       TO ORL-VENDOR-NBR                TGF15220
+           ELSE                                                         TGF15220
+026700        MOVE ' '                 TO WS-PRIOR-VENDOR-FOUND-SW      TGF15220
+026800        MOVE ORH-COMPANY         TO WS-INAL2-CO                   TGF15220
+026900        MOVE ORL-PART-NBR        TO WS-INAL2-PART                 TGF15220
+027000        MOVE 'S'                 TO WS-INSSTD-SEG-IND             TGF15220
+027100        PERFORM 1558-GU-INSSTD-OS                                 TGF15220
+027200        IF WS-INSSTD-NORESP                                       TGF15220
+027300           AND INS-WARRANTY-VENDOR > SPACES                       TGF15220
+027400           IF WS-VEND-SUB = 1                                     TGF15220
+027500              MOVE INS-WARRANTY-VENDOR                            TGF15220
+027600                TO WS-VEND-NBR (WS-VEND-SUB)                      TGF15220
+027700                ADD +1           TO WS-VEND-SUB                   TGF15220
+027800           ELSE                                                   TGF15220
+027900             MOVE INS-WARRANTY-VENDOR                             TGF15220
+                                       TO WS-COMPARE-VENDOR             TGF15220
+028000             MOVE 0              TO WS-VEND-CK-SUB                TGF15220
+028100             PERFORM 9987-CHECK-VENDOR                            TGF15220
+028200                THRU 9987-EXIT                                    TGF15220
+028300               UNTIL WS-VEND-CK-SUB = 30                          TGF15220
+                 END-IF                                                 TGF15220
+028400           IF WS-PRIOR-VENDOR-FOUND                               TGF15220
+028500              NEXT SENTENCE                                       TGF15220
+028600           ELSE                                                   TGF15220
+028700              MOVE INS-WARRANTY-VENDOR                            TGF15220
+028800                                 TO WS-VEND-NBR (WS-VEND-SUB)     TGF15220
+028900              COMPUTE WS-VEND-SUB = WS-VEND-SUB + 1               TGF15220
+                 END-IF.                                                TGF15220
+                                                                        TGF15220
+029000     MOVE ORL-VENDOR-NBR TO WS-COMPARE-VENDOR.                            
+029100     IF WS-VEND-SUB = 1                                                   
+029200        MOVE ORL-VENDOR-NBR      TO WS-VEND-NBR (WS-VEND-SUB)             
+029300        COMPUTE WS-VEND-SUB = WS-VEND-SUB + 1                             
+029400        GO TO 9985-EXIT                                                   
+029500     ELSE                                                                 
+029600        MOVE 0                   TO WS-VEND-CK-SUB                        
+029700        PERFORM 9987-CHECK-VENDOR                                         
+029800                THRU 9987-EXIT                                            
+029900                     UNTIL WS-VEND-CK-SUB = 30                            
+030000        IF WS-PRIOR-VENDOR-FOUND                                          
+030100           GO TO 9985-EXIT                                                
+030200        ELSE                                                              
+030300           MOVE ORL-VENDOR-NBR   TO WS-VEND-NBR (WS-VEND-SUB)             
+030400           COMPUTE WS-VEND-SUB = WS-VEND-SUB + 1                          
+030500           GO TO 9985-EXIT.                                               
+030600*                                                                         
+030700 9985-EXIT.                                                               
+030800      EXIT.                                                               
+030900 9987-CHECK-VENDOR.                                                       
+031000*                                                                         
+031100     COMPUTE WS-VEND-CK-SUB = WS-VEND-CK-SUB + 1.                         
+031200*                                                                         
+031300     IF WS-COMPARE-VENDOR EQUAL WS-VEND-NBR (WS-VEND-CK-SUB)              
+031400        MOVE 'Y'                 TO WS-PRIOR-VENDOR-FOUND-SW              
+031500        MOVE 30                  TO WS-VEND-CK-SUB.                       
+031600*                                                                         
+031700 9987-EXIT.                                                               
+031800      EXIT.                                                               
+031900*********************                                                     
+032000 9990-WRITE-TS-RECORD.                                                    
+032100*********************                                                     
+032200*                                                                         
+032300     MOVE TC-OPER-ID             TO WS-SAV-OPER-ID.                       
+032400*    MOVE TC-OPER-ID             TO WS-TS-OPERID.                 NXP22063
+      *--- CHANGES DONE TO MOVE EIBTASK TO TSQ OPER-ID TO FIX PUP590    NXP22063
+      *--- ABEND                                                        NXP22063
+           MOVE EIBTASKN               TO WS-EIBTASK-NUMERIC-COMP3      NXP22063
+           MOVE WS-EIBTASK-X4          TO WS-TS-OPERID.                 NXP22063
+032500     MOVE +0001                  TO WS-TS-ITEM-NBR                        
+032600     EXEC CICS HANDLE CONDITION                                   SAS17200
+032700                      ERROR(9990-TS-ERROR)                        SAS17200
+032800     END-EXEC.                                                    SAS17200
+033200*                                                                         
+033300     MOVE LENGTH OF ORBT-ORRBT   TO  WS-ORBTX-TS-LENGTH.                  
+033400                                                                          
+033500     EXEC CICS WRITEQ TS QUEUE(WS-TS-ORBT-QUE-NAME)               SAS17200
+033600                         FROM(ORBT-ORRBT)                         SAS17200
+033700                         LENGTH(WS-ORBTX-TS-LENGTH)               SAS17200
+033800                         ITEM(WS-TS-ITEM-NBR)                     SAS17200
+033900     END-EXEC.                                                    SAS17200
+034300*                                                                         
+034400     PERFORM 990-TERMINATE-DLI.                                           
+034500                                                                          
+034600     EXEC CICS LINK PROGRAM (WS-BT-PO-PROGRAM)                    SAS17200
+034700                    COMMAREA (WS-PO-COMM-AREA)                    SAS17200
+034800                    LENGTH (WS-COMM-AREA-LENGTH)                  SAS17200
+034900     END-EXEC.                                                    SAS17200
+035300                                                                          
+035400     MOVE WS-SAV-OPER-ID     TO TC-OPER-ID.                               
+035500     PERFORM 980-SCHEDULE-DLI.                                            
+035600*                                                                         
+035700     GO TO 9990-EXIT.                                                     
+035800 9990-TS-ERROR.                                                           
+035900     MOVE '9990'         TO WS-ABCODE.                                    
+036000     PERFORM 999-ABEND.                                                   
+036100 9990-EXIT.                                                               
+036200     EXIT.                                                                
+036300                                                                          
+036400 9994-SET-ORSH-OUTSOURCE.                                                 
+036500                                                                          
+036600     IF ORL-OUR-PART-NBR AND NOT ORL-VOIDED-LINE                          
+036700*          SETS ORSSHH OUTSOURCE                                          
+036800           EVALUATE TRUE                                                  
+036900             WHEN ORSH-OUTSOURCE-NOTSET                                   
+037000*               SETS ORSH-OUTSOURCE-SKU-IND BECAUSE IT IS                 
+037100*               THE FIRST NON VOID LINE IN THE SHIPMENT                   
+037200                PERFORM VARYING WS-VEND-CK-SUB FROM 1 BY 1                
+037300                         UNTIL WS-VEND-CK-SUB IS GREATER THAN 30          
+037400                     MOVE SPACES TO WS-VEND-NBR (WS-VEND-CK-SUB)          
+037500                END-PERFORM                                               
+037600                EVALUATE TRUE                                             
+037700                  WHEN ORL-INV-OUTSOURCED                                 
+037800                       MOVE ORL-INV-IND TO ORSH-OUTSOURCE-SKU-IND         
+037900                  WHEN OTHER                                              
+038000                       SET ORSH-OUT-TYP-NO-OUTSOURCE      TO TRUE         
+038100                END-EVALUATE                                              
+038200             WHEN ORSH-OUT-TYP-NO-OUTSOURCE                               
+038300                EVALUATE TRUE                                             
+038400                  WHEN ORL-INV-OUT-INTERNAL                               
+038500                       SET ORSH-OUT-TYP-INT-REG           TO TRUE         
+038600                  WHEN ORL-INV-OUT-EXTERNAL                               
+038700                       SET ORSH-OUT-TYP-EXT-REG           TO TRUE         
+038800                  WHEN ORL-INV-OUT-SPECIAL                                
+038900                       SET ORSH-OUT-TYP-SPEC-REG          TO TRUE         
+038800                  WHEN ORL-INV-OUT-LICENSE                        JMW04266
+038900                       SET ORSH-OUT-TYP-LIC-REG           TO TRUE JMW05005
+039000                END-EVALUATE                                              
+039100             WHEN ORSH-OUT-TYP-INT-ONLY                                   
+039200                EVALUATE TRUE                                             
+039300                  WHEN ORL-INV-OUT-INTERNAL                               
+039400                       CONTINUE                                           
+039500                  WHEN ORL-INV-OUT-EXTERNAL                               
+039600                       SET ORSH-OUT-TYP-INT-EXT-ONLY      TO TRUE         
+039700                  WHEN ORL-INV-OUT-SPECIAL                                
+039800                       SET ORSH-OUT-TYP-INT-SPEC          TO TRUE         
+039900                  WHEN OTHER                                              
+040000                       SET ORSH-OUT-TYP-INT-REG           TO TRUE         
+040100                END-EVALUATE                                              
+040200             WHEN ORSH-OUT-TYP-INT-REG                                    
+040300                EVALUATE TRUE                                             
+040400                  WHEN ORL-INV-OUT-INTERNAL                               
+040500                       CONTINUE                                           
+040600                  WHEN ORL-INV-OUT-EXTERNAL                               
+040700                       SET ORSH-OUT-TYP-INT-EXT-REG       TO TRUE         
+040800                  WHEN ORL-INV-OUT-SPECIAL                                
+040900                       SET ORSH-OUT-TYP-INT-SPEC-REG      TO TRUE         
+041000                  WHEN OTHER                                              
+041100                       CONTINUE                                           
+041200                END-EVALUATE                                              
+041300             WHEN ORSH-OUT-TYP-EXT-ONLY                                   
+041400                EVALUATE TRUE                                             
+041500                  WHEN ORL-INV-OUT-INTERNAL                               
+041600                       SET ORSH-OUT-TYP-INT-EXT-ONLY      TO TRUE         
+041700                  WHEN ORL-INV-OUT-EXTERNAL                               
+041800                       CONTINUE                                           
+041900                  WHEN ORL-INV-OUT-SPECIAL                                
+042000                       SET ORSH-OUT-TYP-EXT-SPEC          TO TRUE         
+042100                  WHEN OTHER                                              
+042200                       SET ORSH-OUT-TYP-EXT-REG           TO TRUE         
+042300                END-EVALUATE                                              
+042400             WHEN ORSH-OUT-TYP-EXT-REG                                    
+042500                EVALUATE TRUE                                             
+042600                  WHEN ORL-INV-OUT-INTERNAL                               
+042700                       SET ORSH-OUT-TYP-INT-EXT-REG       TO TRUE         
+042800                  WHEN ORL-INV-OUT-EXTERNAL                               
+042900                       CONTINUE                                           
+043000                  WHEN ORL-INV-OUT-SPECIAL                                
+043100                       SET ORSH-OUT-TYP-EXT-SPEC-REG      TO TRUE         
+043200                  WHEN OTHER                                              
+043300                       CONTINUE                                           
+043400                END-EVALUATE                                              
+043500             WHEN ORSH-OUT-TYP-INT-EXT-ONLY                               
+043600                EVALUATE TRUE                                             
+043700                  WHEN ORL-INV-OUT-INTERNAL                               
+043800                       CONTINUE                                           
+043900                  WHEN ORL-INV-OUT-EXTERNAL                               
+044000                       CONTINUE                                           
+044100                  WHEN ORL-INV-OUT-SPECIAL                                
+044200                       SET ORSH-OUT-TYP-INT-EXT-SPEC      TO TRUE         
+044300                  WHEN OTHER                                              
+044400                       SET ORSH-OUT-TYP-INT-EXT-REG       TO TRUE         
+044500                END-EVALUATE                                              
+044600             WHEN ORSH-OUT-TYP-INT-EXT-REG                                
+044700                EVALUATE TRUE                                             
+044800                  WHEN ORL-INV-OUT-SPECIAL                                
+044900                       SET ORSH-OUT-TYP-INT-EXT-SPEC-REG  TO TRUE         
+045000                END-EVALUATE                                              
+045100             WHEN ORSH-OUT-TYP-SPECIAL-ONLY                               
+045200                EVALUATE TRUE                                             
+045300                  WHEN ORL-INV-OUT-INTERNAL                               
+045400                       SET ORSH-OUT-TYP-INT-SPEC          TO TRUE         
+045500                  WHEN ORL-INV-OUT-EXTERNAL                               
+045600                       SET ORSH-OUT-TYP-EXT-SPEC          TO TRUE         
+045700                  WHEN ORL-INV-OUT-SPECIAL                                
+045800                       CONTINUE                                           
+045900                  WHEN OTHER                                              
+046000                       SET ORSH-OUT-TYP-SPEC-REG          TO TRUE         
+046100                END-EVALUATE                                              
+046200             WHEN ORSH-OUT-TYP-SPEC-REG                                   
+046300                EVALUATE TRUE                                             
+046400                  WHEN ORL-INV-OUT-INTERNAL                               
+046500                       SET ORSH-OUT-TYP-INT-SPEC-REG      TO TRUE         
+046600                  WHEN ORL-INV-OUT-EXTERNAL                               
+046700                       SET ORSH-OUT-TYP-EXT-SPEC-REG      TO TRUE         
+046800                END-EVALUATE                                              
+046900             WHEN ORSH-OUT-TYP-INT-SPEC-REG                               
+047000                EVALUATE TRUE                                             
+047100                  WHEN ORL-INV-OUT-EXTERNAL                               
+047200                       SET ORSH-OUT-TYP-INT-EXT-SPEC-REG  TO TRUE         
+047300                END-EVALUATE                                              
+047400             WHEN ORSH-OUT-TYP-EXT-SPEC-REG                               
+047500                EVALUATE TRUE                                             
+047600                  WHEN ORL-INV-OUT-INTERNAL                               
+047700                       SET ORSH-OUT-TYP-INT-EXT-SPEC-REG  TO TRUE         
+047800                END-EVALUATE                                              
+047900             WHEN ORSH-OUT-TYP-INT-SPEC                                   
+048000                EVALUATE TRUE                                             
+048100                  WHEN ORL-INV-OUT-INTERNAL                               
+048200                       CONTINUE                                           
+048300                  WHEN ORL-INV-OUT-EXTERNAL                               
+048400                       SET ORSH-OUT-TYP-INT-EXT-SPEC      TO TRUE         
+048500                  WHEN ORL-INV-OUT-SPECIAL                                
+048600                       CONTINUE                                           
+048700                  WHEN OTHER                                              
+048800                       SET ORSH-OUT-TYP-INT-SPEC-REG      TO TRUE         
+048900                END-EVALUATE                                              
+049000             WHEN ORSH-OUT-TYP-EXT-SPEC                                   
+049100                EVALUATE TRUE                                             
+049200                  WHEN ORL-INV-OUT-INTERNAL                               
+049300                       SET ORSH-OUT-TYP-INT-EXT-SPEC      TO TRUE         
+049400                  WHEN ORL-INV-OUT-EXTERNAL                               
+049500                       CONTINUE                                           
+049600                  WHEN ORL-INV-OUT-SPECIAL                                
+049700                       CONTINUE                                           
+049800                  WHEN OTHER                                              
+049900                       SET ORSH-OUT-TYP-EXT-SPEC-REG      TO TRUE         
+050000                END-EVALUATE                                              
+050100             WHEN ORSH-OUT-TYP-INT-EXT-SPEC                               
+050200                EVALUATE TRUE                                             
+050300                  WHEN ORL-INV-OUT-INTERNAL                               
+050400                       CONTINUE                                           
+050500                  WHEN ORL-INV-OUT-EXTERNAL                               
+050600                       CONTINUE                                           
+050700                  WHEN ORL-INV-OUT-SPECIAL                                
+050800                       CONTINUE                                           
+050900                  WHEN OTHER                                              
+051000                       SET ORSH-OUT-TYP-INT-EXT-SPEC-REG  TO TRUE         
+051100                END-EVALUATE                                              
+051200             WHEN ORSH-OUT-TYP-LICENSE                            JMW04266
+051500                EVALUATE TRUE                                     JMW04266
+                        WHEN ORL-INV-OUT-LICENSE                        JMW04266
+051300                       CONTINUE                                   JMW04266
+                        WHEN OTHER                                      JMW04266
+                             SET ORSH-OUT-TYP-LIC-REG   TO TRUE         JMW04266
+                      END-EVALUATE                                      JMW04266
+                   WHEN ORSH-OUT-TYP-VIRTUAL                            TGF15220
+                      EVALUATE TRUE                                     TGF15220
+                        WHEN ORL-INV-OUT-VIRTUAL                        TGF15220
+                             CONTINUE                                   TGF15220
+                        WHEN OTHER                                      TGF15220
+                        MOVE '?'       TO ORSH-OUTSOURCE-SKU-IND        TGF15220
+                      END-EVALUATE                                      TGF15220
+                   WHEN ORSH-OUT-TYP-LIC-REG                            JMW04266
+                      CONTINUE                                          JMW04266
+051200             WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                           
+051300                CONTINUE                                                  
+051400             WHEN OTHER                                                   
+051500                EVALUATE TRUE                                             
+051600                  WHEN ORL-INV-OUT-INTERNAL                               
+051700                       SET ORSH-OUT-TYP-INT-ONLY          TO TRUE         
+051800                  WHEN ORL-INV-OUT-EXTERNAL                               
+051900                       SET ORSH-OUT-TYP-EXT-ONLY          TO TRUE         
+052000                  WHEN ORL-INV-OUT-SPECIAL                                
+052100                       SET ORSH-OUT-TYP-SPECIAL-ONLY      TO TRUE         
+052200                  WHEN OTHER                                              
+052300                       SET ORSH-OUT-TYP-NO-OUTSOURCE      TO TRUE         
+052400                END-EVALUATE                                              
+052500           END-EVALUATE                                                   
+052600                                                                          
+052700        MOVE ORSH-OUTSOURCE-SKU-IND TO WS-SAV-ORSSHH-OS-TYPE              
+052800                                                                          
+052900        PERFORM 9984-DO-WE-WANT-AUTO-PO                                   
+053000     END-IF.                                                              
+053100                                                                          
+053200 9994-SET-ORSH-OUTSOURCE-EXIT.                                            
+053300     EXIT.                                                                
+053400                                                                          
+053500                                                                          
+053600 9996-SET-ORH-OUTSOURCE.                                                  
+053700                                                                          
+053800*    SETS ORSHED OUTSOURCE                                                
+053900     EVALUATE TRUE                                                        
+054000       WHEN ORH-OUTSOURCE-NOTSET                                          
+054100*           SETS ORH-OUTSOURCE-SKU-IND BECAUSE IT IS                      
+054200*           THE FIRST NON VOID LINE IN THE SHIPMENT                       
+054300            EVALUATE TRUE                                                 
+054400              WHEN ORSH-TYP-OUTSOURCE                                     
+054500                   MOVE ORSH-OUTSOURCE-SKU-IND                            
+054600                            TO ORH-OUTSOURCE-SKU-IND                      
+054700              WHEN OTHER                                                  
+054800                   SET ORH-OUT-TYP-NO-OUTSOURCE           TO TRUE         
+054900            END-EVALUATE                                                  
+055000       WHEN ORH-OUT-TYP-NO-OUTSOURCE                                      
+055100            EVALUATE TRUE                                                 
+055200              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+055300                   SET ORH-OUT-TYP-INT-REG                TO TRUE         
+055400              WHEN ORSH-OUT-TYP-INT-REG                                   
+055500                   SET ORH-OUT-TYP-INT-REG                TO TRUE         
+055600              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+055700                   SET ORH-OUT-TYP-EXT-REG                TO TRUE         
+055800              WHEN ORSH-OUT-TYP-EXT-REG                                   
+055900                   SET ORH-OUT-TYP-EXT-REG                TO TRUE         
+056000              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+056100                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+056200              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+056300                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+056400              WHEN ORSH-OUT-TYP-LICENSE                           JMW04266
+056500                   SET ORH-OUT-TYP-LICENSE                TO TRUE JMW04266
+056400              WHEN ORSH-OUT-TYP-VIRTUAL                           TGF15220
+056500                   SET ORH-OUT-TYP-VIRTUAL                TO TRUE TGF15220
+056400              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+056500                   SET ORH-OUT-TYP-SPEC-REG               TO TRUE         
+056600              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+056700                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+056800              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+056900                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+057000              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+057100                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+057200              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+057300                   SET ORH-OUT-TYP-SPEC-REG               TO TRUE         
+057400              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+057500                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+057600              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+057700                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+057800              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+057900                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+058000            END-EVALUATE                                                  
+058100       WHEN ORH-OUT-TYP-INT-ONLY                                          
+058200            EVALUATE TRUE                                                 
+058300              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+058400                   CONTINUE                                               
+058500              WHEN ORSH-OUT-TYP-INT-REG                                   
+058600                   SET ORH-OUT-TYP-INT-REG                TO TRUE         
+058700              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+058800                   SET ORH-OUT-TYP-INT-EXT-ONLY           TO TRUE         
+058900              WHEN ORSH-OUT-TYP-EXT-REG                                   
+059000                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+059100              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+059200                   SET ORH-OUT-TYP-INT-EXT-ONLY           TO TRUE         
+059300              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+059400                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+059500              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+059600                   SET ORH-OUT-TYP-INT-SPEC               TO TRUE         
+059700              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+059800                   SET ORH-OUT-TYP-INT-SPEC               TO TRUE         
+059900              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+060000                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+060100              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+060200                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+060300              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+060400                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+060500              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+060600                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+060700              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+060800                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+060900              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+061000                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+061100              WHEN OTHER                                                  
+061200                   SET ORH-OUT-TYP-INT-REG                TO TRUE         
+061300            END-EVALUATE                                                  
+061400       WHEN ORH-OUT-TYP-INT-REG                                           
+061500            EVALUATE TRUE                                                 
+061600              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+061700                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+061800              WHEN ORSH-OUT-TYP-EXT-REG                                   
+061900                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+062000              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+062100                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+062200              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+062300                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+062400              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+062500                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+062600              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+062700                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+062800              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+062900                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+063000              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+063100                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+063200              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+063300                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+063400              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+063500                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+063600              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+063700                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+063800              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+063900                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+064000            END-EVALUATE                                                  
+064100       WHEN ORH-OUT-TYP-EXT-ONLY                                          
+064200            EVALUATE TRUE                                                 
+064300              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+064400                   SET ORH-OUT-TYP-INT-EXT-ONLY           TO TRUE         
+064500              WHEN ORSH-OUT-TYP-INT-REG                                   
+064600                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+064700              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+064800                   CONTINUE                                               
+064900              WHEN ORSH-OUT-TYP-EXT-REG                                   
+065000                   SET ORH-OUT-TYP-EXT-REG                TO TRUE         
+065100              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+065200                   SET ORH-OUT-TYP-INT-EXT-ONLY           TO TRUE         
+065300              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+065400                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+065500              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+065600                   SET ORH-OUT-TYP-EXT-SPEC               TO TRUE         
+065700              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+065800                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+065900              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+066000                   SET ORH-OUT-TYP-EXT-SPEC               TO TRUE         
+066100              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+066200                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+066300              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+066400                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+066500              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+066600                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+066700              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+066800                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+066900              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+067000                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+067100              WHEN OTHER                                                  
+067200                   SET ORH-OUT-TYP-EXT-REG                TO TRUE         
+067300            END-EVALUATE                                                  
+067400       WHEN ORH-OUT-TYP-EXT-REG                                           
+067500            EVALUATE TRUE                                                 
+067600              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+067700                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+067800              WHEN ORSH-OUT-TYP-INT-REG                                   
+067900                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+068000              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+068100                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+068200              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+068300                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+068400              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+068500                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+068600              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+068700                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+068800              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+068900                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+069000              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+069100                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+069200              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+069300                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+069400              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+069500                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+069600              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+069700                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+069800              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+069900                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+070000            END-EVALUATE                                                  
+070100       WHEN ORH-OUT-TYP-INT-EXT-ONLY                                      
+070200            EVALUATE TRUE                                                 
+070300              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+070400                   CONTINUE                                               
+070500              WHEN ORSH-OUT-TYP-INT-REG                                   
+070600                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+070700              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+070800                   CONTINUE                                               
+070900              WHEN ORSH-OUT-TYP-EXT-REG                                   
+071000                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+071100              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+071200                   CONTINUE                                               
+071300              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+071400                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+071500              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+071600                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+071700              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+071800                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+071900              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+072000                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+072100              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+072200                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+072300              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+072400                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+072500              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+072600                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+072700              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+072800                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+072900              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+073000                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+073100              WHEN OTHER                                                  
+073200                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+073300            END-EVALUATE                                                  
+073400       WHEN ORH-OUT-TYP-INT-EXT-REG                                       
+073500            EVALUATE TRUE                                                 
+073600              WHEN ORH-OUT-TYP-SPECIAL                                    
+073700                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+073800            END-EVALUATE                                                  
+073900       WHEN ORH-OUT-TYP-SPECIAL-ONLY                                      
+074000            EVALUATE TRUE                                                 
+074100              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+074200                   SET ORH-OUT-TYP-INT-SPEC               TO TRUE         
+074300              WHEN ORSH-OUT-TYP-INT-REG                                   
+074400                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+074500              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+074600                   SET ORH-OUT-TYP-EXT-SPEC               TO TRUE         
+074700              WHEN ORSH-OUT-TYP-EXT-REG                                   
+074800                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+074900              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+075000                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+075100              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+075200                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+075300              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+075400                   CONTINUE                                               
+075500              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+075600                   SET ORH-OUT-TYP-INT-SPEC               TO TRUE         
+075700              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+075800                   SET ORH-OUT-TYP-EXT-SPEC               TO TRUE         
+075900              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+076000                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+076100              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+076200                   SET ORH-OUT-TYP-SPEC-REG               TO TRUE         
+076300              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+076400                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+076500              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+076600                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+076700              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+076800                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+076900              WHEN OTHER                                                  
+077000                   SET ORH-OUT-TYP-SPEC-REG               TO TRUE         
+077100            END-EVALUATE                                                  
+077200       WHEN ORH-OUT-TYP-INT-SPEC                                          
+077300            EVALUATE TRUE                                                 
+077400              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+077500                   CONTINUE                                               
+077600              WHEN ORSH-OUT-TYP-INT-REG                                   
+077700                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+077800              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+077900                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+078000              WHEN ORSH-OUT-TYP-EXT-REG                                   
+078100                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+078200              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+078300                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+078400              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+078500                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+078600              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+078700                   CONTINUE                                               
+078800              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+078900                   CONTINUE                                               
+079000              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+079100                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+079200              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+079300                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+079400              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+079500                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+079600              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+079700                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+079800              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+079900                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+080000              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+080100                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+080200              WHEN OTHER                                                  
+080300                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+080400            END-EVALUATE                                                  
+080500       WHEN ORH-OUT-TYP-EXT-SPEC                                          
+080600            EVALUATE TRUE                                                 
+080700              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+080800                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+080900              WHEN ORSH-OUT-TYP-INT-REG                                   
+081000                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+081100              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+081200                   CONTINUE                                               
+081300              WHEN ORSH-OUT-TYP-EXT-REG                                   
+081400                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+081500              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+081600                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+081700              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+081800                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+081900              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+082000                   CONTINUE                                               
+082100              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+082200                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+082300              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+082400                   CONTINUE                                               
+082500              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+082600                   SET ORH-OUT-TYP-INT-EXT-SPEC           TO TRUE         
+082700              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+082800                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+082900              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+083000                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+083100              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+083200                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+083300              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+083400                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+083500              WHEN OTHER                                                  
+083600                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+083700            END-EVALUATE                                                  
+083800       WHEN ORH-OUT-TYP-INT-EXT-SPEC                                      
+083900            EVALUATE TRUE                                                 
+084000              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+084100                   CONTINUE                                               
+084200              WHEN ORSH-OUT-TYP-INT-REG                                   
+084300                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+084400              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+084500                   CONTINUE                                               
+084600              WHEN ORSH-OUT-TYP-EXT-REG                                   
+084700                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+084800              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+084900                   CONTINUE                                               
+085000              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+085100                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+085200              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+085300                   CONTINUE                                               
+085400              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+085500                   CONTINUE                                               
+085600              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+085700                   CONTINUE                                               
+085800              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+085900                   CONTINUE                                               
+086000              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+086100                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+086200              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+086300                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+086400              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+086500                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+086600              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+086700                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+086800              WHEN OTHER                                                  
+086900                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+087000            END-EVALUATE                                                  
+087100       WHEN ORH-OUT-TYP-SPEC-REG                                          
+087200            EVALUATE TRUE                                                 
+087300              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+087400                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+087500              WHEN ORSH-OUT-TYP-INT-REG                                   
+087600                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+087700              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+087800                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+087900              WHEN ORSH-OUT-TYP-EXT-REG                                   
+088000                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+088100              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+088200                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+088300              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+088400                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+088500              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+088600                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+088700              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+088800                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+088900              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+089000                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+089100              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+089200                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+089300              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+089400                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+089500              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+089600                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+089700            END-EVALUATE                                                  
+089800       WHEN ORH-OUT-TYP-INT-SPEC-REG                                      
+089900            EVALUATE TRUE                                                 
+090000              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+090100                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+090200              WHEN ORSH-OUT-TYP-EXT-REG                                   
+090300                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+090400              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+090500                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+090600              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+090700                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+090800              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+090900                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+091000              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+091100                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+091200              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+091300                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+091400              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+091500                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+091600            END-EVALUATE                                                  
+091700       WHEN ORH-OUT-TYP-EXT-SPEC-REG                                      
+091800            EVALUATE TRUE                                                 
+091900              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+092000                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+092100              WHEN ORSH-OUT-TYP-INT-REG                                   
+092200                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+092300              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+092400                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+092500              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+092600                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+092700              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+092800                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+092900              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+093000                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+093100              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+093200                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+093300              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+093400                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+093500            END-EVALUATE                                                  
+093600       WHEN ORH-OUT-TYP-LICENSE                                   JMW04266
+093700            CONTINUE                                              JMW04266
+093600       WHEN ORH-OUT-TYP-INT-EXT-SPEC-REG                                  
+093700            CONTINUE                                                      
+093800       WHEN OTHER                                                         
+093900            EVALUATE TRUE                                                 
+094000              WHEN ORSH-OUT-TYP-INT-ONLY                                  
+094100                   SET ORH-OUT-TYP-INT-REG                TO TRUE         
+094200              WHEN ORSH-OUT-TYP-INT-REG                                   
+094300                   SET ORH-OUT-TYP-INT-REG                TO TRUE         
+094400              WHEN ORSH-OUT-TYP-EXT-ONLY                                  
+094500                   SET ORH-OUT-TYP-EXT-REG                TO TRUE         
+094600              WHEN ORSH-OUT-TYP-EXT-REG                                   
+094700                   SET ORH-OUT-TYP-EXT-REG                TO TRUE         
+094800              WHEN ORSH-OUT-TYP-INT-EXT-ONLY                              
+094900                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+095000              WHEN ORSH-OUT-TYP-INT-EXT-REG                               
+095100                   SET ORH-OUT-TYP-INT-EXT-REG            TO TRUE         
+095200              WHEN ORSH-OUT-TYP-SPECIAL-ONLY                              
+095300                   SET ORH-OUT-TYP-SPEC-REG               TO TRUE         
+095400              WHEN ORSH-OUT-TYP-INT-SPEC                                  
+095500                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+095600              WHEN ORSH-OUT-TYP-EXT-SPEC                                  
+095700                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+095800              WHEN ORSH-OUT-TYP-INT-EXT-SPEC                              
+095900                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+096000              WHEN ORSH-OUT-TYP-SPEC-REG                                  
+096100                   SET ORH-OUT-TYP-SPEC-REG               TO TRUE         
+096200              WHEN ORSH-OUT-TYP-INT-SPEC-REG                              
+096300                   SET ORH-OUT-TYP-INT-SPEC-REG           TO TRUE         
+096400              WHEN ORSH-OUT-TYP-EXT-SPEC-REG                              
+096500                   SET ORH-OUT-TYP-EXT-SPEC-REG           TO TRUE         
+096600              WHEN ORSH-OUT-TYP-INT-EXT-SPEC-REG                          
+096700                   SET ORH-OUT-TYP-INT-EXT-SPEC-REG       TO TRUE         
+096800              WHEN OTHER                                                  
+096900                   SET ORH-OUT-TYP-NO-OUTSOURCE           TO TRUE         
+097000            END-EVALUATE                                                  
+097100     END-EVALUATE.                                                        
+097200                                                                          
+097300 9996-SET-ORH-OUTSOURCE-EXIT.                                             
+097400     EXIT.                                                                
+097500                                                                          
+097510 9997-SET-SSEU-HOLD-RSN.                                          MXK04146
+            IF WS-SSEU-EA-HOLD                                          AP323223
+097512         CONTINUE                                                 MXK04146
+097513      ELSE                                                        MXK04146
+097514        IF ORLOF-HOLD-ACOP                                        MXK04146
+                 SET WS-SSEU-EA-HOLD   TO TRUE                          AP323223
+097516        ELSE                                                      MXK04146
+097517          IF ORLOF-EU-MISSING                                     MXK04146
+097520          OR ORLOF-EU-REJECT                                      MXK04146
+097521             SET WS-SSEU-ES-HOLD       TO TRUE                    MXK04146
+097522          ELSE                                                    MXK04146
+097523             IF WS-SSEU-ES-HOLD                                   MXK04146
+097524                CONTINUE                                          MXK04146
+097525             ELSE                                                 MXK04146
+097526               IF ORLOF-EU-QUEUED                                 MXK04146
+                        SET WS-SSEU-EH-HOLD                             AXL24306
+                                       TO TRUE                          AXL24306
+                     ELSE                                               AXL24306
+                        IF WS-SSEU-EH-HOLD                              AXL24306
+                           CONTINUE                                     AXL24306
+                        ELSE                                            AXL24306
+                           IF ORLOF-EU-GPE-HOLD                         AXL24306
+                              SET WS-SSEU-GP-HOLD                       AXL24306
+                                       TO TRUE                          AXL24306
+                           END-IF                                       AXL24306
+                        END-IF                                          AXL24306
+                     END-IF                                             AXL24306
+                   END-IF                                               AXL24306
+                END-IF                                                  AXL24306
+              END-IF                                                    AXL24306
+            END-IF.                                                     AXL24306
+            IF WS-SSEU-GP-HOLD OR ORLOF-EU-GPE-HOLD                     AXL24306
+               SET WS-SSEU-GP-PRESENT  TO TRUE                          AXL24306
+            END-IF.                                                     AXL24306
+                                                                        AXL24306
+097531 9997-EXIT.                                                       MXK04146
+097532      EXIT.                                                       MXK04146
+097533                                                                          
+097600 1202-GU-ORSSHH-OS.               COPY ORIO1202.                          
+097700                                                                          
+097800 1204-GU-ORSLNE-OS.               COPY ORIO1204.                  LMH01199
+097900                                                                  LMH01199
+098000 1208-GHU-ORSHED-OS.              COPY ORIO1208.                          
+098100                                                                          
+098200 1210-GHU-ORSSHH-OS.              COPY ORIO1210.                          
+098210*                                                                         
+098220 1743-GNP-ORSLNE-ORSLNEOF.  COPY ORIO1743.                        MXK04146
+098230      IF WS-ORSLNE-NORESP                                         MXK04146
+098240         MOVE PATH-ORSLNE-AREA     TO ORL-ORSLNE                  MXK04146
+098250         MOVE PATH-ORSLNEOF-AREA   TO ORLOF-ORSLNEOF-0.           MXK04146
+098300                                                                          
+098600 1312-REPL-ORSHED-OS.             COPY ORIO1312.                          
+098700                                                                          
+098800 1314-REPL-ORSSHH-OS.             COPY ORIO1314.                          
+098801                                                                          
+099000 1558-GU-INSSTD-OS.               COPY INIO1558.                          

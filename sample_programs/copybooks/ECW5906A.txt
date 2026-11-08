@@ -1,0 +1,69 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+                                                                                
+      *  ECW CODE     START  OF THIS SECTION                            JWO93341
+                                                                                
+       5906-GET-REMOTE-TBX-FLDS.                                                
+                                                                                
+      * THIS PROGRAM NEEDS SOME TBXCORP FIELDS FROM THE LOCAL TBLMST            
+      * AND SOME FIELDS FROM THE TBLMST OF THE REGION WHERE THE ORDER           
+      * WAS ENTERED. FOR ECW USERS THESE MAY NOT BE THE SAME REGION.            
+      * USE COPY ... REPLACING == .. == BY == .. == TO MAKE THIS                
+      * ROUTINE GET THE REMOTE FIELDS THAT YOUR PROGRAM NEEDS.                  
+      * EXAMPLE :                                                               
+      *                                                                         
+      *    COPY ECW5906A REPLACING                                      JWO93341
+      *         == WS-ECW01X == BY                                      JWO93341
+      *         == TB-CPO-CURRENCY-CODE ==                              JWO93341
+      *         == WS-ECW02X == BY                                      JWO93341
+      *         == WS-CPO-CURRENCY-CODE ==                              JWO93341
+      *         == WS-ECW03X == BY                                      JWO93341
+      *         == TB-CPO-BILL-CONTROL-SW ==                            JWO93341
+      *         == WS-ECW04X == BY                                      JWO93341
+      *         == WS-CPO-BILL-CONTROL-SW ==.                           JWO93341
+                                                                                
+                                                                                
+           IF TB-CPO-INVENTORY-IS-SHARED                                JWO93341
+      *        GET REMOTE TBXCORP FIELDS.                               JWO93341
+               MOVE WS-ALT-TC-COMPANY  TO TB-CPO-COMPANY-CODE           JWO93341
+               MOVE WS-ALT-CO-VSAM-SUF TO TB-CPO-IA-WORK-AREA (2:1)     JWO93341
+               CALL 'SYU510'   USING TB-CORP-PROC-IA                    JWO93341
+               MOVE LOW-VALUE          TO TB-CPO-IA-WORK-AREA (2:1)     JWO93341
+               IF TB-CPO-NORESP                                         JWO93341
+      *          SAVE REMOTE TBXCORP FIELDS.                            JWO93341
+                 MOVE WS-ECW01X                                         JWO93341
+                   TO WS-ECW02X                                         JWO93341
+                 MOVE WS-ECW03X                                         JWO93341
+                   TO WS-ECW04X                                         JWO93341
+                 MOVE WS-ECW05X                                         JWO93341
+                   TO WS-ECW06X                                         JWO93341
+                 MOVE WS-ECW07X                                         JWO93341
+                   TO WS-ECW08X                                         JWO93341
+                 MOVE WS-ECW09X                                         JWO93341
+                   TO WS-ECW10X                                         JWO93341
+      *          GET LOCAL TBXCORP BACK AND PUT THE SAVED REMOTE VALUES JWO93341
+      *          IN THE TABLE ENTRY.                                    JWO93341
+                 MOVE TC-COMPANY  TO TB-CPO-COMPANY-CODE                JWO93341
+                 CALL 'SYU510'  USING TB-CORP-PROC-IA                   JWO93341
+                 IF TB-CPO-NORESP                                       JWO93341
+                  MOVE WS-ECW02X                                        JWO93341
+                    TO WS-ECW01X                                        JWO93341
+                  MOVE WS-ECW04X                                        JWO93341
+                    TO WS-ECW03X                                        JWO93341
+                  MOVE WS-ECW06X                                        JWO93341
+                    TO WS-ECW05X                                        JWO93341
+                  MOVE WS-ECW08X                                        JWO93341
+                    TO WS-ECW07X                                        JWO93341
+                  MOVE WS-ECW10X                                        JWO93341
+                    TO WS-ECW09X                                        JWO93341
+                  CONTINUE.                                             JWO93341
+                                                                                
+      * IF THE PROGRAM IS IN AN ECW TYPE REGION , THEN                  JWO93341
+      * THE TBXCORP ENTRY IN WORKING STORAGE NOW CONTAINS SOME LOCAL    JWO93341
+      *  VALUES AND SOME REMOTE VALUES.                                 JWO93341
+                                                                                
+       5906-GRT-EXIT.  EXIT.                                                    
+                                                                                
+      *  ECW CODE     END    OF THIS SECTION                            JWO93341
+                                                                                

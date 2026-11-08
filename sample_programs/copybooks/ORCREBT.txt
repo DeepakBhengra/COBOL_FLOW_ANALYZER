@@ -1,0 +1,192 @@
+      ******************************************************************        
+      *** YEAR 2000 REMEDIATED                                         *TLKY8308
+      ******************************************************************        
+      *=================================================================        
+      *                                                                *        
+      *   INSTANT REBATE COPYBOOK:                                     *        
+      *   CHANGES TO THIS COPYBOOK MIGHT REQUIRE A CHANGE TO THE       *        
+      *   PRICING ROUTINE COPYBOOK(SYXCPRA AND SYXGNPRC).              *        
+      *                                                                *        
+      *  NOTE:  COPYBOOK SYRPWSA CONTAINS NECESSARY WORKING STORAGE    *RXDY8308
+      *         FIELDS FOR CA Y2K FIX LOGIC THAT WAS ADDED.            *RXDY8308
+      *=================================================================        
+      * REVISIONS:                                                     *        
+      * 01/04/04 GAE ADD RESELLER EXCLUSION LOGIC.                     *GAE04004
+      * 11/04/98 RXD Y2K REMEDIATION.                                  *RXDY8308
+      * 09/02/97 KLM ADDED CODE TO MOVE INM-COST-REB-CURR-CODE AND     *KLM97245
+      *              INM-COST-REB-LOCAL-AMT TO WORKING STORAGE FIELDS  *KLM97245
+      *              IF THE COMPANY IS A NON-U.S. COMPANY.             *KLM97245
+      * 01/23/96 GAE INITIAL IMPLEMENTATION.                           *        
+      *                                                                *        
+      *=================================================================        
+       6001-READ-REBATE.                                                        
+      *                                                                         
+           IF  TB-CPO4-SSEU-ENABLED                                     GAE04004
+           AND TB-CPO4-SSEU-ACOP-FEATURES                               GAE04004
+               INITIALIZE REBT-EXCLUSION-INFO                           GAE04004
+               MOVE TC-COMPANY                TO REBT-IN-COMPANY        GAE04004
+               MOVE TC-CUST-BR                TO REBT-IN-CUST-BR        GAE04004
+               MOVE TC-CUST-NBR               TO REBT-IN-CUST-NBR       GAE04004
+               MOVE INI-INV-PART-NBR          TO REBT-IN-PART-NBR       GAE04004
+               PERFORM C100-CALL-REBTEXCL-RTN                           GAE04004
+               IF REBT-OUT-CUST-EXCLUDED                                GAE04004
+                  MOVE REBT-OUT-CUST-EXCL-IND TO WS-INSTANT-REBATE-SW.  GAE04004
+      *                                                                         
+           MOVE SPACES      TO WS-SKU-HAS-REBATE-SW                             
+                               WS-INM-COST-CODE.                                
+           MOVE +0          TO WS-INM-COST-REBATE-AMT                           
+                               WS-INM-COST-REB-CUST-AMT                 KLM97245
+                               WS-INM-COST-REB-LOCAL-AMT                KLM97245
+                               WS-INM-COST-MAX-QTY                              
+                               WS-INM-COST-MAQ.                                 
+      *                                                                         
+      *--- SET WS-INM-QTY-INQUIRY TO 1                                          
+           IF WS-INM-QTY-ORDERED = +0                                           
+              MOVE +1       TO WS-INM-QTY-INQUIRE                               
+           ELSE                                                                 
+              MOVE +0       TO WS-INM-QTY-INQUIRE.                              
+      *                                                                         
+           IF NOT COST-PROMO-READ                                               
+              MOVE 'Y'      TO WS-COST-PROMO-READ-SW                            
+              IF  WS-INSTANT-REBATE-ALLOWED                                     
+              AND NOT WS-INM-FREE-PART                                          
+              AND NOT WS-INM-CUST-BRANCH-16                                     
+              AND NOT WS-PRC-NO-PROMO-ORDER-TYPE                                
+              AND INI-COST-PROMOTION                                            
+                  MOVE '**' TO WS-INSMSC-BR-IND                                 
+                  MOVE 'F'  TO WS-INSMSC-SEG-IND                                
+                  PERFORM 1556-GU-INSMSC                                        
+                  IF WS-INSMSC-NORESP                                           
+                     PERFORM 6100-CHECK-REBATE-RESTRICTION                      
+                        THRU 6100-EXIT.                                         
+      *                                                                         
+       6100-CHECK-REBATE-RESTRICTION.                                           
+      *                                                                         
+      *--- CHECK STATUS                                                         
+           IF INM-DELETE-STATUS                                                 
+              GO TO 6100-EXIT.                                                  
+      *                                                                         
+      *--- CHECK EFFECTIVITY                                                    
+      *Y2K********************************************************Y2K*  RXDY8308
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+           CALL 'CAWINUP'                                               RXDY8308
+               USING INM-COST-EFF-DATE                                  RXDY8308
+                     SYRPWSA-DEFAULT-WINDOW-SPEC                        RXDY8308
+                     SYRPWSA-DECIMAL5-TYPE                              RXDY8308
+                     SYRPWSA-INM-COST-EFF-DATE-Y2K                      RXDY8308
+                     SYRPWSA-THIS-YEAR-Y2K                              RXDY8308
+           CALL 'CAWINUP'                                               RXDY8308
+               USING INM-COST-END-DATE                                  RXDY8308
+                     SYRPWSA-DEFAULT-WINDOW-SPEC                        RXDY8308
+                     SYRPWSA-DECIMAL5-TYPE                              RXDY8308
+                     SYRPWSA-INM-COST-END-DATE-Y2K                      RXDY8308
+                     SYRPWSA-THIS-YEAR-Y2K                              RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *    IF  INM-COST-EFF-DATE <= EIBDATE                             RXDY8308
+           IF  SYRPWSA-INM-COST-EFF-DATE-Y2K <= EIBDATE                 RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *    AND INM-COST-END-DATE >= EIBDATE                             RXDY8308
+           AND SYRPWSA-INM-COST-END-DATE-Y2K >= EIBDATE                 RXDY8308
+               NEXT SENTENCE                                                    
+           ELSE                                                                 
+              GO TO 6100-EXIT.                                                  
+      *                                                                         
+      *--- ALLOW REBATE ONLY WHEN IT IS A SYSTEM COMPONENT                      
+           IF INM-COST-SYS-COMPONENT-REBATE                                     
+              IF NOT WS-INM-SYSTEM-REBATE-PROGRAM                               
+                  GO TO 6100-EXIT.                                              
+      *                                                                         
+      *--- NO REBATES WILL BE APPLIED WHEN QTY LIMIT EXIST AND IR CUST          
+      *--- SWITCH IS "L"                                                        
+           IF WS-INSTANT-REBATE-LIMITED                                         
+              IF INM-COST-MAX-QTY          > +0                                 
+              OR INM-COST-MAQ              > +0                                 
+              OR INM-COST-MIN-REQUIRED-QTY > +0                                 
+                 GO TO 6100-EXIT.                                               
+      *                                                                         
+      *--- MAXIMUM QTY IS REACHED, REBATE WILL NOT BE APPLIED                   
+           MOVE 'N'               TO  WS-INM-MAX-IND.                           
+           IF  INM-COST-MAX-QTY > +0                                            
+               MOVE 'IM-'  TO WS-INM-MAX-LIT                                    
+               COMPUTE WS-INM-MAX   = INM-COST-MAX-QTY                          
+                                    - INM-COST-MAX-QTY-TODATE                   
+               IF INM-COST-MAX-QTY >= (INM-COST-MAX-QTY-TODATE +                
+                                       WS-INM-QTY-INQUIRE      +                
+                                       WS-INM-QTY-ORDERED)                      
+                  MOVE 'Y'        TO WS-INM-MAX-IND                             
+               ELSE                                                             
+                  MOVE 'O'        TO WS-INM-MAX-IND                             
+                  MOVE 'IM---'    TO WS-INM-WARNING-LIT                         
+                  MOVE WS-INM-MAX TO WS-INM-WARNING-QTY                         
+                  GO TO 6100-EXIT.                                              
+      *                                                                         
+      *--- MAQ IS REACHED, REBATE WILL NOT BE APPLIED                           
+           MOVE 'N'               TO WS-INM-MAQ-IND.                            
+           IF  INM-COST-MAQ > +0                                                
+               PERFORM 6120-READ-CSFREC-ICP                                     
+               MOVE 'CUST-'       TO WS-INM-MAQ-LIT                             
+               COMPUTE WS-INM-MAQ =  INM-COST-MAQ                               
+                                  -  MAQ-ICP-QTY-ORDERED                        
+               IF INM-COST-MAQ   >= (MAQ-ICP-QTY-ORDERED +                      
+                                     WS-INM-QTY-INQUIRE  +                      
+                                     WS-INM-QTY-ORDERED)                        
+                  MOVE 'Y'        TO WS-INM-MAQ-IND                             
+               ELSE                                                             
+                  MOVE 'O'        TO WS-INM-MAQ-IND                             
+                  MOVE 'CUST-'    TO WS-INM-WARNING-LIT                         
+                  MOVE WS-INM-MAQ TO WS-INM-WARNING-QTY                         
+                  GO TO 6100-EXIT.                                              
+      *                                                                         
+      *--- MIN QTY IS NOT REACHED, REBATE WILL NOT BE APPLIED                   
+           MOVE 'N'               TO WS-INM-MIN-IND.                            
+           IF  INM-COST-MIN-REQUIRED-QTY > +0                                   
+               MOVE 'MIN-'        TO WS-INM-MIN-LIT                             
+               MOVE INM-COST-MIN-REQUIRED-QTY TO WS-INM-MIN                     
+               IF WS-INM-QTY-INQUIRE > +0                                       
+                  MOVE 'Y'        TO WS-INM-MIN-IND                             
+               ELSE                                                             
+               IF INM-COST-MIN-REQUIRED-QTY <= WS-INM-QTY-ORDERED               
+                                             + WS-INM-QTY-ORDERED-ORIG          
+                  MOVE 'Y'        TO WS-INM-MIN-IND                             
+               ELSE                                                             
+                  MOVE 'O'        TO WS-INM-MIN-IND                             
+                  MOVE 'MIN--'    TO WS-INM-WARNING-LIT                         
+                  MOVE WS-INM-MIN TO WS-INM-WARNING-QTY                         
+                  GO TO 6100-EXIT.                                              
+      *                                                                         
+           PERFORM 6110-SAVE-REBATE-INFO THRU 6110-EXIT.                        
+      *                                                                         
+       6100-EXIT.                                                               
+            EXIT.                                                               
+      *                                                                         
+       6110-SAVE-REBATE-INFO.                                                   
+      *                                                                         
+           MOVE 'Y'                    TO WS-SKU-HAS-REBATE-SW.                 
+           MOVE INM-COST-CODE          TO WS-INM-COST-CODE.                     
+           MOVE INM-COST-REBATE-AMT    TO WS-INM-COST-REBATE-AMT.               
+           MOVE INM-COST-MAQ           TO WS-INM-COST-MAQ.                      
+           MOVE INM-COST-MAX-QTY       TO WS-INM-COST-MAX-QTY.                  
+           IF TB-CPO-US-MODEL-COMPANY                                   KLM97245
+              MOVE INM-COST-REBATE-AMT TO WS-INM-COST-REB-CUST-AMT      KLM97245
+                                          WS-INM-COST-REB-LOCAL-AMT     KLM97245
+           ELSE                                                         KLM97245
+              MOVE INM-COST-REB-CURR-CODE TO WS-INM-COST-REB-CURR-CODE  KLM97245
+      *       MOVE INM-COST-REB-CURR-RATE TO WS-INM-COST-REB-CURR-RATE  KLM97245
+              MOVE INM-COST-REB-LOCAL-AMT TO WS-INM-COST-REB-LOCAL-AMT. KLM97245
+      *                                                                         
+           CALL 'SYU001'            USING INM-COST-END-DATE                     
+                                          WS-INM-COST-END-DATE.                 
+      *                                                                         
+           IF INM-COST-CODE = 'IR'                                              
+              MOVE 'INSTANT REBATE'    TO WS-INM-REBATE-LIT                     
+           ELSE                                                                 
+           IF INM-COST-CODE = 'DD'                                              
+              MOVE 'DOLLAR DAZE   '    TO WS-INM-REBATE-LIT.                    
+      *                                                                         
+       6110-EXIT.                                                               
+            EXIT.                                                               

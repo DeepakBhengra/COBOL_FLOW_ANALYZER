@@ -1,0 +1,184 @@
+      ******************************************************************        
+      *  INSPNA01 - PROCEDURE DIVISION LOGICS TO GET AND PUT THE BELOW *        
+      *             CONTAINERS                                         *        
+      *                                                                *        
+      *             1. EAI-TIBSS-DETAIL : INPUT                        *        
+      *             2. COMMAREA         : INPUT                        *        
+      *             3. EAI-TIBSS-RESP   : OUTPUT                       *        
+      *                                                                *        
+      *  USED IN PROGRAMS INP025, INP026                               *        
+      *                                                                *        
+      ******************************************************************        
+      * REVISION INFO:                                                 *        
+      * 02/03/23 DXB  NUMERIC CHECK HANDLE                             *DXB23035
+      * 08/06/21 SPR  INITIAL VERSION                                  *SPR21218
+      ******************************************************************        
+                                                                                
+       GET-HDR-DETAIL-CONTAINERS.                                               
+                                                                                
+      *----------------------------------------------------------------*        
+      *    CHANNEL NAME ACQUIRED, BUT NOT NEEDED.                               
+      *    MAY WANT TO USE IT TO DRIVE OTHER PROCESSES.                         
+      *----------------------------------------------------------------*        
+                                                                                
+           EXEC CICS ASSIGN                                                     
+                CHANNEL(WS-CHANNEL-NAME)                                        
+           END-EXEC                                                             
+                                                                                
+      *----------------------------------------------------------------*        
+      *    GET SKU LIST CONTAINER                                               
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE WS-DET-CONTAINER-NAME  TO WS-INPUT-CONTAINER-NAME.              
+                                                                                
+           PERFORM GET-CONTAINER.                                               
+                                                                                
+           SET WS-SKU-LIST-PTR         TO WS-CONTAINER-PTR                      
+           SET ADDRESS                 OF WS-DETAIL-CONTAINER                   
+                                       TO WS-SKU-LIST-PTR.                      
+           MOVE WS-DETAIL-CONTAINER    TO INC023DT-PRICE-AVAIL-REQUEST.         
+                                                                                
+      *----------------------------------------------------------------*        
+      *    GET COMMAREA CONTAINER                                               
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE WS-COMMAREA-CONTAINER-NAME                                      
+                                       TO WS-INPUT-CONTAINER-NAME               
+           PERFORM GET-CONTAINER                                                
+           SET WS-COMMAREA-PTR         TO WS-CONTAINER-PTR                      
+           SET ADDRESS                 OF WS-COMM-AREA-CONTAINER                
+                                       TO WS-COMMAREA-PTR.                      
+           MOVE WS-COMM-AREA-CONTAINER TO TC-SYXCOM.                            
+                                                                                
+       GET-HDR-DETAIL-CONTAINERS-EXIT.                                          
+           EXIT.                                                                
+                                                                                
+      *----------------------------------------------------------------*        
+       GET-CONTAINER.                                                           
+      *----------------------------------------------------------------*        
+                                                                                
+           EXEC CICS GET                                                        
+                CONTAINER (WS-CONTAINER-NAME)                                   
+                CHANNEL   (WS-CHANNEL-NAME)                                     
+                SET       (WS-CONTAINER-PTR)                                    
+                FLENGTH   (WS-CONTAINER-LENGTH)                                 
+           END-EXEC.                                                            
+                                                                                
+      *----------------------------------------------------------------*        
+       FORMAT-COMMAREA.                                                         
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE INC023DT-PART-NBR         (CPX) TO TC-PART-NBR.                 
+                                                                        DXB23035
+           IF INC023DT-ACOP-ENDUSER-NBR   (CPX) NUMERIC                 DXB23035
+              MOVE INC023DT-ACOP-ENDUSER-NBR (CPX)                      DXB23035
+                                       TO TC-ACOP-ENDUSER-NBR           DXB23035
+           ELSE                                                         DXB23035
+              MOVE ZEROES              TO TC-ACOP-ENDUSER-NBR           DXB23035
+           END-IF.                                                      DXB23035
+                                                                        DXB23035
+           IF INC023DT-TIER-ACOP-MIN-QTY  (CPX) NUMERIC                 DXB23035
+              MOVE INC023DT-TIER-ACOP-MIN-QTY(CPX)                      DXB23035
+                                       TO TC-ACOP-MIN-QTY               DXB23035
+           ELSE                                                         DXB23035
+              MOVE ZEROES              TO TC-ACOP-MIN-QTY               DXB23035
+           END-IF.                                                      DXB23035
+                                                                        DXB23035
+           MOVE INC023DT-PART-IND         (CPX) TO TC-PART-IND.                 
+           MOVE INC023DT-SHIP-FROM        (CPX) TO TC-SHIP-FROM.                
+                                                                                
+           IF  (TC-MAGIC-KEY-ENT                                                
+           OR  TC-MAGIC-KEY-BUNDLE-ENT)                                         
+           AND INC023DT-MAGIC-KEY(CPX) > SPACES                                 
+               MOVE INC023DT-MAGIC-KEY    (CPX) TO TC-CATALOG-NBR               
+           END-IF.                                                              
+                                                                                
+           MOVE 'P'                             TO TC-IC-INFORMATION-SW.        
+                                                                                
+           IF TC-CUST-PART-ENT                                                  
+               MOVE 'S'                         TO TC-IC-INFORMATION-SW         
+           END-IF.                                                              
+                                                                                
+           MOVE 'N'                             TO TC-IC-CONTINUE-SW.           
+                                                                                
+      *----------------------------------------------------------------*        
+       GET-RESPONSE-CONTAINER.                                                  
+      *----------------------------------------------------------------*        
+                                                                                
+           MOVE SPACES                 TO WS-CONTAINER-NAME                     
+           MOVE WS-OUT-CONT-NAME       TO WS-CONTAINER-NAME                     
+                                                                                
+           EXEC CICS GET                                                        
+                CONTAINER (WS-CONTAINER-NAME)                                   
+                CHANNEL   (WS-CHANNEL-NAME)                                     
+                SET       (WS-CONTAINER-PTR)                                    
+                RESP      (WS-CONTAINER-RESP)                                   
+                RESP2     (WS-CONTAINER-RESP2)                                  
+                FLENGTH   (WS-CONTAINER-LENGTH)                                 
+           END-EXEC.                                                            
+                                                                                
+           IF WS-CONTAINER-RESP = +110                                          
+              MOVE ZEROS               TO WS-CONTAINER-RESP                     
+           END-IF.                                                              
+                                                                                
+           SET WS-RESP-PTR             TO WS-CONTAINER-PTR                      
+           SET ADDRESS                 OF WS-OUTPUT-CONTAINER                   
+                                       TO WS-RESP-PTR.                          
+           MOVE WS-OUTPUT-CONTAINER    TO INC023OP-RESPONSE-CONTAINER.          
+                                                                                
+       WRITE-CONTAINER.                                                         
+                                                                                
+           IF WS-DB-NOT-ALWAYS-AVAILABLE                                        
+              IF WS-ERRPWR-MSG NOT > SPACES                                     
+               MOVE 'ONLY LOCAL DATABASE SHOWN'                                 
+                                       TO WS-ERRPWR-MSG                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           IF INC023OP-STATUS-CODE(SKX) > SPACES                                
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              EVALUATE WS-ERROR-SW                                              
+                  WHEN 'Y'                                                      
+                       MOVE 'E'        TO INC023OP-STATUS-CODE(SKX)             
+                  WHEN 'W'                                                      
+                       MOVE 'W'        TO INC023OP-STATUS-CODE(SKX)             
+                  WHEN SPACES                                                   
+                  WHEN 'N'                                                      
+                       MOVE SPACES     TO INC023OP-STATUS-CODE(SKX)             
+                       IF  WS-ERRPWR-MSG > SPACES                               
+                       AND WS-ACOPS-ARE-PRESENT                                 
+                           CONTINUE                                             
+                       ELSE                                                     
+                           MOVE SPACES TO WS-ERRPWR-MSG                         
+                       END-IF                                                   
+              END-EVALUATE                                                      
+           END-IF.                                                              
+                                                                                
+           IF INC023OP-STATUS-MESSAGE(SKX) > SPACES                             
+              CONTINUE                                                          
+           ELSE                                                                 
+              IF WS-ERRPWR-MSG > SPACES                                         
+                 MOVE WS-ERRPWR-MSG    TO INC023OP-STATUS-MESSAGE(SKX)          
+              ELSE                                                              
+                 MOVE SPACES           TO INC023OP-STATUS-MESSAGE(SKX)          
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       WRITE-CONTAINER-EXIT.                                                    
+           EXIT.                                                                
+                                                                                
+       PUT-OUT-CONTAINER.                                                       
+                                                                                
+           MOVE SPACES                 TO WS-CONTAINER-NAME                     
+           MOVE WS-OUT-CONT-NAME       TO WS-CONTAINER-NAME                     
+           MOVE ZERO                   TO WS-CONTAINER-LENGTH.                  
+           MOVE LENGTH OF INC023OP-RESPONSE-CONTAINER                           
+                                       TO WS-CONTAINER-LENGTH.                  
+                                                                                
+           EXEC CICS PUT                                                        
+                CONTAINER (WS-CONTAINER-NAME)                                   
+                CHANNEL   (WS-CHANNEL-NAME)                                     
+                FROM      (INC023OP-RESPONSE-CONTAINER)                         
+                FLENGTH   (WS-CONTAINER-LENGTH)                                 
+           END-EXEC.                                                            

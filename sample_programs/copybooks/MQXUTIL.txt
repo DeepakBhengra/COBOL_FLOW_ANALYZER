@@ -1,0 +1,167 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                               PWLY8338
+      ******************************************************************        
+      *                                                                         
+      *    MQXUTIL - PROCEDURAL COPYBOOK FOR MQP100 PROCESSING                  
+      *                                                                         
+      *    01/17/03  KMP  ADD SWITCH TO IGNORE MQ ABENDS IF SET.        KMP03017
+      *    01/11/99  MCV  ADD MQ MANAGER NAME FOR BATCH                 MCV99012
+      *    12/04/98  MCV  NEW                                           MCV98338
+      *                                                                         
+       8000-MQ-INITIALIZATION.                                                  
+      *                                                                         
+      *    SET QUEUE PREFIX TO REGION CODE IN VSAM-SUFFIX TABLE.                
+      *    DEFAULT TO COMPANY CODE IF NOT FOUND.                                
+      *                                                                         
+           IF TC-COMPANY NOT = TB-VSUF-CO                                       
+              MOVE TC-COMPANY           TO  TB-VSUF-CO                          
+              CALL 'SYU510'          USING  TB-VSUF-PROC-IA.                    
+      *                                                                         
+           IF TB-VSUF-NORESP                                                    
+              MOVE TB-VSUF-REGION-CODE  TO  WS-MQ-BASE-REGION                   
+           ELSE                                                                 
+              MOVE TC-COMPANY           TO  WS-MQ-BASE-REGION.                  
+      *                                                                         
+           SET WS-MQ-BASE-QUEUE-TERM                                            
+               WS-MQ-CORRELATION-QUEUE-TERM                                     
+                                        TO  TRUE                                
+      *                                                                         
+      *    SET-UP DATA BRIDGE                                                   
+      *                                                                         
+           INITIALIZE                       MQPDBR-HEADER                       
+           MOVE TC-COMPANY              TO  MQPDBR-COMPANY                      
+           MOVE WS-PROGRAM-ID           TO  MQPDBR-CALLER                       
+           SET MQPDBR-WILL-LINK         TO  TRUE                                
+           MOVE 'MQP100'                TO  MQPDBR-PROGRAM                      
+           SET MQPDBR-SOURCE-IS-EBCDIC  TO  TRUE.                               
+      *                                                                         
+      *    CORRELATION ID                                                       
+      *                                                                         
+      *    THE CORRELATION ID IS ONLY SET WHEN USING A CORRELATION              
+      *    QUEUE TO TRIGGER THE BASE QUEUE PROCESSING.                          
+      *                                                                         
+      *    PROGRAMS WHICH PERFORM THIS CODE MUST ENSURE                         
+      *    THAT THE CORRELATION ID IS UNIQUE.                                   
+      *                                                                         
+           IF WS-MQ-CORRELATION-NAME > SPACES                                   
+              MOVE WS-PROGRAM-ID         TO  WS-CORLID-PROGRAM                  
+              MOVE EIBTASKN              TO  WS-CORLID-EIBTASKN                 
+              MOVE EIBDATE               TO  WS-CORLID-YYDDD                    
+              MOVE EIBTIME               TO  WS-CORLID-TIME                     
+              ADD +1                     TO  WS-CORLID-SEQ-NBR.                 
+      *                                                                         
+       8000-MQ-INIT-BASE-QUEUE.                                                 
+      *                                                                         
+      *    SET-UP BASE QUEUE                                                    
+      *                                                                         
+           INITIALIZE                        IMQAPI-HEADER                      
+      *                                                                         
+           MOVE WS-PROGRAM-ID            TO  IMQAPI-CALLER                      
+           SET WS-MQ-BASE-QUEUE-INIT     TO  TRUE.                              
+           SET MQ-FUNC-INIT                                                     
+               MQ-OPER-OUTPUT            TO  TRUE                               
+      *                                                                         
+           MOVE WS-MQ-BASE-QUEUE         TO  IMQAPI-QUEUE-NAME                  
+           MOVE WS-MQ-MGR-NAME           TO  IMQAPI-MQMGR-NAME.         MCV99012
+      *                                                                         
+           CALL 'IMQINIT'             USING  IMQAPI-PARMS.                      
+      *                                                                         
+           IF IMQAPI-COMPCODE NOT = ZERO AND NOT MQUTIL-IGNORE-ABEND    KMP03017
+              MOVE 'MQBI'                TO  WS-ABCODE                          
+              PERFORM 999-ABEND.                                                
+      *                                                                         
+           SET WS-MQ-BASE-QUEUE-INIT     TO  TRUE.                              
+      *                                                                         
+       8100-MQ-PUT-BASE-MESSAGE.                                                
+      *                                                                         
+           MOVE WS-PROGRAM-ID            TO  IMQAPI-CALLER.                     
+      *                                                                         
+           IF WS-MQ-CORRELATION-NAME > SPACES                                   
+              MOVE WS-CORLID              TO IMQAPI-CORLID                      
+           ELSE                                                                 
+              MOVE SPACES                 TO IMQAPI-CORLID.                     
+      *                                                                         
+           SET MQ-FUNC-PUT                TO TRUE                               
+           COMPUTE IMQAPI-LENGTH = LENGTH OF MQPDBR-HEADER                      
+                                 + LENGTH OF MQUTIL-HEADER                      
+                                 + MQUTIL-DATA-LENGTH                           
+           MOVE MQPDBR-RECORD            TO  IMQAPI-MESSAGE.                    
+      *                                                                         
+           CALL 'IMQPUT'              USING  IMQAPI-PARMS.                      
+      *                                                                         
+           IF IMQAPI-COMPCODE NOT = ZERO AND NOT MQUTIL-IGNORE-ABEND    KMP03017
+              MOVE 'PUTB'                TO  WS-ABCODE                          
+              PERFORM 999-ABEND.                                                
+      *                                                                         
+           SET WS-MQ-BASE-QUEUE-USED     TO  TRUE.                              
+      *                                                                         
+       8200-MQ-TERMINATE-BASE-QUEUE.                                            
+      *                                                                         
+           SET MQ-FUNC-TERM              TO  TRUE                               
+      *                                                                         
+           CALL 'IMQTERM'             USING  IMQAPI-PARMS.                      
+      *                                                                         
+           IF IMQAPI-COMPCODE NOT = +0 AND NOT MQUTIL-IGNORE-ABEND      KMP03017
+              MOVE 'MQTR'                TO  WS-ABCODE                          
+              PERFORM 999-ABEND.                                                
+      *                                                                         
+           SET WS-MQ-BASE-QUEUE-TERM     TO  TRUE.                              
+      *                                                                         
+       8300-MQ-CORRELATION-QUEUE.                                               
+      *                                                                         
+      *    CORRELATION QUEUE: INIT, PUT, & TERMINATE                            
+      *                                                                         
+           INITIALIZE                        IMQAPI-HEADER                      
+      *                                                                         
+           MOVE WS-PROGRAM-ID            TO  IMQAPI-CALLER                      
+           SET MQ-FUNC-INIT                                                     
+               MQ-OPER-OUTPUT            TO  TRUE                               
+      *                                                                         
+           MOVE WS-MQ-BASE-REGION        TO  WS-MQ-CORRELATION-REGION           
+           MOVE WS-MQ-CORRELATION-QUEUE  TO  IMQAPI-QUEUE-NAME                  
+           MOVE WS-MQ-MGR-NAME           TO  IMQAPI-MQMGR-NAME          MCV99012
+      *                                                                         
+           CALL 'IMQINIT'             USING  IMQAPI-PARMS.                      
+      *                                                                         
+           IF IMQAPI-COMPCODE NOT = ZERO AND NOT MQUTIL-IGNORE-ABEND    KMP03017
+              MOVE 'MQCI'                TO  WS-ABCODE                          
+              PERFORM 999-ABEND.                                                
+      *                                                                         
+      *    WRITE CORRELATION QUEUE ENTRY                                        
+      *                                                                         
+           MOVE WS-PROGRAM-ID             TO  IMQAPI-CALLER                     
+           MOVE WS-CORLID                 TO  IMQAPI-CORLID                     
+                                              IMQAPI-MESSAGE                    
+           SET MQ-FUNC-PUT                TO  TRUE                              
+           COMPUTE IMQAPI-LENGTH = LENGTH OF  IMQAPI-CORLID                     
+      *                                                                         
+           CALL 'IMQPUT'               USING  IMQAPI-PARMS.                     
+      *                                                                         
+           IF IMQAPI-COMPCODE NOT = ZERO AND NOT MQUTIL-IGNORE-ABEND    KMP03017
+              MOVE 'MQCP'                 TO  WS-ABCODE                         
+              PERFORM 999-ABEND.                                                
+      *                                                                         
+           SET MQ-FUNC-TERM               TO  TRUE                              
+      *                                                                         
+           CALL 'IMQTERM'             USING  IMQAPI-PARMS.                      
+      *                                                                         
+           IF IMQAPI-COMPCODE NOT = ZERO AND NOT MQUTIL-IGNORE-ABEND    KMP03017
+              MOVE 'MQCT'                 TO  WS-ABCODE                         
+              PERFORM 999-ABEND.                                                
+      *                                                                         
+       8980-MQ-SCHEDULING.                                                      
+      *                                                                         
+      *    SET-UP ROUTINE - USED FOR EACH LUW                                   
+      *                                                                         
+           IF WS-MQ-BASE-QUEUE-TERM                                             
+              PERFORM 8000-MQ-INITIALIZATION                                    
+              PERFORM 8000-MQ-INIT-BASE-QUEUE.                                  
+      *                                                                         
+       8990-MQ-TERMINATION.                                                     
+      *                                                                         
+      *    TERMINATION ROUTINE - USED FOR EACH LUW                              
+      *                                                                         
+           IF WS-MQ-BASE-QUEUE-USED                                             
+              PERFORM 8200-MQ-TERMINATE-BASE-QUEUE                              
+              IF WS-MQ-CORRELATION-NAME > SPACES                                
+                 PERFORM 8300-MQ-CORRELATION-QUEUE.                             

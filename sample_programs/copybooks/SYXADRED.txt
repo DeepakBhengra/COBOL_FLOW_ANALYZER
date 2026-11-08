@@ -1,0 +1,377 @@
+000100*                                                                         
+000101*** SYXADRED PD CPYBOOK CONTAINS ADDRESS RULE FIELDS                      
+000102*   INITIALIZATION AND POSTAL CODE VALIDATION LOGIC.                      
+000103*   THE LOGIC SHOULD BE EXECUTED AFTER READING CTRY_ADDR_RUL              
+000104*   TABLE                                                                 
+000105*                                                                         
+000106* REVISION INFO:                                                          
+000107* DATE     PROG  DESCRIPTION                                              
+000108* 07/30/08 MXK   ADD SPECIAL EDIT FOR NL POSTAL CODES             MXK08212
+000109* 01/16/08 MXK   ADD LOGIC FOR WS-ADDR-POST-CD-LNG3               MXK08016
+000110* 11/09/07 MXK   RETRIEVE ADDITIONAL DATA FROM ADDR_RUL TABLE     MXK07313
+000111* 08/16/07 MXK   SET WS-ADDR-RULE-FOUND CONDITION                 MXK07228
+000112* 08/15/07 MXK   ADD LOGIC FOR THE POSTAL CODE COMPRESSION        MXK07227
+000113* 03/05/07 MXK   SET WS-ADDR-RULE-SW                              MXK07064
+000114* 09/01/05 MXK   INITIAL IMPLEMENTATION                           MXK05244
+000115*                                                                         
+000116 9500-POPULATE-ADDR-RULE-AREA.                                            
+000120*                                                                         
+000121     INITIALIZE WS-ADDR-RULE-AREA                                 MXK07227
+000122                                                                          
+000123     PERFORM 9510-GET-ADDR-RULES                                  MXK07227
+000125     IF SQLCODE-NORESP                                            MXK07227
+000126        CONTINUE                                                  MXK07227
+000127     ELSE                                                         MXK07227
+000128        GO TO 9500-EXIT.                                          MXK07227
+000129                                                                          
+000130     MOVE WWTADRUL-CTRY-CD           TO WS-ADDR-WORK-CTRY-CD      MXK07227
+000131                                                                          
+000132     IF WS-ADDR-POST-CD-TYP-NTNL                                          
+000140        SET WS-ADDR-POST-CD-REQD     TO TRUE                              
+000150        MOVE WWTADRUL-POST-DATA-TYP-CD                                    
+000160                              TO  WS-ADDR-POST-CD-TYP                     
+000180        IF WS-ADDR-POST-CD-LNG1-NTNL                                      
+000190           MOVE WWTADRUL-POST-CD-1-LMT-LNG                                
+000191                              TO  WS-ADDR-POST-CD-LNG1                    
+000192        ELSE                                                      MXK08016
+000193           MOVE ZERO          TO  WS-ADDR-POST-CD-LNG1            MXK08016
+000194        END-IF                                                            
+000195        IF WS-ADDR-POST-CD-LNG2-NTNL                                      
+000196           MOVE WWTADRUL-POST-CD-2-LMT-LNG                                
+000197                              TO  WS-ADDR-POST-CD-LNG2            MXK08016
+000198        ELSE                                                      MXK08016
+000199           MOVE ZERO          TO  WS-ADDR-POST-CD-LNG2            MXK08016
+000200        END-IF                                                    MXK08016
+000201        IF WS-ADDR-POST-CD-LNG3-NTNL                              MXK08016
+000202           MOVE WWTADRUL-POST-CD-3-LMT-LNG                        MXK08016
+000210                              TO  WS-ADDR-POST-CD-LNG3            MXK08016
+000220        ELSE                                                      MXK08016
+000230           MOVE ZERO          TO  WS-ADDR-POST-CD-LNG3.           MXK08016
+000300                                                                          
+000400     MOVE WWTADRUL-ADDR-SRCH-TYP-CD                                       
+000500                              TO  WS-ADDR-SRCH-TYP-CD                     
+000501     MOVE WWTADRUL-SRCH-KEY-TYP-CD                                MXK07227
+000502                              TO  WS-ADDR-SRCH-KEY-TYP-CD         MXK07227
+000510                                                                          
+000520     IF WS-ADDR-SRCH-KEY-TYP-ADDR-LNE                             MXK07227
+000530        EVALUATE TRUE                                                     
+000560          WHEN  WS-ADDR-SRCH-KEY-TYP-ADDR2                        MXK07227
+000570                SET WS-ADDR-ADDR2-REQD  TO TRUE                           
+000590          WHEN  WS-ADDR-SRCH-KEY-TYP-ADDR3                        MXK07227
+000591                SET WS-ADDR-ADDR3-REQD  TO TRUE                           
+000593        END-EVALUATE.                                                     
+000600                                                                          
+000700     MOVE WWTADRUL-ST-PVNC-REQD-FLG                                       
+000800                              TO  WS-ADDR-ST-PVNC-REQD-FLG                
+000900                                                                          
+001000     MOVE WWTADRUL-DSPL-ADDR-LINE-NBR                                     
+001100                              TO  WS-ADDR-DISPL-LINE-NBR.                 
+001200                                                                          
+001210     MOVE WWTADRUL-ADDR-1-WGT-NBR  TO WS-IST-MCOMP-ADR-1-CMP-WGT          
+001300     MOVE WWTADRUL-ADDR-2-WGT-NBR  TO WS-IST-MCOMP-ADR-2-CMP-WGT          
+001400     MOVE WWTADRUL-ADDR-3-WGT-NBR  TO WS-IST-MCOMP-ADR-3-CMP-WGT.         
+001401*                                                                         
+001402 9500-EXIT.                                                       MXK07227
+001403      EXIT.                                                       MXK07227
+001404*                                                                         
+001410*                                                                         
+001500 9510-GET-ADDR-RULES.                                             MXK07227
+002400*                                                                 MXK07227
+002401     EXEC SQL                                                     MXK07227
+002402          SELECT  POST_DATA_TYP_CD                                MXK07227
+002403                 ,POST_CD_1_LMT_LNG                               MXK07227
+002404                 ,POST_CD_2_LMT_LNG                               MXK07227
+002405                 ,POST_CD_3_LMT_LNG                               MXK07227
+002406                 ,ST_PVNC_REQD_FLG                                MXK07227
+002407                 ,DSPL_ADDR_LINE_NBR                              MXK07227
+002408                 ,ADDR_1_WGT_NBR                                  MXK05244
+002409                 ,ADDR_2_WGT_NBR                                  MXK05244
+002410                 ,ADDR_3_WGT_NBR                                  MXK05244
+002411                 ,ADDR_SRCH_TYP_CD                                MXK07227
+002412                 ,SRCH_KEY_TYP_CD                                 MXK07227
+002413                 ,IST_SRV_CTRY_CD                                 MXK07313
+002414            INTO :WWTADRUL-POST-DATA-TYP-CD                       MXK07227
+002415                 :WS-ADDR-POST-CD-TYP-NULL-IND                    MXK07227
+002416                ,:WWTADRUL-POST-CD-1-LMT-LNG                      MXK07227
+002417                  :WS-ADDR-POST-CD-LNG1-NULL-IND                  MXK07227
+002418                ,:WWTADRUL-POST-CD-2-LMT-LNG                      MXK07227
+002419                  :WS-ADDR-POST-CD-LNG2-NULL-IND                  MXK07227
+002420                ,:WWTADRUL-POST-CD-3-LMT-LNG                      MXK08016
+002421                  :WS-ADDR-POST-CD-LNG3-NULL-IND                  MXK08016
+002422                ,:WWTADRUL-ST-PVNC-REQD-FLG                       MXK07227
+002423                ,:WWTADRUL-DSPL-ADDR-LINE-NBR                     MXK07227
+002424                ,:WWTADRUL-ADDR-1-WGT-NBR                         MXK07313
+002425                ,:WWTADRUL-ADDR-2-WGT-NBR                         MXK07313
+002426                ,:WWTADRUL-ADDR-3-WGT-NBR                         MXK07313
+002427                ,:WWTADRUL-ADDR-SRCH-TYP-CD                       MXK07313
+002428                ,:WWTADRUL-SRCH-KEY-TYP-CD                        MXK07227
+002429                ,:WWTADRUL-IST-SRV-CTRY-CD                        MXK07313
+002430                  :WS-ADDR-IST-SRV-CD-NULL-IND                    MXK06026
+002431            FROM CTRY_ADDR_RUL                                    MXK07227
+002432            WHERE CTRY_CD  = :WWTADRUL-CTRY-CD                    MXK07227
+002433     END-EXEC.                                                    MXK07227
+002434                                                                          
+002435     MOVE SQLCODE              TO SQLCODE-STATUS                  MXK07227
+002436     EVALUATE TRUE                                                MXK07227
+002437       WHEN SQLCODE-NORESP                                        MXK07227
+002438            SET WS-ADDR-RULE-FOUND     TO TRUE                    MXK07228
+002439       WHEN SQLCODE-NOT-FOUND                                     MXK07227
+002440            SET WS-ADDR-RULE-NOTFND    TO TRUE                    MXK07228
+002441            MOVE 'ADDRESS RULE IS NOT FOUND '                     MXK07227
+002442                               TO WS-ADDR-ERROR-MESSAGE           MXK07227
+002443       WHEN OTHER                                                 MXK07227
+002444            MOVE '9510'        TO WS-ADDR-ABCODE                  MXK07227
+002445            MOVE '9510-GET-ADDR-RULES'                            MXK07227
+002446                               TO WS-ADDR-ERROR-MESSAGE           MXK07227
+002447     END-EVALUATE.                                                MXK07227
+002450*                                                                         
+002500 9600-VALIDATE-POSTAL-CODE.                                               
+002600*                                                                         
+002710     IF WS-ADDR-POST-CD-REQD                                              
+002711        PERFORM 9603-COMPRESS-POST-CD                             MXK07227
+002720        EVALUATE  TRUE                                                    
+002800          WHEN WS-ADDR-POST-CD-TYP-NUM                                    
+002810            PERFORM 9601-VALIDATE-NUM-POST-CD                             
+002900          WHEN WS-ADDR-POST-CD-TYP-ALPHA                                  
+003000            PERFORM 9602-VALIDATE-ALPHA-POST-CD                           
+003010               THRU 9602-EXIT                                     MXK08212
+003100        END-EVALUATE.                                                     
+003200                                                                          
+003210*                                                                         
+003300 9601-VALIDATE-NUM-POST-CD.                                               
+003400*                                                                         
+003500     SET WS-ERROR-FOUND    TO TRUE                                        
+003501                                                                          
+003510     IF  WS-ADDR-POST-CD (1:WS-ADDR-POST-CD-LNG1) NUMERIC                 
+003600     AND WS-ADDR-POST-CD (1:WS-ADDR-POST-CD-LNG1) > ZERO                  
+003701       COMPUTE WS-ADDR-LNGS =                                     MXK07227
+003702                            WS-ADDR-POST-CD-LNG1 + 1                      
+003703       COMPUTE WS-ADDR-LNGL =                                     MXK07227
+003704               10 - WS-ADDR-POST-CD-LNG1                          MXK07227
+003707       IF WS-ADDR-POST-CD (WS-ADDR-LNGS: WS-ADDR-LNGL) <= ' '     MXK07227
+003710          SET WS-NO-ERROR-FOUND    TO TRUE.                               
+004200                                                                          
+004210     IF  WS-ERROR-FOUND                                                   
+004211     AND WS-ADDR-POST-CD-LNG2 NOT = WS-ADDR-POST-CD-LNG1                  
+004212         IF  WS-ADDR-POST-CD (1:WS-ADDR-POST-CD-LNG2) NUMERIC             
+004220         AND WS-ADDR-POST-CD (1:WS-ADDR-POST-CD-LNG2) > ZERO              
+004221             IF WS-ADDR-POST-CD-LNG2 = 10                         MXK07227
+004222                SET WS-NO-ERROR-FOUND    TO TRUE                  MXK07227
+004223             ELSE                                                 MXK07227
+004228                COMPUTE WS-ADDR-LNGS =                            MXK07227
+004229                            WS-ADDR-POST-CD-LNG2 + 1                      
+004230                COMPUTE WS-ADDR-LNGL =                            MXK07227
+004231                       10 - WS-ADDR-POST-CD-LNG2                  MXK07227
+004232                IF WS-ADDR-POST-CD (WS-ADDR-LNGS: WS-ADDR-LNGL)   MXK07227
+004235                                                       <= ' '             
+004240                SET WS-NO-ERROR-FOUND    TO TRUE.                         
+004241                                                                          
+004242     IF  WS-ERROR-FOUND                                           MXK08016
+004243     AND WS-ADDR-POST-CD-LNG3 > ZERO                              MXK08016
+004244     AND WS-ADDR-POST-CD-LNG3 NOT = WS-ADDR-POST-CD-LNG1          MXK08016
+004245     AND WS-ADDR-POST-CD-LNG3 NOT = WS-ADDR-POST-CD-LNG2          MXK08016
+004246         IF  WS-ADDR-POST-CD (1:WS-ADDR-POST-CD-LNG3) NUMERIC     MXK08016
+004247         AND WS-ADDR-POST-CD (1:WS-ADDR-POST-CD-LNG3) > ZERO      MXK08016
+004248             IF WS-ADDR-POST-CD-LNG3 = 10                         MXK08016
+004249                SET WS-NO-ERROR-FOUND    TO TRUE                  MXK08016
+004250             ELSE                                                 MXK08016
+004251                COMPUTE WS-ADDR-LNGS =                            MXK08016
+004252                            WS-ADDR-POST-CD-LNG3 + 1              MXK08016
+004253                COMPUTE WS-ADDR-LNGL =                            MXK08016
+004254                       10 - WS-ADDR-POST-CD-LNG3                  MXK08016
+004255                IF WS-ADDR-POST-CD (WS-ADDR-LNGS: WS-ADDR-LNGL)   MXK08016
+004256                                                       <= ' '     MXK08016
+004257                SET WS-NO-ERROR-FOUND    TO TRUE.                 MXK08016
+004258*                                                                         
+004260 9602-VALIDATE-ALPHA-POST-CD.                                             
+004270*                                                                         
+004272     MOVE WS-ADDR-POST-CD       TO WS-ADDR-POST-CHAR-ARRAY        MXK07227
+004273                                                                          
+004274*==> SPECIAL EDIT FOR NL POSTAL CODE 9999XX FORMAT                MXK08212
+004275     IF WWTADRUL-CTRY-CD = 'NL'                                   MXK08212
+004276        IF  WS-ADDR-POST-CD(1:4) IS NUMERIC                       MXK08212
+004277        AND WS-ADDR-POST-CHAR(5) > SPACES                         MXK08212
+004278        AND WS-ADDR-POST-CHAR(5) IS ALPHABETIC-UPPER              MXK08212
+004279        AND WS-ADDR-POST-CHAR(6) > SPACES                         MXK08212
+004280        AND WS-ADDR-POST-CHAR(6) IS ALPHABETIC-UPPER              MXK08212
+004281            SET WS-NO-ERROR-FOUND TO TRUE                         MXK08212
+004282        ELSE                                                      MXK08212
+004283            SET WS-ERROR-FOUND TO TRUE                            MXK08212
+004284        END-IF                                                    MXK08212
+004285        GO TO 9602-EXIT.                                          MXK08212
+004286                                                                          
+004287     SET WS-NO-ERROR-FOUND      TO TRUE                                   
+004288                                                                          
+004295                                                                          
+004296     IF  WS-ADDR-POST-CHAR(1) > SPACES                            MXK08212
+004297     AND WS-ADDR-POST-CHAR(1) IS ALPHABETIC-UPPER                 MXK08212
+004298        SET WS-NO-ERROR-FOUND   TO TRUE                           MXK07227
+004299     ELSE                                                         MXK07227
+004300        SET WS-ERROR-FOUND      TO TRUE                           MXK07227
+004301     END-IF                                                       MXK07227
+004302                                                                          
+004303     IF WS-NO-ERROR-FOUND                                         MXK07227
+004304        PERFORM VARYING POST-CD-INX                                       
+004305             FROM 1 BY 1                                                  
+004306          UNTIL POST-CD-INX > WS-ADDR-POST-CD-LNG1                        
+004307             OR WS-ERROR-FOUND                                            
+004310          IF WS-ADDR-POST-CHAR(POST-CD-INX) <= SPACE                      
+004320             SET WS-ERROR-FOUND     TO TRUE                               
+004330          END-IF                                                          
+004340       END-PERFORM                                                        
+004350     END-IF                                                       MXK07227
+004400                                                                          
+004401     IF WS-NO-ERROR-FOUND                                                 
+004402        COMPUTE WS-ADDR-POST-CD-LNG =                                     
+004403                                   WS-ADDR-POST-CD-LNG1 + 1               
+004404        PERFORM VARYING POST-CD-INX                                       
+004405           FROM WS-ADDR-POST-CD-LNG  BY  1                                
+004406               UNTIL POST-CD-INX > 10                                     
+004407                  OR WS-ERROR-FOUND                                       
+004408           IF WS-ADDR-POST-CHAR(POST-CD-INX) > SPACE                      
+004409              SET WS-ERROR-FOUND     TO TRUE                              
+004410           END-IF                                                         
+004411        END-PERFORM                                                       
+004412     END-IF                                                       MXK08016
+004413                                                                          
+004420     IF WS-ERROR-FOUND                                                    
+004421     AND WS-ADDR-POST-CD-LNG2 NOT = WS-ADDR-POST-CD-LNG1                  
+004422         SET WS-NO-ERROR-FOUND      TO TRUE                       MXK08016
+004430         PERFORM VARYING POST-CD-INX FROM 1 BY 1                          
+004440               UNTIL POST-CD-INX > WS-ADDR-POST-CD-LNG2                   
+004450                  OR WS-ERROR-FOUND                                       
+004460           IF WS-ADDR-POST-CHAR(POST-CD-INX) <= SPACE                     
+004470              SET WS-ERROR-FOUND     TO TRUE                              
+004480           END-IF                                                         
+004490         END-PERFORM                                                      
+004600         IF WS-NO-ERROR-FOUND                                             
+004610            COMPUTE WS-ADDR-POST-CD-LNG =                                 
+004620                                   WS-ADDR-POST-CD-LNG2 + 1               
+004700            PERFORM VARYING POST-CD-INX                           MXK08016
+004800                FROM WS-ADDR-POST-CD-LNG  BY 1                    MXK08016
+004900                    UNTIL POST-CD-INX > 10                        MXK08016
+005000                      OR WS-ERROR-FOUND                           MXK08016
+005100                IF WS-ADDR-POST-CHAR(POST-CD-INX) > SPACE         MXK08016
+005200                   SET WS-ERROR-FOUND     TO TRUE                 MXK08016
+005300                END-IF                                            MXK08016
+005400            END-PERFORM                                           MXK08016
+005410         END-IF.                                                  MXK08016
+005411                                                                          
+005413     IF  WS-ERROR-FOUND                                           MXK08016
+005420     AND WS-ADDR-POST-CD-LNG3 > ZERO                              MXK08016
+005421     AND WS-ADDR-POST-CD-LNG3 NOT = WS-ADDR-POST-CD-LNG1          MXK08016
+005422     AND WS-ADDR-POST-CD-LNG3 NOT = WS-ADDR-POST-CD-LNG2          MXK08016
+005430         SET WS-NO-ERROR-FOUND      TO TRUE                       MXK08016
+005440         PERFORM VARYING POST-CD-INX FROM 1 BY 1                  MXK08016
+005450               UNTIL POST-CD-INX > WS-ADDR-POST-CD-LNG3           MXK08016
+005460                  OR WS-ERROR-FOUND                               MXK08016
+005470           IF WS-ADDR-POST-CHAR(POST-CD-INX) <= SPACE             MXK08016
+005480              SET WS-ERROR-FOUND     TO TRUE                      MXK08016
+005490           END-IF                                                 MXK08016
+005491         END-PERFORM                                              MXK08016
+005492         IF WS-NO-ERROR-FOUND                                     MXK08016
+005493            COMPUTE WS-ADDR-POST-CD-LNG =                         MXK08016
+005494                                   WS-ADDR-POST-CD-LNG3 + 1       MXK08016
+005495            PERFORM VARYING POST-CD-INX                           MXK08016
+005496                FROM WS-ADDR-POST-CD-LNG  BY 1                    MXK08016
+005497                    UNTIL POST-CD-INX > 10                        MXK08016
+005498                      OR WS-ERROR-FOUND                           MXK08016
+005499                IF WS-ADDR-POST-CHAR(POST-CD-INX) > SPACE         MXK08016
+005500                   SET WS-ERROR-FOUND     TO TRUE                 MXK08016
+005501                END-IF                                            MXK08016
+005502            END-PERFORM.                                          MXK08016
+005503*                                                                         
+005504 9602-EXIT.                                                       MXK08212
+005505     EXIT.                                                        MXK08212
+005510*                                                                         
+005520 9603-COMPRESS-POST-CD.                                           MXK07227
+005600*                                                                 MXK07227
+005601      INSPECT WS-ADDR-POST-CD                                     MXK07227
+005602             CONVERTING SYS-CHAR-LOWER-CASE TO                    MXK07227
+005603                        SYS-CHAR-UPPER-CASE.                      MXK07227
+005607                                                                  MXK07227
+005608      MOVE WS-ADDR-POST-CD   TO WS-ADDR-POST-CHAR-ARRAY           MXK07227
+005609      MOVE SPACE             TO WS-ADDR-POST-CD                   MXK07227
+005610      MOVE 0                 TO WS-POST-CD-SUB                    MXK07227
+005611      PERFORM VARYING POST-CD-INX                                 MXK07227
+005612        FROM 1  BY 1  UNTIL POST-CD-INX > 10                      MXK07227
+005613         IF WS-ADDR-POST-CHAR(POST-CD-INX) >= 'A'                 MXK07227
+005614            ADD 1          TO WS-POST-CD-SUB                      MXK07227
+005615            MOVE WS-ADDR-POST-CHAR(POST-CD-INX)                   MXK07227
+005616                           TO WS-ADDR-POST-CD (WS-POST-CD-SUB:1)  MXK07227
+005617         END-IF                                                   MXK07227
+005618      END-PERFORM.                                                MXK07227
+005620*                                                                         
+005700 9700-VALIDATE-ADDRESS.                                                   
+005800*                                                                         
+005900     IF WS-ADDR-WORK-ADDR1 <= SPACES                                      
+005910        SET WS-ERROR-FOUND    TO TRUE                                     
+005911        MOVE 'ADDRESS 1 IS REQUIRED'                                      
+005912                             TO WS-ADDR-ERROR-MESSAGE                     
+005920        GO TO 9700-EXIT.                                                  
+006000                                                                          
+006001     IF  WS-ADDR-ADDR2-REQD                                               
+006002     AND WS-ADDR-WORK-ADDR2 <= SPACES                                     
+006003        SET WS-ERROR-FOUND    TO TRUE                                     
+006005        MOVE 'ADDRESS 2 IS REQUIRED'                                      
+006006                              TO WS-ADDR-ERROR-MESSAGE                    
+006007        GO TO 9700-EXIT.                                                  
+006008                                                                          
+006009     IF  WS-ADDR-ADDR3-REQD                                               
+006010     AND WS-ADDR-WORK-ADDR3 <= SPACES                                     
+006011        SET WS-ERROR-FOUND    TO TRUE                                     
+006012        MOVE 'ADDRESS 3 IS REQUIRED'                                      
+006014                              TO WS-ADDR-ERROR-MESSAGE                    
+006015        GO TO 9700-EXIT.                                                  
+006016                                                                          
+006017     IF WS-ADDR-WORK-CITY <= SPACES                                       
+006018        SET WS-ERROR-FOUND    TO TRUE                                     
+006020        MOVE 'CITY NAME IS REQUIRED'                                      
+006021                              TO WS-ADDR-ERROR-MESSAGE                    
+006022        GO TO 9700-EXIT.                                                  
+006023                                                                          
+006025     MOVE WS-ADDR-WORK-POST-CD TO WS-ADDR-POST-CD                         
+006026     PERFORM 9600-VALIDATE-POSTAL-CODE                                    
+006027     MOVE WS-ADDR-POST-CD      TO WS-ADDR-WORK-POST-CD            MXK07227
+006028     IF WS-ERROR-FOUND                                                    
+006029        MOVE 'INVALID POSTAL CODE'                                        
+006030                              TO WS-ADDR-ERROR-MESSAGE                    
+006031        GO TO 9700-EXIT.                                                  
+006040                                                                          
+006300     IF  WS-ADDR-ST-PVNC-REQD                                             
+006400         IF WS-ADDR-WORK-ST-PVNC-CD <= SPACES                     MXK07227
+006401            SET WS-ERROR-FOUND    TO TRUE                                 
+006410            MOVE 'STATE/PROVINCE CODE IS REQUIRED'                        
+006420                              TO WS-ADDR-ERROR-MESSAGE                    
+006430         ELSE                                                     MXK07227
+006431           PERFORM 9710-VALIDATE-ST-PROV-CODE.                    MXK07227
+006432*                                                                         
+006440     IF WS-ERROR-FOUND                                            MXK07227
+006450        GO TO 9700-EXIT.                                          MXK07227
+006600*                                                                         
+006700 9700-EXIT.                                                               
+006710      EXIT.                                                               
+006711*                                                                         
+006720 9710-VALIDATE-ST-PROV-CODE.                                      MXK07227
+006800*                                                                 MXK07227
+006900     EXEC SQL                                                     MXK07227
+007000          SELECT '1'                                              MXK07227
+007100           INTO :WS-ADDR-DUMMY                                    MXK07227
+007200           FROM ADDR_ST_PVNC                                      MXK07227
+007300           WHERE CTRY_CD      = :WS-ADDR-WORK-CTRY-CD             MXK07227
+007400             AND ST_PVNC_CD   = :WS-ADDR-WORK-ST-PVNC-CD          MXK07227
+007600     END-EXEC.                                                    MXK07227
+007700                                                                  MXK07227
+007710     MOVE SQLCODE              TO SQLCODE-STATUS                  MXK07227
+007711     EVALUATE TRUE                                                MXK07227
+007712       WHEN SQLCODE-NORESP                                        MXK07227
+007713            CONTINUE                                              MXK07227
+007714       WHEN SQLCODE-NOT-FOUND                                     MXK07227
+007715            SET WS-ERROR-FOUND TO TRUE                            MXK07227
+007716            MOVE 'STATE/PROVINCE CODE IS INVALID'                 MXK07227
+007717                               TO WS-ADDR-ERROR-MESSAGE           MXK07227
+007718       WHEN OTHER                                                 MXK07227
+008200            MOVE '9710'        TO WS-ADDR-ABCODE                  MXK07227
+008300            MOVE '9710-VALIDATE-ST-PROV-CODE'                     MXK07227
+008400                               TO WS-ADDR-ERROR-MESSAGE           MXK07227
+008410     END-EVALUATE.                                                MXK07227

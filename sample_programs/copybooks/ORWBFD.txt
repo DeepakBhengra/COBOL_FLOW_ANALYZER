@@ -1,0 +1,780 @@
+000100******************************************************************        
+000200*    ORDER BILLING WORK FILE FD LAYOUT------  COPY ORWBFD        *        
+000300*        ------ CHANGES TO THIS COPYBOOK THAT AFFECT THE LRECL   *        
+000400*         ------ MUST ALSO BE MADE TO THE FOLLOWING COPYBOOKS:   *        
+000500*                                                                *        
+000600*               ORWBFD1, ORWBWS1, ORRHWS, ORRHFD                 *MJW91129
+000700*                                                                *KMR95009
+000800*    NOTE: VSAM FILE FOR ABOVE CPYLIB MEMBERS IS 1000... FILLER  *KMR95009
+000900*          HAS BEEN ADDED TO THE END OF EACH SEGMENT SO THAT     *KMR95009
+001000*          YOU CAN ADD DATA ELEMENTS W/OUT EFFECTING VSAMDEF'S   *KMR95009
+001100*          OR EXPANDING THE ACTUAL FILES.  FILLER HAS BEEN ADDED *KMR95009
+001200*          TO THIS CPYLIB MEMBER SO THAT ALL = 630.              *KMR95009
+001300*                                                                *        
+001400* INGRAM MICRO CHANGES:                                          *        
+      * 02/03/23 MYG  USMRI - ADDED NEW FIELD ORBU-SAP-FG-ORD-SW       *MYG23034
+      * 09/09/22 NXS  ADDED NEW FIELD PAYMENT FORMS FOR MX-CFDI        *NXS22252
+      *               CHANGES                                          *NXS22252
+      * 03/11/22 WTL  ADD FIELDS FOR CHICAGO LEASE TAX                 *WTL22070
+      * 06/30/19 KYR  INDIA GST - ADDITION OF FOUR NEW CESS TAX        *KYR19181
+      * 03/09/18 MAK  ADDED ORBU-COUNT-FD FIELD IN EXT HEADER RECORD   *MAK18068
+      * 02/03/18 MAK  ADDED NEW EXTENDED HEADER RECORD SEGMENT AS PART *MAK18033
+      *               OF THE HERMES PROJECT CHANGES.                   *MAK18033
+      * 07/03/17 EXU  ADD INDIA GST FIELDS                             *EXU17184
+      * 06/12/14 KMP  ADD 88 LEVEL FOR STAPLES TO ORBH-SORT-PRINT-CODE *KMP14163
+      * 01/17/14 RLH  ADD SERIAL-NUMBER-TYPE FIELD                     *RLH14017
+      * 06/10/13 KMP  ADD 88 LEVEL FOR PROMARK TO ORBH-SORT-PRINT-CODE *KMP13161
+      * 11/05/09 CBL  ADDED 88 LEVEL TO ORBH-RECORD-CODE               *CBL09309
+      * 06/10/09 KMP  ADDED 88 LEVEL TO ORBH-SORT-INV-TYPE.            *KMP09161
+      * 06/04/09 KMP  ADDED 88 LEVEL FOR DBL TO ORBH-SORT-PRINT-CODE.  *KMP09155
+      * 09/03/08 RAL  ADD POCC FIELD                                   *RAL08247
+      * 09/25/07 ISS  ADD ECOD AMOUNT FIELD TO CREDIT MEMO APPLIED     *ISS07268
+      *               FOR END USER COD PROJECT.                        *ISS07268
+      *               --> CHANGES BY ISS104. TAGGED AS ISS07268.       *ISS07268
+      * 05/30/07 LXG  CHANGES FOR DELIVERY AREA SURCHARGE PROJECT      *SML07150
+001410* 01/19/07 MSI  ADD ACOP CURRENCY DATA TO THE CAPS RECORD        *MSI07033
+001500* 10/27/06 TGF  ADD TAX SWITCH AND OPID FOR BRAXIL MP255         *TGF06300
+001600* 07/20/05 CJK  ADD THE FOLLOWING FOR INDIA:                     *CJK05238
+001700*               ORBC-CFORM-CD                                    *CJK05238
+001800* 09/22/05 CBL ADD 'L' (XML EDIFACT) AND '4' (XML X12)           *CBL05265
+001900*              TO ORBH-SORT-EUROPE-EDI                           *CBL05265
+002000* 05/31/05 KLM ADD SERVICE TAX FIELDS FOR INDIA                  *KLM05151
+002100* 03/15/05 CXL ADD PIS AND COFINS RATES FOR BRAZIL               *CXL05075
+002200*              RETROFITTED ON 05/05/05                           *CXL05075
+002300* 04/01/05 JJU  ADDED 6 FIELDS TO THE                            *JJU05091
+002400*               ORBE-CREDIT-MEMO-REC-FD FOR THE GUARANTEED       *JJU05091
+002500*               FREIGHT PROJECT. ALSO ADDED 2 OTHER FREIGHT      *JJU05091
+002600*               RELATED FIELDS.                                  *JJU05091
+002700* 05/25/04 SCT CHINESE CHARACTER                                 *SCT04240
+002800* 02/04/04 MCV MOVE SERIAL CARTON # INSIDE FUTURE-USAGE FIELD.   *MCV04035
+002900* 10/22/03 GXN SERIAL ITEM CARTON # ADDED TO SERIAL RECORD       *GXN03295
+003000*              FOR APPLE XML PROJECT                             *GXN03295
+003100* 07/14/03 TRR SSEU: ADD ORBC-CUST-INFO-RECEIVED-IND             *TRR03226
+003200* 06/25/03 MCV ADD ENCRYPTION DATA FROM ORSSTO 'M' REC           *MCV03176
+003300*              AND ZIPCODE FROM ORSSTO 'A4' REC TO THE           *MCV03176
+003400*              ORBE-CREDIT-MEMO-APPLIED-REC                      *MCV03176
+003500* 02/17/03 AXG BRAZIL - BPI ADD ORBC-RSLR-PRC-TAX-AMT            *AXG03050
+003600* 10/04/01 SXO EXPANDED ORBL-LINE-RECORD-FD LENGTH FROM 730 TO   *SXO01277
+003700*              1000 FOR THE SAGENCY PROJECT                      *SXO01277
+003800* 09/25/01 TYS ADD SHIP-VIA TO THE FREIGHT RECORD.               *TYS01296
+003900* 10/03/01 GCH ADD NEW FIELDS TO ORBD REC FOR WAREHOUSING/EDI.   *GCH01276
+004000* 10/03/01 BIM ADD NEW COUNTRY OF ORIGIN FIELDS.                 *BIM01276
+004100* 05/07/01 KLM ADD NEW FIELDS TO ORBC REC FOR ARGENTINA TAXES.   *KLM01127
+004200******************************************************************        
+004300                                                                          
+004400******************************************************************        
+004500*    ORDER BILLING WORK SHIP HEADER RECORD                        ACP95033
+004600*  ORBH-LINE-NBR IS ZEROS FOR THE RECORD TYPES: A,B,C,D,E.       *        
+004700*  ORBH-LINE-NBR IS THE SAME AS ORDER LINE NBR FOR RECORD TYPES: *        
+004800*                                          L,M,N,O,P             *        
+004900******************************************************************        
+005000 01  ORBH-ORWBFD.                                                         
+005100     05  ORBH-HEADER-SORT-AREA-FD.                                        
+005200         10  ORBH-HEADER-SORT-KEY-FD.                                     
+005300             15  ORBH-SORT-BR-NBR-SHIP-FROM  PIC X(2).                    
+005400             15  ORBH-SORT-EDI-CO REDEFINES                       KMB92079
+005500                 ORBH-SORT-BR-NBR-SHIP-FROM  PIC X(02).           KMB92079
+005600             15  ORBH-SORT-BR-NBR-INVENTORY  PIC X(2).                    
+005700             15  ORBH-SORT-INV-DATE          PIC S9(5) COMP-3.            
+005800             15  ORBH-SORT-TOTAL-PAGES REDEFINES                  MEP98170
+005900                 ORBH-SORT-INV-DATE          PIC S9(5) COMP-3.    MEP98170
+006000             15  ORBH-SORT-INV-TYPE          PIC X(1).                    
+009200                 88  ORBH-SORT-INV-DBL              VALUE 'W'.    KMP09161
+006100             15  ORBH-SORT-OS-SALESMAN       PIC X(4).                    
+006200             15  ORBH-SORT-POSTAL-CODES      PIC X(6).                    
+006300             15  ORBH-SORT-ZIP-CODE REDEFINES                             
+006400                 ORBH-SORT-POSTAL-CODES.                                  
+006500                 20  ORBH-SORT-ZIP           PIC S9(9) COMP-3.            
+006600                 20  FILLER                  PIC X(1).                    
+006700             15  ORBH-SORT-BILL-TO.                                       
+006800                 20  ORBH-SORT-BILL-TO-BR-NBR   PIC X(2).                 
+006900                 20  ORBH-SORT-BILL-TO-CUST-NBR PIC X(6).                 
+007000                 20  ORBH-SORT-BILL-TO-SUFFIX   PIC X(3).                 
+007100                     88  ORBH-SORT-FLOOR-SUF        VALUE         LMH93049
+007200                                             '111' THRU '139'.    PXP97170
+007300             15  ORBH-SORT-PRINT-CODE        PIC X(1).                    
+007400                 88  ORBH-SORT-SINGLE-GP            VALUE 'A'.            
+007500                 88  ORBH-SORT-MULTI-GP             VALUE 'B'.            
+007600                 88  ORBH-SORT-SPECIAL-GP           VALUE 'C'.            
+007700                 88  ORBH-SORT-DELL-GP              VALUE 'D'.    RDP91067
+007800                 88  ORBH-SORT-DEC-GP               VALUE 'E'.    RDP91067
+007900                 88  ORBH-SORT-CREDIT1-GP           VALUE 'F'.    RDP91067
+008000                 88  ORBH-SORT-CREDIT2-GP           VALUE 'G'.    RDP91067
+008100                 88  ORBH-SORT-ALLIANCE             VALUE 'H'.    MPN94283
+008200                 88  ORBH-SORT-EDI                  VALUE         CBL05265
+008300                                                    'I' '4'.      CBL05265
+008400                 88  ORBH-SORT-EUROPE-EDI           VALUE         JUB98180
+008500                     'E' 'I' 'T' '4' 'L'.                         CBL05265
+008600                 88  ORBH-SORT-BLANK-INV            VALUE 'K'.    JXH96327
+008700                 88  ORBH-SORT-INGRAM-MICRO         VALUE 'M'.    RDP91064
+008800                 88  ORBH-SORT-DIRECT-DEBIT         VALUE 'N'.    RDP91064
+008900                 88  ORBH-SORT-PREMIER-VAR          VALUE 'P'.    TFM92266
+009200                 88  ORBH-SORT-PRINT-PROMARK        VALUE 'R'.    KMP13161
+009200                 88  ORBH-SORT-PRINT-STAPLES        VALUE 'S'.    KMP14163
+009000                 88  ORBH-SORT-PRINT-EAST-GP        VALUE 'T'.            
+009100                 88  ORBH-SORT-HISTORY-ONLY         VALUE 'U'.    SSG90031
+009200                 88  ORBH-SORT-VALCOM-GP            VALUE 'V'.    RDP91067
+009200                 88  ORBH-SORT-PRINT-DBL            VALUE 'W'.    KMP09155
+009300                 88  ORBH-SORT-FLOORING-DEFAULT     VALUE 'X'.            
+009400                 88  ORBH-SORT-PRINT-INTL-GP        VALUE 'Y'.            
+009500                 88  ORBH-SORT-NO-PRINT             VALUE 'Z'.            
+009600*                88  SEE ORTFLRWS COPYBOOK FOR NUMERIC VALUES FOR         
+009700*                    ORBH-SORT-PRINT-CODE FLOORING PARENT NBRS            
+009800     05  ORBH-HEADER-DATA-AREA-FD.                                        
+009900         10  ORBH-HEADER-KEY-FD.                                          
+010000             15  ORBH-COMPANY                PIC X(2).                    
+010100             15  ORBH-BR-NBR                 PIC X(2).                    
+010200             15  ORBH-ORDER-NBR              PIC X(5).                    
+010300             15  ORBH-DIST-NBR               PIC 9(1).                    
+010400             15  ORBH-SHIPMENT-NBR           PIC 9(1).                    
+010500             15  ORBH-CR-SEQ                 PIC X(1).                    
+010600             15  ORBH-LINE-NBR               PIC 9(3).                    
+010700             15  ORBH-RECORD-CODE            PIC X(1).                    
+010800                 88  ORBH-HEADER-REC                VALUE 'A'.            
+010900                 88  ORBH-CUST-BILL-TO-REC          VALUE 'B'.            
+011000                 88  ORBH-ORDER-SHIP-TO-REC         VALUE 'C'.            
+011100                 88  ORBH-CUST-SHIP-TO-REC          VALUE 'D'.            
+011200                 88  ORBH-CREDIT-MEMO-APPLIED       VALUE 'E'.            
+011300                 88  ORBH-FREIGHT-REC               VALUE 'F'.    GEH93320
+011400                 88  ORBH-CREDIT-APPROVAL-REC       VALUE 'G'.    JHW97099
+011400                 88  ORBH-EDI-CONSOL-SHIPMENT       VALUE 'J'.    CBL09309
+011500                 88  ORBH-DYNAMIC-MSG-REC           VALUE 'K'.    DXO98315
+011600                 88  ORBH-LINE-REC                  VALUE 'L'.            
+011700                 88  ORBH-EXTRA-DESC-REC            VALUE 'M'.            
+011800                 88  ORBH-CAPS-REC                  VALUE 'N'.            
+011900                 88  ORBH-SERIAL-ITEM-REC           VALUE 'O'.            
+012000                 88  ORBH-30BYTE-SERIAL-ITEM-REC    VALUE 'Q'.    GEH93263
+012100                 88  ORBH-WAREHOUSE-LOC-REC         VALUE 'P'.            
+012200                 88  ORBH-END-USER-RPT-REC          VALUE 'R'.    BXA99085
+                       88  ORBH-EXTENDED-HDR-REC          VALUE 'U'.    MAK18033
+012300             15  ORBH-LINE-SEQ-NBR           PIC X(1).            GLJ91304
+012400                 88  ORBH-INTL-ADDR              VALUE X'01'.     SCT04240
+012500         10  FILLER                          PIC X(953).          JHW97183
+012600                                                                          
+012700******************************************************************KMR95016
+012800*                                                                *KMR95016
+012900*    MAX RECORD SIZE                                             *KMR95016
+013000*                                                                *KMR95016
+013100******************************************************************KMR95016
+013200 01  ORBH-ORWBFD-1000-RECORD                 PIC X(1000).         KMR95016
+013300******************************************************************        
+013400*                                                                *        
+013500*    ORDER BILLING WORK SHIP-TO / NAME-ADDRESS                    ACP95033
+013600*                                                                *        
+013700******************************************************************        
+013800 01  ORBA-SHIP-TO-RECORD-FD.                                              
+013900     05  ORBA-SHIP-TO-SORT-AREA-FD.                                       
+014000         10  ORBA-SHIP-TO-SORT-KEY-FD        PIC X(30).                   
+014100     05  ORBA-SHIP-TO-DATA-AREA-FD.                                       
+014200         10  ORBA-KEY-SHIP-TO-FD.                                         
+014300             15  ORBA-COMPANY                PIC X(2).                    
+014400             15  ORBA-BR-NBR                 PIC X(2).                    
+014500             15  ORBA-ORDER-NBR              PIC X(5).                    
+014600             15  ORBA-DIST-NBR               PIC 9(1).                    
+014700             15  ORBA-SHIPMENT-NBR           PIC 9(1).                    
+014800             15  ORBA-CR-SEQ                 PIC X(1).                    
+014900             15  ORBA-LINE-NBR               PIC 9(3).                    
+015000             15  ORBA-RECORD-CODE            PIC X(1).                    
+015100             15  ORBA-LINE-SEQ-NBR           PIC X(1).                    
+015200         10  ORBA-COUNT-FD                   PIC 9(1).                    
+015300         10  ORBA-DATE-REL-FD                PIC S9(05) COMP-3.   TEH99320
+015400         10  ORBA-TIME-REL-FD                PIC S9(07) COMP-3.   TEH99320
+015500         10  ORBA-OPER-ID-REL-FD             PIC X(04).           TEH99320
+015600         10  ORBA-BANK-NUMBER                PIC X(24).           KXA99342
+015700         10  ORBA-TAX-EXEMPT-NBR             PIC X(30).           KXA99342
+015800         10  ORBA-FUTURE-USAGE-FD            PIC X(105).          KXA99342
+015900         10  ORBA-SHIP-TO-VARIABLE-FD.                            MCV95312
+016000             15  ORBA-SHIP-TO-FD OCCURS 1 TO 6 TIMES              MCV95312
+016100                     DEPENDING ON ORBA-COUNT-FD.                          
+016200                 20  ORBA-CODE-FD                PIC 9(1).        MCV95312
+016300                     88  ORBA-ATTENTION-FD              VALUE 0.          
+016400                     88  ORBA-SHIP-TO-LINES-FD          VALUE 1.          
+016500                     88  ORBA-SIGNATURE-FD              VALUE 9.          
+016600                 20  ORBA-NAME-ADDR-SIG-ATTN-FD  PIC X(35).       MCV95312
+016700         10  FILLER                          PIC X(296).          ACP95033
+016800                                                                          
+016900******************************************************************SCT04240
+017000*                                                                *SCT04240
+017100*    ORDER BILLING WORK INTL-LANG / NAME-ADDRESS (INTERNATIONAL) *SCT04240
+017200*    BINARY LINE SEQUENCE NUMBER 001 - CHINESE LANGUAGE          *SCT04240
+017300******************************************************************SCT04240
+017400 01  ORBT-INTL-ADDR-RECORD-FD.                                    SCT04240
+017500     05  ORBT-INTL-ADDR-SORT-AREA-FD.                             SCT04240
+017600         10  ORBT-INTL-ADDR-SORT-KEY-FD      PIC X(30).           SCT04240
+017700     05  ORBT-INTL-ADDR-DATA-AREA-FD.                             SCT04240
+017800         10  ORBT-KEY-INTL-ADDR-FD.                               SCT04240
+017900             15  ORBT-COMPANY                PIC X(2).            SCT04240
+018000             15  ORBT-BR-NBR                 PIC X(2).            SCT04240
+018100             15  ORBT-ORDER-NBR              PIC X(5).            SCT04240
+018200             15  ORBT-DIST-NBR               PIC 9(1).            SCT04240
+018300             15  ORBT-SHIPMENT-NBR           PIC 9(1).            SCT04240
+018400             15  ORBT-CR-SEQ                 PIC X(1).            SCT04240
+018500             15  ORBT-LINE-NBR               PIC 9(3).            SCT04240
+018600             15  ORBT-RECORD-CODE            PIC X(1).            SCT04240
+018700             15  ORBT-LINE-SEQ-NBR           PIC X(1).            SCT04240
+018800         10  ORBT-COUNT-FD                   PIC 9(1).            SCT04240
+018900         10  ORBT-FUTURE-USAGE-FD            PIC X(170).          SCT04240
+019000         10  ORBT-INTL-ADDR-VARIABLE-FD.                          SCT04240
+019100             15  ORBT-INTL-ADDR-FD OCCURS 1 TO 7 TIMES            SCT04240
+019200                     DEPENDING ON ORBT-COUNT-FD.                  SCT04240
+019300                 20  ORBT-CODE-FD                PIC 9(1).        SCT04240
+019400                     88  ORBT-NAME               VALUE 1.         SCT04240
+019500                     88  ORBT-ADDRESS            VALUE 2 3 4 5.   SCT04240
+019600                     88  ORBT-ATTENTION          VALUE 6.         SCT04240
+019700                     88  ORBT-PHONE-FAX          VALUE 7.         SCT04240
+019800                 20  ORBT-CODEPAGE-FD            PIC S9(2) COMP.  SCT04240
+019900                 20  ORBT-INTL-ADDR70-FD       PIC X(70).         SCT04240
+020000         10  FILLER                          PIC X(271).          SCT04240
+020100                                                                          
+020200******************************************************************        
+020300*                                                                *        
+020400*    ORDER CREDIT MEMO APPLIED                                    ACP95033
+020500*                                                                *        
+020600******************************************************************        
+020700 01  ORBE-CREDIT-MEMO-REC-FD.                                             
+020800     05  ORBE-CREDIT-MEMO-SORT-AREA-FD.                                   
+020900         10  ORBE-CREDIT-MEMO-SORT-KEY-FD    PIC X(30).                   
+021000     05  ORBE-CREDIT-MEMO-DATA-AREA-FD.                                   
+021100         10  ORBE-CREDIT-MEMO-KEY-FD.                                     
+021200             15  ORBE-COMPANY                PIC X(2).                    
+021300             15  ORBE-BR-NBR                 PIC X(2).                    
+021400             15  ORBE-ORDER-NBR              PIC X(5).                    
+021500             15  ORBE-DIST-NBR               PIC 9(1).                    
+021600             15  ORBE-SHIPMENT-NBR           PIC 9(1).                    
+021700             15  ORBE-CR-SEQ                 PIC X(1).                    
+021800             15  ORBE-LINE-NBR               PIC 9(3).                    
+021900             15  ORBE-RECORD-CODE            PIC X(1).                    
+022000                 88  ORBE-CREDIT-MEMO-REC           VALUE 'E'.            
+022100             15  ORBE-LINE-SEQ-NBR           PIC X(1).                    
+022200         10  ORBE-CREDIT-MEMO-USED OCCURS 3 TIMES.                        
+022300             15  ORBE-CM-NUMBER              PIC X(07).                   
+022400             15  ORBE-CM-AMOUNT              PIC S9(15)V99 COMP-3.KAC94091
+022500         10  ORBE-CRCRD-POSTAL-CODE          PIC X(09).           MCV03176
+022600         10  ORBE-CRCRD-ENCRYPTION-KEY       PIC X(64).           MCV03176
+022700         10  ORBE-GUAR-FRT-STATUS            PIC X(1).            JJU05091
+022800         10  ORBE-GUAR-FRT-CALC-METHOD       PIC X(2).            JJU05091
+022900         10  ORBE-GUAR-FRT-CMPR-AMT          PIC S9(15)V99 COMP-3.JJU05091
+023000         10  ORBE-GUAR-FRT-CMPR-IND          PIC X(1).            JJU05091
+023100         10  ORBE-GUAR-FRT-PREV-CARR-CD      PIC X(2).            JJU05091
+023200         10  ORBE-GUAR-FRT-SHORT-SHIP-FLAG   PIC X(1).            JJU05091
+023300         10  ORBE-3RD-PARTY-BILL-IND         PIC X(1).            JJU05091
+023400         10  ORBE-MAN-FRT-OVERRIDE-SW        PIC X(1).            JJU05091
+               10  ORBE-DAS-SW                     PIC X(1).            SML07150
+                   88  ORBE-DAS-BY-ORDER               VALUE 'O'.       SML07150
+                   88  ORBE-DAS-BY-CARTON              VALUE 'C'.       SML07150
+               10  ORBE-DAS-CUST-CHRG              PIC S9(5)V99 COMP-3. SML07150
+               10  ORBE-DAS-CARR-CHRG              PIC S9(5)V99 COMP-3. SML07150
+               10  ORBE-ECOD-AMT                   PIC S9(13)V99 COMP-3.ISS07268
+               10  ORBE-FUTURE-USAGE               PIC X(527).          ISS07268
+023600                                                                          
+023700******************************************************************        
+023800*                                                                *        
+023900*    ORDER BILLING WORK LINE RECORD                               ACP95033
+024000*                                                                *        
+024100******************************************************************        
+024200 01  ORBL-LINE-RECORD-FD.                                                 
+024300     05  ORBL-LINE-SORT-AREA-FD.                                          
+024400         10  ORBL-LINE-SORT-KEY-FD           PIC X(30).                   
+024500     05  ORBL-LINE-RECORD-AREA-FD.                                        
+024600         10  ORBL-KEY-LINE-RECORD-FD.                                     
+024700             15  ORBL-COMPANY                PIC X(2).                    
+024800             15  ORBL-BR-NBR                 PIC X(2).                    
+024900             15  ORBL-ORDER-NBR              PIC X(5).                    
+025000             15  ORBL-DIST-NBR               PIC 9(1).                    
+025100             15  ORBL-SHIPMENT-NBR           PIC 9(1).                    
+025200             15  ORBL-CR-SEQ                 PIC X(1).                    
+025300             15  ORBL-LINE-NBR               PIC 9(3).                    
+025400             15  ORBL-RECORD-CODE            PIC X(1).                    
+025500             15  ORBL-LINE-SEQ-NBR           PIC X(1).                    
+025600         10  ORBL-LINE-DATA-FD               PIC X(336).          MCV92028
+025700         10  ORBL-DESC-COUNT-FD              PIC 9(1).                    
+025800         10  ORBL-PO-COUNT-FD                PIC 9(1).                    
+025900         10  ORBL-VARIABLE-SEGMENT-FD.                            MCV95312
+026000             15  ORBL-DESC-AREA-FD OCCURS 0 TO 2 TIMES            MCV95312
+026100                     DEPENDING ON ORBL-DESC-COUNT-FD.             MCV95312
+026200                 20  ORBL-DESCRIPTION-FD     PIC X(35).           MCV95312
+026300             15  ORBL-RECEIVED-ON-PO-FD OCCURS 0 TO 3 TIMES       MCV95312
+026400                     DEPENDING ON ORBL-PO-COUNT-FD.               MCV95312
+026500                 20  ORBL-PO-BR-NBR-FD       PIC X(2).            MCV95312
+026600                 20  ORBL-PO-NBR-FD          PIC X(5).            MCV95312
+026700                 20  ORBL-PO-LINE-NBR-FD     PIC 9(3).            MCV95312
+026800                 20  ORBL-PO-DATE-FD         PIC S9(5) COMP-3.    MCV95312
+026900                 20  ORBL-PO-REC-NBR-FD      PIC S9(3) COMP-3.    MCV95312
+027000                 20  ORBL-QTY-RECEIVED-FD    PIC S9(7) COMP-3.    MCV95312
+027100*      05  ORBL-AFTER-FIELDS.  ===>  CURRENT AREA TOTAL: 218      MJW96327
+027200         10  ORBL-LINE-DATA-MISC-FD          PIC X(488).          SXO01277
+027300* IF YOU NEED TO ADD NEW FIELDS, PLEASE ONLY INCREASE THE         RMF96011
+027400* LENGTH OF ORBL-LINE-DATA-MISC-FD, DO NOT ADD ELEMENTARY ITEMS.  RMF96011
+027500                                                                          
+027600                                                                          
+027700******************************************************************        
+027800*                                                                *        
+027900*    ORDER BILLING WORK LINE EXTRA DESCRIPTION                    ACP95033
+028000*                                                                *        
+028100******************************************************************        
+028200 01  ORBX-EXTRA-LINE-DESC-RECORD-FD.                                      
+028300     05  ORBX-EXTRA-DESC-SORT-AREA-FD.                                    
+028400         10  ORBX-EXTRA-DESC-SORT-KEY-FD     PIC X(30).                   
+028500     05  ORBX-EXTRA-DESC-DATA-AREA-FD.                                    
+028600         10  ORBX-KEY-EXTRA-DESC-FD.                                      
+028700             15  ORBX-COMPANY                PIC X(2).                    
+028800             15  ORBX-BR-NBR                 PIC X(2).                    
+028900             15  ORBX-ORDER-NBR              PIC X(5).                    
+029000             15  ORBX-DIST-NBR               PIC 9(1).                    
+029100             15  ORBX-SHIPMENT-NBR           PIC 9(1).                    
+029200             15  ORBX-CR-SEQ                 PIC X(1).                    
+029300             15  ORBX-LINE-NBR               PIC 9(3).                    
+029400             15  ORBX-RECORD-CODE            PIC X(1).                    
+029500             15  ORBX-LINE-SEQ-NBR           PIC X(1).                    
+029600         10  ORBX-COUNT-FD                   PIC 9(1).                    
+029700         10  ORBX-FUTURE-USAGE-FD            PIC X(170).          MJW91129
+029800         10  ORBX-EXTRA-DESC-VARIABLE-FD.                         MCV95312
+029900             15  ORBX-EXTRA-LINE-DESC-FD OCCURS 1 TO 6 TIMES      MCV95312
+030000                     DEPENDING ON ORBX-COUNT-FD.                          
+030100                 20  ORBX-CODE-FD                PIC 9(1).        MCV95312
+030200                 20  ORBX-EXTRA-DESCRIPTION-FD   PIC X(35).       MCV95312
+030300         10  FILLER                          PIC X(296).          ACP95033
+030400                                                                          
+030500******************************************************************        
+030600*                                                                *        
+030700*    ORDER BILLING WORK CUSTOMER INFO (CAPS)                      ACP95033
+030800*                                                                *        
+030900******************************************************************        
+031000 01  ORBC-CUST-INFO-RECORD-FD.                                            
+031100     05  ORBC-CUST-INFO-SORT-AREA-FD.                                     
+031200         10  ORBC-CUST-INFO-SORT-KEY-FD      PIC X(30).                   
+031300     05  ORBC-CUST-INFO-DATA-AREA-FD.                                     
+031400         10  ORBC-KEY-CUST-INFO-FD.                                       
+031500             15  ORBC-COMPANY                PIC X(2).                    
+031600             15  ORBC-BR-NBR                 PIC X(2).                    
+031700             15  ORBC-ORDER-NBR              PIC X(5).                    
+031800             15  ORBC-DIST-NBR               PIC 9(1).                    
+031900             15  ORBC-SHIPMENT-NBR           PIC 9(1).                    
+032000             15  ORBC-CR-SEQ                 PIC X(1).                    
+032100             15  ORBC-LINE-NBR               PIC 9(3).                    
+032200             15  ORBC-RECORD-CODE            PIC X(1).                    
+032300             15  ORBC-LINE-SEQ-NBR           PIC X(1).                    
+032400         10  ORBC-CAPS-DATA-FD.                                   MCV95312
+032500             15  ORBC-CUST-PART-NBR-FD      PIC X(12).            MCV95312
+032600             15  ORBC-FIRST-SRC-PART-NBR-FD REDEFINES             GAE00124
+032700                 ORBC-CUST-PART-NBR-FD      PIC X(12).            GAE00124
+032800             15  ORBC-CUST-WH-LOC-FD        PIC X(7).             MCV95312
+032900             15  ORBC-CUST-UM-FD            PIC X(2).             MCV95312
+033000             15  ORBC-CUST-UM-FACTOR-FD     PIC S9(4)V9(5) COMP-3.MCV95312
+033100             15  ORBC-CUST-UNIT-FD          PIC X(3).             MCV95312
+033200             15  ORBC-CUST-CONV-FACT-FD     PIC S9(7) COMP-3.     MCV95312
+033300         10  ORBC-COUNT-FD                  PIC 9(1).                     
+033400         10  ORBC-EXP-LICENSE                PIC X(15).           TVH97190
+033500         10  ORBC-ECCN                       PIC X(07).           TVH97190
+033600         10  ORBC-COUNTRY-OF-ORIGIN          PIC X(02).           TVH97190
+033700         10  ORBC-SCHDB-HTS-CODE             PIC X(20).           TVH97190
+033800         10  ORBC-COMPLIANCE-HOLD-IND PIC X(01).                  TVH97190
+033900             88  ORBC-COMPLIANCE-HOLD     VALUE 'Y'.              TVH97190
+034000         10  ORBC-COMPL-HOLD-REASON-GRP.                          TVH97190
+034100             15  ORBC-COMPL-HOLD-REASON PIC X(02)                 TVH97190
+034200                     OCCURS 10 TIMES                              TVH97190
+034300                        INDEXED BY HOLD-INDX.                     TVH97190
+034400         10  ORBC-RELEASE-OPID   PIC  X(04).                      TVH97190
+034500         10  ORBC-RELEASE-DATE   PIC  S9(05) COMP-3.              TVH97190
+034600         10  ORBC-RELEASE-TIME   PIC  S9(07) COMP-3.              TVH97190
+034700         10  ORBC-FUTURE-USAGE-FD            PIC X(094).          MAW98302
+034800         10  ORBC-NON-RECEIPT REDEFINES ORBC-FUTURE-USAGE-FD.     GAE00124
+034900             15  ORBC-SECOND-SOURCE-IND-FD  PIC X(01).            GAE00124
+035000                 88  ORBC-SECOND-SOURCE-FD            VALUE 'Y'.  GAE00124
+035100             15  ORBC-ORIG-CUST-PART-NBR-FD PIC X(12).            GAE00124
+035200*** THIS NEW TABLE REPLACES ORHC-COUNTRY-OF-ORIGIN                BIM01276
+035300             15  ORBC-COUNTRY-OF-ORIGIN-DATA.                     BIM01276
+035400                 20  ORBC-CNTRY-OF-ORIGIN-DATA OCCURS 14 TIMES.   BIM01276
+035500                     25 ORBC-CNTRY-OR-ORIGIN     PIC X(02).       BIM01276
+035600                     25 ORBC-CNTRY-OF-ORIGIN-QTY PIC S9(5) COMP-3.BIM01276
+035700         10  ORBC-CAPS-VARIABLE-FD.                               MAW98302
+035800             15  ORBC-ACCOUNT-INFO-FD OCCURS 1 TO 3 TIMES         MAW98302
+035900                 DEPENDING ON ORBC-COUNT-FD.                      MAW98302
+036000                 20  ORBC-ACCOUNT-NBR-FD    PIC X(16).            MAW98302
+036100                 20  ORBC-ACCOUNT-PCT-FD    PIC S9(1)V99.         MAW98302
+036200         10  ORBC-BRAZIL-TAX-FIELDS.                              MAW98302
+036300             15  ORBC-BRAZIL-TAX-FLAG        PIC X(01).           MAW98271
+036400                 88  ORBC-BRAZIL-TAX-LINE    VALUE 'T'.           MAW98271
+036500             15  ORBC-BRAZIL-TAXES.                               MAW98271
+036600                 20  ORBC-ICMS-TAX-RATE      PIC S9V9(04)         MAW98271
+036700                                                 COMP-3.          MAW98271
+036800                 20  ORBC-ICMS-TAX-AMT       PIC S9(15)V99        MAW98271
+036900                                                 COMP-3.          MAW98271
+037000                 20  ORBC-IPI-ISS-TAX-SW     PIC X(01).           MAW98271
+037100                     88  ORBC-IPI-TAX        VALUE 'P'.           MAW98271
+037200                     88  ORBC-ISS-TAX        VALUE 'S'.           MAW98271
+037300                 20  ORBC-IPI-ISS-TAX-RATE   PIC S9V9(04)         MAW98271
+037400                                                 COMP-3.          MAW98271
+037500                 20  ORBC-IPI-ISS-TAX-AMT    PIC S9(15)V99        MAW98271
+037600                                                 COMP-3.          MAW98271
+037700                 20  ORBC-PC-TAX-AMT         PIC S9(15)V99        MAW98271
+037800                                                 COMP-3.          MAW98271
+037900                 20  ORBC-TES-CODE           PIC X(03).           MAW98271
+038000                 20  ORBC-ICMS-BASE-AMT      PIC S9(15)V99        MAW98271
+038100                                                 COMP-3.          MAW98271
+038200                 20  ORBC-IPI-ISS-BASE-AMT   PIC S9(15)V99        MAW98271
+038300                                                 COMP-3.          MAW98271
+038400                 20  ORBC-CFOP-CODE          PIC X(03).           MAW98271
+038500                 20  ORBC-EXT-PRICE-TAX      PIC S9(15)V99        MAW98302
+038600                                                 COMP-3.          MAW98302
+038700                 20  FILLER                  PIC X(01).           KAC98323
+038800                 20  ORBC-UNIT-PRICE-TAX     PIC S9(15)V99        KAC98323
+038900                                             COMP-3.              KAC98323
+039000                 20  ORBC-UNIT-PRICE-TAX-FGN PIC S9(15)V99        KAC98323
+039100                                                 COMP-3.          KAC98323
+039200                 20  ORBC-EXT-PRICE-TAX-FGN  PIC S9(15)V99        KAC98323
+039300                                                 COMP-3.          KAC98323
+039400                 20  ORBC-ORIG-INV-NBR       PIC X(07).           KAC98323
+039500                 20  ORBC-ICMS-CODE          PIC X(02).           KAC98323
+039600             15  ORBC-CURRENCY-CODE      PIC X(03).               TGF00255
+039700             15  ORBC-ACTUAL-EXCH-RATE   PIC S9(3)V9(4) COMP-3.   TGF00255
+039800         10  ORBC-INDIA-TAX-FIELDS  REDEFINES                     KAC99288
+039900                                  ORBC-BRAZIL-TAX-FIELDS.         KAC99288
+040000             15  ORBC-INDIA-TAX-FLAG         PIC X(01).           KAC99288
+040100                 88  ORBC-INDIA-TAX-LINE     VALUE 'I'.           KAC99288
+040200             15  ORBC-INDIA-TAXES.                                KAC99288
+040300                 20  ORBC-LST-CST-TAX-RATE   PIC S9V9(04)         KAC99288
+040400                                                 COMP-3.          KAC99288
+      * SGST RATE                                                       EXU17184
+040300                 20  ORBC-S-GST-TAX-RATE   REDEFINES              EXU17184
+040400                     ORBC-LST-CST-TAX-RATE PIC S9(01)V9(04)       EXU17184
+040400                                               COMP-3.            EXU17184
+      * SGST RATE                                                       EXU17184
+040300                 20  ORBC-I-GST-TAX-RATE   REDEFINES              EXU17184
+040400                     ORBC-LST-CST-TAX-RATE PIC S9(01)V9(04)       EXU17184
+040400                                               COMP-3.            EXU17184
+040500                 20  ORBC-LST-CST-TAX-AMT    PIC S9(15)V99        KAC99288
+040600                                                 COMP-3.          KAC99288
+      *  SGST AMT                                                       EXU17184
+040500                 20  ORBC-S-GST-TAX-AMT    REDEFINES              EXU17184
+040600                     ORBC-LST-CST-TAX-AMT  PIC S9(15)V99 COMP-3.  EXU17184
+      *  IGST AMT                                                       EXU17184
+040500                 20  ORBC-I-GST-TAX-AMT    REDEFINES              EXU17184
+040600                     ORBC-LST-CST-TAX-AMT  PIC S9(15)V99 COMP-3.  EXU17184
+040700                 20  ORBC-LST-CST-TAX-SW     PIC X(01).           KAC99288
+      *  GST FLAG                                                       EXU17184
+040700                 20  ORBC-GST-TAX-SW     REDEFINES                EXU17184
+                           ORBC-LST-CST-TAX-SW     PIC X(01).           EXU17184
+040800                 20  ORBC-CESS-TAX-RATE      PIC S9V9(04)         KAC99288
+040900                                                 COMP-3.          KAC99288
+041600                 20  ORBC-C-GST-TAX-RATE     REDEFINES            KYR19181
+                           ORBC-CESS-TAX-RATE      PIC S9(01)V9(04)     KYR19181
+                                                      COMP-3.           KYR19181
+041000                 20  ORBC-CESS-TAX-AMT       PIC S9(15)V99        KAC99288
+041100                                                 COMP-3.          KAC99288
+                       20  ORBC-CESS1-TAX-AMT      REDEFINES            KYR19181
+                            ORBC-CESS-TAX-AMT      PIC S9(15)V99 COMP-3.KYR19181
+041200                 20  ORBC-TOT-TAX-RATE       PIC S9V9(04)         KAC99288
+041300                                                 COMP-3.          KAC99288
+041400                 20  ORBC-TOT-TAX-AMT        PIC S9(11)V99        KAC99288
+041500                                                 COMP-3.          KAC99288
+041600                 20  ORBC-OCTROI-TAX-RATE    PIC S9V9(04)         KAC99288
+041700                                                 COMP-3.          KAC99288
+                       20  ORBC-CESS1-TAX-RATE     REDEFINES            KYR19181
+                            ORBC-OCTROI-TAX-RATE   PIC S9V9(04) COMP-3. KYR19181
+041800                 20  ORBC-OCTROI-TAX-AMT     PIC S9(15)V99        KAC99288
+041900                                                 COMP-3.          KAC99288
+      *  CGST FIELDS                                                    EXU17184
+041800                 20  ORBC-C-GST-TAX-AMT      REDEFINES            EXU17184
+                           ORBC-OCTROI-TAX-AMT    PIC S9(15)V99 COMP-3. EXU17184
+042000                 20  ORBC-VENDOR-SF-STATE    PIC X(02).           KAC99288
+042100                 20  ORBC-VAT-TAX-CODE       PIC X(02).           KAC99288
+042200                 20  ORBC-SERVICE-TAX-RATE   PIC SV9(05)          KLM05151
+042300                                                 COMP-3.          KLM05151
+                       20  ORBC-CESS2-TAX-RATE     REDEFINES            KYR19181
+                            ORBC-SERVICE-TAX-RATE  PIC S9V9(04) COMP-3. KYR19181
+042400                 20  ORBC-SERVICE-TAX-AMT    PIC S9(15)V99        KLM05151
+042500                                                 COMP-3.          KLM05151
+                       20  ORBC-CESS2-TAX-AMT      REDEFINES            KYR19181
+                            ORBC-SERVICE-TAX-AMT   PIC S9(15)V99 COMP-3.KYR19181
+042600                 20  ORBC-CFORM-CD           PIC X(01).           CJK05238
+                       20  ORBC-CESS3-TAX-RATE     PIC S9V9(04)         KYR19181
+                                                         COMP-3.        KYR19181
+                       20  ORBC-CESS3-TAX-AMT      PIC S9(15)V99        KYR19181
+                                                         COMP-3.        KYR19181
+                       20  ORBC-CESS4-TAX-RATE     PIC S9V9(04)         KYR19181
+                                                         COMP-3.        KYR19181
+                       20  ORBC-CESS4-TAX-AMT      PIC S9(15)V99        KYR19181
+                                                         COMP-3.        KYR19181
+042700             15  FILLER                      PIC X(09).           KYR19181
+042800         10  ORBC-ARGENTINA-TAX-FIELDS REDEFINES                  KLM00030
+042900                           ORBC-BRAZIL-TAX-FIELDS.                KLM00030
+043000             15  ORBC-ARGENTINA-TAX-FLAG     PIC X(01).           KLM00030
+043100                 88  ORBC-ARGENTINA-TAX-LINE VALUE 'A'.           KLM00030
+043200             15  ORBC-ARGENTINA-TAXES.                            KLM00030
+043300                 20  ORBC-INTERNAL-TAX-RATE  PIC SV9(05)          KLM00030
+043400                                                 COMP-3.          KLM00030
+043500                 20  ORBC-INTERNAL-CODE      PIC X(02).           KLM00030
+043600             15  ORBC-INTERNAL-TAX-AMT   PIC S9(15)V99            CXL00234
+043700                                             COMP-3.              CXL00234
+043800             15  ORBC-GRS-TAX-AMT        PIC S9(15)V99            CXL00234
+043900                                             COMP-3.              CXL00234
+044000             15  ORBC-IVA-TAX-AMT        PIC S9(15)V99            KLM01127
+044100                                             COMP-3.              KLM01127
+044200             15  ORBC-IVA-TAX-RATE       PIC SV9(05)              KLM01127
+044300                                             COMP-3.              KLM01127
+044400             15  ORBC-IVA-NON-TAX-AMT    PIC S9(15)V99            KLM01127
+044500                                             COMP-3.              KLM01127
+044600             15  ORBC-IVA-NON-TAX-RATE   PIC SV9(05)              KLM01127
+044700                                             COMP-3.              KLM01127
+044800             15  FILLER                      PIC X(57).           KLM01127
+044900         10  ORBC-ACOP-DATA              PIC X(80).               AXG03050
+045000         10  ORBC-RSLR-PRC-TAX-AMT       PIC S9(13)V99  COMP-3.   AXG03050
+045100         10  ORBC-CUST-INFO-RECEIVED-IND PIC X(01).               TRR03226
+045200         10  ORBC-BRAZIL-PIS-COFINS.                              CXL05075
+045300             15  ORBC-PIS-TAX-RATE      PIC S9V9(04) COMP-3.      CXL05075
+045400             15  ORBC-PIS-TAX-AMT       PIC S9(15)V99 COMP-3.     CXL05075
+045500             15  ORBC-COFINS-TAX-RATE   PIC S9V9(04) COMP-3.      CXL05075
+045600             15  ORBC-COFINS-TAX-AMT    PIC S9(15)V99 COMP-3.     CXL05075
+045700         10  ORBC-BRAZIL-MP255-FIELDS.                            TGF06300
+045800             15  ORBC-MP255-TAX-FLAG    PIC X(01).                TGF06300
+045900             15  ORBC-MP255-OPID        PIC X(04).                TGF06300
+046010         10  ORBC-ACOP-CURRENCY-DATA    PIC X(160).               MSI07033
+046010         10  ORBC-ACOP-POCC-DATA        PIC X(16).                RAL08247
+046050     05  FILLER                         PIC X(16).                RAL08247
+046100                                                                          
+046200******************************************************************        
+046300*                                                                *        
+046400*    ORDER SERIAL AND ASSET TAG ITEM RECORD                      *GEH96187
+046500*                                                                *        
+046600******************************************************************        
+046700 01  ORBI-SERIAL-ITEM-RECORD-FD.                                          
+046800     05  ORBI-SERIAL-SORT-AREA-FD.                                        
+046900         10  ORBI-SERIAL-SORT-KEY-FD         PIC X(30).                   
+047000     05  ORBI-SERIAL-DATA-AREA-FD.                                        
+047100         10  ORBI-KEY-SERIAL-FD.                                          
+047200             15  ORBI-COMPANY                PIC X(2).                    
+047300             15  ORBI-BR-NBR                 PIC X(2).                    
+047400             15  ORBI-ORDER-NBR              PIC X(5).                    
+047500             15  ORBI-DIST-NBR               PIC 9(1).                    
+047600             15  ORBI-SHIPMENT-NBR           PIC 9(1).                    
+047700             15  ORBI-CR-SEQ                 PIC X(1).                    
+047800             15  ORBI-LINE-NBR               PIC 9(3).                    
+047900             15  ORBI-RECORD-CODE            PIC X(1).                    
+048000             15  ORBI-LINE-SEQ-NBR           PIC X(1).                    
+048100         10  ORBI-FUTURE-USAGE-FD2           PIC X(5).            PXP92351
+048200         10  ORBI-COUNT-FD                   PIC 9(2).                    
+048300         10  ORBI-FUTURE-USAGE-FD.                                MCV04035
+048400             15  ORBI-SERIAL-CARTON-NBR OCCURS 10                 GXN03295
+048500                                             PIC S9(05) COMP-3.   GXN03295
+048600             15  FILLER                      PIC  X(06).          MCV04035
+048700         10  ORBI-SERIAL-VARIABLE-FD.                             MCV95312
+048800             15  ORBI-SERIAL-INFO-FD OCCURS 1 TO 10 TIMES         GEH96187
+048900                 DEPENDING ON ORBI-COUNT-FD.                      MCV95312
+049000                 20  ORBI-SERIAL-NBR-FD      PIC X(30).           GEH96187
+049100                 20  ORBI-ASSET-TAG-NBR-FD   PIC X(30).           GEH96187
+               10  ORBI-SERIAL-INF2-FD.                                 RLH14017
+                   15  ORBI-SERIAL-NBR-TYPE-FD     PIC  X(01)           RLH14017
+                                                   OCCURS 10 TIMES.     RLH14017
+               10  FILLER                          PIC  X(30).          RLH14017
+049300*                                                                 GEH96187
+049400******************************************************************GEH96187
+049500*         >->->->->->->->-> N O T I C E <-<-<-<-<-<-<-<-<        *GEH96187
+049600* THIS REC LAYOUT IS NO LONGER BEING USED FOR STORING SHIP ORDER *GEH96187
+049700* SERIAL NUMBERS.  IT IS BEING KEPT FOR EXISTING HISTORY RECS    *GEH96187
+049800* THAT USE THIS LAYOUT.  ALSO THE RMA ORDER HISTORY FILE USES    *GEH96187
+049900* THIS COPYBOOK AND THIS SERIAL NUMBER RECORD TYPE.              *GEH96187
+050000******************************************************************GEH93263
+050100*                                                                *GEH93263
+050200*    ORDER 30 BYTE SERIAL ITEM RECORD                             ACP95033
+050300*                                                                *GEH93263
+050400******************************************************************GEH93263
+050500 01  ORBJ-SERIAL-ITEM-RECORD-FD.                                  GEH93263
+050600     05  ORBJ-SERIAL-SORT-AREA-FD.                                GEH93263
+050700         10  ORBJ-SERIAL-SORT-KEY-FD         PIC X(30).           GEH93263
+050800     05  ORBJ-SERIAL-DATA-AREA-FD.                                GEH93263
+050900         10  ORBJ-KEY-SERIAL-FD.                                  GEH93263
+051000             15  ORBJ-COMPANY                PIC X(2).            GEH93263
+051100             15  ORBJ-BR-NBR                 PIC X(2).            GEH93263
+051200             15  ORBJ-ORDER-NBR              PIC X(5).            GEH93263
+051300             15  ORBJ-DIST-NBR               PIC 9(1).            GEH93263
+051400             15  ORBJ-SHIPMENT-NBR           PIC 9(1).            GEH93263
+051500             15  ORBJ-CR-SEQ                 PIC X(1).            GEH93263
+051600             15  ORBJ-LINE-NBR               PIC 9(3).            GEH93263
+051700             15  ORBJ-RECORD-CODE            PIC X(1).            GEH93263
+051800             15  ORBJ-LINE-SEQ-NBR           PIC X(1).            GEH93263
+051900         10  ORBJ-FUTURE-USAGE-FD2           PIC X(5).            GEH93263
+052000         10  ORBJ-COUNT-FD                   PIC 9(2).            GEH93263
+052100         10  ORBJ-FUTURE-USAGE-FD            PIC X(98).           GEH93263
+052200         10  ORBJ-SERIAL-VARIABLE-FD.                             MCV95312
+052300             15  ORBJ-SERIAL-INFO-FD OCCURS 1 TO 12 TIMES         MCV95312
+052400                 DEPENDING ON ORBJ-COUNT-FD.                      MCV95312
+052500                 20  ORBJ-SERIAL-NBR-FD      PIC X(30).           MCV95312
+052600         10  FILLER                          PIC X(218).          ACP95033
+052700                                                                          
+052800******************************************************************        
+052900*                                                                *        
+053000*    ORDER WAREHOUSE LOCATION RECORD                              ACP95033
+053100*                                                                *        
+053200******************************************************************        
+053300 01  ORBW-WAREHOUSE-LOC-RECORD-FD.                                        
+053400     05  ORBW-LOCATION-SORT-AREA-FD.                                      
+053500         10  ORBW-LOCATION-SORT-KEY-FD       PIC X(30).                   
+053600     05  ORBW-LOCATION-DATA-AREA-FD.                                      
+053700         10  ORBW-KEY-LOCATION-FD.                                        
+053800             15  ORBW-COMPANY                PIC X(2).                    
+053900             15  ORBW-BR-NBR                 PIC X(2).                    
+054000             15  ORBW-ORDER-NBR              PIC X(5).                    
+054100             15  ORBW-DIST-NBR               PIC 9(1).                    
+054200             15  ORBW-SHIPMENT-NBR           PIC 9(1).                    
+054300             15  ORBW-CR-SEQ                 PIC X(1).                    
+054400             10  ORBW-LINE-NBR               PIC 9(3).                    
+054500             10  ORBW-RECORD-CODE            PIC X(1).                    
+054600             10  ORBW-LINE-SEQ-NBR           PIC X(1).                    
+054700         10  FILLER                          PIC X(18).                   
+054800         10  ORBW-COUNT-FD                   PIC 9(2).                    
+054900         10  ORBW-FUTURE-USAGE-FD            PIC X(170).          MJW91129
+055000         10  ORBW-LOCATION-VARIABLE-FD.                           MCV95312
+055100             15  ORBW-LOCATION-INFO-FD OCCURS 1 TO 25 TIMES       MCV95312
+055200                 DEPENDING ON ORBW-COUNT-FD.                              
+055300                 20  ORBW-LOC-FD             PIC X(7).            MCV95312
+055400                 20  ORBW-QTY-FD             PIC S9(7) COMP-3.    MCV95312
+055500         10  FILLER                          PIC X(218).          ACP95033
+055600                                                                  GEH93320
+055700******************************************************************GEH93320
+055800*                                                                *GEH93320
+055900*    ORDER FREIGHT DATA RECORD                                    ACP95033
+056000*                                                                *GEH93320
+056100******************************************************************GEH93320
+056200 01  ORBF-FREIGHT-ITEM-RECORD-FD.                                 GEH93320
+056300     05  ORBF-FREIGHT-SORT-AREA-FD.                               GEH93320
+056400         10  ORBF-FREIGHT-SORT-KEY-FD        PIC X(30).           GEH93320
+056500     05  ORBF-FREIGHT-DATA-AREA-FD.                               GEH93320
+056600         10  ORBF-FREIGHT-KEY-FD.                                 GEH93320
+056700             15  ORBF-COMPANY                PIC X(2).            GEH93320
+056800             15  ORBF-BR-NBR                 PIC X(2).            GEH93320
+056900             15  ORBF-ORDER-NBR              PIC X(5).            GEH93320
+057000             15  ORBF-DIST-NBR               PIC 9(1).            GEH93320
+057100             15  ORBF-SHIPMENT-NBR           PIC 9(1).            GEH93320
+057200             15  ORBF-CR-SEQ                 PIC X(1).            GEH93320
+057300             15  ORBF-LINE-NBR               PIC 9(3).            GEH93320
+057400             15  ORBF-RECORD-CODE            PIC X(1).            GEH93320
+057500             15  ORBF-LINE-SEQ-NBR           PIC X(1).            GEH93320
+057600         10  ORBF-FREIGHT-FIXED-FD.                               MCV95312
+057700             15  ORBF-FUTURE-USAGE-FD2       PIC X(4).            MCV95312
+057800             15  ORBF-PICKUP-NBR-IND-FD      PIC X(1).            MCV95312
+057900             15  ORBF-COUNT-FD               PIC 9(2).            MCV95312
+058000             15  ORBF-3RD-PARTY-BILL-ACCT-FD PIC X(15).           MCV95312
+058100         10  ORBF-FUTURE-USAGE-FD            PIC X(11).           GEH93320
+058200******************************************************************GEH95003
+058300* FREIGHT-INFO ENTRIES ARE REDEFINED BY WS-FREIGHT-WORKAREA      *GEH95003
+058400* IN ORRHFRT.  REVIEW LOGIC IN MDP751IM BEFORE MAKING CHGS TO    *GEH95003
+058500* THIS PORTION OF THE ORDER HISTORY RECORD.                      *GEH95003
+058600******************************************************************GEH95003
+058700         10  ORBF-FREIGHT-VARIABLE-FD.                            MCV95312
+058800             15  ORBF-FREIGHT-INFO-FD OCCURS 1 TO 12 TIMES        MCV95312
+058900                 DEPENDING ON ORBF-COUNT-FD.                      GEH93320
+059000                 20  ORBF-TRACKING-NBR-FD    PIC X(30).           MCV95312
+059100                 20  ORBF-PKG-WGT-FD         PIC S9(9)V99 COMP-3. MCV95312
+059200         10  ORBF-SHIP-VIA                   PIC X(32).           TYS01296
+059300         10  FILLER                          PIC X(186).          TYS01296
+059400******************************************************************JHW97099
+059500*                                                                *JHW97099
+059600*    ORDER FLOORING CREDIT APPROVAL                               JHW97099
+059700*                                                                *JHW97099
+059800******************************************************************JHW97099
+059900 01  ORBG-CREDIT-APPROVAL-REC-FD.                                 JHW97099
+060000     05  ORBG-CREDIT-SORT-AREA-FD.                                JHW97099
+060100         10  ORBG-CREDIT-SORT-KEY-FD         PIC X(30).           JHW97099
+060200     05  ORBG-CREDIT-DATA-AREA-FD.                                JHW97099
+060300         10 ORBG-SHIP-TO-KEY.                                     JHW97099
+060400             15 ORBG-COMPANY                 PIC X(2).            JHW97099
+060500             15 ORBG-BR-NBR                  PIC X(2).            JHW97099
+060600             15 ORBG-ORDER-NBR               PIC X(5).            JHW97099
+060700             15 ORBG-DIST-NBR                PIC 9(1).            JHW97099
+060800             15 ORBG-SHIPMENT-NBR            PIC 9(1).            JHW97099
+060900             15 ORBG-CR-SEQ                  PIC X(1).            JHW97099
+061000             15 ORBG-LINE-NBR                PIC 9(3).            JHW97099
+061100             15 ORBG-RECORD-CODE             PIC X(1).            JHW97099
+061200                 88 ORBG-CREDIT-APPROVAL            VALUE 'S'.    JHW97099
+061300             15 ORBG-LINE-SEQ-NBR            PIC X(1).            JHW97099
+061400         10 ORBG-FLOORING-SEQ                PIC X(01).           JHW97099
+061500         10 ORBG-FLOORING-AUTH-DETAIL OCCURS 3 TIMES.             JHW97099
+061600            15 ORBG-FLOORING-NBR        PIC X(03).                JHW97099
+061700            15 ORBG-FLOORING-AUTH-NBR   PIC X(10).                JHW97099
+061800            15 ORBG-FLOORING-AUTH-ACTION PIC X(03).               JHW97099
+061900            15 ORBG-FLOORING-COMPANY    PIC X(01).                JHW97099
+062000            15 ORBG-FLOORING-AMOUNT     PIC S9(13)V9(2) COMP-3.   JHW97099
+062100            15 ORBG-FLOORING-CONSOLIDATION PIC X(01).             JHW97099
+062200         10 FILLER                      PIC X(100).               JHW97099
+062300******************************************************************DXO98315
+062400*                                                                *DXO98315
+062500*    ORDER HISTORY DYNAMIC MESSAGE                               *DXO98315
+062600*                                                                *DXO98315
+062700******************************************************************DXO98315
+062800 01  ORBD-DYNAMIC-MSG-REC-FD.                                     DXO98315
+062900     05  ORBD-DYNAM-MSG-SORT-AREA-FD.                             DXO98315
+063000         10  ORBD-DYNAM-MSG-SORT-KEY-FD      PIC X(30).           DXO98315
+063100     05  ORBD-DYNAM-MSG-DATA-AREA-FD.                             DXO98315
+063200         10  ORBD-DYNAM-MSG-KEY.                                  DXO98315
+063300             15  ORBD-COMPANY                PIC X(2).            DXO98315
+063400             15  ORBD-BR-NBR                 PIC X(2).            DXO98315
+063500             15  ORBD-ORDER-NBR              PIC X(5).            DXO98315
+063600             15  ORBD-DIST-NBR               PIC 9(1).            DXO98315
+063700             15  ORBD-SHIPMENT-NBR           PIC 9(1).            DXO98315
+063800             15  ORBD-CR-SEQ                 PIC X(1).            DXO98315
+063900             15  ORBD-LINE-NBR               PIC 9(3).            DXO98315
+064000             15  ORBD-RECORD-CODE            PIC X(1).            DXO98315
+064100                 88  ORBD-DYNAMIC-MSG-REC          VALUE 'K'.     DXO98315
+064200             15  ORBD-LINE-SEQ-NBR           PIC X(1).            DXO98315
+064300         10  ORBD-DYNAM-MSG                  PIC X(182).          DXO98315
+064400         10  ORBD-DYNAM-SHPLBL-TXT           PIC X(25).           GCH01276
+064500         10  ORBD-DYNAM-BOL-TXT              PIC X(270).          GCH01276
+064600         10  FILLER                          PIC X(206).          GCH01276
+064700******************************************************************BXA99085
+064800*                                                                *BXA99085
+064900*    END-USER REPORTING INFORMATION                              *BXA99085
+065000*                                                                *BXA99085
+065100******************************************************************BXA99085
+065200 01  ORBR-END-USER-RPT-FD.                                        BXA99085
+065300     05  ORBR-END-USER-RPT-SORT-AREA-FD.                          BXA99085
+065400         10  ORBR-END-USER-RPT-SORT-KEY-FD   PIC X(30).           BXA99085
+065500     05  ORBR-END-USER-RPT-DATA-AREA-FD.                          BXA99085
+065600         10  ORBR-END-USER-RPT-KEY.                               BXA99085
+065700             15  ORBR-COMPANY                PIC X(2).            BXA99085
+065800             15  ORBR-BR-NBR                 PIC X(2).            BXA99085
+065900             15  ORBR-ORDER-NBR              PIC X(5).            BXA99085
+066000             15  ORBR-DIST-NBR               PIC 9(1).            BXA99085
+066100             15  ORBR-SHIPMENT-NBR           PIC 9(1).            BXA99085
+066200             15  ORBR-CR-SEQ                 PIC X(1).            BXA99085
+066300             15  ORBR-LINE-NBR               PIC 9(3).            BXA99085
+066400             15  ORBR-RECORD-CODE            PIC X(1).            BXA99085
+066500                 88  ORBR-END-USER-RPT-REC         VALUE 'R'.     BXA99085
+066600             15  ORBR-LINE-SEQ-NBR           PIC X(1).            BXA99085
+066700         10  ORBR-FIELD-CODE-GROUP.                               BXA99085
+066800             15 ORBR-FIELD-CODES OCCURS 12 TIMES                  BXA99085
+066900                                  INDEXED BY ORBR-FCINDEX.        BXA99085
+067000                 20 ORBR-DETAIL-ID           PIC 9(4).            BXA99085
+067100                 20 ORBR-DESCRIPTION         PIC X(20).           BXA99085
+067200                 20 ORBR-DATA                PIC X(50).           BXA99085
+067300         10  FILLER                          PIC X(65).           BXA99085
+062300******************************************************************MAK18033
+062400*                                                                *MAK18033
+062500*    EXTENDED HEADER RECORD SEGMENT                              *MAK18033
+062600*                                                                *MAK18033
+062700******************************************************************MAK18033
+062800 01  ORBU-EXTENDED-HDR-RECORD-FD.                                 MAK18033
+062900     05  ORBU-EXTND-HDR-AREA-FD.                                  MAK18033
+063000         10  ORBU-EXTND-HDR-SORT-KEY-FD     PIC X(30).            MAK18033
+063100     05  ORBU-EXTND-HDR-DATA-AREA-FD.                             MAK18033
+063200         10  ORBU-EXTND-HDR-KEY.                                  MAK18033
+063300             15  ORBU-COMPANY                PIC X(2).            MAK18033
+063400             15  ORBU-BR-NBR                 PIC X(2).            MAK18033
+063500             15  ORBU-ORDER-NBR              PIC X(5).            MAK18033
+063600             15  ORBU-DIST-NBR               PIC 9(1).            MAK18033
+063700             15  ORBU-SHIPMENT-NBR           PIC 9(1).            MAK18033
+063800             15  ORBU-CR-SEQ                 PIC X(1).            MAK18033
+063900             15  ORBU-LINE-NBR               PIC 9(3).            MAK18033
+064000             15  ORBU-RECORD-CODE            PIC X(1).            MAK18033
+064100                 88  ORBU-EXTENDED-HDR-REC         VALUE 'U'.     MAK18033
+064200             15  ORBU-LINE-SEQ-NBR           PIC X(1).            MAK18033
+064300         10  ORBU-OMP-ORDR-NBR               PIC X(10).           MAK18033
+064400         10  ORBU-OMP-ORDR-SW                PIC X(01).           MAK18033
+                   88   ORBU-OMP-ORDR-HOLD         VALUE 'Y'.           MAK18033
+                   88   ORBU-OMP-ORDR-RELEASE      VALUE 'R'.           MAK18033
+               10  ORBU-COUNT-FD                   PIC 9(2).            MAK18068
+               10  ORBU-SPECIAL-TAX                PIC S9(07)V99 COMP-3.WTL22070
+               10  ORBU-SPECIAL-TAX-REF            PIC X(02).           WTL22070
+               10  ORBU-PAYMENT-FORMS-CD           PIC X(02).           NXS22252
+               10  ORBU-SAP-FG-ORD-SW              PIC X(01).           MYG23034
+               10  FILLER                          PIC X(660).          MYG23034

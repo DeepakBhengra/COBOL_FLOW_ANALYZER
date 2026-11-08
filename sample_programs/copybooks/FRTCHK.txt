@@ -1,0 +1,573 @@
+000100******************************************************************        
+000200*** YEAR 2000 READY                                              *PWLY8307
+000300******************************************************************        
+000400*CHANGE:                                                                  
+      * 05/12/17 BXD ENDLESS AISLE - ALPHA BRANCH CHANGES.              BXD17132
+      *              MODIFIED THE NUMERIC CHECK ON TB-MAIF-MODEL-SF.    BXD17132
+      * 04/22/11 VXK BYPASS FEDEX ZIP CHECK                             VXK11111
+      * 09/27/04 TND BYPASS CANADA ZIP CHECK                            TND04271
+      * 05/24/02 ETJ NEW APX CARRIER CODE ENHANCEMENTS.                 ETJ02144
+000500* 12/20/99 TMH MODIFY COD CHECK FOR CANADA'S BASERATE             TMH99354
+000600* 12/18/98 JJD PAR#8835N. FIX FALL-THRU BUG FROM PREVIOUS CHANGE. JJD98352
+000700* 11/16/98 RPM PAR#37969. DISCONTINUE A2 SERVICE TO AK/HI.        RPM98320
+000800* 06/11/98 JJD-PUT BACK MISSING CODES BECAUSE OF PAR 24118        JJD98162
+000900*             -WIN98 PROJECT: ALLOW COD FOR MDWR BUT NOT WS-RPS   JJD98162
+001000*             -GPS PAR: ELIMINATE THE RANGE OF ZIP CHECK TO       JJD98162
+001100*              VALIDATE ZIP RANGE/CHANGE 'FL' TO 'AT'             JJD98162
+001200* 06/01/98 JJD FIX BUG WITH PAR 24118. / READ TBXCAR2 TABLE       JJD98153
+001300* 05/01/98 RPM PAR#24118. TABLIZE FREIGHT-RATING                  RPM98121
+001400*              - USE ORLZONE FILE FOR ALL OF UPS.                 RPM98121
+001500* 01/12/98 TFM - DO NOT ALLOW COD FOR RPS                         TFM98012
+001600* 12/21/97 TFM - BYPASS FRT CHK IF CARRIER IS 'XC'                TFM97021
+001700* 12/11/96 PJD - REMOVED 88 LEVEL NAMES FOR US-MODEL-COMPANY      PJD96346
+001800*                AND REPLACE WITH TB-CPO-NORTH-AM-CNTRY           PJD96346
+001900* 11-18-96 THO  GET ZONE ON BASERATE ORDERS THAT ARE UPS THREE DAYTHO96323
+002000* 03-01-96 TFM  IF BASERATE ORDER, DON'T CHANGE ZONE              TFM96067
+002100* 10-11-95 GEH  IF BASERATE ORDER, "WHERE SWITCH" IS SPACES, AND  GEH95284
+002200*               THE CARRIER IS FEDEX, THEN DO FEDEX LOGIC SINCE   GEH95284
+002300*               WE NEED THE DATA FROM THE FEDEX FILE TO PROPERLY  GEH95284
+002400*               PROCESS FEDEX ORDERS.                             GEH95284
+002500* 08-23-95 GEH  IF BASERATE ORDER EXIT AFTER ABO COD CHECK        GEH95235
+002600* 06-20-95 JEW  US MODEL COMPANY CHANGES                          JEW95171
+002700* 05-17-95 JJD  SET WS-ZONE-ERROR-SW                              JJD95137
+002800* 05-16-95 GEH  USE SF BR FROM TBXMAF KEY IF MODEL SF NOT VALID   GEH95136
+002900* 03-10-95 JEW  MULTI-COMPANY CHGS, USE CO TO READ TBIMAN, TBIMAF JEW95069
+003000* 01-12-95 GEH  EDIT LOGIC FOR WPX CC (PAR 39974, 40189, 40914)   GEH95012
+003100* 09/06/94 BRH  REMOVE DIGITAL FROM FREIGHT CHECK                 BRH94249
+003200* 08/24/94 BRH  ADD DIGITAL TO COMPANY CHECK                      BRH94236
+003300* 08/11/94 GEH  PAR #72645 (ADD EDIT LOGIC FOR NEW UPS CC 'UO')   GEH94223
+003400* 01/20/94 JJD  ADD AIRBORNE                                              
+003500* 10/25/93 JJD  CHANGE GPS RANGE                                          
+003600* 10/19/93 JJD  RESET WS-ERROR-SW TO BLANK                                
+003700* 09/24/93 JJD  LOTS OF CLEAN UP                                          
+003800* 09/21/93 JJD  ADD GPS                                                   
+003900* 08/24/93 GEH  CHG TO USE NEW VERSION OF CARRWS (NCARRWS)                
+004000* 08/20/93 GEH  FIX ASRA                                                  
+004100******************************************************************        
+004200* THIS ROUTINE IS TO CHECK IF THERE IS ANY RESTRICTION ON USE OF          
+004300* A CARRIER TO SPECIFIC ZIP CODE.                                         
+004400* BILLING PGM IS ALSO USES THIS ROUTINE TO GET THE ZONE.                  
+004500* THESE FIELDS MUST BE AVAILABLE BEFORE EXECUTING THIS PARAGRAPH: RPM98320
+004600*     - WS-CARR-CODE                                                      
+004700*     - ORSHED SEGMENT                                                    
+004800*           (ORH-COMPANY, ORH-ZIP-CODE, ORH-STATE-CODE,           RPM98320
+004900*           ORH-SHIP-TO-STATE                                     RPM98320
+005000*     - ORSSHH SEGMENT (ORSH-BR-NBR-SHIP-FROM)                            
+005100*     - TBMAIF/TBXMAN TABLE MAYBE READ HERE OR ALREADY READ.  THE RPM98320
+005200*       FIELD "WS-WHERE-SW" IDENTIFYS THIS (SAVE IO).             RPM98320
+005300*       WS-WHERE-SW :                                                     
+005400*       'H' = HEADER CHANGE(ORP570)                                       
+005500*       'C' = CARRIER SCREEN CHANGE(ORP330)                               
+005600*       ' ' = BILLING(MDP600), LINE-BILLING(RWP645IM), (RWP275).  RPM98320
+005700*       'O' = ORDER ENTRY(ORP320)                                         
+005800******************************************************************        
+005900     MOVE SPACES                    TO WS-ERROR-SW                JJD95137
+006000                                       WS-ZONE-SW                 JJD95137
+006100                                       WS-ZONE-ERROR-SW           JJD95137
+006200                                       WS-ERROR-MESSAGE.          JJD95137
+006300     MOVE WS-CARR-CODE              TO TB-CARR-ENTRY(1:4).                
+006400     CALL 'SYU510' USING TB-CARRIER-TABLE-IA.                     THO96323
+006500     IF NOT TB-CARR-NORESP                                        THO96323
+006600        SET TB-CARR-NOT-USE-BASERATE TO TRUE.                     THO96323
+006700                                                                          
+006800     IF ORH-BASE-RATE-ORDER                                       TFM96067
+006900        NEXT SENTENCE                                             TFM96067
+007000     ELSE                                                         TFM96067
+007100        MOVE '00'                   TO WS-ZONE.                   JJD95137
+007200                                                                          
+007300     MOVE WS-CARR-CODE (1:2)        TO TB-CAR2-CO                 JJD98153
+007400     MOVE WS-CARR-CODE (3:2)        TO TB-CAR2-CODE               JJD98153
+007500     CALL 'SYU510' USING TB-CARRIER2-TABLE-IA.                    JJD98153
+007600                                                                  GEH95235
+007700     IF ORH-BASE-RATE-ORDER                                       GEH95235
+007800        IF ORH-COD-ORDER                                          TFM98012
+007900           IF TB-CARR-NO-COD-FOR-CARRIER                          TMH99354
+008000              MOVE 'Y'              TO WS-ERROR-SW                TMH99354
+008100              MOVE 'NO COD ALLOWED' TO WS-ERROR-MESSAGE           TMH99354
+008200              MOVE '4'              TO WS-ZONE-ERROR-SW.          TMH99354
+008300*          IF WS-CARR-CODE = 'MDWR'                               TMH99354
+008400*             NEXT SENTENCE                                       TMH99354
+008500*          ELSE                                                   TMH99354
+008600*          IF WS-AIRBORNE OR WS-RPS                               TMH99354
+008700*             MOVE 'Y'              TO WS-ERROR-SW                TMH99354
+008800*             MOVE 'NO COD ALLOWED' TO WS-ERROR-MESSAGE           TMH99354
+008900*             MOVE '4'              TO WS-ZONE-ERROR-SW.          TMH99354
+009000                                                                          
+009100     IF ORH-BASE-RATE-ORDER                                       GEH95284
+009200        IF WS-FEDEX  AND  WS-WHERE-SW = ' '                       GEH95284
+009300           IF ORH-ZIP-CODE NOT NUMERIC                            GEH95284
+009400              MOVE 'Y'              TO WS-ERROR-SW                GEH95284
+009500              MOVE '5'              TO WS-ZONE-ERROR-SW           GEH95284
+009600              MOVE 'INVALID ZIP'    TO WS-ERROR-MESSAGE           GEH95284
+009700           ELSE                                                   GEH95284
+009800              MOVE ORH-ZIP-CODE     TO WS-SAVE-ZIP                GEH95284
+009900              COMPUTE WS-SAVE-ZIP = WS-SAVE-ZIP / 10000           GEH95284
+010000              PERFORM F4010-CHECK-FEDEX THRU F4010-EXIT.          GEH95284
+010100                                                                          
+010200     IF ORH-BASE-RATE-ORDER                                       RPM98320
+010300        IF WS-AIRBORNE-2ND-DAY                                    RPM98320
+010400           IF ORH-SHIP-TO-STATE > SPACES                          RPM98320
+010500              IF ORH-SHIP-TO-STATE = 'AK' OR 'HI'                 RPM98320
+010600                 MOVE 'Y'           TO WS-ERROR-SW                RPM98320
+010700                 MOVE '4'           TO WS-ZONE-ERROR-SW           RPM98320
+010800                 MOVE 'NO CARRIER SERVICE' TO WS-ERROR-MESSAGE    RPM98320
+010900              END-IF                                              RPM98320
+011000           ELSE                                                   RPM98320
+011100           IF ORH-STATE-CODE = 'AK' OR 'HI'                       RPM98320
+011200              MOVE 'Y'              TO WS-ERROR-SW                RPM98320
+011300              MOVE '4'              TO WS-ZONE-ERROR-SW           RPM98320
+011400              MOVE 'NO CARRIER SERVICE' TO WS-ERROR-MESSAGE.      JJD98352
+011500                                                                          
+011600     IF ORH-BASE-RATE-ORDER                                       GEH95284
+011700        IF TB-CARR-USE-BASERATE OR ORSH-CARRIER-CODE = 'XC'       TFM97021
+011800           GO                       TO F4000-EXIT.                GEH95284
+011900*                                                                 GEH95235
+012000     IF WS-WHERE-SW = 'H' OR 'C' OR 'O'                                   
+012100        CALL 'SYU510' USING TB-CARRIER-TABLE-IA                           
+012200        IF NOT TB-CARR-NORESP                                             
+012300           MOVE 'Y'                 TO WS-ERROR-SW                        
+012400           MOVE 'INVALID CARRIER'   TO WS-ERROR-MESSAGE                   
+012500           MOVE '1'                 TO WS-ZONE-ERROR-SW           JJD95137
+012600           GO                       TO  F4000-EXIT.                       
+012700                                                                          
+           IF  ORH-COMPANY = 'FT'                                       TND04271
+013100        GO                          TO F4000-EXIT.                TND04271
+012800     IF TB-CPO-NORTH-AM-CNTRY                                     PJD96346
+012900        NEXT SENTENCE                                                     
+013000     ELSE                                                                 
+013100        GO                          TO F4000-EXIT.                        
+013200                                                                          
+013300     IF WS-WHERE-SW = 'H' OR 'C' OR 'O'                                   
+013400        MOVE WS-CARR-CODE (1:2)     TO TB-MAIF-CO                 JEW95069
+013500        MOVE ORSH-BR-NBR-SHIP-FROM  TO TB-MAIF-SF                         
+013600        MOVE TB-CARRIER             TO TB-MAIF-CARRIER-TYPE               
+013700        MOVE '1'                    TO TB-MAIF-SEQ                        
+013800        MOVE ALL '0'                TO TB-MAIF-BILL-TO                    
+013900        IF TB-CARR-USE-2-SEQ                                              
+014000           MOVE '2'                 TO TB-MAIF-SEQ                        
+014100        END-IF                                                            
+014200        CALL 'SYU510' USING TB-MAIF-TABLE-IA.                             
+014300                                                                          
+014400     IF NOT TB-MAIF-NORESP                                                
+014500        MOVE 'Y'                    TO WS-ERROR-SW                        
+014600        MOVE 'NOT AN IM CARRIER FOR BR'                                   
+014700                                    TO WS-ERROR-MESSAGE                   
+014800        MOVE '2'                    TO WS-ZONE-ERROR-SW           JJD95137
+014900        GO                          TO F4000-EXIT.                        
+015000                                                                          
+015100     IF TB-CARR-USED-BY-BR                                                
+015200        MOVE ORSH-BR-NBR-SHIP-FROM  TO TB-MANIF-SF                RPM98320
+015300        MOVE WS-CARR-CODE(1:2)      TO TB-MANIF-CO                JEW95069
+015400        MOVE WS-CARR-CODE(3:2)      TO TB-MANIF-CC                        
+015500        CALL 'SYU510'               USING TB-MANIF-TABLE-IA               
+015600        IF NOT TB-MANIF-NORESP                                            
+015700           MOVE 'Y'                 TO WS-ERROR-SW                        
+015800           MOVE 'CC NOT ALLOWED FOR BRANCH'                               
+015900                                    TO WS-ERROR-MESSAGE                   
+016000           MOVE '3'                 TO WS-ZONE-ERROR-SW           JJD95137
+016100           GO                       TO F4000-EXIT.                        
+016200                                                                          
+016300     IF WS-FEDEX OR WS-UPS OR WS-AIRBORNE                         JJD94020
+016400        NEXT SENTENCE                                                     
+016500     ELSE                                                                 
+016600        GO                          TO F4000-EXIT.                        
+016700                                                                  JJD98162
+016800     IF ORH-COD-ORDER                                             JJD98162
+016900        IF WS-CARR-CODE = 'MDWR'                                  JJD98162
+017000           NEXT SENTENCE                                          JJD98162
+017100        ELSE                                                      JJD98162
+017200        IF WS-AIRBORNE OR WS-RPS OR WS-APX                        ETJ02144
+017300           MOVE 'Y'                 TO WS-ERROR-SW                JJD98162
+017400           MOVE 'NO COD ALLOWED'    TO WS-ERROR-MESSAGE           RPM98320
+017500           MOVE '4'                 TO WS-ZONE-ERROR-SW           JJD98162
+017600           GO                       TO F4000-EXIT.                JJD98162
+017700                                                                          
+017800     IF ORH-ZIP-CODE NOT NUMERIC                                          
+017900        MOVE 'Y'                    TO WS-ERROR-SW                        
+018000        MOVE '5'                    TO WS-ZONE-ERROR-SW           JJD95137
+018100        MOVE 'INVALID ZIP'          TO WS-ERROR-MESSAGE                   
+018200        GO                          TO F4000-EXIT.                        
+018300                                                                          
+018400     MOVE ORH-ZIP-CODE              TO WS-SAVE-ZIP.                       
+018500     COMPUTE WS-SAVE-ZIP = WS-SAVE-ZIP / 10000.                           
+018600                                                                          
+018700     IF WS-AIRBORNE-2ND-DAY                                       RPM98320
+018800        IF ORH-SHIP-TO-STATE > SPACES                             RPM98320
+018900           IF ORH-SHIP-TO-STATE = 'AK' OR 'HI'                    RPM98320
+019000              MOVE 'Y'                 TO WS-ERROR-SW             RPM98320
+019100              MOVE '4'                 TO WS-ZONE-ERROR-SW        RPM98320
+019200              MOVE 'NO CARRIER SERVICE' TO WS-ERROR-MESSAGE       RPM98320
+019300              GO                       TO F4000-EXIT              RPM98320
+019400           END-IF                                                 RPM98320
+019500        ELSE                                                      RPM98320
+019600        IF ORH-STATE-CODE = 'AK' OR 'HI'                          RPM98320
+019700            MOVE 'Y'                   TO WS-ERROR-SW             RPM98320
+019800            MOVE '4'                   TO WS-ZONE-ERROR-SW        RPM98320
+019900            MOVE 'NO CARRIER SERVICE'  TO WS-ERROR-MESSAGE        RPM98320
+020000            GO                         TO F4000-EXIT.             JJD98352
+020100                                                                          
+020200     IF WS-FEDEX                                                          
+020300        PERFORM F4010-CHECK-FEDEX THRU F4010-EXIT                         
+020400     ELSE                                                                 
+020500     IF WS-UPS                                                            
+020600        PERFORM F4020-CHECK-UPS THRU F4020-EXIT.                          
+020700 F4000-EXIT.                                                              
+020800     EXIT.                                                                
+020900                                                                          
+021000                                                                          
+021100 F4010-CHECK-FEDEX.                                                       
+021200                                                                          
+013100     GO                             TO F4010-EXIT.                VXK11111
+021300     IF NOT ORH-BASE-RATE-ORDER  AND                              GEH95284
+021400        (WS-SAVE-ZIP > 600  AND  WS-SAVE-ZIP < 976)               GEH95284
+021500        MOVE 'Y'                    TO WS-ERROR-SW                        
+021600        MOVE '6'                    TO WS-ZONE-ERROR-SW           JJD95137
+021700        MOVE 'FED DOES NOT SERVICE THE AREA'                              
+021800                                    TO WS-ERROR-MESSAGE                   
+021900        GO                          TO F4010-EXIT.                        
+022000     MOVE TB-MAIF-SF                TO WS-FED-SF.                 GEH95136
+022100     IF TB-MAIF-MODEL-SF > SPACES                                 BXD17132
+022200        MOVE TB-MAIF-MODEL-SF       TO WS-FED-SF.                 GEH95136
+022300     MOVE WS-SAVE-ZIP               TO WS-MASK5                           
+022400     MOVE WS-MASK5                  TO WS-FED-ZIP                         
+022500     MOVE '1'                       TO WS-FED-REC-TYPE                    
+022600     PERFORM F4070-READ-FED-FILE THRU F4070-EXIT                          
+022700     IF NOT WS-FED-NORESP                                                 
+022800        IF ORH-BASE-RATE-ORDER                                    GEH95284
+022900            MOVE 'Y'                    TO WS-ERROR-SW            GEH95284
+023000            MOVE '7'                    TO WS-ZONE-ERROR-SW       GEH95284
+023100            MOVE 'INVALID LABEL ZIP FOR FEDEX'                    GEH95284
+023200                                        TO WS-ERROR-MESSAGE       GEH95284
+023300            GO                          TO F4010-EXIT             GEH95284
+023400        ELSE                                                      GEH95284
+023500            MOVE 'Y'                    TO WS-ERROR-SW            GEH95284
+023600            MOVE '7'                    TO WS-ZONE-ERROR-SW       GEH95284
+023700            MOVE 'INVALID ZIP FOR FEDEX'                          GEH95284
+023800                                        TO WS-ERROR-MESSAGE       GEH95284
+023900            GO                          TO F4010-EXIT.            GEH95284
+024000                                                                          
+024100     IF ORH-BASE-RATE-ORDER                                       GEH95284
+024200            GO                          TO F4010-EXIT.            GEH95284
+024300                                                                          
+024400     IF FEDEX-NO-DELIVERY                                                 
+024500        MOVE 'Y'                    TO WS-ERROR-SW                        
+024600        MOVE '8'                    TO WS-ZONE-ERROR-SW           JJD95137
+024700        MOVE 'FED DOES NOT DELIVER TO AREA'                               
+024800                                    TO WS-ERROR-MESSAGE                   
+024900            GO                      TO F4010-EXIT.                        
+025000                                                                          
+025100     IF ORH-COD-ORDER                                                     
+025200        IF FEDEX-VALID-COD-AREA                                           
+025300           NEXT SENTENCE                                                  
+025400        ELSE                                                              
+025500           MOVE 'Y'                 TO WS-ERROR-SW                        
+025600           MOVE '9'                 TO WS-ZONE-ERROR-SW           JJD95137
+025700           MOVE 'FED DOES NOT DELIVER DIRECTLY-USE UPS'                   
+025800                                    TO WS-ERROR-MESSAGE                   
+025900           GO                       TO F4010-EXIT.                        
+026000                                                                          
+026100     IF WS-FEDEX-SAT-DEL                                                  
+026200        IF FEDEX-VALID-SAT-DELIVERY                                       
+026300           NEXT SENTENCE                                                  
+026400        ELSE                                                              
+026500            MOVE 'Y'                TO WS-ERROR-SW                        
+026600            MOVE 'A'                TO WS-ZONE-ERROR-SW           JJD95137
+026700            MOVE 'SAT DEL CANNOT BE REQUESTED'                            
+026800                                    TO WS-ERROR-MESSAGE                   
+026900            GO                      TO F4010-EXIT.                        
+027000*                                                                         
+027100     IF WS-FEDEX-STD-OVER-NITE                                            
+027200        IF FEDEX-VALID-STD-OVERNITE                                       
+027300           NEXT SENTENCE                                                  
+027400        ELSE                                                              
+027500            MOVE 'Y'                TO WS-ERROR-SW                        
+027600            MOVE 'B'                TO WS-ZONE-ERROR-SW           JJD95137
+027700            MOVE 'STD OVER NITE CANNOT BE REQUESTED'                      
+027800                                    TO WS-ERROR-MESSAGE                   
+027900            GO                      TO F4010-EXIT.                        
+028000*                                                                         
+028100     IF WS-FEDEX-PRIORITY                                                 
+028200        IF FEDEX-VALID-PRIORITY                                           
+028300           NEXT SENTENCE                                                  
+028400        ELSE                                                              
+028500            MOVE 'SHIPMENT WILL NOT ARRIVE BY 1030AM'                     
+028600                                    TO WS-ERROR-MESSAGE                   
+028700            MOVE 'Y'                TO WS-FED-WARN-SW                     
+028800            GO                      TO F4010-EXIT.                        
+028900 F4010-EXIT.                                                              
+029000      EXIT.                                                               
+029100                                                                          
+029200                                                                          
+029300 F4020-CHECK-UPS.                                                         
+029400     IF TB-CAR2-PRICING-LOGIC-CD = 'A' AND                        JJD98153
+029500        TB-CARR-USE-ZONE-SW = 'Y'  AND                            RPM98121
+029600        WS-TRUE-UPS                                               RPM98121
+029700        PERFORM F4030-GET-ZONE-UPS THRU F4030-EXIT                RPM98121
+029800        GO                          TO F4020-EXIT.                RPM98121
+029900*                                                                         
+030000* IF WPX THEN READ ZONE FILE TO VERIFY DESTINATION ZIP IS VALID   GEH95012
+030100* FOR THIS CARRIER.                                               GEH95012
+030200     MOVE TB-MAIF-CO-ID             TO WS-ZNE-CO.                 GEH95012
+030300     MOVE WS-SAVE-ZIP               TO WS-HOLD-ZIP.               GEH95012
+030400     MOVE WS-HOLD-ZIP               TO WS-5-ZIP.                  GEH95012
+030500                                                                  GEH95012
+030600     IF WS-WPX                                                    GEH95012
+030700        MOVE '**'                   TO WS-ZNE-SF                  GEH95012
+030800                                       WS-ZNE-CC                  GEH95012
+030900        MOVE WS-5-ZIP               TO WS-ZNE-ZIP                 GEH95012
+031000        PERFORM F4080-READ-ORLZONE THRU F4080-EXIT                GEH95012
+031100        IF WS-ZNE-NORESP                                          GEH95012
+031200           IF NOT ZNE-VALID-WPX-ZIP                               GEH95012
+031300               MOVE 'Y'             TO WS-ERROR-SW                GEH95012
+031400               MOVE 'C'             TO WS-ZONE-ERROR-SW           JJD95137
+031500               MOVE 'ZIP INVALID FOR WPX'                         GEH95012
+031600                                    TO WS-ERROR-MESSAGE           GEH95012
+031700               GO                   TO F4020-EXIT.                GEH95012
+031800*                                                                 GEH95012
+031900     IF WS-UPS-GROUND  AND  NOT WS-WPX                            GEH95012
+032000        IF WS-SAVE-ZIP > 99499 AND WS-SAVE-ZIP < 100000                   
+032100                         OR                                               
+032200           WS-SAVE-ZIP > 96701 AND WS-SAVE-ZIP < 96900                    
+032300            MOVE 'Y'                TO WS-ERROR-SW                        
+032400            MOVE 'D'                 TO WS-ZONE-ERROR-SW          JJD95137
+032500            MOVE 'UPS DOES NOT DELIVER TO AREA'                           
+032600                                    TO WS-ERROR-MESSAGE                   
+032700            GO                      TO F4020-EXIT.                        
+032800*                                                                 GEH95012
+032900*    IF WS-GPS                                                    JJD98162
+033000*       IF WS-SAVE-ZIP > 31999 AND WS-SAVE-ZIP < 35000            JJD98162
+033100*          NEXT SENTENCE                                          JJD98162
+033200*       ELSE                                                      JJD98162
+033300*           MOVE 'Y'                TO WS-ERROR-SW                JJD98162
+033400*           MOVE 'E'                 TO WS-ZONE-ERROR-SW          JJD98162
+033500*           MOVE 'GPS DOES NOT DELIVER TO THIS AREA    '          JJD98162
+033600*                                   TO WS-ERROR-MESSAGE           JJD98162
+033700*           GO                      TO  F4020-EXIT.               JJD98162
+033800*                                                                 GEH95012
+033900     MOVE TB-MAIF-SF                TO WS-ZNE-SF.                 GEH95136
+034000     IF TB-MAIF-MODEL-SF > SPACES                                 BXD17132
+034100        MOVE TB-MAIF-MODEL-SF       TO WS-ZNE-SF.                 GEH95136
+034200     MOVE WS-5-ZIP (1:3)            TO WS-ZNE-ZIP (3:3)                   
+034300     MOVE '00'                      TO WS-ZNE-ZIP (1:2)                   
+034400*                                                                 GEH95012
+034500* IF CARRIER IS GPS WE NEED TO READ ASTERIK TYPE RECORD TO GET THE        
+034600* NORTH SOUTH SW. IF IS NORTH WE GET THE ZONE NORMAL WAY BUT              
+034700* IF IS SOUTH WE HAVE TO GET THE ZONE LIKE SHIPPING FROM FLORIDA          
+034800* NOTE: ASTERIK TYPE RECORD IS ALL 5 DIGIT OF ZIP AS OF ZIP TO ZONE       
+034900* IS FIRST THREE DIGIT OF ZIP.                                            
+035000     IF WS-GPS                                                            
+035100        MOVE '**'                   TO WS-ZNE-SF                          
+035200                                       WS-ZNE-CC                          
+035300        MOVE WS-5-ZIP               TO WS-ZNE-ZIP                         
+035400        PERFORM F4080-READ-ORLZONE THRU F4080-EXIT                        
+035500        IF WS-ZNE-NORESP                                                  
+035600           IF ZNE-GPS-SOUTH                                       JJD98162
+035700              MOVE 'AT'             TO WS-ZNE-SF                  JJD98162
+035800              MOVE 'Y'              TO WS-GPS-SAVER               JJD98162
+035900           ELSE                                                   JJD98162
+036000               IF ZNE-GPS-NORTH                                   JJD98162
+036100                  MOVE TB-MAIF-SF   TO WS-ZNE-SF                  JJD98162
+036200                  IF TB-MAIF-MODEL-SF > SPACES                    BXD17132
+036300                      MOVE TB-MAIF-MODEL-SF                       JJD98162
+036400                                    TO WS-ZNE-SF                  JJD98162
+036500                  ELSE                                            JJD98162
+036600                      NEXT SENTENCE                               JJD98162
+036700               ELSE                                               JJD98162
+036800                   MOVE 'Y'         TO WS-ERROR-SW                JJD98162
+036900                   MOVE 'E'         TO WS-ZONE-ERROR-SW           JJD98162
+037000                   MOVE 'GPS DOES NOT DELIVER TO THIS AREA'       JJD98162
+037100                                    TO WS-ERROR-MESSAGE           JJD98162
+037200                   GO               TO F4020-EXIT.                JJD98162
+037300                                                                          
+037400     MOVE '00'                      TO WS-ZONE                    JJD95137
+037500                                       WS-ZONE-SW.                JJD95137
+037600     MOVE WS-5-ZIP(1:3)             TO WS-ZNE-ZIP(3:3).                   
+037700     MOVE '00'                      TO WS-ZNE-ZIP(1:2).                   
+037800                                                                          
+037900     IF WS-UPS-GROUND OR WS-UPS-THREE-DAY                                 
+038000        MOVE 'UG'                   TO WS-ZNE-CC.                         
+038100     IF WS-ZNE-CC = 'UG'                                                  
+038200        PERFORM F4080-READ-ORLZONE THRU F4080-EXIT                        
+038300        IF WS-ZNE-NORESP                                                  
+038400           MOVE ZNE-ZONE            TO WS-ZONE                    JJD95137
+038500           MOVE 'Y'                 TO WS-ZONE-SW.                        
+038600                                                                          
+038700     IF WS-UPS-BLUE                                                       
+038800        PERFORM F4040-FIND-UPS-B-ZONE                                     
+038900                   THRU F4040-EXIT VARYING Z-SUB3                         
+039000             FROM 1 BY 1 UNTIL Z-SUB3                                     
+039100                GREATER THAN WS-UPS-BLUE-TABLE-ENTRY                      
+039200                                OR WS-ZONE-FOUND.                         
+039300                                                                          
+039400     IF WS-UPS-RED  OR  WS-UPS-AIR-SAVER                          GEH94223
+039500        PERFORM F4050-FIND-UPS-R-ZONE                                     
+039600                   THRU F4050-EXIT VARYING Z-SUB4                         
+039700             FROM 1 BY 1 UNTIL Z-SUB4                                     
+039800                GREATER THAN WS-UPS-RED-TABLE-ENTRY                       
+039900                                OR WS-ZONE-FOUND.                         
+040000     IF NOT WS-ZONE-FOUND                                                 
+040100        MOVE 'Y'                    TO WS-ERROR-SW                        
+040200        MOVE 'F'                    TO WS-ZONE-ERROR-SW           JJD95137
+040300        MOVE 'ZONE NOT FOUND'       TO WS-ERROR-MESSAGE                   
+040400        GO                          TO F4020-EXIT.                        
+040500*                                                                 GEH94223
+040600* IF THIS IS UPS AIR SAVER THEN WE ONLY ALLOW ZONE '22' WHICH     GEH94223
+040700* IS THE CONTINENTAL U.S.  SINCE AIR SAVER DOES NOT HAVE A ZONE   GEH94223
+040800* ASSIGNED BY UPS, WE ARE USING ZONE 20 FOR MANIFEST REPORTING    GEH94223
+040900* SO THAT AIR SAVER TOTALS WILL BE SEPARATED FROM THE BLUE AND    GEH94223
+041000* RED TOTALS (SEE MDP851IM AND MDP852IM).                         GEH94223
+041100     IF WS-UPS-AIR-SAVER                                          GEH94223
+041200        IF WS-ZONE NOT = '22'                                     GEH94223
+041300           MOVE 'Y'                 TO WS-ERROR-SW                GEH94223
+041400           MOVE 'G'                 TO WS-ZONE-ERROR-SW           JJD95137
+041500           MOVE 'UO NOT AVAILABLE IN AK OR HI'                    GEH94223
+041600                                    TO WS-ERROR-MESSAGE           GEH94223
+041700           GO                       TO F4020-EXIT                 GEH94223
+041800        ELSE                                                      GEH94223
+041900           MOVE '20'                TO WS-ZONE.                   GEH94223
+042000*                                                                 GEH94223
+042100     IF WS-ZONE =  '00' OR '  ' OR LOW-VALUES                             
+042200                                OR HIGH-VALUES                            
+042300        MOVE 'Y'                    TO WS-ERROR-SW                        
+042400        MOVE 'H'                    TO WS-ZONE-ERROR-SW           JJD95137
+042500        MOVE 'INVALID ZONE'         TO WS-ERROR-MESSAGE                   
+042600        GO                          TO F4020-EXIT.                        
+042700*                                                                         
+042800     IF WS-UPS-RED-SAT-DEL                                                
+042900        MOVE WS-SAVE-ZIP            TO WS-MASK5                           
+043000        MOVE WS-MASK5               TO WS-ZNE-ZIP                         
+043100        MOVE '**'                   TO WS-ZNE-SF                          
+043200        MOVE ORH-COMPANY            TO WS-ZNE-CO                          
+043300        MOVE '**'                   TO WS-ZNE-CC                          
+043400        PERFORM F4080-READ-ORLZONE THRU F4080-EXIT                        
+043500        IF WS-ZNE-NORESP AND NOT ZNE-TWO-DAYS                             
+043600           AND NOT ZNE-MD-ADDED-RECORD                                    
+043700           NEXT SENTENCE                                                  
+043800        ELSE                                                              
+043900            MOVE 'Y'                TO WS-ERROR-SW                        
+044000            MOVE 'I'                TO WS-ZONE-ERROR-SW           JJD95137
+044100            MOVE 'SATURDAY DELIVERY CANNOT BE REQUESTED'                  
+044200                                    TO WS-ERROR-MESSAGE                   
+044300            GO                      TO F4020-EXIT.                        
+044400                                                                          
+044500     IF WS-UPS-RED-SAT-DEL                                                
+044600        IF ZNE-BEFORE-1030                                                
+044700      MOVE 'WARNING - SHIPMENT MAY NOT ARRIVE BY 1030AM'                  
+044800                                    TO WS-ERROR-MESSAGE                   
+044900        ELSE                                                              
+045000            IF ZNE-BEFORE-NOON                                            
+045100               MOVE 'SHIPMENT WILL ARRIVE BEFORE NOON'                    
+045200                                    TO WS-ERROR-MESSAGE                   
+045300                GO                  TO F4020-EXIT                         
+045400            ELSE                                                          
+045500                IF ZNE-AFTER-NOON                                         
+045600                   MOVE 'SHIPMENT WILL ARRIVE BEFORE NOON'                
+045700                                    TO WS-ERROR-MESSAGE                   
+045800                   GO               TO F4020-EXIT.                        
+045900 F4020-EXIT.                                                              
+046000      EXIT.                                                               
+046100                                                                          
+046200                                                                          
+046300 F4030-GET-ZONE-UPS.                                              RPM98121
+046400     IF ORH-ZIP-CODE NOT NUMERIC                                  RPM98121
+046500        MOVE 'Y'                 TO WS-ERROR-SW                   RPM98121
+046600        MOVE '5'                 TO WS-ZONE-ERROR-SW              RPM98121
+046700        MOVE '**'                TO WS-ZONE                       RPM98121
+046800        MOVE 'INVALID ZIPCD'     TO WS-ERROR-MESSAGE              RPM98121
+046900        GO                       TO F4030-EXIT.                   RPM98121
+047000                                                                          
+047100*--- RIGHT-JUSTIFY ZIPCODE --------------------------------------*RPM98121
+047200     COMPUTE WS-SAVE-ZIP = ORH-ZIP-CODE / 10000                   RPM98121
+047300     MOVE WS-SAVE-ZIP            TO WS-HOLD-ZIP                   RPM98121
+047400     MOVE WS-HOLD-ZIP            TO WS-5-ZIP.                     RPM98121
+047500                                                                  RPM98121
+047600*--- BUILD ORLZONE-FILE KEY -------------------------------------*RPM98121
+047700     MOVE SPACES                 TO WS-ZONE-SW                    RPM98121
+047800     MOVE SPACES                 TO WS-ZNE-RECORD-KEY             RPM98121
+047900     MOVE '00'                   TO WS-ZNE-ZIP(1:2)               RPM98121
+048000     MOVE WS-5-ZIP(1:3)          TO WS-ZNE-ZIP(3:3)               RPM98121
+048100     MOVE TB-MAIF-SF             TO WS-ZNE-SF                     RPM98121
+048200     IF TB-MAIF-MODEL-SF > SPACES                                 BXD17132
+048300        MOVE TB-MAIF-MODEL-SF    TO WS-ZNE-SF.                    JJD98153
+048400     MOVE TB-MAIF-CO-ID          TO WS-ZNE-CO                     RPM98121
+048500     MOVE WS-CARR-CODE(3:2)      TO WS-ZNE-CC.                    RPM98121
+048600                                                                  RPM98121
+048700     IF ORH-SHIP-TO-STATE > SPACES                                RPM98121
+048800        IF ORH-SHIP-TO-STATE = 'AK' OR 'HI'                       RPM98121
+048900           MOVE '**'             TO WS-ZNE-SF                     RPM98121
+049000           MOVE WS-5-ZIP         TO WS-ZNE-ZIP                    RPM98121
+049100        END-IF                                                    RPM98121
+049200     ELSE                                                         RPM98121
+049300     IF ORH-STATE-CODE = 'AK' OR 'HI'                             RPM98121
+049400        MOVE '**'                TO WS-ZNE-SF                     RPM98121
+049500        MOVE WS-5-ZIP            TO WS-ZNE-ZIP.                   RPM98121
+049600                                                                          
+049700     PERFORM F4080-READ-ORLZONE THRU F4080-EXIT                   RPM98121
+049800     IF WS-ZNE-NORESP                                             RPM98121
+049900        MOVE 'Y'                 TO WS-ZONE-SW                    RPM98121
+050000        MOVE ZNE-ZONE            TO WS-ZONE                       RPM98121
+050100     ELSE                                                         RPM98121
+050200        MOVE 'Y'                 TO WS-ERROR-SW                   RPM98121
+050300        MOVE 'F'                 TO WS-ZONE-ERROR-SW              RPM98121
+050400        MOVE '**'                TO WS-ZONE                       RPM98121
+050500        MOVE 'ZONE NOT FOUND'    TO WS-ERROR-MESSAGE(01:14)       RPM98121
+050600        MOVE ' FOR ZIPCD='       TO WS-ERROR-MESSAGE(15:11)       RPM98121
+050700        MOVE WS-5-ZIP            TO WS-ERROR-MESSAGE(26:05)       RPM98121
+050800        GO                       TO F4030-EXIT.                   RPM98121
+050900                                                                  JJD98162
+051000     IF WS-ZONE =  '00' OR '  ' OR LOW-VALUES                     JJD98162
+051100                                OR HIGH-VALUES                    JJD98162
+051200        MOVE 'Y'                 TO WS-ERROR-SW                   JJD98162
+051300        MOVE 'H'                 TO WS-ZONE-ERROR-SW              JJD98162
+051400        MOVE 'INVALID ZONE'      TO WS-ERROR-MESSAGE.             JJD98162
+051500                                                                          
+051600 F4030-EXIT.                                                      RPM98121
+051700       EXIT.                                                      RPM98121
+051800                                                                          
+051900                                                                          
+052000 F4040-FIND-UPS-B-ZONE.                                                   
+052100     MOVE WS-BLUE-ZIP-T (Z-SUB3) TO WS-HO-AREA                            
+052200                                    WS-HIGH-AREA.                         
+052300     MOVE WS-HO-AREA                TO WS-TAB-SET.                        
+052400     MOVE WS-TAB-ZIP                TO WS-ZIP-NUM.                        
+052500     IF WS-ZIP-NUM NOT NUMERIC                                            
+052600        GO                          TO F4040-EXIT.                        
+052700     IF WS-HIGH-AREA = HIGH-VALUES                                        
+052800        MOVE 200                    TO Z-SUB3                             
+052900        GO                          TO F4040-EXIT.                        
+053000     IF WS-SAVE-ZIP = WS-ZIP-NUM                                          
+053100        MOVE WS-TAB-ZONE            TO WS-ZONE                            
+053200        MOVE 'Y'                    TO WS-ZONE-SW                         
+053300        GO                          TO F4040-EXIT.                        
+053400     IF WS-SAVE-ZIP > WS-ZIP-NUM                                          
+053500        GO                          TO F4040-EXIT.                        
+053600     MOVE WS-BLUE-ZIP-T (Z-SUB3)    TO WS-HO-AREA                         
+053700     MOVE WS-HO-AREA                TO WS-TAB-SET                         
+053800     MOVE WS-TAB-ZONE               TO WS-ZONE                            
+053900     MOVE 'Y'                       TO WS-ZONE-SW.                        
+054000 F4040-EXIT.                                                              
+054100                                                                          
+054200                                                                          
+054300 F4050-FIND-UPS-R-ZONE.                                                   
+054400     MOVE WS-RED-ZIP-T (Z-SUB4)     TO WS-HO-AREA                         
+054500                                       WS-HIGH-AREA.                      
+054600     MOVE WS-HO-AREA                TO WS-TAB-SET.                        
+054700     MOVE WS-TAB-ZIP                TO WS-ZIP-NUM.                        
+054800     IF WS-ZIP-NUM NOT NUMERIC                                            
+054900        GO                          TO F4050-EXIT.                        
+055000     IF WS-HIGH-AREA = HIGH-VALUES                                        
+055100        MOVE 200                    TO Z-SUB4                             
+055200        GO                          TO F4050-EXIT.                        
+055300     IF WS-SAVE-ZIP = WS-ZIP-NUM                                          
+055400        MOVE WS-TAB-ZONE            TO WS-ZONE                            
+055500        MOVE 'Y'                    TO WS-ZONE-SW                         
+055600        GO                          TO F4050-EXIT.                        
+055700     IF WS-SAVE-ZIP > WS-ZIP-NUM                                          
+055800        GO                          TO F4050-EXIT.                        
+055900     MOVE WS-RED-ZIP-T (Z-SUB4)     TO WS-HO-AREA                         
+056000     MOVE WS-HO-AREA                TO WS-TAB-SET                         
+056100     MOVE WS-TAB-ZONE               TO WS-ZONE                            
+056200     MOVE 'Y'                       TO WS-ZONE-SW.                        
+056300 F4050-EXIT.                                                              
+056400                                                                          
+056500                                                                          

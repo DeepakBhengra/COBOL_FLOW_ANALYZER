@@ -1,0 +1,420 @@
+      ******************************************************************        
+      * COPYBOOK = WHRFRTED                                                     
+      * FREIGHT EDIT ROUTINE                                                    
+      * REQUIREMENTS: - ORSH-SEGMENT                                            
+      *               - MANIFEST RECORD                                         
+      *               - TBXCARR                                                 
+      * WHERE USED: - WHP819 (IMFIRST BILLING)                                  
+      *             - WHP824 (PRO CLOSE)                                        
+      *                                                                         
+      * 06/08/05 JJD FIX FOLLOWING:                                     JJD05159
+      *               - SET WS-SOFT-ERROR AND WS-HARD-ERROR-SW TO SPACE JJD05159
+      *                 AFTER EACH INVOICE.                             JJD05159
+      *               - INCLUDE ALL SYNC-ERRORS WHEN SETTING WS-HARD-   JJD05159
+      *                 ERROR-SW AND WS-SOFT-ERROR-SW                   JJD05159
+      *               - REDO HOW "EXCEED/BILLED" CONDITION IS SET       JJD05159
+      *               - CHECK ALL THE FIELDS FOR NUMERIC                JJD05159
+      * 05/11/05 JJD NEW                                                JJD05131
+      ******************************************************************        
+           IF TS-DSI-PRICE-AMT  NOT NUMERIC                             JJD05159
+              MOVE ZEROES              TO TS-DSI-PRICE-AMT.             JJD05159
+           IF WS-ACT-TOTAL-WEIGHT NOT NUMERIC                           JJD05159
+              MOVE ZEROES              TO  WS-ACT-TOTAL-WEIGHT.         JJD05159
+           IF ORSH-FRT-OUT-AMT NOT NUMERIC                              JJD05159
+              MOVE ZEROES              TO ORSH-FRT-OUT-AMT.             JJD05159
+           IF ORSH-TOTAL-WEIGHT NOT NUMERIC                             JJD05159
+              MOVE ZEROES              TO ORSH-TOTAL-WEIGHT.            JJD05159
+           IF SM-TOTAL-CHARGES NOT NUMERIC                              JJD05159
+              MOVE ZEROES              TO SM-TOTAL-CHARGES.             JJD05159
+           IF SM-TOTAL-WEIGHT NOT NUMERIC                               JJD05159
+              MOVE ZEROES              TO SM-TOTAL-WEIGHT.              JJD05159
+           IF SM-FRT-CUS-PAYS NOT NUMERIC                               JJD05159
+              MOVE ZEROES              TO SM-FRT-CUS-PAYS.              JJD05159
+           MOVE ZEROES                 TO WS-SAVE-TOTAL-CHARGES         JJD05159
+                                          WS-SAVE-TOTAL-WEIGHT          JJD05159
+                                          WS-RESULT.                    JJD05159
+           MOVE SPACES                 TO  WS-FRT-EDIT-ERRORS                   
+           MOVE SPACES                 TO  WS-SOFT-ERROR-SW             JJD05159
+                                           WS-HARD-ERROR-SW.            JJD05159
+                                                                                
+           MOVE  WS-TIMESTAMP-SAVE(1:10)  TO  WS-FTK-STDT                       
+           MOVE SM-COMPANY                 TO WS-FTK-CO                         
+           MOVE SM-MANIFEST-SHIPV-CODE     TO WS-FTK-CS                         
+           MOVE SM-UPS-HUNDREDWEIGHT-SW    TO WS-FTK-CWT                        
+           IF WS-FTK-CWT = ' '                                                  
+              MOVE 'N'                     TO WS-FTK-CWT.                       
+           MOVE SM-RESIDENTIAL-SW          TO WS-FTK-RSCM.                      
+           IF SM-COMPANY = 'MD' AND                                             
+              SM-RESIDENTIAL-SW = ' '                                           
+               MOVE 'R'                    TO WS-FTK-RSCM.                      
+           IF SM-COMPANY = 'FT' AND                                             
+              SM-RESIDENTIAL-SW = ' '                                           
+               MOVE 'C'                    TO WS-FTK-RSCM.                      
+           IF WS-FTK-RSCM = 'F'                                                 
+              MOVE 'C'                     TO WS-FTK-RSCM.                      
+           MOVE 'N'                        TO WS-FTK-DAS.                       
+           PERFORM 526-READ-FRT-EDIT-TABLE.                                     
+           IF SQLCODE NOT = DB2-NORESP                                          
+              GO                           TO 5000-EXIT.                        
+                                                                                
+           IF  WS-FTK-STDT <=  FRTR-RUL-END-DT                                  
+               NEXT SENTENCE                                                    
+           ELSE                                                                 
+              GO                           TO 5000-EXIT.                        
+                                                                                
+           IF WS-PROCLOSE-SW = 'Y'                                              
+              MOVE TS-DSI-PRICE-AMT        TO WS-SAVE-TOTAL-CHARGES             
+              MOVE WS-ACT-TOTAL-WEIGHT     TO WS-SAVE-TOTAL-WEIGHT              
+           ELSE                                                                 
+              MOVE SM-TOTAL-CHARGES        TO WS-SAVE-TOTAL-CHARGES             
+              MOVE SM-TOTAL-WEIGHT         TO WS-SAVE-TOTAL-WEIGHT.             
+                                                                                
+      * CARRIER EDIT                                                            
+           PERFORM 5010-DO-CARRIER-FRT-EDIT.                                    
+                                                                                
+      *SYNC CHECK                                                               
+           IF FRTR-SYNC-CHK-CD = 'Y'                                            
+              IF ORSH-FRT-OUT-CODE = 'P'                                        
+                 MOVE ' '              TO WS-SYNC-ERROR-SW                      
+                 PERFORM 6000-DO-SYNC-CHECK                                     
+                 IF WS-SYNC-ERROR-SW = 'Y'                                      
+                    MOVE ORSH-FRT-OUT-AMT                                       
+                                       TO WS-SAVE-TOTAL-CHARGES                 
+                    MOVE ORSH-TOTAL-WEIGHT                                      
+                                       TO WS-SAVE-TOTAL-WEIGHT                  
+                    PERFORM 5010-DO-CARRIER-FRT-EDIT.                           
+                                                                                
+      *BILLED & SPLIT EDIT                                                      
+            IF WS-PROCLOSE-SW = 'N' OR ' '                                      
+               PERFORM 7001-DO-BILLED-SPLIT-EDIT THRU 7001-EXIT.                
+                                                                                
+      *SYNC CHECK                                                               
+            IF WS-PROCLOSE-SW = 'N' OR ' '                                      
+               IF FRTR-SYNC-CHK-CD = 'Y'                                        
+                  IF ORSH-FRT-OUT-CODE = 'B'                                    
+                     MOVE ' '          TO WS-SYNC-ERROR-SW                      
+                     PERFORM 6000-DO-SYNC-CHECK                                 
+                     IF WS-SYNC-ERROR-SW = 'Y'                                  
+                        MOVE ORSH-FRT-OUT-AMT                                   
+                                       TO WS-SAVE-TOTAL-CHARGES                 
+                        MOVE ORSH-TOTAL-WEIGHT                                  
+                                       TO WS-SAVE-TOTAL-WEIGHT                  
+                        PERFORM 7001-DO-BILLED-SPLIT-EDIT                       
+                                       THRU 7001-EXIT.                          
+                                                                                
+      *THIRD PARTY                                                              
+            IF WS-PROCLOSE-SW = 'N' OR ' '                                      
+               IF FRTR-THPTY-CHK-CD = 'H' OR 'S'                                
+                  IF ORSH-THIRD-PARTY-FRT-ACCOUNT > SPACES                      
+                     IF ORSH-FRT-OUT-AMT > 0 OR                                 
+                        SM-FRT-CUS-PAYS > 0 OR                                  
+                        SM-TOTAL-CHARGES > 0                                    
+                        MOVE FRTR-THPTY-CHK-CD                                  
+                                       TO WS-3RD-PARTY-ERROR-SW                 
+                     ELSE                                                       
+                         GO            TO 5000-EXIT.                            
+                                                                                
+            IF WS-PROCLOSE-SW = 'N' OR ' '                                      
+               IF FRTR-THPTY-CHK-CD = 'Y'                                       
+                  IF ORSH-THIRD-PARTY-FRT-ACCOUNT = SPACES                      
+                     IF ORSH-FRT-OUT-CODE = 'T' OR 'C'                          
+                        IF ORSH-FRT-OUT-AMT > 0 OR                              
+                           SM-FRT-CUS-PAYS > 0 OR                               
+                           SM-TOTAL-CHARGES > 0                                 
+                           MOVE FRTR-THPTY-CHK-CD                               
+                                       TO WS-3RD-PARTY-ERROR-SW                 
+                        ELSE                                                    
+                            NEXT SENTENCE                                       
+                     ELSE                                                       
+                         IF TB-CARR-MODE = 'LTL' OR 'AIRH'                      
+                            IF TB-CARR-THIRD-PARTY-ONLY                         
+                               MOVE FRTR-THPTY-CHK-CD                           
+                                       TO WS-3RD-PARTY-ERROR-SW.                
+                                                                                
+      *CUSTOMER FRT EXCEED ERROR                                                
+           IF WS-PROCLOSE-SW = 'N' OR ' '                                       
+              IF FRTR-CARR-BILL-EXCED-CD = 'H' OR 'S'                           
+                 IF ORSH-FRT-OUT-CODE = 'B'                             JJD05159
+                    IF SM-FRT-OUT-CODE NOT = 'S'                        JJD05159
+                       IF WS-SYNC-ERROR-SW = 'Y'                        JJD05159
+                          IF WS-TOTAL-CHARGES > SM-FRT-CUS-PAYS         JJD05159
+                             MOVE FRTR-CARR-BILL-EXCED-CD               JJD05159
+                                       TO WS-EXCEED-ERROR-SW.           JJD05159
+                                                                                
+      *SET HARD AND SOFT ERROR SW                                               
+           IF  WS-CARR-WGT-LOW-LIMIT-ERROR = 'H' OR                             
+               WS-CARR-WGT-HIGH-LIMIT-ERROR = 'H' OR                            
+               WS-CARR-DOLR-LOW-LIMIT-ERROR = 'H' OR                            
+               WS-CARR-DOLR-HIGH-LIMIT-ERROR = 'H' OR                           
+               WS-BILL-WGT-LOW-LIMIT-ERROR = 'H' OR                             
+               WS-BILL-WGT-HIGH-LIMIT-ERROR = 'H' OR                            
+               WS-BILL-DOLR-LOW-LIMIT-ERROR = 'H' OR                            
+               WS-BILL-DOLR-HIGH-LIMIT-ERROR = 'H' OR                           
+               WS-SPLIT-WGT-LOW-LIMIT-ERROR = 'H' OR                            
+               WS-SPLIT-WGT-HIGH-LIMIT-ERROR = 'H' OR                           
+               WS-SPLIT-DOLR-LOW-LIMIT-ERROR = 'H' OR                           
+               WS-SPLIT-DOLR-HIGH-LIMIT-ERROR = 'H' OR                          
+               WS-INVC-WGT-LOW-LIMIT-ERROR = 'H' OR                             
+               WS-INVC-WGT-HIGH-LIMIT-ERROR = 'H' OR                            
+               WS-3RD-PARTY-ERROR-SW = 'H' OR                                   
+               WS-EXCEED-ERROR-SW = 'H' OR                              JJD05159
+               WS-CAR-WGT-LOW-LMT-SYN-ERR = 'H' OR                      JJD05159
+               WS-CAR-WGT-HIGH-LMT-SYN-ERR = 'H' OR                     JJD05159
+               WS-CAR-DOLR-LOW-LMT-SYN-ERR = 'H' OR                     JJD05159
+               WS-CAR-DOLR-HIGH-LMT-SYN-ERR = 'H' OR                    JJD05159
+               WS-INVC-WGT-LOW-LMT-SYN-ERR = 'H' OR                     JJD05159
+               WS-INVC-WGT-HIGH-LMT-SYN-ERR = 'H' OR                    JJD05159
+               WS-BILL-WGT-LOW-LMT-SYN-ERR = 'H' OR                     JJD05159
+               WS-BILL-WGT-HIGH-LMT-SYN-ERR = 'H' OR                    JJD05159
+               WS-BILL-DOLR-LOW-LMT-SYN-ERR = 'H' OR                    JJD05159
+               WS-BILL-DOLR-HIGH-LMT-SYN-ERR = 'H' OR                   JJD05159
+               WS-SPLT-WGT-LOW-LMT-SYN-ERR = 'H' OR                     JJD05159
+               WS-SPLT-WGT-HIGH-LMT-SYN-ERR = 'H' OR                    JJD05159
+               WS-SPLT-DOLR-LOW-LMT-SYN-ERR = 'H' OR                    JJD05159
+               WS-SPLT-DOLR-HIGH-LMT-SYN-ERR = 'H'                      JJD05159
+               MOVE 'Y'                TO WS-HARD-ERROR-SW.                     
+           IF  WS-CARR-WGT-LOW-LIMIT-ERROR = 'S' OR                             
+               WS-CARR-WGT-HIGH-LIMIT-ERROR = 'S' OR                            
+               WS-CARR-DOLR-LOW-LIMIT-ERROR = 'S' OR                            
+               WS-CARR-DOLR-HIGH-LIMIT-ERROR = 'S' OR                           
+               WS-BILL-WGT-LOW-LIMIT-ERROR = 'S' OR                             
+               WS-BILL-WGT-HIGH-LIMIT-ERROR = 'S' OR                            
+               WS-BILL-DOLR-LOW-LIMIT-ERROR = 'S' OR                            
+               WS-BILL-DOLR-HIGH-LIMIT-ERROR = 'S' OR                           
+               WS-SPLIT-WGT-LOW-LIMIT-ERROR = 'S' OR                            
+               WS-SPLIT-WGT-HIGH-LIMIT-ERROR = 'S' OR                           
+               WS-SPLIT-DOLR-LOW-LIMIT-ERROR = 'S' OR                           
+               WS-SPLIT-DOLR-HIGH-LIMIT-ERROR = 'S' OR                          
+               WS-INVC-WGT-LOW-LIMIT-ERROR = 'S' OR                             
+               WS-INVC-WGT-HIGH-LIMIT-ERROR = 'S' OR                            
+               WS-3RD-PARTY-ERROR-SW = 'S' OR                                   
+               WS-EXCEED-ERROR-SW = 'S' OR                              JJD05159
+               WS-CAR-WGT-LOW-LMT-SYN-ERR = 'S' OR                      JJD05159
+               WS-CAR-WGT-HIGH-LMT-SYN-ERR = 'S' OR                     JJD05159
+               WS-CAR-DOLR-LOW-LMT-SYN-ERR = 'S' OR                     JJD05159
+               WS-CAR-DOLR-HIGH-LMT-SYN-ERR = 'S' OR                    JJD05159
+               WS-INVC-WGT-LOW-LMT-SYN-ERR = 'S' OR                     JJD05159
+               WS-INVC-WGT-HIGH-LMT-SYN-ERR = 'S' OR                    JJD05159
+               WS-BILL-WGT-LOW-LMT-SYN-ERR = 'S' OR                     JJD05159
+               WS-BILL-WGT-HIGH-LMT-SYN-ERR = 'S' OR                    JJD05159
+               WS-BILL-DOLR-LOW-LMT-SYN-ERR = 'S' OR                    JJD05159
+               WS-BILL-DOLR-HIGH-LMT-SYN-ERR = 'S' OR                   JJD05159
+               WS-SPLT-WGT-LOW-LMT-SYN-ERR = 'S' OR                     JJD05159
+               WS-SPLT-WGT-HIGH-LMT-SYN-ERR = 'S' OR                    JJD05159
+               WS-SPLT-DOLR-LOW-LMT-SYN-ERR = 'S' OR                    JJD05159
+               WS-SPLT-DOLR-HIGH-LMT-SYN-ERR = 'S'                      JJD05159
+               MOVE 'Y'                TO WS-SOFT-ERROR-SW.                     
+                                                                                
+       5000-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       5010-DO-CARRIER-FRT-EDIT.                                                
+           IF FRTR-CARR-WGT-CHK-CD = 'H' OR 'S'                                 
+              PERFORM 5020-DO-CARR-WGT-CHK-EDIT.                                
+                                                                                
+           IF FRTR-CARR-DOLR-CHK-CD = 'H' OR 'S'                                
+              PERFORM 5030-DO-CARR-DOLR-CHK-EDIT THRU 5030-EXIT.                
+                                                                                
+           IF FRTR-INVC-WGT-CHK-CD = 'H' OR 'S'                                 
+              PERFORM 5800-DO-INVC-WGT-CHK-EDIT THRU 5800-EXIT.                 
+                                                                                
+       5020-DO-CARR-WGT-CHK-EDIT.                                               
+                                                                                
+           MOVE ZEROES               TO WS-RESULT.                      JJD05159
+           IF WS-SAVE-TOTAL-WEIGHT > 0                                  JJD05159
+              COMPUTE WS-RESULT ROUNDED = WS-SAVE-TOTAL-CHARGES /       JJD05159
+                                       WS-SAVE-TOTAL-WEIGHT.            JJD05159
+           IF WS-RESULT <  FRTR-CARR-WGT-LOW-AMT                                
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-CARR-WGT-CHK-CD                                      
+                                     TO WS-CAR-WGT-LOW-LMT-SYN-ERR              
+              ELSE                                                              
+                  MOVE FRTR-CARR-WGT-CHK-CD                                     
+                                     TO WS-CARR-WGT-LOW-LIMIT-ERROR.            
+           IF WS-RESULT >  FRTR-CARR-WGT-HIGH-AMT                               
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-CARR-WGT-CHK-CD                                      
+                                     TO WS-CAR-WGT-HIGH-LMT-SYN-ERR             
+              ELSE                                                              
+                  MOVE FRTR-CARR-WGT-CHK-CD                                     
+                                     TO WS-CARR-WGT-HIGH-LIMIT-ERROR.           
+                                                                                
+       5030-DO-CARR-DOLR-CHK-EDIT.                                              
+                                                                                
+           IF WS-PROCLOSE-SW = 'Y'                                              
+              GO                     TO 5030-EXIT.                              
+                                                                                
+           IF WS-SAVE-TOTAL-CHARGES <  FRTR-CARR-DOLR-LOW-AMT                   
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-CARR-DOLR-CHK-CD                                     
+                                     TO WS-CAR-DOLR-LOW-LMT-SYN-ERR             
+              ELSE                                                              
+                  MOVE FRTR-CARR-DOLR-CHK-CD                                    
+                                     TO WS-CARR-DOLR-LOW-LIMIT-ERROR.           
+                                                                                
+           IF WS-SAVE-TOTAL-CHARGES >  FRTR-CARR-DOLR-HIGH-AMT                  
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-CARR-DOLR-CHK-CD                                     
+                                     TO WS-CAR-DOLR-HIGH-LMT-SYN-ERR            
+              ELSE                                                              
+                  MOVE FRTR-CARR-DOLR-CHK-CD                                    
+                                     TO WS-CARR-DOLR-HIGH-LIMIT-ERROR.          
+                                                                                
+       5030-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       5800-DO-INVC-WGT-CHK-EDIT.                                               
+                                                                                
+           IF WS-PROCLOSE-SW = 'Y'                                              
+              GO                     TO 5800-EXIT.                              
+                                                                                
+           IF WS-SAVE-TOTAL-WEIGHT  <  FRTR-INVC-WGT-LOW-AMT                    
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-INVC-WGT-CHK-CD                                      
+                                     TO WS-INVC-WGT-LOW-LMT-SYN-ERR             
+              ELSE                                                              
+                  MOVE FRTR-INVC-WGT-CHK-CD                                     
+                                     TO WS-INVC-WGT-LOW-LIMIT-ERROR.            
+           IF WS-SAVE-TOTAL-WEIGHT  >  FRTR-INVC-WGT-HIGH-AMT                   
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-INVC-WGT-CHK-CD                                      
+                                     TO WS-INVC-WGT-HIGH-LMT-SYN-ERR            
+              ELSE                                                              
+                  MOVE FRTR-INVC-WGT-CHK-CD                                     
+                                     TO WS-INVC-WGT-HIGH-LIMIT-ERROR.           
+                                                                                
+       5800-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       6000-DO-SYNC-CHECK.                                                      
+                                                                                
+           IF ORSH-FRT-OUT-CODE = 'P'                                           
+              IF ORSH-FRT-OUT-AMT = SM-TOTAL-CHARGES                            
+                 IF ORSH-TOTAL-WEIGHT = SM-TOTAL-WEIGHT                         
+                    NEXT SENTENCE                                               
+                 ELSE                                                           
+                     MOVE 'Y'        TO WS-SYNC-ERROR-SW                        
+              ELSE                                                              
+                  MOVE 'Y'           TO WS-SYNC-ERROR-SW.                       
+                                                                                
+           IF ORSH-FRT-OUT-CODE = 'B'                                           
+              IF ORSH-FRT-OUT-AMT = SM-FRT-CUS-PAYS                             
+                 IF ORSH-TOTAL-WEIGHT = SM-TOTAL-WEIGHT                         
+                    NEXT SENTENCE                                               
+                 ELSE                                                           
+                     MOVE 'Y'        TO WS-SYNC-ERROR-SW                        
+              ELSE                                                              
+                  MOVE 'Y'           TO WS-SYNC-ERROR-SW.                       
+                                                                                
+       7001-DO-BILLED-SPLIT-EDIT.                                               
+                                                                                
+           IF ORSH-FRT-OUT-CODE NOT = 'B'                                       
+              GO             TO 7001-EXIT.                                      
+                                                                                
+           IF SM-FRT-OUT-CODE NOT = 'S'                                         
+              MOVE SM-FRT-CUS-PAYS    TO WS-SAVE-TOTAL-CHARGES                  
+              MOVE SM-TOTAL-WEIGHT    TO WS-SAVE-TOTAL-WEIGHT                   
+              IF FRTR-BILL-WGT-CHK-CD = 'H' OR 'S'                              
+                 PERFORM 7020-DO-BILL-WGT-CHK-EDIT.                             
+                                                                                
+           IF SM-FRT-OUT-CODE NOT = 'S'                                         
+              IF FRTR-BILL-DOLR-CHK-CD = 'H' OR 'S'                             
+                 PERFORM 7030-DO-BILL-DOLR-CHK-EDIT.                            
+                                                                                
+           IF SM-FRT-OUT-CODE NOT = 'S'                                         
+              IF FRTR-INVC-WGT-CHK-CD = 'H' OR 'S'                              
+                 PERFORM 5800-DO-INVC-WGT-CHK-EDIT THRU 5800-EXIT.              
+                                                                                
+           IF SM-FRT-OUT-CODE = 'S'                                             
+               MOVE SM-FRT-CUS-PAYS    TO WS-SAVE-TOTAL-CHARGES                 
+               MOVE SM-TOTAL-WEIGHT    TO WS-SAVE-TOTAL-WEIGHT                  
+              IF FRTR-SPLIT-WGT-CHK-CD = 'H' OR 'S'                             
+                 PERFORM 8020-DO-SPLIT-WGT-CHK-EDIT.                            
+                                                                                
+           IF SM-FRT-OUT-CODE = 'S'                                             
+              IF FRTR-SPLIT-DOLR-CHK-CD = 'H' OR 'S'                            
+                 PERFORM 8030-DO-SPLIT-DOLR-CHK-EDIT.                           
+                                                                                
+           IF SM-FRT-OUT-CODE = 'S'                                             
+              IF FRTR-INVC-WGT-CHK-CD = 'H' OR 'S'                              
+                PERFORM 5800-DO-INVC-WGT-CHK-EDIT THRU 5800-EXIT.               
+                                                                                
+       7001-EXIT.                                                               
+            EXIT.                                                               
+                                                                                
+       7020-DO-BILL-WGT-CHK-EDIT.                                               
+                                                                                
+           MOVE ZEROES               TO WS-RESULT.                      JJD05159
+           IF WS-SAVE-TOTAL-WEIGHT > 0                                  JJD05159
+              COMPUTE WS-RESULT ROUNDED = WS-SAVE-TOTAL-CHARGES /       JJD05159
+                                       WS-SAVE-TOTAL-WEIGHT.            JJD05159
+           IF WS-RESULT <  FRTR-BILL-WGT-LOW-AMT                                
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                MOVE FRTR-BILL-WGT-CHK-CD                                       
+                                     TO WS-BILL-WGT-LOW-LMT-SYN-ERR             
+              ELSE                                                              
+                  MOVE FRTR-BILL-WGT-CHK-CD                                     
+                                     TO WS-BILL-WGT-LOW-LIMIT-ERROR.            
+           IF WS-RESULT >  FRTR-BILL-WGT-HIGH-AMT                               
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-BILL-WGT-CHK-CD                                      
+                                     TO WS-BILL-WGT-HIGH-LMT-SYN-ERR            
+              ELSE                                                              
+                  MOVE FRTR-BILL-WGT-CHK-CD                                     
+                                     TO WS-BILL-WGT-HIGH-LIMIT-ERROR.           
+                                                                                
+       7030-DO-BILL-DOLR-CHK-EDIT.                                              
+                                                                                
+           IF WS-SAVE-TOTAL-CHARGES <  FRTR-BILL-DOLR-LOW-AMT                   
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-BILL-DOLR-CHK-CD                                     
+                                     TO WS-BILL-DOLR-LOW-LMT-SYN-ERR            
+              ELSE                                                              
+                  MOVE FRTR-BILL-DOLR-CHK-CD                                    
+                                     TO WS-BILL-DOLR-LOW-LIMIT-ERROR.           
+           IF WS-SAVE-TOTAL-CHARGES >  FRTR-BILL-DOLR-HIGH-AMT                  
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-BILL-DOLR-CHK-CD                                     
+                                     TO WS-BILL-DOLR-HIGH-LMT-SYN-ERR           
+              ELSE                                                              
+                  MOVE FRTR-BILL-DOLR-CHK-CD                                    
+                                     TO WS-BILL-DOLR-HIGH-LIMIT-ERROR.          
+                                                                                
+       8020-DO-SPLIT-WGT-CHK-EDIT.                                              
+                                                                                
+           MOVE ZEROES                TO WS-RESULT.                     JJD05159
+           IF WS-SAVE-TOTAL-WEIGHT > 0                                  JJD05159
+              COMPUTE WS-RESULT ROUNDED = WS-SAVE-TOTAL-CHARGES /       JJD05159
+                                       WS-SAVE-TOTAL-WEIGHT.            JJD05159
+           IF WS-RESULT <  FRTR-SPLIT-WGT-LOW-AMT                               
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-SPLIT-WGT-CHK-CD                                     
+                                     TO WS-SPLT-WGT-LOW-LMT-SYN-ERR             
+              ELSE                                                              
+                  MOVE FRTR-SPLIT-WGT-CHK-CD                                    
+                                     TO WS-SPLIT-WGT-LOW-LIMIT-ERROR.           
+           IF WS-RESULT >  FRTR-SPLIT-WGT-HIGH-AMT                              
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-SPLIT-WGT-CHK-CD                                     
+                                    TO WS-SPLT-WGT-HIGH-LMT-SYN-ERR             
+              ELSE                                                              
+                  MOVE FRTR-SPLIT-WGT-CHK-CD                                    
+                                     TO WS-SPLIT-WGT-HIGH-LIMIT-ERROR.          
+                                                                                
+       8030-DO-SPLIT-DOLR-CHK-EDIT.                                             
+                                                                                
+           IF WS-SAVE-TOTAL-CHARGES <  FRTR-SPLIT-DOLR-LOW-AMT                  
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-SPLIT-DOLR-CHK-CD                                    
+                                     TO WS-SPLT-DOLR-LOW-LMT-SYN-ERR            
+              ELSE                                                              
+                  MOVE FRTR-SPLIT-DOLR-CHK-CD                                   
+                                     TO WS-SPLIT-DOLR-LOW-LIMIT-ERROR.          
+           IF WS-SAVE-TOTAL-CHARGES >  FRTR-SPLIT-DOLR-HIGH-AM                  
+              IF WS-SYNC-ERROR-SW = 'Y'                                         
+                 MOVE FRTR-SPLIT-DOLR-CHK-CD                                    
+                                   TO WS-SPLT-DOLR-HIGH-LMT-SYN-ERR             
+              ELSE                                                              
+                  MOVE FRTR-SPLIT-DOLR-CHK-CD                                   
+                                     TO WS-SPLIT-DOLR-HIGH-LIMIT-ERROR.         
+                                                                                

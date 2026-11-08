@@ -1,0 +1,181 @@
+                                                                                
+      *****************************************************************         
+      *         PROCEDURE DIVISION COMMON ROUTINES THAT SUPPORT       *         
+      *         VARIOUS VISIBLE RESERVE INVENTORY AUDIT ROUTINES.     *         
+      *                                                               *         
+      *  PURPOSE:  ROUTINES TO HELP AUDIT BEFORE AND AFTER RESERVE    *         
+      *            INVENTORY ACTIVITY (SUBSTITUTE FOR SYHRSV)         *         
+      *                                                               *         
+      *  USAGE:    COPY THIS ICSVRSVA P/D COPYBOOK & THE ICWVRSV      *         
+      *            W/S COPYBOOK INTO APPLICATIONS THAT AUDIT          *         
+      *            RESERVE INVENTORY AND PERFORM THE APPROPRIATE      *         
+      *            SUPPORT ROUTINE PARAGRAPHS INSTEAD OF SYHRSV.      *         
+      *                                                               *         
+      *  SUPPORT:  THE FOLLOWING COPYBOOKS ARE REQUIRED:              *         
+      *                                                               *         
+      *     W/S DATA: COPY ICWVRSV.                                   *         
+      *     W/S DATA: COPY SYRADT.                                    *         
+      *     W/S DATA: COPY SYKADT.                                    *         
+      *     W/S DATA: COPY SYRADT.                                    *         
+      *     DATA:     COPY INSLOR.                                    *         
+      *     DATA:     COPY INSBRN.                                    *         
+      *                                                               *         
+      *     P/D:      COPY ICSVRSVA.                                  *         
+      *                                                               *         
+      *  OPTIONAL: REPLACE BY PLACEHOLDER OR USE ACTUAL I/O ROUTINE   *         
+      *     P/D I/O:  ICSVRSVA-WRITE-RESERVE-AUDIT                    *         
+      *                THRU    ICSVRSVA-WRITE-EXIT                    *         
+      *                                                               *         
+      *  SUMMARY OF EACH ROUTINE ENTRY POINT:                         *         
+      *     M000 = SAVES BEFORE RESERVE FIELD VALUES FOR AUDIT        *         
+      *     N000 = SAVES AFTER RESERVE FIELD VALUES AND WRITES AUDIT  *         
+      *                                                               *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 08/22/05 AXR     *** RESERVE INVENTORY AUTOMATION, PHASE1 *** * AXR05234
+      *               1. CREATED COPYBOOK.                            * AXR05234
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+      *ICSVRSVA-M000-SETUP-AUDIT-BEF.                                           
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE INITIALIZES THE RESERVE AUDIT LAYOUT     <<<**         
+      **>>> AND SAVES THE RESEVE BEFORE DATA VALUES.              <<<**         
+      **>>> (ADAPTED FROM COPYBOOK SYHRSV)                        <<<**         
+      **>>>                                                       <<<**         
+      **>>> INPUT:                                                <<<**         
+      **>>>   1. SELECTED INSLOR FIELDS IN INL-RESERVE-DATA       <<<**         
+      **>>>   2. VARIOUS ICWVRSV FIELDS IN ICWVRSV-AUDIT-FIELDS   <<<**         
+      **>>>   3. SOME SSA FIELDS (E.G. WS-INSBRN-NBR)             <<<**         
+      **>>>                                                       <<<**         
+      **>>> OUTPUT:                                               <<<**         
+      **>>>   1. VARIOUS SYRADT FIELDS IN SYA-INSLOR-AUDIT        <<<**         
+      **>>>                                                       <<<**         
+      **>>> REQUIRED I/O COPYBOOKS:                               <<<**         
+      **>>>   NONE                                                <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ICSVRSVA-M000-SETUP-AUDIT-BEF.                                           
+                                                                                
+      *   (INITALIZE OUTPUT FIELDS)                                             
+           SET ICWVRSV-STATUS-OKAY           TO TRUE.                           
+           MOVE 'N'                          TO ICWVRSV-DONE-IND.               
+                                                                                
+      *   (INITIALIZE THE RESERVE AUDIT LAYOUT)                                 
+           INITIALIZE SYA-INSLOR-AUDIT.                                         
+                                                                                
+      *   (DEFAULT AUDIT VALUES WHICH CAN BE OVERLAID BY APPLICATIONS)          
+           MOVE 'C'                          TO SYA-ACTION.                     
+           MOVE '1'                          TO SYA-RECORD-CODE.                
+           MOVE 'R'                          TO SYA-AUDIT-TYPE.                 
+                                                                                
+      *   (SAVE OFF THE OLD VALUES FOR VARIOUS RESERVE FIELDS)                  
+           MOVE INL-OPID                    TO SYA-INL-SLSM-OLD.                
+           MOVE INL-RESERVE-QTY             TO SYA-INL-RES-QTY-OLD.             
+           MOVE INL-COMMENTS                TO SYA-INL-COMMENTS.                
+           MOVE INL-QTY-SHIPPED-TO-DATE     TO SYA-INL-QTY-SHPD-OLD.            
+           MOVE INL-EXPIRATION-DATE         TO SYA-INL-EXPIRE-DTE-OLD.          
+           MOVE INL-DATE-LAST-SHIP          TO SYA-INL-DTE-LAST-SHP-OLD.        
+           MOVE INL-EFFECT-DATE             TO SYA-INL-EFFECT-DTE-OLD.          
+           MOVE INL-RESERVE-TYPE            TO SYA-INL-RESERVE-TYPE-OLD.        
+           MOVE INL-RSV-STATUS              TO SYA-INL-RSV-STATUS-OLD.          
+                                                                                
+                                                                                
+      *ICSVRSVA-N000-WRITE-AUDIT-AFT.                                           
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE SAVES THE AFTER INSLOR AUDIT VALUES      <<<**         
+      **>>> AND WRITES THE RESERVE AUDIT.                         <<<**         
+      **>>> (ADAPTED FROM COPYBOOK SYHRSV)                        <<<**         
+      **>>>                                                       <<<**         
+      **>>> INPUT:                                                <<<**         
+      **>>>   1. VARIOUS INSLOR FIELDS IN INL-RESERVE-DATA        <<<**         
+      **>>>   2. VARIOUS SSA FIELDS (E.G. WS-INSBRN-NBR)          <<<**         
+      **>>>   3. VARIOUS ICWVRSV FIELDS IN ICWVRSV-AUDIT-FIELDS   <<<**         
+      **>>>                                                       <<<**         
+      **>>> OUTPUT:                                               <<<**         
+      **>>>   1. VARIOUS NEW SYRADT FIELDS IN SYA-INSLOR-AUDIT    <<<**         
+      **>>>                                                       <<<**         
+      **>>> REQUIRED I/O COPYBOOKS (IN APPLICATION):              <<<**         
+      **>>>   1. ICSVRSVA-WRITE-RESERVE-AUDIT                     <<<**         
+      **>>>       THRU    ICSVRSVA-WRITE-EXIT                     <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+      **>>>-------------------------------------------------------<<<**         
+       ICSVRSVA-N000-WRITE-AUDIT-AFT.                                           
+                                                                                
+      *   (SAVE OFF THE NEW/CURRENT VALUES FOR VARIOUS RESERVE FIELDS)          
+           MOVE ICWVRSV-COMPANY              TO SYA-COMPANY.                    
+           MOVE WS-INSBRN-NBR                TO SYA-BR-NBR.                     
+           MOVE 'INSLOR'                     TO SYA-SEGMENT-NAME.               
+           MOVE ICWVRSV-DATE-YYDDD           TO SYA-DATE.                       
+           MOVE ICWVRSV-TIME                 TO SYA-TIME.                       
+           MOVE ICWVRSV-CALLING-PGMID        TO SYA-PROGRAM.                    
+           MOVE ICWVRSV-TERMINAL             TO SYA-TERMINAL.                   
+           MOVE ICWVRSV-OPERATOR-ID          TO SYA-OPERATOR-ID.                
+           MOVE INL-CUST-BR-NBR              TO SYA-INL-CUST-BR-NBR.            
+           MOVE INL-CUST-NBR                 TO SYA-INL-CUST-NBR.               
+           MOVE INL-CUST-SEQ                 TO SYA-INL-CUST-SEQ.               
+           MOVE INL-OPID                     TO SYA-INL-SLSM-NEW.               
+           MOVE ICWVRSV-ORDER-BR             TO SYA-INL-ORDER-BR.               
+           MOVE ICWVRSV-ORDER-NBR            TO SYA-INL-ORDER-NBR.              
+           MOVE ICWVRSV-ORDER-DIST           TO SYA-INL-ORDER-DIST.             
+           MOVE ICWVRSV-ORDER-SHIP           TO SYA-INL-ORDER-SHIP.             
+           MOVE ICWVRSV-ORDER-LINE           TO SYA-INL-ORDER-LINE.             
+           MOVE INL-RESERVE-QTY              TO SYA-INL-RES-QTY-NEW.            
+           MOVE INL-QTY-SHIPPED-TO-DATE      TO SYA-INL-QTY-SHPD-NEW.           
+           MOVE INL-EXPIRATION-DATE          TO SYA-INL-EXPIRE-DTE-NEW.         
+           MOVE INL-DATE-LAST-SHIP           TO SYA-INL-DTE-LAST-SHP-NEW        
+           MOVE INL-EFFECT-DATE              TO SYA-INL-EFFECT-DTE-NEW.         
+           MOVE INL-RESERVE-TYPE                                                
+             TO SYA-INL-RESERVE-TYPE-NEW.                                       
+           MOVE ICWVRSV-PART-NBR             TO SYA-INL-PART-NBR.               
+           MOVE INL-RSV-STATUS               TO SYA-INL-RSV-STATUS-NEW.         
+                                                                                
+      *   (SET THE INSLOR AUDIT RECORD LENGTH)                                  
+           MOVE WS-SYA-INSLOR-RECLEN         TO WS-SYA-REC-LENGTH.              
+                                                                                
+      *   (WRITE THE AUDIT USING THE I/O PARAGRAPHS IN THE APPLICATION)         
+           IF ICWVRSV-WRITE-AUDIT-YES                                           
+              PERFORM ICSVRSVA-WRITE-RESERVE-AUDIT                              
+                 THRU ICSVRSVA-WRITE-EXIT                                       
+           END-IF.                                                              
+                                                                                
+                                                                                
+      ******************************************************************        
+      * USE COPY REPLACING TO SUBSTITUTE PLACEHOLDER PARAGRAPHS FOR    *        
+      * THE ACTUAL I/O PROCESS FOR ANY ROUTINES YOUR PROGRAM DOES      *        
+      * NOT REQUIRE.  FOR EXAMPLE, IF A PROGRAM DOES UPDATES (SUCH     *        
+      * AS ORDER LINE VOID) BUT IT DOES NOT INSERT AN ORDER LINE       *        
+      * DESCRIPTION, IT WILL NOT NEED TO ISRT-ORSDES, THEN USE:        *        
+      *     COPY ICSVRSVU REPLACING 1344-ISRT-ORSDES                   *        
+      *                         BY ICSVRSVU-1344-PLACEHOLDER.          *        
+      *                                                                *        
+      * AS LONG AS J000- IS NOT PERFORMED, THEN THE 1344 I/O ROUTINE   *        
+      * WILL NOT BE INVOKED, AND IF IT ACCIDENTALLY DOES, THEN THE     *        
+      * PLACEHOLDER ROUTINE WILL BE INVOKED, SETTING AN I/O ERROR.     *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+                                                                                
+      ******************************************************************        
+      * IF WRITING AN AUDIT THEN EMBED THE ACTUAL WRITE THRU WRITE-EXIT*        
+      * PARAGRAPHS IN THE APPLICATION, OR YOU CAN USE THESE            *        
+      * PLACEHOLDERS WITH A REPLACING WHEN YOU COPY IN ICSVRSVA        *        
+      *                                                                *        
+      ******************************************************************        
+                                                                                
+      *ICSVRSVA-WRITE-RESERVE-AUDIT.                                            
+       ICSVRSVU-WRT-PLACEHOLDER.                                                
+      *   (SET I/O ERROR CONDITION WHEN ACTUAL I/O ROUTINE NOT AVAIL)           
+           SET ICWVRSV-STATUS-IO-ERR         TO TRUE.                           
+           SET ICWVRSV-DONE-YES              TO TRUE.                           
+                                                                                
+      *ICSVRSVA-WRITE-EXIT.  EXIT.                                              
+       ICSVRSVU-WRT-PLACEHOLDER-EXIT.  EXIT.                                    
+                                                                                

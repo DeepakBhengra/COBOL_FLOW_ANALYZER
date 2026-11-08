@@ -1,0 +1,94 @@
+      *****************************************************************         
+      *                                                               *         
+      *         >> STRATEGIC PRICING - PROMO LOGIC      <<            *         
+      *                                                               *         
+      *   STANDARD LOGIC FOR PROMO PROCESSING.                        *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 11/02/04 JAR       *** STRATEGIC PRICING - FULL SOLUTION ***  * JAR04307
+      *               1. CREATED COPYBOOK.                            *         
+      *                                                               *         
+      *****************************************************************         
+      *                                                                         
+      *                                                                         
+      *  THIS CODE SHOULD BE COPED INTO THE SRCLIB RIGHT AFTER CALLING          
+      *  THE NEW MODULE.                                                        
+      *    SEE IF ITEM HAS A FREE PART                                          
+       SP950-CHECK-ITEM-FREE-PART.                                              
+           IF NOT WS-PRC-NO-PROMO-ORDER-TYPE                                    
+              IF WS-CUST-PROMOTIONAL-ALLOWED                                    
+              OR WS-CUST-SPECIALS-ALLOWED                                       
+                 PERFORM SP952-CHECK-FOR-FREE-PART                              
+                    THRU SP952-CHECK-EXIT                                       
+              END-IF                                                            
+           END-IF.                                                              
+      *                                                                         
+      *           SPECIAL PART ROUTINE                                          
+      *                                                                         
+       SP952-CHECK-FOR-FREE-PART.                                               
+           MOVE '**'                   TO  WS-INSMSC-BR-IND.                    
+           MOVE 'S'                    TO  WS-INSMSC-SEG-IND.                   
+      *                                                                         
+           PERFORM 1556-GU-INSMSC.                                              
+      *                                                                         
+           MOVE ZERO                   TO SYRPWSA-INM-SPEC-EFF-DATE-Y2K         
+                                          SYRPWSA-INM-SPEC-EXP-DATE-Y2K.        
+      *Y2K********************************************************Y2K*          
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *          
+      *Y2K********************************************************Y2K*          
+           CALL 'CAWINUP'                                                       
+                USING INM-SPEC-EFF-DATE                                         
+                      SYRPWSA-DEFAULT-WINDOW-SPEC                               
+                      SYRPWSA-DECIMAL5-TYPE                                     
+                      SYRPWSA-INM-SPEC-EFF-DATE-Y2K                             
+                      SYRPWSA-THIS-YEAR-Y2K                                     
+           CALL 'CAWINUP'                                                       
+                 USING INM-SPEC-EXP-DATE                                        
+                       SYRPWSA-DEFAULT-WINDOW-SPEC                              
+                       SYRPWSA-DECIMAL5-TYPE                                    
+                       SYRPWSA-INM-SPEC-EXP-DATE-Y2K                            
+                       SYRPWSA-THIS-YEAR-Y2K                                    
+           IF NOT WS-INSMSC-NORESP        OR                                    
+      *Y2K********************************************************Y2K*          
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *          
+      *Y2K********************************************************Y2K*          
+      *       EIBDATE < INM-SPEC-EFF-DATE OR                                    
+              EIBDATE < SYRPWSA-INM-SPEC-EFF-DATE-Y2K OR                        
+      *Y2K********************************************************Y2K*          
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *          
+      *Y2K********************************************************Y2K*          
+      *       EIBDATE > INM-SPEC-EXP-DATE                                       
+              EIBDATE > SYRPWSA-INM-SPEC-EXP-DATE-Y2K                           
+                 SET WS-INSMSC-NOTFND  TO  TRUE                                 
+           ELSE                                                                 
+              IF INM-SPEC-FREE-PART > SPACES                                    
+                 IF WS-CUST-PROMOTIONAL-ALLOWED                                 
+                    NEXT SENTENCE                                               
+                 ELSE                                                           
+                    IF (INM-SPEC-COL-IND-USED)                                  
+                    OR (INM-SPEC-PRICE > ZERO)                                  
+                       NEXT SENTENCE                                            
+                    ELSE                                                        
+                       SET WS-INSMSC-NOTFND  TO  TRUE                           
+              ELSE                                                              
+                 IF WS-CUST-SPECIALS-ALLOWED                                    
+                    NEXT SENTENCE                                               
+                 ELSE                                                           
+                    SET WS-INSMSC-NOTFND  TO  TRUE.                             
+                                                                                
+           MOVE SPACES                   TO  WS-FREE-PART.                      
+           MOVE ZERO                     TO  WS-MIN-QTY                         
+                                             WS-FREE-QTY.                       
+      *                                                                         
+      *    FREE PART/QTY MUST NOT BE SET BY THE END-USER PARENT                 
+      *                                                                         
+           IF WS-INSMSC-NORESP AND WS-CUST-PROMOTIONAL-ALLOWED                  
+              IF WS-PRC-END-USER-PRICING AND WS-PRC-STANDARD-PROCESS            
+                 NEXT SENTENCE                                                  
+              ELSE                                                              
+                 MOVE INM-SPEC-MIN-QTY   TO  WS-MIN-QTY                         
+                 MOVE INM-SPEC-FREE-PART TO  WS-FREE-PART                       
+                 MOVE INM-SPEC-FREE-QTY  TO  WS-FREE-QTY.                       
+       SP952-CHECK-EXIT.                                                        
+           EXIT.                                                                

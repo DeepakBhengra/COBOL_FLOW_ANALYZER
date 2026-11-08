@@ -1,0 +1,634 @@
+      *****************************************************************         
+      ****  COPYBOOK  WHSGSTIN  ***************************************         
+      ****                                                           **         
+      **** PROCEDURE DIVISION LOGIC FOR GST INVOICE NUMBER GENERATION *         
+      ****  WORKING STORAGE FIELDS ARE IN WHWGSTIN                    *         
+      ****                                                            *         
+      **** DATE    INITIALS CHANGE DESCRIPTION*                       *         
+      **** ------- -------- ------------------------------------------*         
+      **** 07/09/21 RXA     RPL-SAP(PHASE 3) USE ORGDTL 'Z' RECORD TO * RXA21190
+      ****                  GET THE GST-INV-TYP AND NBR. PREVIOUSLY   * RXA21190
+      ****                  ORSSHHOF HOLD THESE INFO, IT IS FILLER NOW* RXA21190
+      **** 01/10/20 TXV     COMPUTE RANGE B/W START AND END INVC SEQ  * TXV20010
+      ****                  TO LIMIT DUPLICATE CONTROL LOOPING.       * TXV20010
+      **** 03/30/19PZM      INDIA GST2- INVOICE SEQUENCE CHANGES      * PZM19089
+      **** 11/16/18NZS      INDIA GST PHASE 2 - CHANGES FOR NEW       * NZS18320
+      ****                  INVOICE SERIES                            * NZS18320
+      ****                  CHANGES DONE TO PASS PROPER SEQ NUMBER    * NZS18320
+      **** 8/17/18 SBX      ADDED STATE-CD 91 TO 95 AS EXPORT STATE   * SBX18229
+      ****                  CHANGES DONE TO PASS PROPER SEQ NUMBER    * SBX18229
+      **** 7/18/17 MCB      SEQUENCE TYPE R CHANGE                    * MCB17199
+      **** 7/07/17 DRM      SEQUENCE TYPE X CHANGE                    * KYC17188
+      **** 6/02/17 RXD      NEW COPYBOOK                              * DRM17130
+      *****************************************************************         
+      *                                                                         
+       I1120-GST-INVOICE-GENERATION.                                            
+                                                                                
+           IF WS-GST-CO-CODE-IN = SPACES OR LOW-VALUES                          
+              SET WS-INV-ERROR-FOUND    TO TRUE                                 
+           ELSE                                                                 
+              IF WS-GST-BR-CODE-IN = SPACES OR LOW-VALUES                       
+                 SET WS-INV-ERROR-FOUND    TO TRUE                              
+              ELSE                                                              
+                 IF WS-GST-INV-TYPE-IN  = SPACES OR LOW-VALUES                  
+                    SET WS-INV-ERROR-FOUND TO TRUE                              
+                 ELSE                                                           
+                    IF WS-GST-INVOICE-TYPED OR WS-GST-INVOICE-TYPEC             
+                       OR WS-GST-INVOICE-TYPEX OR WS-GST-INVOICE-TYPER  MCB17199
+                       IF WS-GST-ORIG-INV-TYPE = SPACES OR LOW-VALUES           
+                          SET WS-INV-ERROR-FOUND TO TRUE                        
+                       END-IF                                                   
+                    END-IF                                                      
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF                                                               
+                                                                                
+           IF NOT WS-INV-ERROR-FOUND                                            
+              MOVE WS-GST-INV-BR-IN       TO WS-INV-SHIP-BR                     
+              MOVE WS-GST-INV-TYPE-IN     TO WS-INV-SEQ-TYPE                    
+              IF TB-DATE-FINANCIAL-YEAR  GREATER THAN SPACES            PZM19089
+                 MOVE TB-DATE-FINANCIAL-YEAR TO WS-INV-INV-YR           PZM19089
+              ELSE                                                      PZM19089
+                 MOVE TC-COMPANY     TO TB-DATE-COMPANY                 PZM19089
+                 CALL 'SYU510'       USING TB-DATE-TABLE-IA             PZM19089
+                 IF TB-DATE-NORESP                                      PZM19089
+                    MOVE TB-DATE-FINANCIAL-YEAR TO WS-INV-INV-YR        PZM19089
+                 ELSE                                                   PZM19089
+                    MOVE '  '                   TO WS-INV-INV-YR        PZM19089
+                    SET WS-INV-ERROR-FOUND TO TRUE                      PZM19089
+                 END-IF                                                 PZM19089
+              END-IF                                                    PZM19089
+              PERFORM I1140-GET-EXPORT-INDICATOR                                
+              PERFORM I1150-GET-BLPMST-INV-SEQUENCE                     PZM19089
+           END-IF.                                                              
+                                                                                
+       I1140-GET-EXPORT-INDICATOR.                                              
+                                                                                
+           IF WS-GST-SHIP-TO-STATE = '91' OR                            SBX18229
+              WS-GST-SHIP-TO-STATE = '92' OR                            SBX18229
+              WS-GST-SHIP-TO-STATE = '93' OR                            SBX18229
+              WS-GST-SHIP-TO-STATE = '94' OR                            SBX18229
+              WS-GST-SHIP-TO-STATE = '95' OR                            SBX18229
+              WS-GST-SHIP-TO-STATE = '96' OR                            SBX18229
+              WS-GST-SHIP-TO-STATE = '97' OR                                    
+              WS-GST-SHIP-TO-STATE = '98' OR                                    
+              WS-GST-SHIP-TO-STATE = '99'                                       
+              MOVE 'E'                    TO WS-INV-DOM-EXP-IND                 
+      *                                      WS-INV-SEQ-TYPE            SBX18229
+EXPORT*       MOVE 'EX'                   TO WS-GST-INV-TYPE-IN         SBX18229
+           ELSE                                                                 
+              MOVE 'D'                    TO WS-INV-DOM-EXP-IND                 
+           END-IF.                                                              
+                                                                                
+           IF (ORSH-CREDIT-MEMO-CODE = 'D'                              NZS18320
+           AND ORSHOF-IA-GST-INV-CANCEL)                                NZS18320
+               IF WS-ORGZ-GST-ORIG-INV-NBR (3:1) = 'C'                  RXA21190
+                  MOVE 'X'         TO WS-INV-DOM-EXP-IND                NZS18320
+               END-IF                                                   NZS18320
+           END-IF.                                                      NZS18320
+           IF (ORSH-CREDIT-MEMO-CODE = 'Y'                              NZS18320
+           AND ORSHOF-IA-GST-INV-CANCEL)                                NZS18320
+               IF WS-ORGZ-GST-ORIG-INV-NBR (3:1) = 'D'                  RXA21190
+                  MOVE 'X'     TO WS-INV-DOM-EXP-IND                    NZS18320
+               END-IF                                                   NZS18320
+           END-IF.                                                      NZS18320
+       I1150-GET-BLPMST-INV-SEQUENCE.                                   PZM19089
+                                                                                
+           IF NOT  WS-BP-NORESP                                                 
+              MOVE ZEROES                 TO WS-INV-NBR-SEQUENCE                
+              GO TO I1150-EXIT                                                  
+           END-IF                                                               
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPEI NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPEI                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPEI NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPEI                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPEI NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPEI                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPEI NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPEI NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPEI                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPER NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPER                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPER NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPER                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPER NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPER                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPER NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPER NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPER                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPEP NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPEP                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPEP NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPEP                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPEP NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPEP                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPEP NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPEP NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPEP                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPET NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPET                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPET NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPET                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPET NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPET                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPET NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPET NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPET                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPEB NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPEB                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPEB NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPEB                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPEB NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPEB                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPEB NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPEB NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPEB                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPED NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPED                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPED NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPED                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPED NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPED                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPED NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPED NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPED                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPEC NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPEC                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPEC NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPEC                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPEC NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPEC                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPEC NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPEC NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPEC                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPEA NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPEA                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPEA NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPEA                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPEA NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPEA                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPEA NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPEA NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPEA                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPEX NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPEX                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPEX NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPEX                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPEX NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPEX                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPEX NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPEX NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPEX                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPES NOT NUMERIC                             
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPES                          
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPES NOT NUMERIC                             
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPES                          
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPES NOT NUMERIC                             
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPES                          
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPES NOT NUMERIC     AND                PZM19089
+              BP-DUP-CNTL-CHAR-TYPES NOT ALPHABETIC                     PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPES                   PZM19089
+           END-IF.                                                      PZM19089
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPEPR NOT NUMERIC                            
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPEPR                         
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPEPR NOT NUMERIC                            
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPEPR                         
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPEPR NOT NUMERIC                            
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPEPR                         
+           END-IF                                                               
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPEIN NOT NUMERIC                            
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPEIN                         
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPEIN NOT NUMERIC                            
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPEIN                         
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPEIN NOT NUMERIC                            
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPEIN                         
+           END-IF                                                               
+                                                                                
+           IF BP-NEXT-SEQ-INV-NBR-TYPEEX NOT NUMERIC                            
+              MOVE ZEROES TO BP-NEXT-SEQ-INV-NBR-TYPEEX                         
+           END-IF                                                               
+           IF BP-LAST-SEQ-INV-NBR-TYPEEX NOT NUMERIC                            
+              MOVE ZEROES TO BP-LAST-SEQ-INV-NBR-TYPEEX                         
+           END-IF                                                               
+           IF BP-STRT-SEQ-INV-NBR-TYPEEX NOT NUMERIC                            
+              MOVE ZEROES TO BP-STRT-SEQ-INV-NBR-TYPEEX                         
+           END-IF                                                               
+           IF BP-DUP-CNTL-CHAR-TYPEEX NOT NUMERIC     AND               PZM19089
+              BP-DUP-CNTL-CHAR-TYPEEX NOT ALPHABETIC                    PZM19089
+              MOVE '0'      TO BP-DUP-CNTL-CHAR-TYPEEX                  PZM19089
+           END-IF.                                                      PZM19089
+           PERFORM I1160-GET-NEXT-INV-SEQUENCE THRU I1160-EXIT.         PZM19089
+       I1150-EXIT.                                                      PZM19089
+           EXIT.                                                        PZM19089
+                                                                                
+       I1160-GET-NEXT-INV-SEQUENCE.                                     PZM19089
+           EVALUATE TRUE                                                        
+      *     INVOICE                                                             
+            WHEN WS-GST-INVOICE-TYPEI                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPEI < BP-STRT-SEQ-INV-NBR-TYPEI          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPEI > BP-LAST-SEQ-INV-NBR-TYPEI          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPEI TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPEI          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPEI    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPEI TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPEI    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPEI        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPEI) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPEI          
+      *     CUSTOMER RETURN                                                     
+            WHEN WS-GST-INVOICE-TYPER                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPER < BP-STRT-SEQ-INV-NBR-TYPER          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPER > BP-LAST-SEQ-INV-NBR-TYPER          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPER TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPER          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPER    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPER TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPER    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPER        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPER) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPER          
+              MOVE WS-GST-ORIG-INV-TYPE(2:1)    TO WS-INV-DOM-EXP-IND   MCB17199
+           IF (ORSH-CREDIT-MEMO-CODE = 'D'                              NZS18320
+           AND ORSHOF-IA-GST-INV-CANCEL)                                NZS18320
+               IF WS-ORGZ-GST-ORIG-INV-NBR (3:1) = 'C'                  RXA21190
+                  MOVE 'X'         TO WS-INV-DOM-EXP-IND                NZS18320
+               END-IF                                                   NZS18320
+           END-IF                                                       NZS18320
+           IF (ORSH-CREDIT-MEMO-CODE = 'Y'                              NZS18320
+           AND ORSHOF-IA-GST-INV-CANCEL)                                NZS18320
+               IF WS-ORGZ-GST-ORIG-INV-NBR (3:1) = 'D'                  RXA21190
+                  MOVE 'X'     TO WS-INV-DOM-EXP-IND                    NZS18320
+               END-IF                                                   NZS18320
+           END-IF                                                       NZS18320
+      *     PURCHASE RETURN                                                     
+            WHEN WS-GST-INVOICE-TYPEP                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPEP < BP-STRT-SEQ-INV-NBR-TYPEP          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPEP > BP-LAST-SEQ-INV-NBR-TYPEP          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPEP TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPEP          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPEP    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPEP TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPEP    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPEP        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPEP) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPEP          
+      *     BR XFER OUTSIDE STATE                                               
+            WHEN WS-GST-INVOICE-TYPET                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPET < BP-STRT-SEQ-INV-NBR-TYPET          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPET > BP-LAST-SEQ-INV-NBR-TYPET          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPET TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPET          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPET    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPET TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPET    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPET        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPET) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPET          
+      *     BR XFER WITHIN  STATE                                               
+            WHEN WS-GST-INVOICE-TYPEB                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPEB < BP-STRT-SEQ-INV-NBR-TYPEB          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPEB > BP-LAST-SEQ-INV-NBR-TYPEB          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPEB TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPEB          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPEB    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPEB TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPEB    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPEB        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPEB) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPEB          
+      *     DEBIT NOTE                                                          
+            WHEN WS-GST-INVOICE-TYPED                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPED < BP-STRT-SEQ-INV-NBR-TYPED          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPED > BP-LAST-SEQ-INV-NBR-TYPED          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPED TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPED          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPED    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPED TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPED    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPED        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPED) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPED          
+              MOVE WS-GST-ORIG-INV-TYPE(2:1)    TO WS-INV-DOM-EXP-IND           
+      *     CREDIT NOTE                                                         
+            WHEN WS-GST-INVOICE-TYPEC                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPEC < BP-STRT-SEQ-INV-NBR-TYPEC          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPEC > BP-LAST-SEQ-INV-NBR-TYPEC          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPEC TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPEC          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPEC    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPEC TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPEC    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPEC        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPEC) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPEC          
+              MOVE WS-GST-ORIG-INV-TYPE(2:1)    TO WS-INV-DOM-EXP-IND           
+      *     ADVANCE SALES INVOICE                                               
+            WHEN WS-GST-INVOICE-TYPEA                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPEA < BP-STRT-SEQ-INV-NBR-TYPEA          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPEA > BP-LAST-SEQ-INV-NBR-TYPEA          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPEA TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPEA          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPEA    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPEA TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPEA    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPEA        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPEA) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPEA          
+      *     INVOICE CANCELLATION                                                
+            WHEN WS-GST-INVOICE-TYPEX                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPEX < BP-STRT-SEQ-INV-NBR-TYPEX          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPEX > BP-LAST-SEQ-INV-NBR-TYPEX          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPEX TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPEX          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPEX    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPEX TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPEX    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPEX        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPEX) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPEX          
+              MOVE WS-GST-ORIG-INV-TYPE(2:1)    TO WS-INV-DOM-EXP-IND   KYC17188
+      *     PO RECEIPT                                                          
+            WHEN WS-GST-INVOICE-TYPEPR                                          
+             IF BP-NEXT-SEQ-INV-NBR-TYPEPR < BP-STRT-SEQ-INV-NBR-TYPEPR         
+                                          OR                                    
+                BP-NEXT-SEQ-INV-NBR-TYPEPR > BP-LAST-SEQ-INV-NBR-TYPEPR         
+                MOVE BP-STRT-SEQ-INV-NBR-TYPEPR TO WS-INV-NBR-SEQUENCE          
+                                            BP-NEXT-SEQ-INV-NBR-TYPEPR          
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPEPR TO WS-INV-NBR-SEQUENCE         
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPEPR       TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPEPR) + 1  TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPEPR         
+      *     INVENTORY ADJUSTMENT                                                
+            WHEN WS-GST-INVOICE-TYPEIN                                          
+             IF BP-NEXT-SEQ-INV-NBR-TYPEIN < BP-STRT-SEQ-INV-NBR-TYPEIN         
+                                          OR                                    
+                BP-NEXT-SEQ-INV-NBR-TYPEIN > BP-LAST-SEQ-INV-NBR-TYPEIN         
+                MOVE BP-STRT-SEQ-INV-NBR-TYPEIN TO WS-INV-NBR-SEQUENCE          
+                                            BP-NEXT-SEQ-INV-NBR-TYPEIN          
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPEIN TO WS-INV-NBR-SEQUENCE         
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPEIN       TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPEIN) + 1  TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPEIN         
+BOS   *     BILL OF SUPPLY                                                      
+            WHEN WS-GST-INVOICE-TYPES                                           
+              IF BP-NEXT-SEQ-INV-NBR-TYPES < BP-STRT-SEQ-INV-NBR-TYPES          
+                                          OR                                    
+                 BP-NEXT-SEQ-INV-NBR-TYPES > BP-LAST-SEQ-INV-NBR-TYPES          
+                 MOVE BP-STRT-SEQ-INV-NBR-TYPES TO WS-INV-NBR-SEQUENCE          
+                                             BP-NEXT-SEQ-INV-NBR-TYPES          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPES    TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPES TO WS-INV-NBR-SEQUENCE          
+                 MOVE BP-DUP-CNTL-CHAR-TYPES    TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPES        TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPES) + 1   TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPES          
+EXPORT*     EXPORT                                                              
+            WHEN WS-GST-INVOICE-TYPEEX                                          
+             IF BP-NEXT-SEQ-INV-NBR-TYPEEX < BP-STRT-SEQ-INV-NBR-TYPEEX         
+                                          OR                                    
+                BP-NEXT-SEQ-INV-NBR-TYPEEX > BP-LAST-SEQ-INV-NBR-TYPEEX         
+                MOVE BP-STRT-SEQ-INV-NBR-TYPEEX TO WS-INV-NBR-SEQUENCE          
+                                            BP-NEXT-SEQ-INV-NBR-TYPEEX          
+                 SET WS-INV-CNTL-TRIG-SET       TO TRUE                 PZM19089
+                 MOVE BP-DUP-CNTL-CHAR-TYPEEX   TO WS-TEMP-TRANS-NBR    PZM19089
+              ELSE                                                              
+                 MOVE BP-NEXT-SEQ-INV-NBR-TYPEEX TO WS-INV-NBR-SEQUENCE         
+                 MOVE BP-DUP-CNTL-CHAR-TYPEEX   TO WS-INV-DUP-CTRL      PZM19089
+              END-IF                                                            
+              COMPUTE WS-INVC-COUNT = (BP-LAST-SEQ-INV-NBR-TYPEEX       TXV20010
+                                    -  BP-STRT-SEQ-INV-NBR-TYPEEX) + 1  TXV20010
+              ADD +1                      TO BP-NEXT-SEQ-INV-NBR-TYPEEX         
+            WHEN OTHER                                                          
+              SET WS-INV-ERROR-FOUND      TO TRUE                               
+              MOVE ZEROES                 TO WS-INV-NBR-SEQUENCE                
+           END-EVALUATE.                                                        
+      * INCREMENT DUPLICATE CONTROL CHARACTER IF INVOICE  SERIES        PZM19089
+      * GETS EXHAUSTED                                                  PZM19089
+           IF WS-INV-CNTL-TRIG-SET                                      PZM19089
+                 PERFORM I1170-GET-DUP-CNTL-CHAR THRU I1170-EXIT        PZM19089
+                 MOVE ' '                 TO WS-INV-CNTL-TRIG-SW        PZM19089
+           END-IF.                                                      PZM19089
+                                                                        PZM19089
+       I1160-EXIT.                                                      PZM19089
+           EXIT.                                                        PZM19089
+                                                                        PZM19089
+       I1170-GET-DUP-CNTL-CHAR.                                         PZM19089
+            PERFORM I1180-INCREASE-ALPHA THRU I1180-EXIT.               PZM19089
+            EVALUATE TRUE                                               PZM19089
+      *     INVOICE                                                     PZM19089
+              WHEN WS-GST-INVOICE-TYPEI                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPEI      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     CUSTOMER RETURN                                             PZM19089
+              WHEN WS-GST-INVOICE-TYPER                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPER      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     PURCHASE RETURN                                             PZM19089
+              WHEN WS-GST-INVOICE-TYPEP                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPEP      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     BR XFER OUTSIDE STATE                                       PZM19089
+              WHEN WS-GST-INVOICE-TYPET                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPET      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     BR XFER WITHIN  STATE                                       PZM19089
+              WHEN WS-GST-INVOICE-TYPEB                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPEB      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     DEBIT NOTE                                                  PZM19089
+              WHEN WS-GST-INVOICE-TYPED                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPED      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     CREDIT NOTE                                                 PZM19089
+              WHEN WS-GST-INVOICE-TYPEC                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPEC      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     ADVANCE SALES INVOICE                                       PZM19089
+              WHEN WS-GST-INVOICE-TYPEA                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPEA      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     INVOICE CANCELLATION                                        PZM19089
+              WHEN WS-GST-INVOICE-TYPEX                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPEX      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     BILL OF SUPPLY                                              PZM19089
+              WHEN WS-GST-INVOICE-TYPES                                 PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPES      PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+      *     EXPORT                                                      PZM19089
+              WHEN WS-GST-INVOICE-TYPEEX                                PZM19089
+                MOVE WS-TEMP-TRANS-NBR   TO BP-DUP-CNTL-CHAR-TYPEEX     PZM19089
+                                            WS-INV-DUP-CTRL             PZM19089
+           END-EVALUATE.                                                PZM19089
+       I1170-EXIT.                                                      PZM19089
+           EXIT.                                                        PZM19089
+                                                                        PZM19089
+       I1180-INCREASE-ALPHA.                                            PZM19089
+      * INCREMENT ALPHABETIC PART OF INVOICE SERIES (7TH CHARACTER)     PZM19089
+              SET A-IDX TO +1.                                          PZM19089
+              SEARCH WS-ALPHA-CHAR                                      PZM19089
+                 VARYING A-IDX                                          PZM19089
+                 AT END                                                 PZM19089
+                    MOVE WS-ALPHA-CHAR(+36) TO WS-TEMP-TRANS-NBR        PZM19089
+                 WHEN WS-ALPHA-CHAR(A-IDX) = WS-TEMP-TRANS-NBR          PZM19089
+                    MOVE WS-ALPHA-CHAR(A-IDX + 1)                       PZM19089
+                                            TO WS-TEMP-TRANS-NBR        PZM19089
+              END-SEARCH.                                               PZM19089
+      * SPECIAL VALUE '*' IS USED TO DETECT END OF ARRAY AND TO RESET   PZM19089
+      * DUPLICATE CONTORL CHARACTER TO '0'                              PZM19089
+              IF WS-TEMP-TRANS-NBR = '*'                                PZM19089
+                 MOVE '0' TO WS-TEMP-TRANS-NBR                          PZM19089
+              END-IF.                                                   PZM19089
+                                                                        PZM19089
+       I1180-EXIT.                                                      PZM19089
+           EXIT.                                                        PZM19089
+      *----------------------------------------------------------------*RXA21190
+      * READ ORGDTL 'Z' RECORD COMPARING THE KEY                       *RXA21190
+      *----------------------------------------------------------------*RXA21190
+      *----------------------------------------------------------------*RXA21190
+       F01A-READ-GSTFILE-ZREC.                                          RXA21190
+      *----------------------------------------------------------------*RXA21190
+                                                                        RXA21190
+            IF (ORH-COMPANY    = WS-ORGZ-COMPANY      AND               RXA21190
+                ORH-BR-NBR     = WS-ORGZ-BR-NBR       AND               RXA21190
+                ORH-ENTRY-DATE = WS-ORGZ-ORD-ENTRY-DT AND               RXA21190
+                ORH-ORDER-NBR  = WS-ORGZ-ORDR-NBR     AND               RXA21190
+                ORSH-DIST-NBR  = WS-ORGZ-DIST-NBR     AND               RXA21190
+                ORSH-SHIP-NBR    = WS-ORGZ-SHIP-NBR)  AND               RXA21190
+                WS-ORGZ-KEY-EXIST                                       RXA21190
+               CONTINUE                                                 RXA21190
+            ELSE                                                        RXA21190
+               INITIALIZE WS-ORGZ-DETAIL-REC                            RXA21190
+               MOVE ORH-COMPANY           TO WS-ORGZ-COMPANY            RXA21190
+               MOVE ORH-BR-NBR            TO WS-ORGZ-BR-NBR             RXA21190
+               INITIALIZE SY777-PARM-DATA                               RXA21190
+               MOVE ORH-ENTRY-DATE        TO SY777-IN-JUL-YYDDD         RXA21190
+                                             WS-ORGZ-ORD-ENTRY-DT       RXA21190
+               CALL 'SYU777'              USING DFHEIBLK                RXA21190
+                                                DFHCOMMAREA             RXA21190
+                                                SY777-PARM-DATA         RXA21190
+               MOVE SY777-OUT-ISO-10      TO WS-ORGZ-INVC-DT            RXA21190
+               MOVE ORH-ORDER-NBR         TO WS-ORGZ-ORDR-NBR           RXA21190
+               MOVE ORSH-DIST-NBR         TO WS-ORGZ-DIST-NBR           RXA21190
+               MOVE ORSH-SHIP-NBR         TO WS-ORGZ-SHIP-NBR           RXA21190
+               MOVE ZEROS                 TO WS-ORGZ-LINE-NBR           RXA21190
+               MOVE 'Z'                   TO WS-ORGZ-RECORD-CODE        RXA21190
+            END-IF.                                                     RXA21190
+            EXEC CICS READ                                              RXA21190
+                 FILE   (WS-ORGZ-GST-FILE)                              RXA21190
+                 LENGTH (WS-ORGZ-REC-LENGTH)                            RXA21190
+                 INTO   (WS-ORGZ-DETAIL-REC)                            RXA21190
+                 RIDFLD (WS-ORGZ-RECORD-KEY)                            RXA21190
+                 RESP   (WS-EIBRESP)                                    RXA21190
+                 END-EXEC.                                              RXA21190
+           IF WS-EIB-NORESP    OR                                       RXA21190
+              WS-EIB-NOTFND    OR                                       RXA21190
+              WS-EIB-ENDFILE                                            RXA21190
+              SET WS-EIB-NORESP     TO TRUE                             RXA21190
+              SET WS-ORGZ-KEY-EXIST TO TRUE                             RXA21190
+           ELSE                                                         RXA21190
+              MOVE 'F01A'           TO WS-ABCODE                        RXA21190
+           END-IF.                                                      RXA21190
+                                                                        RXA21190
+      *----------------------------------------------------------------*RXA21190
+       F01A-READ-GSTFILE-ZREC-EXIT.                                     RXA21190
+      *----------------------------------------------------------------*RXA21190
+           EXIT.                                                        RXA21190

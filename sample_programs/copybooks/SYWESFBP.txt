@@ -1,0 +1,174 @@
+﻿000400*****************************************************************         
+000500*                                                               *         
+000600*    SYWESFBP - ENHANCED SERVICE FEE PRICING - WORKING STORAGE  *         
+000700*                                                               *         
+000800*****************************************************************         
+000900*****************************************************************         
+001000* REVISIONS:                                                    *         
+001100*                                                               *         
+001200* DATE     PGMR  DESCRIPTION                                    *         
+001300* -------- ----- -----------------------------------------------*         
+001400* 10/05/18 TGF   ADD NEW ERROR 88                               * TGF18278
+001410* 09/07/18 TGF   HELLO WORLD                                    * TGF18250
+001500*****************************************************************         
+001600 01  SYWESFBP-INPUT-AREA.                                                 
+001700     05 SYWESFBP-COMPANY         PIC X(02) VALUE SPACES.                  
+001800     05 SYWESFBP-PART-NBR        PIC X(12) VALUE SPACES.                  
+001900     05 SYWESFBP-CAT-SUBCAT      PIC X(04) VALUE SPACES.                  
+002000     05 SYWESFBP-CUSTOMER.                                                
+002100        10 SYWESFBP-CUST-BR      PIC X(02) VALUE SPACES.                  
+002200        10 SYWESFBP-CUST-NBR     PIC X(06) VALUE SPACES.                  
+002300        10 SYWESFBP-CUST-SUFFIX  PIC X(03) VALUE SPACES.                  
+002400                                                                          
+002500 01  SYWESFBP-WORKING-STORAGE.                                            
+002600     05 SYWESFBP-TOD-DATE        PIC X(10) VALUE SPACES.                  
+002700     05 SYWESFBP-NO-MORE-FEE-SW              PIC X(01) VALUE ' '.         
+002800        88 SYWESFBP-NO-MORE-FEES                       VALUE 'Y'.         
+002810        88 SYWESFBP-ERROR                              VALUE 'E'. TGF18278
+002900     05 SYWESFBP-STOP-LOOP-ON-CUST-SW        PIC X(01) VALUE ' '.         
+003000        88 SYWESFBP-STOP-LOOP-ON-CUST                  VALUE 'Y'.         
+003100     05 SYWESFBP-CUST-EXCLUSION-SW           PIC X(01) VALUE ' '.         
+003200        88 SYWESFBP-CUST-EXCLUSION                     VALUE 'E'.         
+003300        88 SYWESFBP-CUST-NOT-EXCLUDED                  VALUE 'N'.         
+003400     05 SYWESFBP-BRN-CTR         PIC S9(03) COMP-3 VALUE +0.              
+003500     05 SYWESFBP-END-OF-SEARCH-SW    PIC X(01) VALUE 'N'.                 
+003600        88 SYWESFBP-END-OF-SEARCH              VALUE 'Y'.                 
+003700                                                                          
+003800 01  SYWESFBP-OUTPUT-AREA.                                                
+003900     05 SYWESFBP-TBL-CTR         PIC S9(03) COMP-3 VALUE +0.              
+004000     05 SYWESFBP-FEE-PRESENT-SW              PIC X(01) VALUE ' '.         
+004100        88 SYWESFBP-FEE-PRESENT                        VALUE 'Y'.         
+004200        88 SYWESFBP-NO-FEE-PRESENT                     VALUE 'N'.         
+004300        88 SYWESFBP-ERRORS                             VALUE 'E'.         
+004310        88 SYWESFBP-WARNING                            VALUE 'W'.         
+004400     05 SYWESFBP-MESSAGE         PIC X(80) VALUE SPACES.                  
+004500     05 SYWESFBP-FEE-TBLE OCCURS 1 TO 5 TIMES DEPENDING ON                
+004600        SYWESFBP-TBL-CTR ASCENDING KEY IS SYWESFBP-SRV-ID                 
+004700        INDEXED BY SYWESFBP-INDX.                                         
+004800        10 SYWESFBP-TABLE.                                                
+004900           15 SYWESFBP-SRV-ID    PIC X(04).                               
+005000*          15 SYWESFBP-SRV-ID    PIC X(04) VALUE SPACES.                  
+005100           15 SYWESFBP-FEE-UNIT-COST                                      
+005200                                 PIC S9(13)V9(4) COMP-3.                  
+005300*                                PIC S9(13)V9(4) COMP-3 VALUE +0.         
+005400           15 SYWESFBP-FEE-UNIT-PRICE                                     
+005500                                 PIC S9(13)V9(4) COMP-3.                  
+005600*                                PIC S9(13)V9(4) COMP-3 VALUE +0.         
+005700           15 SYWESFBP-SRV-LINE  PIC X(03).                               
+005800           15 FILLER             PIC X(100).                              
+006200                                                                          
+006300*************************************************************             
+006400*                 D B 2   A R E A                                         
+006500*************************************************************             
+006600 01 SYWESFBP-DB2-AREA.                                                    
+006700     05 SYWESFBP-PART-FEE-CSR-SW       PIC X(01) VALUE 'N'.               
+006800        88 SYWESFBP-PART-FEE-CSR-OPEN            VALUE 'Y'.               
+006900        88 SYWESFBP-PART-FEE-CSR-CLOSED          VALUE 'N'.               
+006901     05 SYWESFBP-CATSUB-FEE-CSR-SW     PIC X(01) VALUE 'N'.               
+006902        88 SYWESFBP-CATSUB-FEE-CSR-OPEN          VALUE 'Y'.               
+006903        88 SYWESFBP-CATSUB-FEE-CSR-CLOSED        VALUE 'N'.               
+007000     05 SYWESFBP-DB2-ERROR-AREA.                                          
+007100        10  SYWESFBP-EXTRA-MESSAGE-1.                                     
+007200            15 SYWESFBP-DB2-ERROR-PARA PIC X(50)  VALUE SPACES.           
+007300            15 FILLER                  PIC X(14)  VALUE                   
+007400               'SQLCODE ERROR '.                                          
+007500            15 SYWESFBP-SQLCODE-STATUS PIC -ZZZZZ.                        
+007600            15 FILLER                  PIC X(02)  VALUE SPACES.           
+007700            15 SYWESFBP-DB2-PGM-ERROR  PIC X(08)  VALUE SPACES.           
+007800        10  SYWESFBP-EXTRA-MESSAGE-2.                                     
+007900            15 SYWESFBP-OPERATION-OBJECT                                  
+008000                                       PIC X(35) VALUE                    
+008100               'OPERATION - OPJECT OF OPERATION'.                         
+008200*              'DATA USED FOR DB2 TABLE '.                                
+008300            15 SYWESFBP-DB2-ERROR-PARA2-CO PIC X(02) VALUE SPACES.        
+008400            15 FILLER                  PIC X(01).                         
+008500            15 SYWESFBP-DB2-ERROR-PARA2-BR PIC X(02) VALUE SPACES.        
+008600            15 FILLER                  PIC X(01).                         
+008700            15 SYWESFBP-DB2-ERROR-PARA2-ORD                               
+008800                                       PIC X(05) VALUE SPACES.            
+008900            15 FILLER                  PIC X(01).                         
+009000            15 SYWESFBP-DB2-ERROR-PARA2-PART                              
+009100                                       PIC X(12) VALUE SPACES.            
+009200            15 SYWESFBP-EXTRA-INFO     PIC X(79).                         
+009300                                                                          
+009400     EXEC SQL DECLARE PART_FEE_CSR     CURSOR FOR                         
+009500          SELECT                                                          
+009600              B.CUST_BR_NBR                                               
+009700            , B.CUST_NBR                                                  
+009800            , B.CUST_BILL_TO_SFX                                          
+009900*           , A.PART_NBR                                                  
+010000            , A.VEND_NBR                                                  
+010100            , A.CAT_ID                                                    
+010200            , A.SUBCAT_ID                                                 
+010300            , A.SRV_ID                                                    
+010400            , A.SRV_COST_SEQ_NBR                                          
+010500            , B.PRC_ID                                                    
+010600            , B.SCG_PRC_AMT                                               
+010700            , B.SCG_COST_AMT                                              
+010800            , C.SRV_COST_AMT                                              
+010900        FROM  SF_SRV_SPEC A,                                              
+011000              SF_SRV_CHRG B,                                              
+011100              SF_SRV_COST C                                               
+011200        WHERE                                                             
+011300             A.CO_CD      = :SFTSSPEC-CO-CD                               
+011400         AND B.CO_CD      = A.CO_CD                                       
+011500         AND C.CO_CD      = B.CO_CD                                       
+011600         AND A.PART_NBR   = :SFTSSPEC-PART-NBR                            
+011700         AND A.SRV_ID     = B.SRV_ID                                      
+011800         AND A.SRV_ID     = C.SRV_ID                                      
+011900         AND A.SRV_COST_SEQ_NBR = B.SRV_COST_SEQ_NBR                      
+012000         AND A.SRV_COST_SEQ_NBR = C.SRV_COST_SEQ_NBR                      
+012100         AND (B.SCG_STRT_DT <= CURRENT_DATE AND                           
+012200             B.SCG_EXP_DT >= CURRENT_DATE)                                
+012300             FOR FETCH ONLY                                               
+012400     END-EXEC.                                                            
+012500                                                                          
+012600     EXEC SQL DECLARE CAT_SUBCAT_FEE_CSR     CURSOR FOR                   
+012700          SELECT                                                          
+012800              B.CUST_BR_NBR                                               
+012900            , B.CUST_NBR                                                  
+013000            , B.CUST_BILL_TO_SFX                                          
+013100*           , A.PART_NBR                                                  
+013200*           , A.VEND_NBR                                                  
+013300*           , A.CAT_ID                                                    
+013400*           , A.SUBCAT_ID                                                 
+013500            , A.SRV_ID                                                    
+013600            , A.SRV_COST_SEQ_NBR                                          
+013700            , B.PRC_ID                                                    
+013800            , B.SCG_PRC_AMT                                               
+013900            , B.SCG_COST_AMT                                              
+014000            , C.SRV_COST_AMT                                              
+014100        FROM  SF_SRV_SPEC A,                                              
+014200              SF_SRV_CHRG B,                                              
+014300              SF_SRV_COST C                                               
+014400        WHERE                                                             
+014500             A.CO_CD      = :SFTSSPEC-CO-CD                               
+014600         AND B.CO_CD      = A.CO_CD                                       
+014700         AND C.CO_CD      = B.CO_CD                                       
+014800         AND A.CAT_ID     = :SFTSSPEC-CAT-ID                              
+014900         AND A.SUBCAT_ID  = :SFTSSPEC-SUBCAT-ID                           
+015000         AND A.SRV_ID     = B.SRV_ID                                      
+015100         AND A.SRV_ID     = C.SRV_ID                                      
+015200         AND A.SRV_COST_SEQ_NBR = B.SRV_COST_SEQ_NBR                      
+015300         AND A.SRV_COST_SEQ_NBR = C.SRV_COST_SEQ_NBR                      
+015400         AND (B.SCG_STRT_DT <= CURRENT_DATE AND                           
+015500             B.SCG_EXP_DT >= CURRENT_DATE)                                
+015600             FOR FETCH ONLY                                               
+015700     END-EXEC.                                                            
+015800                                                                          
+015900     EXEC SQL DECLARE CUST_EXCLU_CSR   CURSOR FOR                         
+016000          SELECT                                                          
+016100             EXCLD_FLG                                                    
+016200        FROM SF_SRV_CUST_EXCLD                                            
+016300        WHERE                                                             
+016400             CO_CD             = :SFTSCUSE-CO-CD                          
+016500         AND SRV_ID            = :SFTSCUSE-SRV-ID                         
+016600         AND CUST_BR_NBR       = :SFTSCUSE-CUST-BR-NBR                    
+016700         AND CUST_NBR          = :SFTSCUSE-CUST-NBR                       
+016800         AND CUST_SFX          = :SFTSCUSE-CUST-SFX                       
+016900         AND ACTV_FLG          = 'Y'                                      
+017000        AND (EFFCT_DT         <= :SYWESFBP-TOD-DATE                       
+017100         AND EXPN_DT          >= :SYWESFBP-TOD-DATE)                      
+017200             FOR FETCH ONLY                                               
+017300     END-EXEC.                                                            
+017400                                                                          

@@ -1,0 +1,93 @@
+      *================================================================*        
+      * 04/03/20 DMO NEW COPYBOOK - ADD ON VALIDATION                  *DMO20094
+      *================================================================*        
+       C000-VALIDATE-COMPATIBILITY.                                             
+                                                                                
+           SET ORWCMPAT-ADDON-COMPATIBLE-N                                      
+                                       TO TRUE.                                 
+                                                                                
+           EXEC SQL                                                             
+              SELECT COUNT(*)                                                   
+                INTO :ORWCMPAT-ADDON-COUNT                                      
+                FROM IM_PROD_SLS_MGMT                                           
+               WHERE CO_CD              = :PDTPRDSM-CO-CD                       
+                 AND PROD_SLS_MGMT_CD   = :PDTPRDSM-PROD-SLS-MGMT-CD            
+                 AND MAIN_PART_NBR      = :PDTPRDSM-MAIN-PART-NBR               
+                 AND LIST_PART_NBR      = :PDTPRDSM-LIST-PART-NBR               
+                 AND EFF_DT            <= :ORWCMPAT-ADDON-DATE                  
+                 AND EXP_DT            >  :ORWCMPAT-ADDON-DATE                  
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+                                                                                
+           EVALUATE TRUE                                                        
+           WHEN SQLCODE-NORESP                                                  
+              IF ORWCMPAT-ADDON-COUNT > ZERO                                    
+                 SET ORWCMPAT-ADDON-COMPATIBLE-Y                                
+                                       TO TRUE                                  
+              END-IF                                                            
+           WHEN SQLCODE-NOT-FOUND                                               
+              CONTINUE                                                          
+           WHEN OTHER                                                           
+              MOVE 'C000'              TO WS-ABCODE                             
+              MOVE 'C000-VALIDATE-COMPATIBILITY'                                
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+              MOVE 'ERROR SELECT IM_PROD_SLS_MGMT'                              
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+              PERFORM 990-SQL-MESSAGE                                           
+              PERFORM 999-ABEND                                                 
+           END-EVALUATE.                                                        
+      *                                                                         
+       C000-VALIDATE-COMPAT-EXIT.                                               
+           EXIT.                                                                
+                                                                                
+       C100-VALIDATE-MLINK-COMPAT.                                              
+           SET ORWCMPAT-NORESP TO TRUE.                                         
+           MOVE ORWCMPAT-CO-CD   TO PDTPRDSM-CO-CD.                             
+           MOVE 'AD'                   TO PDTPRDSM-PROD-SLS-MGMT-CD.            
+      *                                                                         
+           IF NOT ORWCMPAT-HW-SKU > SPACES                                      
+              SET ORWCMPAT-MISSING-PRI TO TRUE                                  
+              MOVE 'CANNOT LINK WITHOUT PRIMARY HARDWARE'                       
+                                       TO ORWCMPAT-RESP-MSG                     
+              GO TO C100-EXIT                                                   
+           END-IF.                                                              
+      *                                                                         
+           MOVE ORWCMPAT-HW-SKU  TO PDTPRDSM-MAIN-PART-NBR.                     
+           MOVE ORWCMPAT-SW-SKU  TO PDTPRDSM-LIST-PART-NBR                      
+                                                                                
+           PERFORM C000-VALIDATE-COMPATIBILITY.                                 
+           IF ORWCMPAT-ADDON-COMPATIBLE-N                                       
+              SET ORWCMPAT-NOT-CMPAT-PRI TO TRUE                                
+              MOVE 'CANNOT LINK: NOT COMPATIBLE PRIMARY AND WARRANTY'           
+                                       TO ORWCMPAT-RESP-MSG                     
+              GO TO C100-EXIT                                                   
+           END-IF.                                                              
+                                                                                
+           PERFORM VARYING LN-SUB2 FROM 1 BY 1                                  
+             UNTIL LN-SUB2 > 4                                                  
+              IF ORWCMPAT-ACCS-SKU(LN-SUB2) > SPACES                            
+                 MOVE ORWCMPAT-HW-SKU  TO PDTPRDSM-MAIN-PART-NBR                
+                 MOVE ORWCMPAT-ACCS-SKU(LN-SUB2)                                
+                                       TO PDTPRDSM-LIST-PART-NBR                
+                                                                                
+                 PERFORM C000-VALIDATE-COMPATIBILITY                            
+                 IF ORWCMPAT-ADDON-COMPATIBLE-N                                 
+                    EVALUATE LN-SUB2                                            
+                       WHEN 1                                                   
+                          SET ORWCMPAT-NOT-CMPAT-ACCS1 TO TRUE                  
+                       WHEN 2                                                   
+                          SET ORWCMPAT-NOT-CMPAT-ACCS2 TO TRUE                  
+                       WHEN 3                                                   
+                          SET ORWCMPAT-NOT-CMPAT-ACCS3 TO TRUE                  
+                       WHEN 4                                                   
+                          SET ORWCMPAT-NOT-CMPAT-ACCS4 TO TRUE                  
+                    END-EVALUATE                                                
+                    MOVE 'CANT LINK: NOT COMPATIBLE ACCS AND WARRANTY'          
+                                             TO ORWCMPAT-RESP-MSG               
+                    GO TO C100-EXIT                                             
+                 END-IF                                                         
+              END-IF                                                            
+           END-PERFORM.                                                         
+       C100-EXIT.                                                               
+           EXIT.                                                                

@@ -1,0 +1,366 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      **************************************************************    ELB92200
+      * PROCEDURE DIVISION FOR ROUTINE TO REFORMAT AMOUNTS INTO                 
+      * APPROPRIATE FORMAT FOR A COUNTRY.                                       
+      *                                                                         
+      * COPYBOOK SYW012 CONTAINS THE WORKING STORAGE NECESSARY FOR              
+      * THIS COPYBOOK.                                                          
+      *                                                                         
+      *  BASIC EXAMPLE:                                                         
+      *     05  RPT-AMOUNT-FIELD       PIC X(09).                               
+      *                                                                         
+      *     MOVE WS-AMOUNT             TO SYU12-INPUT-FIELD.                    
+      *     MOVE +9                    TO SYU12-OUTPUT-LENGTH.                  
+      *     MOVE TB-CPO-CURRENCY-CODE  TO SYU12-CURRENCY-CODE.                  
+      *     PERFORM 9995-FORMAT-AMOUNTS.                                        
+      *     MOVE SYU12-OUTPUT          TO RPT-AMOUNT-FIELD.                     
+      *                                                                         
+      * TO EXECUTE THIS ROUTINE DO THE FOLLOWING:                               
+      * - MOVE AMOUNT FIELD TO BE REFORMATED TO (SYU12-INPUT-FIELD)             
+      * - MOVE CURRENCY DENOTING HOW AMOUNT SHOULD BE FORMATED TO               
+      * - FIELD (SYU12-CURRENCY-CODE).                                          
+      * - MOVE LENGTH OF DESIRED OUTPUT FIELD TO (SYU12-OUTPUT-LENGTH).         
+      *                                                                         
+      * - REMAINING FIELDS DO NOT REQUIRE SETTING AS THEY CONTAIN               
+      *   DEFAULT VALUES.  BELOW IS LIST OF FIELD USAGE, AND DEFAULTS           
+      *   -  (SYU12-NEGATIVE-SW)  DEFAULT IS (Y) (SHOW NEGATIVES).              
+      *       VALUE (Y):  RIGHTMOST POSITION WILL BE RESERVED FOR               
+      *                   SIGN BYTE.                                            
+      *       VALUE (N):  NEGATIVE SIGN WILL NOT BE DISPLAYED.  THE             
+      *                   RIGTHMOST POSITION WILL NOT CONTAIN THE               
+      *                   SIGN BYTE.                                            
+      *                                                                         
+      *   -  (SYU12-ZERO-SUPPRESS-SW) DEFAULT IS (T) FOR 0.0000.                
+      *       VALUE (A): WILL BLANK WHEN ZERO                                   
+      *       VALUE (D): WILL DISPLAY .0000 (DECIMAL ONLY)                      
+      *       VALUE (1 THRU 9):DETERMINES THE NUMBER OF ZERO TO DISPLAY         
+      *                  STARTING FROM THE RIGHTMOST WHOLE NUMBER.              
+      *                EX (7) 0,000,000.0000                                    
+      *                EX (2) 00.0000                                           
+      *                                                                         
+      *   -  (SYU12-ABBR-FORMAT-SW) DEFAULT IS SPACES (NO ABBREVIATION)         
+      *       VALUE SPACE:  AMOUNTS WILL NOT BE ABBREVIATED.  THOUSANDS         
+      *                   SEPERATORS WILL BE PRESENT.                           
+      *       VALUE (T):  THOUSANDS SEPERATORS WILL BE REMOVED.                 
+      *       VALUE (A);  FIELD TO BE ABBREVIATED TO FULLEST EXTENT             
+      *                   POSSIBLE FOR THE CURRENCY BEING USED. AT THIS         
+      *                   TIME THIS FEATURE IS NOT IN PLACE.                    
+      *   -  (SYU12-NOTATE-SW) AMOUNT WILL BE NOTATED TO THOUSANDS,             
+      *                   WHERE 'K' BEING THE NOTATION CHARACTER                
+      *      ' '  = NO NOTATION                                                 
+      *      'Y'  = ONLY IF COUNTRY ALLOWS NOTATION                             
+      *      'A'  = NOTATE REGARDLESS OF CURRENCY                               
+      *                                                                         
+      *   -  (SYU12-NBR-OF-DEC)     DEFAULT IS 2.                               
+      *      DETERMINES THE NUMBER OF DECIMAL PLACES TO BE DISPLAYED            
+      *      IN OUTPUT RESULT FIELD.  NOTE:  A CURRENCY WHICH DOES NOT          
+      *      CONTAIN DECIMAL PLACES WILL OVERRIDE WHATEVE IS IN THIS FLD        
+      *   -  (SYU12-FLOATING-CHAR)  DEFAULT IS SPACES.                          
+      *      A CHARACTER PLACED IN THIS FIELD WILL APPEAR IN THE                
+      *      RIGHTMOST NON SIGNIFICANT BYTE.                                    
+      *   -  (SYU12-DEC-OVERRIDE-SW) THIS SWITCH IS USE TO OVERRIDE             
+      *      THE NUMBER OF DECIMAL TO DISPLAY REGARDLESS OF THE CURR.           
+      **************************************************************            
+      *    *  06/30/04  MSI   USE PGM NAME WS FIELD INSTEAD OF HARD     MSI04182
+      *    *                  CODED PGM NAME TO CONVERT FROM STATIC     MSI04182
+      *    *                  TO DYNAMIC CALL                           MSI04182
+      *    *  02/17/97  KLM   TOOK OUT END-IF SO COPYBOOK CAN BE USED   KLM97048
+      *    *                  BY BOTH COBOL AND COBOL II PROGRAMS.      KLM97048
+      *    *  01/17/97  KLM   IF A FORMATTED INPUT USING DECIMALS       KLM97017
+      *    *                  IS GOING TO BE TRUNCATED, IF IT IS STILL  KLM97017
+      *    *                  TOO LARGE AFTER THE THOUSANDS SEPARATORS  KLM97017
+      *    *                  ARE TAKEN OUT, TAKE OUT THE DECIMAL.      KLM97017
+      *    *  12/06/94  VQV   RESET FLOATING-CHAR BEFORE RETURN         PRP94266
+      *    *  09/26/94  PRP   ADDED 'SYU012-FORCED-K-SW' & LOGIC        PRP94266
+      *    *  09/26/94  PRP   ADDED 'SYU012-CONTIGUOUS-K'  & LOGIC      PRP94266
+      **************************************************************            
+       9995-REFORMAT-AMOUNTS.                                                   
+                                                                                
+           MOVE SPACES                 TO  SYU12-CURR-RET-CODE                  
+                                           SYU12-ALL-ZERO-SW                    
+                                           SYU12-SUPPRESS-SW                    
+                                           SYU12-STOP-SW                        
+                                           SYU12-OUTPUT.                        
+                                                                                
+           MOVE ZERO                   TO  SYU12-COUNTER                        
+                                           SYU12-DIFF                           
+                                           SYU12-PASS                           
+                                           SYU12-SUB.                           
+                                                                                
+           MOVE SYU12-NBR-OF-DEC       TO  SYU12-DEC-COUNT.                     
+                                                                                
+           MOVE SYU12-ZERO-SUPPRESS-SW TO  SYU12-ZERO-CNTA.                     
+                                                                                
+      * FOR CURRENCY WITH OUT DECIMAL MOVE ZERO TO SYU12-DEC-COUNT              
+      * UNLESS SYU12-DEC-OVERRIDE-SW IS = 'Y' MEANING                           
+      * DISPLAY DECIMAL REGARLESS OF THE COUNTRY.                               
+                                                                                
+           IF SYU12-NO-DEC-CURR                                                 
+              IF NOT SYU12-DEC-OVERRIDE                                         
+                 MOVE ZERO             TO  SYU12-DEC-COUNT.                     
+                                                                                
+      * DISPLAY ZEROES DEPENDING ON SYU12-ZERO-SUPPRESS-SW                      
+      * IN THE INPUT IS ZERO                                                    
+                                                                                
+           IF SYU12-ZERO-TENTH                                                  
+              MOVE +18                 TO  SYU12-COUNTER                        
+              PERFORM 99955-ZERO-SUPPRESS UNTIL                                 
+                 SYU12-ALL-ZERO.                                                
+                                                                                
+           MOVE 'N'                    TO  SYU12-MOVE-K-SW.                     
+           MOVE 'Y'                    TO  SYU12-ALL-ZERO-SW.                   
+           MOVE ZERO                   TO  SYU12-COUNTER                        
+                                           SYU12-DIFF.                          
+                                                                                
+      * NOTATION WILL START HERE                                                
+      * CHECK IF INPUT IS GRATER THAN 999.9999                                  
+      * (SYU12-INPUT-BYTE (14) = 1,000.0000 )                                   
+                                                                                
+           IF   SYU12-NOTATE-YES                                        PRP94266
+           OR  (SYU12-NOTATE-SELECTED-CURR  AND  SYU12-NOTATE-CURR)     PRP94266
+                IF   SYU12-INPUT-BYTE (14)  NOT =  SPACE                PRP94266
+                     MOVE 'Y'              TO  SYU12-MOVE-K-SW.         PRP94266
+                                                                        PRP94266
+           IF   SYU12-FORCED-K                                          PRP94266
+           AND  SYU12-INPUT-BYTE (08)  NOT =  SPACE                     PRP94266
+                MOVE  'Y'             TO  SYU12-MOVE-K-SW.              PRP94266
+                                                                        PRP94266
+           IF   SYU12-MOVE-K                                            PRP94266
+                MOVE SYU12-INPUT-BYTE (24)  TO  SYU12-INPUT-BYTE (15)   PRP94266
+                MOVE 4                      TO  SYU12-DEC-COUNT         PRP94266
+                MOVE LOW-VALUES             TO  SYU12-INPUT-BYTE (16).  PRP94266
+                                                                                
+           CALL SYU12-UTIL-PGM-NAME USING  SYU12-CURRENCY-CODE          MSI04182
+                                           SYU12-INPUT-FIELD.                   
+                                                                                
+      * CHECK IF INPUT IS EQUAL ZERO AND IF SYU12-ZERO-SUPPRESS-SW              
+      * IS EQUAL 'A' (BLANK WHEN ZERO)                                          
+      * IS EQUAL 'D' (DISPLAY .00)                                              
+                                                                                
+           IF SYU12-INPUT-BYTE (02) = '.' OR ','                                
+              IF SYU12-INPUT-BYTE (01) = '0'                                    
+                 IF SYU12-ZERO-DECIMAL                                          
+                    MOVE ' '          TO  SYU12-INPUT-BYTE (01)                 
+                 ELSE                                                           
+                 IF SYU12-ZERO-SUPPRESS                                         
+                    COMPUTE SYU12-DIFF = SYU12-NBR-OF-DEC + 2                   
+                    MOVE SPACES       TO  SYU12-INPUT-BYTE (01)                 
+                    PERFORM 99957-BLANK-WHEN-ZERO UNTIL                         
+                            SYU12-DIFF LESS THAN 3                              
+                    MOVE ZERO         TO  SYU12-DIFF.                           
+                                                                                
+      *                                                                         
+      * REFORMAT CURRENCY PROCESS                                               
+      *                                                                         
+                                                                                
+           IF SYU12-OUTPUT-LENGTH GREATER THAN ZERO AND                         
+              SYU12-INPUT-TABLE NOT EQUAL SPACES                                
+                                                                                
+              INSPECT SYU12-INPUT-FIELD TALLYING SYU12-COUNTER FOR              
+                 CHARACTERS BEFORE INITIAL LOW-VALUE                            
+                                                                                
+              MOVE ZERO                   TO  SYU12-DIFF                        
+              MOVE SYU12-OUTPUT-LENGTH    TO  SYU12-SUB                         
+                                                                                
+              PERFORM 99951-PROCESS-OUTPUT.                                     
+                                                                                
+           MOVE SPACES                    TO  SYU12-DEC-OVERRIDE-SW             
+                                              SYU12-FLOATING-CHAR.              
+                                                                                
+      * START PROCESSING OUTPUT                                                 
+                                                                                
+       99951-PROCESS-OUTPUT.                                                    
+                                                                                
+           PERFORM 99952-CHECK-SIGN-DEC                                         
+           PERFORM 99953-FORMAT-OUTPUT                                          
+                   UNTIL SYU12-COUNTER EQUAL ZERO                               
+                                                                                
+           IF SYU12-SUB GREATER THAN ZERO                                       
+              MOVE SYU12-FLOATING-CHAR TO                                       
+                                        SYU12-OUTPUT-VALUE (SYU12-SUB).         
+                                                                                
+                                                                                
+      * MOVE THE SIGN IF REQUESTED AND SET THE POINTER TO THE                   
+      * NEXT FIELD (FROM RIGHT TO LEFT)                                         
+      * ALSO CHECK IF SEPARATOR ARE NEEDED                                      
+      * SYU12-COUNTER = INPUT                                                   
+      * SYU12-SUB     = OUTPUT                                                  
+                                                                                
+       99952-CHECK-SIGN-DEC.                                                    
+                                                                                
+           IF SYU12-INPUT-BYTE (SYU12-COUNTER) EQUAL '-'                        
+              IF SYU12-MOVE-K                                                   
+                 MOVE 'K'            TO  SYU12-OUTPUT-VALUE (SYU12-SUB)         
+                 MOVE  SYU12-SUB     TO  SYU12-SUB2                     PRP94266
+                 SUBTRACT 1         FROM   SYU12-SUB                            
+                 MOVE SYU12-INPUT-BYTE (SYU12-COUNTER)                          
+                                     TO  SYU12-OUTPUT-VALUE (SYU12-SUB)         
+              ELSE                                                              
+                 MOVE SYU12-INPUT-BYTE (SYU12-COUNTER)                          
+                                     TO  SYU12-OUTPUT-VALUE (SYU12-SUB)         
+           ELSE                                                                 
+           IF SYU12-MOVE-K                                                      
+              MOVE 'K'               TO  SYU12-OUTPUT-VALUE (SYU12-SUB)         
+              MOVE  SYU12-SUB        TO  SYU12-SUB2                     PRP94266
+              SUBTRACT 1           FROM  SYU12-SUB                              
+              MOVE SPACES            TO                                         
+                                     SYU12-OUTPUT-VALUE (SYU12-SUB)             
+           ELSE                                                                 
+               IF SYU12-SUB GREATER THAN ZERO                                   
+               MOVE SPACES           TO                                         
+                                     SYU12-OUTPUT-VALUE (SYU12-SUB).            
+                                                                                
+           IF   SYU12-CONTIGUOUS-K                                      PRP94266
+           AND  SYU12-OUTPUT-VALUE (SYU12-SUB2) = 'K'                   PRP94266
+                ADD  -01  TO  SYU12-SUB2                                PRP94266
+                IF   SYU12-OUTPUT-VALUE (SYU12-SUB2) = SPACE            PRP94266
+                     MOVE  'K'    TO  SYU12-OUTPUT-VALUE (SYU12-SUB2)   PRP94266
+                     ADD   01     TO  SYU12-SUB2                        PRP94266
+                     MOVE  SPACE  TO  SYU12-OUTPUT-VALUE (SYU12-SUB2).  PRP94266
+                                                                        PRP94266
+           IF SYU12-NEGATIVE-SHOW-SIGN                                          
+              SUBTRACT 1             FROM   SYU12-SUB                           
+              COMPUTE SYU12-DIFF     =  4 - SYU12-DEC-COUNT                     
+              SUBTRACT SYU12-DIFF    FROM   SYU12-COUNTER                       
+              SUBTRACT 1             FROM   SYU12-COUNTER                       
+              IF SYU12-DEC-COUNT  EQUAL ZERO                                    
+                 SUBTRACT 1          FROM   SYU12-COUNTER                       
+              ELSE                                                              
+                  NEXT SENTENCE                                                 
+           ELSE                                                                 
+              COMPUTE SYU12-DIFF     =  4 - SYU12-DEC-COUNT                     
+              SUBTRACT SYU12-DIFF    FROM   SYU12-COUNTER                       
+              SUBTRACT 1             FROM   SYU12-COUNTER                       
+              IF SYU12-DEC-COUNT  EQUAL ZERO                                    
+                 SUBTRACT 1          FROM   SYU12-COUNTER.                      
+                                                                                
+           IF SYU12-MOVE-K                                                      
+              MOVE 0                   TO   SYU12-DEC-COUNT.                    
+                                                                                
+           MOVE ZERO                   TO   SYU12-DIFF.                         
+           IF SYU12-NEGATIVE-SHOW-SIGN                                          
+              MOVE +1                  TO   SYU12-DIFF.                         
+                                                                                
+           IF SYU12-ABBR-THOUS-SEPERATORS OR                                    
+              (SYU12-COUNTER + SYU12-DIFF) GREATER THAN                         
+                                           SYU12-OUTPUT-LENGTH                  
+              MOVE 'Y'                 TO  SYU12-SUPPRESS-SW.                   
+                                                                                
+                                                                        KLM97017
+      * THE FOLLOWING CODE IS TO REMOVE THE DECIMAL POINT FROM THE      KLM97017
+      * OUTPUT AMOUNT IF IT IS GOING TO BE TRUNCATED AFTER THE          KLM97017
+      * THOUSANDS SEPARATORS HAVE BEEN SUPPRESSED. THIS IS DONE BY      KLM97017
+      * CALCULATING THE LENGTH OF THE INPUT WITHOUT THE THOUSANDS       KLM97017
+      * SEPARATORS AND COMPARING IT AGAINST THE LENGTH OF THE OUTPUT    KLM97017
+      * FIELD. IF IT EXCEEDS THE OUTPUT, MOVE ZERO TO SYU12-DEC-COUNT.  KLM97017
+      * SYU12-COUNTER = INPUT LENGTH                                    KLM97017
+                                                                        KLM97017
+           IF SYU12-SUPPRESS                                            KLM97017
+              IF SYU12-DEC-COUNT > 0                                    KLM97017
+                 COMPUTE SYU12-SUB2 =                                   KLM97017
+                    (SYU12-COUNTER - SYU12-DEC-COUNT)                   KLM97017
+                 MOVE ZERO            TO SYU12-DIFF                     KLM97017
+                 PERFORM 99958-INSPECT-FOR-THOU-DELIMIT                 KLM97048
+                 COMPUTE SYU12-DIFF = SYU12-COUNTER - SYU12-DIFF        KLM97048
+                 IF SYU12-DIFF > SYU12-OUTPUT-LENGTH                    KLM97048
+                    COMPUTE SYU12-COUNTER =                             KLM97048
+                       SYU12-COUNTER - SYU12-DEC-COUNT - +1             KLM97048
+                    MOVE ZERO    TO SYU12-DEC-COUNT.                    KLM97048
+                                                                        KLM97017
+      * SET-UP OUTPUT AREA FROM RIGTH TO LEFT...                                
+      * SYU12-COUNTER       =   INPUT                                           
+      * SYU12-SUB           =   OUTPUT (FINAL RESULT)                           
+      * SYU12-PASS          =   DECIMAL COUNTER                                 
+      * SYU12-DEC-COUNT     =   NBR OF DECIMAL TO DISPLAY                       
+                                                                                
+       99953-FORMAT-OUTPUT.                                                     
+                                                                                
+           IF SYU12-SUB EQUAL 0 OR SYU12-SUB LESS THAN 0                        
+              MOVE 'E'                 TO  SYU12-CURR-RET-CODE.                 
+                                                                                
+           IF SYU12-NORESP                                                      
+              IF SYU12-SUPPRESS                                                 
+                 IF SYU12-PASS GREATER THAN SYU12-DEC-COUNT                     
+                    PERFORM 99954-SUPPRESS-SEPARATORS                           
+                 ELSE                                                           
+                    PERFORM 99956-MOVE-OUTPUT                                   
+              ELSE                                                              
+                 PERFORM 99956-MOVE-OUTPUT.                                     
+                                                                                
+           ADD 1                       TO  SYU12-PASS.                          
+           SUBTRACT 1                FROM  SYU12-COUNTER.                       
+                                                                                
+                                                                                
+      * IF SYU12-PASS GREATER THAN SYU12-DEC-COUNT                              
+      * INIT OUTPUT AREA WITH OUT THE THOUSANDS SEPARATORS                      
+                                                                                
+       99954-SUPPRESS-SEPARATORS.                                               
+                                                                                
+           IF SYU12-INPUT-BYTE (SYU12-COUNTER) NOT = ',' AND                    
+                                                     '.' AND                    
+                                                     ' '                        
+              PERFORM 99956-MOVE-OUTPUT.                                        
+                                                                                
+                                                                                
+      * SETUP OUPUT DISPLAY IF INPUT IS ZERO                                    
+      * DISPLAY ZEROES DEPENDING ON SYU12-ZER-SUPPRESS-SW                       
+      * IF THE INPUT IS ZERO                                                    
+                                                                                
+       99955-ZERO-SUPPRESS.                                                     
+                                                                                
+           ADD 1                 TO  SYU12-DIFF                                 
+           IF SYU12-DIFF = 4                                                    
+              MOVE +0            TO  SYU12-DIFF                                 
+              MOVE ','           TO  SYU12-INPUT-BYTE (SYU12-COUNTER)           
+           ELSE                                                                 
+           SUBTRACT 1          FROM  SYU12-ZERO-COUNT                           
+           IF SYU12-INPUT-BYTE (SYU12-COUNTER) = ' ' OR LOW-VALUE               
+              MOVE '0'           TO  SYU12-INPUT-BYTE (SYU12-COUNTER).          
+                                                                                
+           SUBTRACT 1          FROM  SYU12-COUNTER.                             
+                                                                                
+           IF SYU12-ZERO-COUNT = 0                                              
+              MOVE 'Y'           TO  SYU12-ALL-ZERO-SW.                         
+                                                                                
+                                                                                
+      * SETUP FINAL RESULT OF OUPUT DATA                                        
+      * TO BE DISPLAYED                                                         
+                                                                                
+       99956-MOVE-OUTPUT.                                                       
+                                                                                
+           MOVE SYU12-INPUT-BYTE (SYU12-COUNTER)                                
+                                 TO  SYU12-OUTPUT-VALUE (SYU12-SUB)             
+           SUBTRACT 1          FROM  SYU12-SUB.                                 
+                                                                                
+      * ZERO SUPPRESS.                                                          
+                                                                                
+       99957-BLANK-WHEN-ZERO.                                                   
+                                                                                
+           IF SYU12-INPUT-BYTE (SYU12-DIFF) NOT = 0                             
+              MOVE ' '           TO  SYU12-ALL-ZERO-SW.                         
+                                                                                
+           SUBTRACT 1          FROM  SYU12-DIFF                                 
+                                                                                
+           IF SYU12-DIFF LESS THAN 3                                            
+              IF SYU12-ALL-ZERO                                                 
+                 MOVE SPACES     TO  SYU12-OUTPUT                               
+                                     SYU12-INPUT-TABLE                          
+              ELSE                                                              
+                 MOVE 'Y'        TO  SYU12-ALL-ZERO-SW.                         
+                                                                        KLM97048
+                                                                        KLM97048
+       99958-INSPECT-FOR-THOU-DELIMIT.                                  KLM97048
+                                                                        KLM97048
+           IF SYU12-INPUT-BYTE (SYU12-SUB2) = '.'                       KLM97048
+              INSPECT SYU12-INPUT-FIELD TALLYING SYU12-DIFF             KLM97048
+                 FOR ALL ','                                            KLM97048
+           ELSE                                                         KLM97048
+              IF SYU12-INPUT-BYTE (SYU12-SUB2) = ','                    KLM97048
+                 INSPECT SYU12-INPUT-FIELD TALLYING SYU12-DIFF          KLM97048
+                    FOR ALL '.'.                                        KLM97048
+                                                                        KLM97048
+           IF SYU12-DIFF > ZERO                                         KLM97048
+              IF SYU12-NEGATIVE-SHOW-SIGN                               KLM97048
+                 SUBTRACT +1 FROM SYU12-DIFF.                           KLM97048

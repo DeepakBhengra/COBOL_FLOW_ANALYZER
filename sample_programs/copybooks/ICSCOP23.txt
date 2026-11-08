@@ -1,0 +1,177 @@
+﻿      *================================================================*        
+      *  PURPOSE:                                                      *        
+      *  =======                                                       *        
+      *  THIS COPYBOOK CONTAINS LOGICS FOR CALLING DB2 SQL QUERY       *        
+      *  EXECUTING PARAGRAPHS PRESENT IN ICSCOP21 PARAGRAPH TO PERFORM *        
+      *  DATA MANIPULATION IN ACOP_MAX_MAQ_LOG DB2 TABLE.              *        
+      *                                                                *        
+      *  WORKING STORAGE USED: ICWCOP20.                               *        
+      *================================================================*        
+      *                                                                *        
+      * REVISION INFO:                                                 *        
+      * 07/31/20 SPR FIX - TO UPDATE MULTIPLE DISTRIBUTION UNDER       *SPR20213
+      *              ALTERNATE LINES                                   *SPR20213
+      * 02/28/20 SPR ACOP TRACK DB2 PROCESS: NEW COPYBOOK              *SPR20059
+      *================================================================*        
+      *                                                                         
+      *----------------------------------------------------------------*        
+      *LOG MAX/MAQ QTY CHANGES FOR THE APPLIED ACOP IN AN ORDER TO     *        
+      *ACOP_MAX_MAQ_LOG TABLE:                                         *        
+      *PARAGRAPH IS CALLED ONLY WHEN TB-ACOP-MAQ-MAX-DB2-TRAC-SW = 'Y' *        
+      *LOGGING PROCESS :                                               *        
+      *1. ICWCOP20-COP-MAX-MAQ-SET(EITHER ICWCOP20-COP-MAX-TODATE-UPD/ *        
+      *                         ICWCOP20-MAQ-QTY-ORDRED-UPD) IS SET    *        
+      *   WHEN COP-MAX-QTY-TODATE/MAQ-COP-QTY-ORDERED QUANTITIES ARE   *        
+      *   ADDED OR REDUCED FOR THE ORDER LINE FOR WHICH THE ACOP IS    *        
+      *   APPLIED WITH MAX/MAQ LIMITS.                                 *        
+      *2. WHEN QUANTITY IS REDUCED, APPROPRIATE LINE DELETE/RESET      *        
+      *   STATUS IS SET. THIS IS SET TO NEGATE THE COMPUTED QUANTITY   *        
+      *   TO BE REDUCED FOR THE ACOP. THIS WILL BE DONE IN THE COPYBOOK*        
+      *   ICSCOP21.                                                    *        
+      *3. WHEN QUANTITY IS ADDED, LINE STATUS WILL NOT BE SET AND THE  *        
+      *   QUANTITY COMPUTED WILL BE LOGGED AS SUCH.                    *        
+      *4. TO LOG THE EVENT TYPE, RESPECTIVE INDEX WILL BE MOVED FROM   *        
+      *   THE VARIABLE ICWCOP20-ACOP-MAX-MAQ-EVNT-TYP.                 *        
+      *5. SET ICWCOP20-DB2-INSERT TO TRUE TO LOG THE DETAILS INTO      *        
+      *   ACOP_MAX_MAQ_LOG DB2 TABLE.                                  *        
+      *6. CALL PARA X400-MAX-MAQ-TRK PRESENT IN ICSCOP21 COPYBOOK TO   *        
+      *   FORMAT THE VALUES TO INSERT INTO DB2 TABLE.                  *        
+      *7. CALL PARA T100-ACOP-MAX-MAQ-TRK-PRCS PRESENT IN ICSCOP20     *        
+      *   COPYBOOK TO INSERT INTO DB2 TABLE.                           *        
+      *----------------------------------------------------------------*        
+       L400-ACOP-MAX-MAQ-LOG.                                                   
+                                                                                
+           IF  ICWCOP20-COP-MAX-MAQ-SET                                         
+           AND ICWCOP20-ACOP-ORDER-QTY > ZERO                                   
+               IF ICWCOP20-ORC-MAQ-ACOP-SKU                                     
+                  PERFORM L410-PRCS-ICLCOP-READ                                 
+                     THRU L410-PRCS-ICLCOP-READ-EXIT                            
+               ELSE                                                             
+                  PERFORM X400-MAX-MAQ-TRK                                      
+                     THRU X400-MAX-MAQ-TRK-EXIT                                 
+               END-IF                                                           
+           ELSE                                                                 
+               GO TO L400-ACOP-MAX-MAQ-LOG-EXIT                                 
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP20-INIT-SHIP-TO-SFX-Y                                       
+              IF ICWCOP20-SHIP-TO-SUF = SPACES                                  
+                 MOVE SPACES         TO ICWCOP20-CUST-SHIP-TO-SFX               
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           SET ICWCOP20-DB2-INSERT   TO TRUE.                                   
+           PERFORM T100-ACOP-MAX-MAQ-TRK-PRCS                                   
+              THRU T100-ACOP-MAX-MAQ-TRK-PRC-EXIT.                              
+                                                                                
+       L400-ACOP-MAX-MAQ-LOG-EXIT.                                              
+           EXIT.                                                                
+                                                                                
+       L410-PRCS-ICLCOP-READ.                                                   
+                                                                                
+           IF ICWCOP20-COP-KEYS-NOT-SET                                         
+              PERFORM A193A-FORMAT-ICLCOP-KEY                                   
+           END-IF.                                                              
+                                                                                
+           PERFORM L420-INIT-COP-VAR                                            
+              THRU L420-INIT-COP-VAR-EXIT                                       
+           PERFORM A190-READ-ICLOP                                              
+           IF WS-EIB-NORESP                                                     
+              PERFORM L421-MOVE-COP-VARIABLES                                   
+                 THRU L421-MOVE-COP-VARBLE-EXIT                                 
+           END-IF.                                                              
+           PERFORM :X400:-MAX-MAQ-TRK                                           
+              THRU :X400:-MAX-MAQ-TRK-EXIT.                                     
+                                                                                
+       L410-PRCS-ICLCOP-READ-EXIT.                                              
+           EXIT.                                                                
+                                                                                
+      *---RESET THE DB2 MAX/MAQ VALUE TRACE LOG WITH THE DISTRIBUTION/          
+      *---SHIPMENT AFTER LINE INSERTION. THIS IS DONE AS INITIAL                
+      *---LOG HAPPENS IN ICPCOP WITH DIST-SHIP = 11                             
+       L430-CHECK-FOR-DIFF-DIST-SHIP.                                           
+                                                                                
+           IF TB-ACOP-MAQ-MAX-DB2-TRAC-ON                                       
+              IF WS-ORSLNE-NORESP                                               
+                 IF  (ORSH-DIST-NBR = OET-DIST-NBR                      SPR20213
+                 AND  ORSH-SHIP-NBR = OET-SHIP-NBR)                     SPR20213
+                 AND (ORSH-DIST-NBR = TC-DIST-NBR                       SPR20213
+                 AND  ORSH-SHIP-NBR = TC-SHIP-NBR)                      SPR20213
+                     CONTINUE                                                   
+                 ELSE                                                           
+                     PERFORM L440-PROCESS-DIST-SHIP-UPD                         
+                        THRU L440-PRCS-DS-UPD-EXIT                              
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       L430-CHK-FOR-DIFF-DS-EXIT.                                               
+           EXIT.                                                                
+                                                                                
+       L440-PROCESS-DIST-SHIP-UPD.                                              
+                                                                                
+            MOVE ORSH-DIST-NBR    TO SETACMAX-DIST-NBR.                         
+            MOVE ORSH-SHIP-NBR    TO SETACMAX-SHIP-NBR.                         
+            MOVE ORH-COMPANY      TO SETACMAX-CO-CD.                            
+            MOVE ORH-BR-NBR       TO SETACMAX-ORDR-BR.                          
+            MOVE ORH-ORDER-NBR    TO SETACMAX-ORDR-NBR.                         
+            MOVE ORH-ENTRY-DATE   TO ICWCOP20-ORDER-DT-JUL.                     
+            MOVE ORL-LINE-NBR     TO SETACMAX-LINE-NBR.                         
+            MOVE ORL-PART-NBR     TO SETACMAX-PART-NBR.                         
+                                                                                
+            PERFORM X410-CONVERT-JUL-DT                                         
+               THRU X410-CONVERT-JUL-DT-EXIT.                                   
+                                                                                
+            IF SY777-OUT-ERR-SW = SPACE                                         
+               MOVE SY777-OUT-ISO-10                                            
+                                  TO SETACMAX-ORDR-DT                           
+               MOVE ZERO          TO ICWCOP20-ORD-DT-IND                        
+            ELSE                                                                
+               MOVE -1            TO ICWCOP20-ORD-DT-IND                        
+            END-IF.                                                             
+            SET ICWCOP20-DB2-UPDATE-DS                                          
+                                  TO TRUE.                                      
+                                                                                
+            PERFORM T400-UPD-ORD-DIST-SHP                                       
+               THRU T400-EXIT.                                                  
+                                                                                
+       L440-PRCS-DS-UPD-EXIT.                                                   
+           EXIT.                                                                
+                                                                                
+       L450-LOG-MAX-TODATE-CHGS.                                                
+                                                                                
+           PERFORM L110-INIT-MAX-QTY-VAR                                        
+              THRU L110-INIT-MAX-QTY-VAR-EXIT.                                  
+                                                                                
+           IF COP-CUSTOMER-SPECIFIC                                             
+           OR COP-CUSTOMER-ENDUSER                                              
+              MOVE COP-CUST-BR-NBR TO ICWCOP20-CU-BR-NBR                        
+              MOVE COP-CUST-NBR    TO ICWCOP20-CU-NBR                           
+           END-IF.                                                              
+                                                                                
+           IF COP-BRANCH-NUMBER                                                 
+              MOVE COP-BRANCH-NBR  TO ICWCOP20-CU-BR-NBR                        
+           END-IF.                                                              
+                                                                                
+           IF ICWCOP20-REDUCE-ORD-QTY > ZERO                                    
+              MOVE ICWCOP20-REDUCE-ORD-QTY                                      
+                                   TO ICWCOP20-ACOP-ORDER-QTY                   
+              MOVE +18             TO ICWCOP20-MAX-MAQ-LG-EVENT-IDX             
+              SET ICWCOP20-MAX-QTY-RESET                                        
+                                   TO TRUE                                      
+           ELSE                                                                 
+              IF ICWCOP20-INC-LNE-ORD-QTY > ZERO                                
+                 MOVE +17          TO ICWCOP20-MAX-MAQ-LG-EVENT-IDX             
+                 MOVE ICWCOP20-INC-LNE-ORD-QTY                                  
+                                   TO ICWCOP20-ACOP-ORDER-QTY                   
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+           SET ICWCOP20-INIT-SHIP-TO-SFX-Y                                      
+                                   TO TRUE.                                     
+           PERFORM L400-ACOP-MAX-MAQ-LOG                                        
+              THRU L400-ACOP-MAX-MAQ-LOG-EXIT.                                  
+                                                                                
+       L450-LOG-MAX-TODATE-CHGS-EXIT.                                           
+           EXIT.                                                                
+                                                                                

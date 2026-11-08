@@ -1,0 +1,315 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+       7000-SYXAUTH.                                                            
+      ******************************************************************TSR98027
+      ******************************************************************TSR98027
+      * 03/05/21 AZC ADDED NEW LOGIC TO SET GENERIC VENDOR             *AZC21064
+      * 06/23/17 TGF ADDED INDIA GST CONDITIONS                        *TGF17174
+      * 12/18/06 KMP MODIFIED CODE TO HANDLE RETURN CODE FOR I/O       *KMP06352
+      *              CALLS THAT ARE NOT NORMAL RESPONSE OR RECORD      *KMP06352
+      *              NOT FOUND.                                        *KMP06352
+      * 04/03/98 RGB ADDED OET-TYPE-INTER-SYSTEM-TRANSFER TO BYPASS    *RGB98068
+      *              SYSTEM TRANSFERS FROM THE AUTH ROUTINE            *RGB98068
+      * 01/28/98 TSR BECAUSE OF THE NUMBER OF CHANGES REQUIRED TO      *TSR98027
+      *              INSTALL THE NEW CUSTOMER ALGORTHM THIS CPYLIB     *TSR98027
+      *              MEMBER HAS BEEN COMPLETELY REWRITTEN AND WILL     *TSR98027
+      *              REPLACE THE CURRENT VERSION.                      *TSR98027
+      ******************************************************************TSR98027
+      *                                                                *        
+      *   THIS COPY LIBRARY MEMBER CONTAINS THE PROGRAM LOGIC          *        
+      *   REQUIRED TO AUTHORIZE THE CUSTOMER TO PURCHASE MERCHANDISE   *        
+      *   FROM THE VENDOR.                                             *        
+      *                                                                *        
+      ******************************************************************        
+      *                                                                *        
+      *   CHECK CUSTOMER'S VENDOR AUTHORIZATION.                       *        
+      *                                                                *        
+      *      INPUT : OET-COMPANY           - COMPANY CODE              *        
+      *              OET-CUST-BR           - CUSTOMER BRANCH           *        
+      *              OET-CUST-NBR          - CUSTOMER NUMBER           *        
+      *              OET-CUST-SUF          - CUSTOMER BILL-TO SUFFIX   *        
+      *              OET-CUST-SHIP-TO-SUF  - CUSTOMER SHIP-TO SUFFIX   *        
+      *              INI-VENDOR-NBR        - INVENTORY VENDOR NUMBER   *        
+      *              INI-RESTRICTED-SW     - ITEM'S RESTRICTION SWITCH *        
+      *                                                                *        
+      *      OUTPUT: WS-SYXAUTH-AUTHORIZATION-SW : 'Y' = AUTHORIZED    *        
+      *                                            'N' = UNAUTHORIZED. *        
+      *                                                                *        
+      ******************************************************************        
+      *                                                                         
+      *     ORSHED / OERTSQA EQUIVALENT COPYBOOK VARIABLES:                     
+      *                                                                         
+      *     OET-COMPANY          -        ORH-COMPANY                           
+      *     OET-CUST-BR          -        ORH-BILL-TO-BR-NBR                    
+      *     OET-CUST-NBR         -        ORH-BILL-TO-CUST-NBR                  
+      *     OET-SHIP-TO-SUF      -        ORH-SHIP-TO-SUFFIX                    
+      *     OET-FLOOR-SUF        -        ORH-FLOOR-SUF                         
+      *     OET-CUST-SUF         -        ORH-BILL-TO-SUFFIX                    
+      ******************************************************************        
+      *   REQUIRED COPYBOOKS:                                                   
+      *   CUKVNA   - CUSTOMER/VENDOR AUTHORIZATION SKA                          
+      *   CURVNA   - CUSTOMER/VENDOR AUTHORIZATION                              
+      *   INSHED   - INVENTORY D/B HEADER SEGMENT                               
+      *   OERTSQA  - ORDER ENTRY TEMPORARY STORAGE QUEUE                        
+      *   SYWAUTH  - AUTHORIZATION ROUTINE WORKING STORAGE                      
+      ******************************************************************        
+                                                                                
+      *     ONE-TIME INITIALIZATION                                             
+                                                                                
+            SET WS-SYXAUTH-AUTHORIZED     TO  TRUE                              
+                                                                                
+      *    BYPASS PROCESSING                                                    
+                                                                                
+           IF OET-CUST-NBR = '111111' OR                                        
+              OET-TYPE-INTER-SYSTEM-TRANSFER OR                         RGB98068
+              OET-CUST-NBR = '999999'                                           
+              GO TO 7000-SYXAUTH-EXIT.                                          
+                                                                                
+      *    CUSTOMER LEVEL KEY INITIALIZATION                                    
+                                                                                
+           MOVE OET-COMPANY               TO  WS-CULVNA-COMPANY                 
+           MOVE OET-CUST-BR               TO  WS-CULVNA-BR-NBR                  
+           MOVE OET-CUST-NBR              TO  WS-CULVNA-CUST-NBR                
+                                                                                
+           IF OET-SHIP-TO-SUF NUMERIC                                           
+              MOVE OET-SHIP-TO-SUF        TO  WS-CULVNA-CUST-SUFFIX             
+           ELSE                                                                 
+              IF OET-FLOOR-SUF                                                  
+                 MOVE '000'               TO  WS-CULVNA-CUST-SUFFIX             
+              ELSE                                                              
+                 MOVE OET-CUST-SUF        TO  WS-CULVNA-CUST-SUFFIX.            
+                                                                                
+      *   CHECK TO SEE IF THERE IS A AUTH AS OVERRIDE                           
+           MOVE 'A'                       TO  WS-CULVNA-SEGMENT-TYPE.           
+           MOVE SPACE                     TO  WS-CULVNA-VENDOR                  
+                                              WS-CULVNA-RESTRICT-CODE           
+                                              CULVNA-ATAS-CUST.                 
+                                                                                
+           PERFORM 7000-SYXAUTH-READ.                                           
+                                                                        KMP06352
+           IF WS-CULVNA-ERROR                                           KMP06352
+              SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                       KMP06352
+              SET WS-SYXAUTH-CULVNA-ERROR TO TRUE                       KMP06352
+              GO TO 7000-SYXAUTH-EXIT                                   KMP06352
+           END-IF.                                                      KMP06352
+                                                                        KMP06352
+           IF WS-CULVNA-NORESP                     AND                          
+              CULVNA-ATAS-BR-NBR      NOT = SPACES AND                          
+              CULVNA-ATAS-CUST-NBR    NOT = SPACES AND                          
+              CULVNA-ATAS-CUST-SUFFIX NOT = SPACES                              
+              MOVE CULVNA-ATAS-BR-NBR      TO WS-CULVNA-BR-NBR                  
+              MOVE CULVNA-ATAS-CUST-NBR    TO WS-CULVNA-CUST-NBR                
+              MOVE CULVNA-ATAS-CUST-SUFFIX TO WS-CULVNA-CUST-SUFFIX             
+           END-IF.                                                              
+                                                                                
+      *    SEARCH FOR GENERIC AUTHORIZE AS CUSTOMER                             
+      *       SEARCH FIRST FOR A POSITIVE RESPONSE IF THAT IS                   
+      *       NOT FOUND THE SEARCH FOR A NEGATIVE RESPONSE.                     
+      *       IF A RESPONSE IS FOUND THEN MOVE THE KEY OF THE RECORD            
+      *          TO WS-CULVNA-KEY FOR THE FOLLOWING READ.                       
+           IF WS-CULVNA-NORESP    AND                                           
+              CULVNA-ATAS-GENERIC                                               
+              MOVE WS-CULVNA-KEY  TO WS-SYXAUTH-KEY                             
+              MOVE LOW-VALUES     TO WS-CULVNA-KEY(11:9)                        
+              PERFORM 7000-SYXAUTH-STARTBR                                      
+                                                                        KMP06352
+              IF WS-CULVNA-ERROR                                        KMP06352
+                 SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                    KMP06352
+                 SET WS-SYXAUTH-CULVNA-ERROR TO TRUE                    KMP06352
+                 GO TO 7000-SYXAUTH-EXIT                                KMP06352
+              END-IF                                                    KMP06352
+                                                                        KMP06352
+              IF WS-CULVNA-NORESP                                               
+                 PERFORM 7000-SYXAUTH-READNEXT WITH TEST AFTER                  
+                   UNTIL NOT WS-CULVNA-NORESP                    OR             
+                         CULVNA-KEY(1:10) NOT = WS-SYXAUTH-KEY1  OR             
+                        (CULVNA-KEY(1:10)     = WS-SYXAUTH-KEY1 AND             
+                         CULVNA-SEGMENT-TYPE  = 'I'             AND             
+                         CULVNA-VENDOR        = INI-VENDOR-NBR  AND             
+                        (CULVNA-RESTRICT-CODE = SPACES OR                       
+                                            INI-RESTRICTED-SW)  AND             
+                         CULVNA-RES-POS)                                        
+                                                                        KMP06352
+                 IF WS-CULVNA-ERROR                                     KMP06352
+                    SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                 KMP06352
+                    SET WS-SYXAUTH-CULVNA-ERROR TO TRUE                 KMP06352
+                    GO TO 7000-SYXAUTH-EXIT                             KMP06352
+                 END-IF                                                 KMP06352
+                                                                        KMP06352
+                 IF WS-CULVNA-NORESP                      AND                   
+                    CULVNA-KEY(1:10)    = WS-SYXAUTH-KEY1 AND                   
+                    CULVNA-SEGMENT-TYPE = 'I'             AND                   
+                    CULVNA-VENDOR       = INI-VENDOR-NBR  AND                   
+                   (CULVNA-RESTRICT-CODE = SPACES OR                            
+                                      INI-RESTRICTED-SW)  AND                   
+                    CULVNA-RES-POS                                              
+                    MOVE CULVNA-KEY TO WS-CULVNA-KEY                            
+                 ELSE                                                           
+                                                                                
+                    PERFORM 7000-SYXAUTH-ENDBR                                  
+                    MOVE WS-SYXAUTH-KEY TO WS-CULVNA-KEY                        
+                    MOVE LOW-VALUES     TO WS-CULVNA-KEY(11:9)                  
+                    PERFORM 7000-SYXAUTH-STARTBR                                
+                                                                        KMP06352
+                    IF WS-CULVNA-ERROR                                  KMP06352
+                       SET WS-SYXAUTH-UNAUTHORIZED TO TRUE              KMP06352
+                       SET WS-SYXAUTH-CULVNA-ERROR TO TRUE              KMP06352
+                       GO TO 7000-SYXAUTH-EXIT                          KMP06352
+                    END-IF                                              KMP06352
+                                                                        KMP06352
+                    IF WS-CULVNA-NORESP                                         
+                       PERFORM 7000-SYXAUTH-READNEXT WITH TEST AFTER            
+                         UNTIL NOT WS-CULVNA-NORESP                   OR        
+                               CULVNA-KEY(1:10) NOT = WS-SYXAUTH-KEY1 OR        
+                              (CULVNA-KEY(1:10)    = WS-SYXAUTH-KEY1 AND        
+                               CULVNA-SEGMENT-TYPE  = 'I'            AND        
+                               CULVNA-VENDOR        = INI-VENDOR-NBR AND        
+                              (CULVNA-RESTRICT-CODE = SPACES OR                 
+                                                  INI-RESTRICTED-SW) AND        
+                               CULVNA-RES-NEG)                                  
+                                                                        KMP06352
+                       IF WS-CULVNA-ERROR                               KMP06352
+                          SET WS-SYXAUTH-UNAUTHORIZED TO TRUE           KMP06352
+                          SET WS-SYXAUTH-CULVNA-ERROR TO TRUE           KMP06352
+                          GO TO 7000-SYXAUTH-EXIT                       KMP06352
+                       END-IF                                           KMP06352
+                                                                        KMP06352
+                       IF WS-CULVNA-NORESP                      AND             
+                          CULVNA-KEY(1:10)    = WS-SYXAUTH-KEY1 AND             
+                          CULVNA-SEGMENT-TYPE = 'I'             AND             
+                          CULVNA-VENDOR       = INI-VENDOR-NBR  AND             
+                         (CULVNA-RESTRICT-CODE = SPACES OR                      
+                                            INI-RESTRICTED-SW)  AND             
+                          CULVNA-RES-NEG                                        
+                          MOVE CULVNA-KEY TO WS-CULVNA-KEY                      
+                       END-IF                                                   
+                    END-IF                                                      
+                 END-IF                                                         
+              END-IF                                                            
+              PERFORM 7000-SYXAUTH-ENDBR                                        
+           END-IF.                                                              
+                                                                                
+      *--- CHECK FOR GENERIC VENDOR ENTRY IF FOUND THEN CHECK FOR       AZC21064
+      *--- SKU RESTRICT CODE AND AUTHORIZED IF RESTRIC PLUS             AZC21064
+           IF TB-CPO2-GEN-VENDOR                                        AZC21064
+              MOVE 'I'                       TO WS-CULVNA-SEGMENT-TYPE  AZC21064
+              MOVE '****'                    TO WS-CULVNA-VENDOR        AZC21064
+              MOVE SPACE                     TO WS-CULVNA-RESTRICT-CODE AZC21064
+              PERFORM 7000-SYXAUTH-READ                                 AZC21064
+              EVALUATE TRUE                                             AZC21064
+                  WHEN WS-CULVNA-NORESP                                 AZC21064
+                       MOVE 'I'               TO WS-CULVNA-SEGMENT-TYPE AZC21064
+                       MOVE INI-VENDOR-NBR    TO WS-CULVNA-VENDOR       AZC21064
+                       IF INI-RESTRICTED-SW  = 'N'                      AZC21064
+                          MOVE SPACES         TO WS-CULVNA-RESTRICT-CODEAZC21064
+                       ELSE                                             AZC21064
+                          MOVE INI-RESTRICTED-SW                        AZC21064
+                                              TO WS-CULVNA-RESTRICT-CODEAZC21064
+                       END-IF                                           AZC21064
+                       PERFORM 7000-SYXAUTH-READ                        AZC21064
+                       IF WS-CULVNA-ERROR                               AZC21064
+                          SET WS-SYXAUTH-UNAUTHORIZED TO TRUE           AZC21064
+                          SET WS-SYXAUTH-CULVNA-ERROR TO TRUE           AZC21064
+                          GO TO 7000-SYXAUTH-EXIT                       AZC21064
+                       END-IF                                           AZC21064
+                       IF WS-CULVNA-NOTFND                              AZC21064
+                       OR CULVNA-RES-NEG                                AZC21064
+                          SET WS-SYXAUTH-UNAUTHORIZED TO TRUE           AZC21064
+                       END-IF                                           AZC21064
+                       GO TO 7000-SYXAUTH-EXIT                          AZC21064
+                  WHEN WS-CULVNA-ERROR                                  AZC21064
+                       SET WS-SYXAUTH-UNAUTHORIZED TO TRUE              AZC21064
+                       SET WS-SYXAUTH-CULVNA-ERROR TO TRUE              AZC21064
+                       GO TO 7000-SYXAUTH-EXIT                          AZC21064
+                  WHEN OTHER                                            AZC21064
+                       CONTINUE                                         AZC21064
+             END-EVALUATE                                               AZC21064
+           END-IF                                                       AZC21064
+                                                                        AZC21064
+      *    ITEM LEVEL KEY INITIALIZATION                                        
+                                                                                
+           MOVE 'I'                       TO  WS-CULVNA-SEGMENT-TYPE.           
+           MOVE INI-VENDOR-NBR            TO  WS-CULVNA-VENDOR.                 
+           MOVE SPACE                     TO  WS-CULVNA-RESTRICT-CODE.          
+                                                                                
+      *    UNRESTRICTED ITEMS ONLY FAIL AUTHORIZATION WHEN THE                  
+      *    CUSTOMER HAS A NEGATIVE GENERIC AUTHORIZATION RECORD                 
+                                                                        TGF17174
+           IF TB-CPO4-INDIA-GST-PROCESS                                 TGF17174
+              IF INI-RESTRICTED-SW = 'X'                                TGF17174
+                 SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                    TGF17174
+                 GO TO 7000-SYXAUTH-EXIT                                TGF17174
+              END-IF                                                    TGF17174
+           END-IF.                                                      TGF17174
+                                                                        TGF17174
+           IF INI-RESTRICTED-SW = 'N'     OR                                    
+                                <= SPACES                                       
+              PERFORM 7000-SYXAUTH-READ                                         
+                                                                        KMP06352
+              IF WS-CULVNA-ERROR                                        KMP06352
+                 SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                    KMP06352
+                 SET WS-SYXAUTH-CULVNA-ERROR TO TRUE                    KMP06352
+                 GO TO 7000-SYXAUTH-EXIT                                KMP06352
+              END-IF                                                    KMP06352
+                                                                        KMP06352
+              IF WS-CULVNA-NORESP AND                                           
+                 CULVNA-RES-NEG                                                 
+                 SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                            
+              END-IF                                                            
+              GO TO 7000-SYXAUTH-EXIT.                                          
+      *                                                                         
+      *    RESTRICTION CODE 'Y' REQUIRES POSITIVE GENERIC AUTHORIZATION         
+      *                                                                         
+           IF INI-RESTRICTED-SW = 'Y'                                           
+              PERFORM 7000-SYXAUTH-READ                                         
+                                                                        KMP06352
+              IF WS-CULVNA-ERROR                                        KMP06352
+                 SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                    KMP06352
+                 SET WS-SYXAUTH-CULVNA-ERROR TO TRUE                    KMP06352
+                 GO TO 7000-SYXAUTH-EXIT                                KMP06352
+              END-IF                                                    KMP06352
+                                                                        KMP06352
+              IF WS-CULVNA-NOTFND OR                                            
+                 CULVNA-RES-NEG                                                 
+                 SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                            
+              END-IF                                                            
+              GO TO 7000-SYXAUTH-EXIT.                                          
+      *                                                                         
+      *    'OTHER' TYPE RESTRICTION CODES REQUIRE A POSITIVE                    
+      *     GENERIC OR RESTRICTION TYPE AUTHORIZATION RECORD                    
+      *                                                                         
+      *    CUSTOMER HAVE GENERIC AUTHORIZATION ?                                
+      *                                                                         
+           PERFORM 7000-SYXAUTH-READ.                                           
+                                                                        KMP06352
+           IF WS-CULVNA-ERROR                                           KMP06352
+              SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                       KMP06352
+              SET WS-SYXAUTH-CULVNA-ERROR TO TRUE                       KMP06352
+              GO TO 7000-SYXAUTH-EXIT                                   KMP06352
+           END-IF.                                                      KMP06352
+                                                                        KMP06352
+      *                                                                         
+           IF WS-CULVNA-NORESP AND                                              
+              CULVNA-RES-POS                                                    
+              GO TO 7000-SYXAUTH-EXIT.                                          
+      *                                                                         
+      *    CUSTOMER HAVE 'OTHER' AUTHORIZATION ?                                
+      *                                                                         
+           MOVE INI-RESTRICTED-SW TO WS-CULVNA-RESTRICT-CODE.                   
+      *                                                                         
+           PERFORM 7000-SYXAUTH-READ.                                           
+                                                                        KMP06352
+           IF WS-CULVNA-ERROR                                           KMP06352
+              SET WS-SYXAUTH-UNAUTHORIZED TO TRUE                       KMP06352
+              SET WS-SYXAUTH-CULVNA-ERROR TO TRUE                       KMP06352
+              GO TO 7000-SYXAUTH-EXIT                                   KMP06352
+           END-IF.                                                      KMP06352
+                                                                        KMP06352
+      *                                                                         
+           IF WS-CULVNA-NOTFND OR                                               
+              CULVNA-RES-NEG                                                    
+              SET WS-SYXAUTH-UNAUTHORIZED TO  TRUE.                             
+      *                                                                         
+       7000-SYXAUTH-EXIT.                                                       
+           EXIT.                                                                

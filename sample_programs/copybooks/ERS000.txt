@@ -1,0 +1,301 @@
+      ******************************************************************        
+      * ---   DB2 ER_ERROR_LOG INSERT PROCEDURE DIVISION COPYBOOK  --- *        
+      * THIS COPYBOOK CONTAINS THE PROCEDURE DIVISION LOGIC TO INSERT  *        
+      * TO THE DB2 TABLE ER_ERROR_LOG IN BATCH OR ONLINE PROGRAMS.     *        
+      * -------------------------------------------------------------- *        
+      *                                                                *        
+      * INPUT:                                                         *        
+      *  1. ERTELOG HOST VARIABLES FOR THE ROW TO BE INSERTED          *        
+      *     (OPTIONAL: ERTELOG-ERR-TS DEFAULTS TO RIGHT NOW,           *        
+      *      ERTELOG-ERR-TXT-LEN IS CALCULATED BY THIS ROUTINE AND     *        
+      *      ERTELOG-PURG-DT IS CALCULATED BY THIS ROUTINE).           *        
+      *                                                                *        
+      *  2. ERW000-INPUT-FIELDS FROM ERW000 COPYBOOK.                  *        
+      *                                                                *        
+      *     (1) ERW000-PURG-DT-CCYYMMDD - OVERRIDE IS OPTIONAL         *DBC01002
+      *     (2) ERW000-PURG-DAYS        - OVERRIDE IS OPTIONAL         *DBC01002
+      *                                                                *DBC01002
+      *     ERTELOG-PURG-DT IS CALCULATED AS ERW000-PURG-DT-CCYYMMDD   *        
+      *     PLUS THE NUMBER OF DAYS IN ERW000-PURG-DAYS.               *        
+      *                                                                *        
+      *     IF ERW000-PURG-DT-CCYYMMDD IS ZEROS THEN IT DEFAULTS TO    *        
+      *     TODAY.  THE ERW000-PURG-DAYS HAS A DEFAULT, BUT IT CAN     *        
+      *     BE CHANGED TO ANY NUMBER, INCLUDING ZERO, BY THE INVOKING  *        
+      *     PROGRAM BEFORE THIS ROUTINE.                               *        
+      *                                                                *        
+      * OUTPUT:                                                        *        
+      *  1. IF THERE IS A DB2 PROBLEM INSERTING ER_ERROR_LOG THEN      *        
+      *     990-SQL-MESSAGE IS PERFORMED TO OUTPUT DIAGNOSTIC INFO.    *        
+      *  2. SQLCA (DB2 DIAGNOSTICS)                                    *        
+      *                                                                *        
+      * PROCESSING:                                                    *        
+      *  1. PROVIDE DEFAULTS FOR ANY MISSING HOST VARIABLES            *        
+      *  2. CALCULATE THE PURGE DATE AS                                *        
+      *     ERW000-PURG-DT-CCYYMMDD + ERW000-PURG-DAYS                 *        
+      *  3. CALCULATE THE LENGTH OF VARCHAR COLUMN(S)                  *        
+      *  4. ATTEMPT INSERT OF ER_ERROR_LOG ROW                         *        
+      *  5. IF PROBLEM INSERTING ROW, PERFORM 990-SQL-MESSAGE          *        
+      *                                                                *        
+      * USAGE:       (FOR EXAMPLES SEE SFP004)                         *        
+      *  1. ADD THE FOLLOWING COPYBOOKS TO THE INVOKING PROGRAM:       *        
+      *     COPY ERW000      - COBOL W/S COPYBOOK, CAN DO REPLACING    *        
+      *     INCLUDE ERTELOG  - DB2 W/S COPYBOOK FOR ER_ERROR_LOG TABLE *        
+      *     INCLUDE SQLCA    - DB2 COMMUNICATION AREA                  *        
+      *     COPY    DB2STAT  - DB2 STATUS CODES WORKING STORAGE        *        
+      *     INCLUDE ERS000   - THIS PROCEDURE DIVISION COPYBOOK        *        
+      *  2. AT POINT IN INVOKING PROGRAM WHERE LOGGING TO ER_ERROR_LOG *        
+      *     IS DESIRED, POPULATE ALL INPUT FIELDS                      *        
+      *  3. PERFORM ERS000-ERROR-LOG-INSERT IF YOU DO NOT NEED         *AXR04313
+      *     TIMESTAMP THE ERROR WAS LOGGED WITH, OR PERFORM            *AXR04313
+      *     ERS000-ERROR-LOG-RETURNING-TS IF YOU WANT THE TIMESTAMP    *AXR04313
+      *     RETURNED IN FIELD ERTELOG-ERR-TS                           *AXR04313
+      *                                                                *        
+      ******************************************************************        
+      *================================================================         
+      *  EXAMPLE:   (ALSO SEE SFP004 FOR AN EXAMPLE OF USAGE)                   
+      *================================================================         
+      *                                                                         
+      *  WORKING-STORAGE SECTION                                                
+      *     .                                                                   
+      *     .                                                                   
+      *     COPY ERW000  REPLACING                                              
+      *                  =='PROGNAME'==     BY =='SFP001  '==                   
+      *                  =='SYSTEM NAME '== BY =='SERVICE FEES'==               
+      *                  =='CNTACTID'==     BY =='MISDJP  '==.                  
+      *     .                                                                   
+      *     EXEC SQL                                                            
+      *          INCLUDE ERTELOG                                                
+      *     END-EXEC                                                            
+      *     .                                                                   
+      *  PROCEDURE DIVISION.                                                    
+      *     .                                                                   
+      *     PERFORM SOME-APPLICATION-CODE                                       
+      *     .                                                                   
+      *     IF STATUS-CODE IS BAD                                               
+      *        INITIALIZE            DCLER-ERROR-LOG                            
+      *        MOVE 'ER1'         TO ERTELOG-ERR-CD                     DBC01002
+      *        MOVE 'ERROR TEXT'  TO ERTELOG-ERR-TXT-TEXT               DBC01002
+      *        MOVE OUR-OPER-ID   TO ERTELOG-OPER-ID                    DBC01002
+      *        MOVE WHATEVER-ELSE TO ERW000-WORK-AREA FIELDS                    
+      *        PERFORM ERS000-ERROR-LOG-INSERT                                  
+      *     END-IF                                                              
+      *     .                                                                   
+      *     .                                                                   
+      *  *ERS000-ERROR-LOG-INSERT.                                              
+      *     EXEC SQL                                                            
+      *          INCLUDE ERS000                                                 
+      *     END-EXEC                                                            
+      *                                                                         
+      *****************************************************************         
+      * REVISION INFO:                                                          
+      *****************************************************************         
+      * 11/08/04  AXR      *** STRATEGIC PRICING - FULL SOLUTION ***    AXR04313
+      *             1. ADDED ERS000-ERROR-LOG-RETURNING-TS OPTIONAL     AXR04313
+      *                ENTRY POINT SO THAT A GENERATED TIMESTAMP        AXR04313
+      *                COULD BE RETURNED TO THE INVOKING APPLICATION    AXR04313
+      * 01/02/01  DBC  CORRECTED USAGE OF PURGE DATE PARAMETER.         DBC01002
+      * 11/03/00  AXR  NEW COPYBOOK ADDED (CLONED FROM ERS001)          JER00300
+      *****************************************************************         
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> MAIN ROUTINE TO INSERT INTO ER_ERROR_LOG              <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ERS000-ERROR-LOG-INSERT.                                                 
+                                                                                
+           PERFORM ERS000-ERROR-LOG-DEFAULTS.                                   
+                                                                                
+           PERFORM ERS000-CALC-ERROR-FIELDS.                                    
+                                                                                
+           PERFORM ERS000-INSERT-ERTELOG.                                       
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> PROVIDE DEFAULT VALUES FOR ANY MISSING INPUT DATA     <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ERS000-ERROR-LOG-DEFAULTS.                                               
+                                                                                
+           IF ERTELOG-PGM-NAM     = SPACES OR LOW-VALUES                        
+              MOVE ERW000-PGM-NAM         TO ERTELOG-PGM-NAM                    
+           END-IF.                                                              
+                                                                                
+           IF ERTELOG-SYS-NAM     = SPACES OR LOW-VALUES                        
+              MOVE ERW000-SYS-NAM         TO ERTELOG-SYS-NAM                    
+           END-IF.                                                              
+                                                                                
+           IF ERTELOG-CONTACT-ID  = SPACES OR LOW-VALUES                        
+              MOVE ERW000-CONTACT-ID      TO ERTELOG-CONTACT-ID                 
+           END-IF.                                                              
+                                                                                
+           IF ERTELOG-ERR-CD      = SPACES OR LOW-VALUES                        
+              MOVE 'N/A'                  TO ERTELOG-ERR-CD                     
+           END-IF.                                                              
+                                                                                
+           IF ERTELOG-OPER-ID     = SPACES OR LOW-VALUES                        
+              MOVE 'N/A'                  TO ERTELOG-OPER-ID                    
+           END-IF.                                                              
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> CALCULATE THE ACTUAL LENGTH OF ERR-TXT-TEXT           <<<**         
+      **>>>-------------------------------------------------------<<<**         
+       ERS000-CALC-ERROR-FIELDS.                                                
+                                                                                
+      *   CALCULATE THE PURGE DATE.                                             
+                                                                                
+      *   (DEFAULT ERW000-PURG-DT-CCYYMMDD TO TODAY WHEN MISSING)               
+           IF ERW000-PURG-DT-CCYYMMDD IS NUMERIC  AND                   DBC01002
+              ERW000-PURG-DT-CCYYMMDD NOT = ZEROS                       DBC01002
+              MOVE ERW000-PURG-DT-CCYYMMDD TO ERW000-PURG-DT-CCYYMMDD-N DBC01002
+           ELSE                                                         DBC01002
+              MOVE FUNCTION CURRENT-DATE(1:8)                                   
+                                           TO ERW000-PURG-DT-CCYYMMDD-N DBC01002
+           END-IF.                                                              
+                                                                                
+      *   (ADD PURG-DAYS TO INPUT PURG-DT)                                      
+           COMPUTE ERW000-INTEGER-DATE = ERW000-PURG-DAYS +                     
+              FUNCTION INTEGER-OF-DATE (ERW000-PURG-DT-CCYYMMDD-N).             
+                                                                                
+      *   (REFORMAT ACCUMULATED DATE TO CCYYMMDD)                               
+           COMPUTE ERW000-PURG-DT-CCYYMMDD-N =                                  
+              FUNCTION DATE-OF-INTEGER (ERW000-INTEGER-DATE).                   
+           MOVE ERW000-PURG-DT-CCYYMMDD-N TO ERW000-PURG-DT-CCYYMMDD.           
+                                                                                
+      *   (REFORMAT ACCUMULATED DATE TO CCYY-MM-DD)                             
+           MOVE ERW000-PURG-DT-CCYY       TO ERW000-DATE-CCYY.                  
+           MOVE ERW000-PURG-DT-MM         TO ERW000-DATE-MM.                    
+           MOVE ERW000-PURG-DT-DD         TO ERW000-DATE-DD.                    
+           MOVE ERW000-DATE-CCYY-MM-DD    TO ERTELOG-PURG-DT.                   
+                                                                                
+      *   CALCULATE THE VARCHAR LENGTH.                                         
+                                                                                
+           PERFORM                                                              
+             VARYING ERTELOG-ERR-TXT-LEN                                        
+                FROM ERW000-ERR-TXT-MAX BY -1                                   
+               UNTIL ERTELOG-ERR-TXT-LEN = +1                                   
+                 OR (ERTELOG-ERR-TXT-TEXT(ERTELOG-ERR-TXT-LEN:1)                
+                                  NOT = SPACES AND LOW-VALUES)                  
+           END-PERFORM.                                                         
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> DB2 INSERT TO ER_ERROR_LOG, HANDLING RETURN STATUS    <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       ERS000-INSERT-ERTELOG.                                                   
+              EXEC SQL                                                          
+                INSERT INTO ER_ERROR_LOG                                        
+                     ( ERR_TS                                                   
+                     , ERR_CD                                                   
+                     , PGM_NAM                                                  
+                     , OPER_ID                                                  
+                     , SYS_NAM                                                  
+                     , CONTACT_ID                                               
+                     , PURG_DT                                                  
+                     , ERR_TXT )                                                
+                VALUES                                                          
+                     ( CURRENT TIMESTAMP                                        
+                     , :ERTELOG-ERR-CD                                          
+                     , :ERTELOG-PGM-NAM                                         
+                     , :ERTELOG-OPER-ID                                         
+                     , :ERTELOG-SYS-NAM                                         
+                     , :ERTELOG-CONTACT-ID                                      
+                     , :ERTELOG-PURG-DT                                         
+                     , :ERTELOG-ERR-TXT )                                       
+              END-EXEC.                                                         
+                                                                                
+      *   (DO NOT ABEND FOR A DB2 ERROR, JUST OUTPUT SQL MESSAGE)               
+           IF SQLCODE NOT = DB2-NORESP                                          
+              STRING 'DB2 ERROR IN PARA ERS000-INSERT-ERTELOG OF '      DBC01002
+                     'PROGRAM ' ERW000-PGM-NAM                          DBC01002
+                     '.  INSERT INTO ER_ERROR_LOG FAILED.'              DBC01002
+                     DELIMITED BY SIZE INTO SYWDB2-EXTRA-MESSAGE-1      DBC01002
+              END-STRING                                                DBC01002
+              PERFORM 990-SQL-MESSAGE                                           
+              MOVE ZEROES TO SQLCODE                                            
+           END-IF.                                                              
+                                                                                
+                                                                        AXR04313
+      **>>>-------------------------------------------------------<<<** AXR04313
+      **>>>      ROUTINE TO INSERT INTO ER_ERROR_LOG              <<<** AXR04313
+      **>>>      GENERATING & RETURNING THE ERROR LOG TIMESTAMP   <<<** AXR04313
+      **>>>-------------------------------------------------------<<<** AXR04313
+                                                                        AXR04313
+       ERS000-ERROR-LOG-RETURNING-TS.                                   AXR04313
+                                                                        AXR04313
+      *   (PERFORM SOME COMMON ROUTINES THAT ARE ALSO USED BY           AXR04313
+      *    ERS000-ERROR-LOG-INSERT)                                     AXR04313
+           PERFORM ERS000-ERROR-LOG-DEFAULTS.                           AXR04313
+           PERFORM ERS000-CALC-ERROR-FIELDS.                            AXR04313
+                                                                        AXR04313
+      *   (THESE ROUTINES GENERATE AN ERROR LOG TIMESTAMP AND           AXR04313
+      *    THEN INSERT WITH THAT VALUE INSTEAD OF CURRENT TIMESTAMP)    AXR04313
+           PERFORM ERS000-GENERATE-ERTELOG-TS.                          AXR04313
+           PERFORM ERS000-INSERT-ERTELOG-WITH-TS.                       AXR04313
+                                                                        AXR04313
+                                                                        AXR04313
+      **>>>-------------------------------------------------------<<<** AXR04313
+      **>>> THIS PARAGRAPH GENERATES AN ERROR LOG TIMESTAMP       <<<** AXR04313
+      **>>>-------------------------------------------------------<<<** AXR04313
+                                                                        AXR04313
+       ERS000-GENERATE-ERTELOG-TS.                                      AXR04313
+                                                                        AXR04313
+           EXEC SQL                                                     AXR04313
+                SET :ERTELOG-ERR-TS = CURRENT TIMESTAMP                 AXR04313
+           END-EXEC.                                                    AXR04313
+                                                                        AXR04313
+      *   (DO NOT ABEND FOR A DB2 ERROR, JUST OUTPUT SQL MESSAGE)       AXR04313
+           IF SQLCODE NOT = DB2-NORESP                                  AXR04313
+              STRING 'DB2 ERROR IN PARA ERS000-GENERATE-ERTELOG-TS '    AXR04313
+                     'IN PROGRAM ' ERW000-PGM-NAM                       AXR04313
+                     '.  SET OF ERTELOG-ERR-TS FAILED. '                AXR04313
+                     DELIMITED BY SIZE INTO SYWDB2-EXTRA-MESSAGE-1      AXR04313
+              END-STRING                                                AXR04313
+              PERFORM 990-SQL-MESSAGE                                   AXR04313
+              MOVE ZEROES TO SQLCODE                                    AXR04313
+           END-IF.                                                      AXR04313
+                                                                        AXR04313
+                                                                        AXR04313
+      **>>>-------------------------------------------------------<<<** AXR04313
+      **>>> DB2 INSERT TO ER_ERROR_LOG, HANDLING RETURN STATUS    <<<** AXR04313
+      **>>>                                                       <<<** AXR04313
+      **>>> THIS PARAGRAPH USES A GENERATED TIMESTAMP TO INSERT   <<<** AXR04313
+      **>>> SO THAT THE TIMESTAMP CAN BE RETURNED TO APPLICATION  <<<** AXR04313
+      **>>>-------------------------------------------------------<<<** AXR04313
+                                                                        AXR04313
+                                                                        AXR04313
+       ERS000-INSERT-ERTELOG-WITH-TS.                                   AXR04313
+                                                                        AXR04313
+           EXEC SQL                                                     AXR04313
+                INSERT INTO ER_ERROR_LOG                                AXR04313
+                     ( ERR_TS                                           AXR04313
+                     , ERR_CD                                           AXR04313
+                     , PGM_NAM                                          AXR04313
+                     , OPER_ID                                          AXR04313
+                     , SYS_NAM                                          AXR04313
+                     , CONTACT_ID                                       AXR04313
+                     , PURG_DT                                          AXR04313
+                     , ERR_TXT )                                        AXR04313
+                VALUES                                                  AXR04313
+                     ( :ERTELOG-ERR-TS                                  AXR04313
+                     , :ERTELOG-ERR-CD                                  AXR04313
+                     , :ERTELOG-PGM-NAM                                 AXR04313
+                     , :ERTELOG-OPER-ID                                 AXR04313
+                     , :ERTELOG-SYS-NAM                                 AXR04313
+                     , :ERTELOG-CONTACT-ID                              AXR04313
+                     , :ERTELOG-PURG-DT                                 AXR04313
+                     , :ERTELOG-ERR-TXT )                               AXR04313
+           END-EXEC.                                                    AXR04313
+                                                                        AXR04313
+      *   (DO NOT ABEND FOR A DB2 ERROR, JUST OUTPUT SQL MESSAGE)       AXR04313
+           IF SQLCODE NOT = DB2-NORESP                                  AXR04313
+              STRING 'DB2 ERROR IN PARA ERS000-INSERT-ERTELOG-WITH-TS'  AXR04313
+                     'IN PROGRAM ' ERW000-PGM-NAM                       AXR04313
+                     '.  INSERT INTO ER_ERROR_LOG FAILED.'              AXR04313
+                     DELIMITED BY SIZE INTO SYWDB2-EXTRA-MESSAGE-1      AXR04313
+              END-STRING                                                AXR04313
+              PERFORM 990-SQL-MESSAGE                                   AXR04313
+              MOVE ZEROES TO SQLCODE                                    AXR04313
+           END-IF.                                                      AXR04313
+                                                                        AXR04313

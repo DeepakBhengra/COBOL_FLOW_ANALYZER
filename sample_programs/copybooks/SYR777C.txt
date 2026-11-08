@@ -1,0 +1,192 @@
+      **************************************************************            
+      *       SYR777C  - FOR CICS                                               
+      *       THIS IS COPYBOOK FOR PROGRAM SYU777 DATE ROUTINE                  
+      ****  FUCTION  **********                                                 
+      *     A. CHECK INPUT DATE ERROR       - IF ENTERED                        
+      *     B. CONVERT JULIAN TO GREGORIAN  - IF ENTERED                        
+      *     C. CONVERT GREGORIAN TO JULIAN  - IF ENTERED                        
+      *     D. CONVERT ISO DATE  TO JULIAN  - IF ENTERED                        
+      *     E. IF NO INPUT, RETURN CURRENT DATE                                 
+      *     F. FOR BAD INPUT, RETURN ERROR MESSAGE                              
+      *        (YOU MAY SEE SYU-ERROR-SW & SYU-ERROR-MESSAGE            JBP98071
+      *         IN WORKING-STORAGE USING 'INTRTEST').                   JBP98071
+      *                                                                         
+      *  GREGORIAN DATES MAY BE IN SEVERAL FORMATES FOR DIFFERENT               
+      *  COUNTRIES.   THE ROUTINE WILL RETURN ALL DATE FORMATS.                 
+      *  THE CALLING PROGRAMS PICK THE DESIRED DATE FORMAT.                     
+      *                                                                         
+      *    A. INITIALIZE SYU-DATE-ROUTINE-FIELDS (IF YOU WANT MORE THAN         
+      *       ONE CALL IN A PROGRAM WITH DIFFERENT INPUT FIELDS).               
+      *    B. COMPANY CODE - REQUIRED.                                          
+      *    C. JULIAN OR GREGORIAN FIELD AS AN INPUT FIELD.                      
+      *    D. TO GET CURRENT DATE, CALL THIS ROUTINE WITHOUT            JBP98098
+      *       PASSING ANY INPUT DATE. ALSO MOVE 'Y' TO                  JBP98098
+      *       SYU-INPUT-CURRENT-DATE-SW.                                JBP98098
+      *                                                                         
+      *    EXAMPLE   CALL 'SYU777' USING SYU-DFHEIBLK                           
+      *                                  SYU-DFHCOMMAREA                        
+      *                                  SYU-DATE-ROUTINE-FIELDS.               
+      *  NOTE:  'SYU-DFHEIBLK' AND 'SYU-DFHCOMMAREA' ARE DUMMY                  
+      *         PARAMETERS THAT ARE REQUIRED ONLY FOR LINKAGE                   
+      *         ADDRESSIBILITY IN 'SYU777' (DO NOT MOVE ANY VALUE               
+      *         TO THESE DUMMY FIELDS !!!).                                     
+      *                                                                         
+      *  NOTE:  THE COMPANY CODE IS A REQUIRED FIELD WHEN YOU WANT      JBP98098
+      *         TO CONVERT FROM JULIAN TO GREGORIAN OR FROM GREGORIAN   JBP98098
+      *         /ISO TO JULIAN. IF COMPANY CODE IS NOT PASSED,          JBP98098
+      *         THIS ROUTINE DEFAULTS TO 'MD' WHICH IS U.S.A.           JBP98098
+      *                                                                         
+      *   04/08/98  JBP ADDED CCYYMMDD OUTPUT FIELD                     JBP98098
+      *   03/12/98  JBP  ADDED 2 COMMENT LINES                          JBP98071
+      *   02/25/98  JBP  CREATED                                        JBP98056
+      *                                                                         
+      ***************************************************************           
+       01  SYU-DFHEIBLK                      PIC X(84).                         
+       01  SYU-DFHCOMMAREA                   PIC X(01).                         
+      ***************************************************************           
+      *                                                                         
+       01  SYU-DATE-ROUTINE-FIELDS.                                             
+                                                                                
+      *++ INPUT FIELD BEGINS              +++++++++++++++++++++++*              
+           05  FILLER                        PIC X(13)                          
+                                                 VALUE 'SYR777C START'.         
+                                                                                
+      ****************************************************************          
+      *            INPUT FIELDS                                      *          
+      ****************************************************************          
+                                                                                
+      *   INPUT FIELD # 1  -- REQUIRED                               *          
+      *   MUST BE A VALID COUNTRY CODE -- SEE IT AT MIS STANDARD     *          
+           05  SYU-COMPANY-INDICATOR         PIC X(02)  VALUE SPACES.           
+                                                                                
+      *   INPUT FIELD # 2  -- OPTIONAL                               *          
+      *   IF ENTERED MUST BE --  FORMAT YYDDD                        *          
+           05  SYU-INPUT-JULIAN-DATE-5      PIC 9(05) COMP-3 VALUE ZERO.        
+                                                                                
+      *   INPUT FIELD # 3  -- OPTIONAL                               *          
+      *   IF ENTERED MUST BE --  FORMAT CCYYDDD                      *          
+           05  SYU-INPUT-JULIAN-DATE-7      PIC 9(07) COMP-3 VALUE ZERO.        
+                                                                                
+      *   INPUT FIELD # 4  -- OPTIONAL                               *          
+      *   IF ENTERED MUST BE --                                      *          
+      *   FORMAT USA  - MMDDYY                                       *          
+      *   FORMAT U.K. - DDMMYY                                       *          
+      *   FORMAT SE . - YYMMDD                                       *          
+           05  SYU-INPUT-GREG-DATE-6         PIC X(06) VALUE SPACES.            
+           05  SYU-INPUT-GREG-DATE-6X REDEFINES                                 
+               SYU-INPUT-GREG-DATE-6         PIC 9(06).                         
+                                                                                
+      *   INPUT FIELD #5      OPTIONAL                               *          
+      *   IF ENTERED MUST BE --                                      *          
+      *   FORMAT USA  - MM/DD/YY OR MM-DD-YY                         *          
+      *   FORMAT U.K. - DD/MM/YY OR DD-MM-YY                         *          
+      *   FORMAT SE   - YY/MM/DD OR YY-MM-DD                         *          
+           05  SYU-INPUT-GREG-DATE-8         PIC X(08) VALUE SPACES.            
+                                                                                
+      *   INPUT FIELD #6      OPTIONAL                               *          
+      *   IF ENTERED MUST BE --                                      *          
+      *   FORMAT USA  - MMDDCCYY                                     *          
+      *   FORMAT U.K. - DDMMCCYY                                     *          
+      *   FORMAT SE   - CCYYMMDD                                     *          
+           05  SYU-INPUT-GREG-CENT-DATE-8    PIC X(08) VALUE SPACES.            
+           05  SYU-INPUT-GREG-CENT-DATE-8X REDEFINES                            
+               SYU-INPUT-GREG-CENT-DATE-8    PIC 9(08).                         
+                                                                                
+      *   INPUT FIELD #7      OPTIONAL                               *          
+      *   IF ENTERED MUST BE --                                      *          
+      *   FORMAT USA  - MM/DD/CCYY OR MM-DD-CCYY                     *          
+      *   FORMAT U.K. - DD/MM/CCYY OR DD-MM-CCYY                     *          
+      *   FORMAT SE   - CCYY/MM/DD OR CCYY-MM-DD                     *          
+           05  SYU-INPUT-GREG-CENT-DATE-10   PIC X(10) VALUE SPACES.            
+                                                                                
+      *   INPUT FIELD #8      OPTIONAL                               *          
+      *   IF ENTERED MUST BE --                                      *          
+      *   FORMAT ISO. - CCYYMMDD                                     *          
+           05  SYU-INPUT-ISO-DATE-8          PIC X(08) VALUE SPACES.            
+           05  SYU-INPUT-ISO-DATE-8X REDEFINES                                  
+               SYU-INPUT-ISO-DATE-8          PIC 9(08).                         
+                                                                                
+      *   INPUT FIELD #9      OPTIONAL                               *          
+      *   IF ENTERED MUST BE --                                      *          
+      *   FORMAT ISO. - CCYY-MM-DD OR CCYY/MM/DD                     *          
+           05  SYU-INPUT-ISO-DATE-10         PIC X(10) VALUE SPACES.            
+                                                                        JBP98098
+      *   INPUT FIELD #10     OPTIONAL                               *  JBP98098
+      *   THIS IS A FLAG TO GET CURRENT DATE                         *  JBP98098
+           05  SYU-INPUT-CURRENT-DATE-SW     PIC X(01) VALUE SPACES.    JBP98098
+               88  SYU-YES-GET-CURRENT-DATE  VALUE 'Y'.                 JBP98098
+                                                                                
+      *   INPUT FIELD #11    NOT USED FIELD                          *  JBP98098
+      *   FORMAT USA COM, EDU, GOV, INT, MIL                         *          
+      *             NATO, NET, ORG - XXX                             *          
+           05  SYU-INPUT-BUSINESS-ORG        PIC X(03) VALUE SPACES.            
+                                                                                
+      *   INPUT FIELD #12                                            *  JBP98098
+      *   INPUT FILLER FOR FUTURE USE                                *          
+           05  SYU-INPUT-FUTURE-USE          PIC X(39) VALUE SPACES.    JBP98098
+                                                                                
+      *++ END OF INPUT FIELDS             +++++++++++++++++++++++*              
+           05  FILLER                        PIC X(11)                          
+                                                 VALUE ' INPUT END '.           
+                                                                                
+      *++ OUTPUT FIELD BEGINS             +++++++++++++++++++++++*              
+           05  FILLER                        PIC X(13)                          
+                                                 VALUE 'OUTPUT BEGINS'.         
+                                                                                
+      ****************************************************************          
+      *           OUTPUT FIELDS                                      *          
+      ****************************************************************          
+      *   OUTPUT FIELD #1                                            *          
+      *   FORMAT YYDDD                                               *          
+           05  SYU-OUTPUT-JULIAN-DATE-5     PIC 9(05) COMP-3 VALUE ZERO.        
+                                                                                
+      *   OUTPUT FIELD #2                                            *          
+      *   FORMAT CCYYDDD                                             *          
+           05  SYU-OUTPUT-JULIAN-DATE-7     PIC 9(07) COMP-3 VALUE ZERO.        
+                                                                                
+      *   OUTPUT FIELD #3                                            *          
+      *   FORMAT USA  - MMDDYY                                       *          
+      *   FORMAT U.K. - DDMMYY                                       *          
+      *   FORMAT SE   - YYMMDD                                       *          
+           05  SYU-OUTPUT-GREG-DATE-6        PIC X(06) VALUE SPACES.            
+                                                                                
+      *   OUTPUT FIELD #4                                            *          
+      *   FORMAT USA  - MM/DD/YY                                     *          
+      *   FORMAT U.K. - DD/MM/YY                                     *          
+      *   FORMAT SE   - YY/MM/DD                                     *          
+           05  SYU-OUTPUT-GREG-DATE-8        PIC X(08) VALUE SPACES.            
+                                                                                
+      *   OUTPUT FIELD #5                                            *          
+      *   FORMAT USA  - MMDDCCYY                                     *          
+      *   FORMAT U.K. - DDMMCCYY                                     *          
+      *   FORMAT SE   - CCYYMMDD                                     *          
+           05  SYU-OUTPUT-GREG-CENT-DATE-8   PIC X(08) VALUE SPACES.            
+                                                                                
+      *   OUTPUT FIELD #6                                            *          
+      *   FORMAT USA  - MM/DD/CCYY                                   *          
+      *   FORMAT U.K. - DD/MM/CCYY                                   *          
+      *   FORMAT SE   - CCYY/MM/DD                                   *          
+           05  SYU-OUTPUT-GREG-CENT-DATE-10   PIC X(10) VALUE SPACES.           
+                                                                                
+      *   OUTPUT FIELD #7                                            *          
+      *   FORMAT ISO  - CCYY-MM-DD                                   *          
+           05  SYU-OUTPUT-ISO-DATE-10         PIC X(10) VALUE SPACES.           
+                                                                                
+      *   OUTPUT FIELD #8                                            *  JBP98098
+      *   FORMAT ISO. - CCYYMMDD                                     *  JBP98098
+           05  SYU-OUTPUT-ISO-DATE-8         PIC X(08) VALUE SPACES.    JBP98098
+                                                                        JBP98098
+      *   OUTPUT FIELD #9                                            *  JBP98098
+      *   ERROR MESSAGE FIELDS                                       *          
+           05  SYU-ERROR-FIELDS.                                                
+               10  SYU-ERROR-SW               PIC X(01) VALUE SPACES.           
+               10  SYU-ERROR-MESSAGE          PIC X(90) VALUE SPACES.           
+                                                                                
+      *   OUTPUT FIELD #10                                           *  JBP98098
+      *   OUTPUT FILLER FOR FUTURE USE                               *          
+           05  SYU-OUTPUT-FUTURE-USE          PIC X(32) VALUE SPACES.   JBP98098
+                                                                                
+      *++ END OF OUTPUT FILEDS            +++++++++++++++++++++++*              
+           05  FILLER                        PIC X(10)                          
+                                                 VALUE 'OUTPUT END'.            
+      *                                                                         

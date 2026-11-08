@@ -1,0 +1,902 @@
+000100***************************************************************           
+000200*   INTUIT CARRIER ROUTING LOGIC                                          
+000300***************************************************************           
+      *  05/14/24 KZB AS PART OF SALES HOLD BYPASS,ADDED LOGIC TO       KZB24135
+      *               BYPASS SALES HOLD CODE 'SF' IF TB-HLD-DO-NOT-SET  KZB24135
+      *               ENABLE IN TBXHOLD TABLE.                          KZB24135
+      *  05/22/08 ISB058 CHANGED THIRD PARTY ACCOUNT VALUE FROM         INF08143
+      *                  'IMCOLLECT' TO 'COLLECT' FOR WT > 251          INF08143
+      *  04/16/02 RPM PAR#15495C.  ADDED DB2 ACCESS FOR VERIFYING       RPM02110
+      *               UPS/BAX/RPS 3RD PARTY ACCOUNTS.                   RPM02110
+000310*  02-15-02 KWC UPDATED CBLBAT FIELDS TO DB2 TABLE VALUES. THIS   SXP02047
+000310*               IS A COPY OF CAS647A AND REFERS TO THE DB2 FIELDS.SXP02047
+000310*  10-29-01 SJD CHANGE WS-NO-INUIT-BASERATE-SW TO                 SJD01302
+000310*               WS-ROUT-GUIDE-BASERATE-SW                         SJD01302
+000310*  10-04-01 GZL PARAGRAPH 433W-ORDERS NOT MEETING INITIAL         GZL01277
+000320*               CONDITION WILL GO ON XC HOLD. CHANGED SHIP-VIA    GZL01277
+000320*               AND FRT ACCT NUMBER TO 'IMCOLLECT' FOR INGRAM     GZL01277
+000320*               MICRO.                                            GZL01277
+000330*  09-25-01 GZL PARAGRAPH 433P-REMOVED MOVE TO 3RD PARTY          GZL01277
+000340*               SAVE AND EXECUTION OF THIRD PARTY BILLING         GZL01277
+000400*  09-07-01 GZL INITIAL CREATION                                          
+000700***************************************************************           
+020200*                                                                         
+020300* PARAGRAPHS 433A THRU 433V AND                                           
+020301*            434A THRU 434K AND                                           
+020302* PARAGRAPH  S133                                                         
+020303* ARE USED FOR INGRAM SPECIFIC CARRIER LOGIC FOR INTUIT.                  
+020304*                                                                         
+020305 433A-INTUIT-CARRIER-ROUTING.                                             
+020306     MOVE WS-ORDER-SLA-ETA-DATE  TO WS-EXPECTED-DELIVERY-DATE.            
+020307     MOVE ORSH-FRT-OUT-CODE      TO WS-CB-FRT-OUT-CODE.                   
+020308     MOVE ORH-BR-NBR             TO WS-INTUIT-CUST-BR.                    
+020360                                                                          
+020370* IF THE ORDER HAS A CARRIER CODE                                         
+020380*    PERFORM 433B-CARRIER-CODE-IS-SENT THRU 433B-EXIT                     
+020390* IF THE ORDER IS A SPECIFIC ROUTING GUIDE CUSTOMER WITH NO               
+020400* CARRIER CODE ON THE ORDER                                               
+020500*    PERFORM 433M-ROUTING-GUIDE-CUSTOMER THRU 433M-EXIT                   
+020600* IF THE ORDER HAS NO CARRIER CODE, IS NOT A SPECIFIC ROUTING             
+020700* GUIDE CUSTOMER, AND HAS A EXPECTED DELIVERY DATE                        
+020800*    PERFORM 433S-NO-CARRIER-CODE-SENT THRU 433S-EXIT                     
+020900* IF THE ORDER HAS NO CARRIER CODE, IS NOT A SPECIFIC ROUTING             
+021000* GUIDE CUSTOMER, HAS NO EXPECTED DELIVERY DATE,                          
+021100* BUT IS PREPAID                                                          
+021200*    PERFORM 433V-PREPAID-NO-CC-NO-EDD THRU 433V-EXIT                     
+021300*                                                                         
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+021500     IF WS-HOLD-CBLBAT-CARRIER NOT = SPACES                               
+021600        PERFORM 433B-CARRIER-CODE-IS-SENT THRU 433B-EXIT                  
+021700     ELSE                                                                 
+021800       IF ROUTING-GUIDE-CUSTOMER AND                                      
+021900         (ORSH-FRT-OUT-CODE NOT = 'P')                                    
+022000          PERFORM 433M-ROUTING-GUIDE-CUSTOMER THRU 433M-EXIT              
+022100       ELSE                                                               
+022200         IF WS-EXPECTED-DELIVERY-DATE NOT = 0                             
+022300            PERFORM 433S-NO-CARRIER-CODE-SENT THRU 433S-EXIT              
+022400         ELSE                                                             
+022500           IF WS-THIRD-PARTY OR WS-COLLECT                                
+022600              MOVE 'XC'          TO ORSH-CARRIER-CODE             KZB24135
+023000              MOVE 'INVL ASIGN  '                                 KZB24135
+023100                                 TO ORSH-SHIP-VIA                 KZB24135
+023200              MOVE 'N'           TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                    IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET              KZB24135
+                       CONTINUE                                         KZB24135
+                    ELSE                                                KZB24135
+                       MOVE 'S'        TO ORSH-STATUS                   KZB24135
+022700                 MOVE 'S'        TO WS-ORDER-PRINT-FLAG           KZB24135
+                       MOVE 'SF'       TO ORSH-HOLD-REASON              KZB24135
+                    END-IF                                              KZB24135
+023300           ELSE                                                   KZB24135
+023400              IF WS-PREPAID                                       KZB24135
+023500                 PERFORM 433V-PREPAID-NO-CC-NO-EDD                KZB24135
+023600                    THRU 433V-EXIT                                KZB24135
+023700              ELSE                                                KZB24135
+023800                 MOVE 'XC'       TO ORSH-CARRIER-CODE             KZB24135
+024200                 MOVE 'BOTTOM OUT  '                              KZB24135
+024300                                 TO ORSH-SHIP-VIA                 KZB24135
+024400                 MOVE 'N'        TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                       IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET           KZB24135
+                          CONTINUE                                      KZB24135
+                       ELSE                                             KZB24135
+023900                    MOVE 'S'     TO WS-ORDER-PRINT-FLAG           KZB24135
+024000                    MOVE 'SF'    TO ORSH-HOLD-REASON              KZB24135
+024100                    MOVE 'S'     TO ORSH-STATUS                   KZB24135
+                       END-IF                                           KZB24135
+                    END-IF                                              KZB24135
+                 END-IF                                                 KZB24135
+024700         END-IF                                                           
+024800       END-IF                                                             
+025000     END-IF.                                                      KZB24135
+025001                                                                          
+025002 433A-EXIT.                                                               
+025003      EXIT.                                                               
+025004                                                                          
+025005* PARA 433B WILL PROCESS CARRIER GUIDE LOGIC FOR INTUIT FOR               
+025006* ORDERS WHERE A CARRIER CODE EXISTS. A ETA DATE MUST EXIST               
+025007* FOR ALL ORDERS EXCEPT PREPAID ONES.                                     
+025008*                                                                         
+025009*                                                                         
+025010 433B-CARRIER-CODE-IS-SENT.                                               
+025020                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+025030     IF (WS-ORDER-SLA-ETA-DATE = 0) AND                           KZB24135
+025040        NOT WS-PREPAID                                            KZB24135
+025050        MOVE 'XC'                TO ORSH-CARRIER-CODE             KZB24135
+025090        MOVE 'N'                 TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+              IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                    KZB24135
+                 GO TO 433B-EXIT                                        KZB24135
+              ELSE                                                      KZB24135
+025060           MOVE 'S'              TO WS-ORDER-PRINT-FLAG           KZB24135
+025070           MOVE 'S'              TO ORSH-STATUS                   KZB24135
+025080           MOVE 'SF'             TO ORSH-HOLD-REASON              KZB24135
+025100           GO TO 433B-EXIT                                        KZB24135
+              END-IF                                                            
+025200     END-IF.                                                              
+025300                                                                          
+025400     PERFORM 433C-CHECK-TBXCARR-FOR-MODE THRU 433C-EXIT.                  
+025500                                                                          
+025600     IF TB-CARR-NORESP                                                    
+025700        NEXT SENTENCE                                                     
+025800     ELSE                                                                 
+025900        MOVE 'XC'                TO ORSH-CARRIER-CODE                     
+026300        MOVE 'N'                 TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+              IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                    KZB24135
+                 GO TO 433B-EXIT                                        KZB24135
+              ELSE                                                      KZB24135
+026000           MOVE 'S'              TO WS-ORDER-PRINT-FLAG           KZB24135
+026100           MOVE 'S'              TO ORSH-STATUS                   KZB24135
+026200           MOVE 'SF'             TO ORSH-HOLD-REASON              KZB24135
+026400           GO TO 433B-EXIT                                        KZB24135
+              END-IF                                                    KZB24135
+026500     END-IF.                                                              
+026600                                                                          
+026700     EVALUATE TRUE                                                        
+026701        WHEN ORSH-FRT-OUT-CODE = 'P'                                      
+026702          PERFORM 433D-CARRIER-CODE-PREPAID THRU 433D-EXIT                
+026703                                                                          
+026704        WHEN ORSH-FRT-OUT-CODE = 'T'                                      
+026705          PERFORM 433E-CARRIER-CODE-3RD-PARTY THRU 433E-EXIT              
+026706                                                                          
+026707        WHEN ORSH-FRT-OUT-CODE = 'C'                                      
+026708          PERFORM 433F-CARRIER-CODE-COLLECT THRU 433F-EXIT                
+026709     END-EVALUATE.                                                        
+026710                                                                          
+026720 433B-EXIT.                                                               
+026730      EXIT.                                                               
+026740                                                                          
+026750* 433C WILL ACCESS TABLE TBXCARR AND GET THE CARRIER MODE                 
+026760*                                                                         
+026770 433C-CHECK-TBXCARR-FOR-MODE.                                             
+026780                                                                          
+026790      MOVE 'K'                   TO TB-CARR-REQUEST-CODE.                 
+026800      MOVE '$$'                  TO TB-CARR-COMPANY.                      
+026900      MOVE ORH-COMPANY           TO TB-CARR-CO.                           
+027000      MOVE  WS-HOLD-CBLBAT-CARRIER                                        
+027100                                 TO TB-CARR-CODE.                         
+027200      CALL 'SYU510' USING TB-CARRIER-TABLE-IA.                            
+027300      IF TB-CARR-NORESP                                                   
+027400         MOVE  TB-CARR-MODE      TO ORSH-CARR-TYPE                        
+027500      END-IF.                                                             
+027501                                                                          
+027502 433C-EXIT.                                                               
+027503      EXIT.                                                               
+027504                                                                          
+027505* 433D PROCESSES PREPAID ORDERS WITH A CARRIER CODE.                      
+027506*                                                                         
+027507 433D-CARRIER-CODE-PREPAID.                                               
+027508                                                                          
+027509     IF (WS-ORDER-SLA-ETA-DATE <= 0)                                      
+027510         MOVE WS-HOLD-CBLBAT-CARRIER                                      
+027520                                 TO ORSH-CARRIER-CODE                     
+027530         MOVE 'P'                TO ORSH-FRT-OUT-CODE                     
+027540     ELSE                                                                 
+027560         PERFORM 433T-PREPAID-LOGIC THRU 433T-EXIT                        
+027570     END-IF.                                                              
+027571                                                                          
+027572 433D-EXIT.                                                               
+027573      EXIT.                                                               
+027574                                                                          
+027575* 433E PROCESSES THIRD PARTY ORDERS WITH A CARRIER CODE.                  
+027576* SPECIFIC CUSTOMERS, ROUTING GUIDE CUSTOMERS, WILL BE                    
+027577* PROCESSED IN PARAGRAPH 433G                                             
+027578                                                                          
+027579 433E-CARRIER-CODE-3RD-PARTY.                                             
+027580                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+027590     IF TB-CARR-MODE = 'SML' OR 'AIR1' OR 'AIR2' OR 'AIRO'                
+027600       IF WS-3RD-PARTY-ACCT NOT = SPACES                                  
+027700          MOVE 'P'               TO ORSH-FRT-OUT-CODE                     
+027800          MOVE WS-3RD-PARTY-ACCT TO                                       
+027900                             ORSH-THIRD-PARTY-FRT-ACCOUNT                 
+028000                             WS-H-THRD-PTY-ACT                    SXP02047
+028100          MOVE WS-HOLD-CBLBAT-CARRIER                                     
+028200                                 TO ORSH-CARRIER-CODE                     
+028300       ELSE                                                               
+028400        IF ROUTING-GUIDE-CUSTOMER                                         
+028500           PERFORM 433G-ROUT-GUIDE-SMALL-PARCEL                           
+028600                        THRU 433G-EXIT                                    
+028700        ELSE                                                              
+028800           MOVE 'XC'             TO ORSH-CARRIER-CODE             KZB24135
+029000           MOVE 'T'              TO ORSH-FRT-OUT-CODE             KZB24135
+029300           MOVE 'NO 3RD PTY  '   TO ORSH-SHIP-VIA                 KZB24135
+029500           MOVE 'N'              TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                 IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                 KZB24135
+                    CONTINUE                                            KZB24135
+                 ELSE                                                   KZB24135
+028900              MOVE 'S'           TO WS-ORDER-PRINT-FLAG           KZB24135
+029100              MOVE 'S'           TO ORSH-STATUS                   KZB24135
+029200              MOVE 'SF'          TO ORSH-HOLD-REASON              KZB24135
+029600           END-IF                                                 KZB24135
+              END-IF                                                    KZB24135
+029700       END-IF                                                             
+029800     ELSE                                                                 
+029900       IF TB-CARR-MODE = 'LTL' OR 'AIRH'                                  
+030000          MOVE 'T'               TO ORSH-FRT-OUT-CODE                     
+030100          MOVE WS-HOLD-CBLBAT-CARRIER                                     
+030200                                 TO ORSH-CARRIER-CODE                     
+030300       END-IF                                                             
+030400     END-IF.                                                              
+030401                                                                          
+030402 433E-EXIT.                                                               
+030403      EXIT.                                                               
+030404                                                                          
+030405* 433F PROCESSES COLLECT ORDERS WITH A CARRIER CODE.                      
+030406*                                                                         
+030407 433F-CARRIER-CODE-COLLECT.                                               
+030408                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+030409      IF WS-INGRAM-MICRO-AC AND                                           
+030410         (WS-HOLD-CBLBAT-CARRIER = 'RG')                                  
+030420         MOVE 'RG'               TO ORSH-CARRIER-CODE                     
+030430         MOVE 'IMCOLLECT   '     TO ORSH-SHIP-VIA                         
+030440         MOVE 'P'                TO ORSH-FRT-OUT-CODE                     
+030450      ELSE                                                                
+030460       IF TB-CARR-MODE = 'SML' OR 'AIR1' OR 'AIR2' OR 'AIRO'              
+030470          MOVE 'XC'              TO ORSH-CARRIER-CODE                     
+030500          MOVE 'C'               TO ORSH-FRT-OUT-CODE             KZB24135
+030490          MOVE 'INV COL CC  '    TO ORSH-SHIP-VIA                         
+030800          MOVE 'N'               TO WS-ROUT-GUIDE-BASERATE-SW     SJD01302
+                IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                  KZB24135
+                   CONTINUE                                             KZB24135
+                ELSE                                                    KZB24135
+030480             MOVE 'S'            TO WS-ORDER-PRINT-FLAG           KZB24135
+030600             MOVE 'S'            TO ORSH-STATUS                   KZB24135
+030700             MOVE 'SF'           TO ORSH-HOLD-REASON              KZB24135
+                END-IF                                                  KZB24135
+030900       ELSE                                                               
+031000         IF ROUTING-GUIDE-CUSTOMER AND                                    
+031100             TB-CARR-MODE = 'LTL' OR 'AIRH'                               
+031200             MOVE WS-HOLD-CBLBAT-CARRIER                                  
+031300                                 TO ORSH-CARRIER-CODE                     
+031400             MOVE 'T'            TO ORSH-FRT-OUT-CODE                     
+031500         ELSE                                                             
+031600           IF TB-CARR-MODE = 'LTL' OR 'AIRH'                              
+031700              MOVE WS-HOLD-CBLBAT-CARRIER                                 
+031800                                 TO ORSH-CARRIER-CODE                     
+031900              MOVE 'C'           TO ORSH-FRT-OUT-CODE                     
+032000           END-IF                                                         
+032100         END-IF                                                           
+             END-IF                                                     KZB24135
+032200      END-IF.                                                     KZB24135
+032301                                                                          
+032302 433F-EXIT.                                                               
+032303      EXIT.                                                               
+032304                                                                          
+032305* 433G WILL PROCESS THIRD PARTY ORDERS WITH A CARRIER CODE                
+032306* THAT ARE SPECIFIC ROUTING GUIDE CUSTOMERS. THIS PARAGRAPH               
+032307* IS CALLED FROM 433E.                                                    
+032308                                                                          
+032309 433G-ROUT-GUIDE-SMALL-PARCEL.                                            
+032310                                                                          
+032320        IF WS-DOUGLAS-STEWART-AC                                          
+032330          PERFORM 433H-ROUTE-SMALL-DOUG-STEW THRU 433H-EXIT               
+032340        ELSE                                                              
+032350        IF WS-D-AND-H-DEST-AC                                             
+032360          PERFORM 433I-ROUTE-SMALL-D-AND-H THRU 433I-EXIT                 
+032370        ELSE                                                              
+032380        IF WS-INGRAM-MICRO-AC                                             
+032390          PERFORM 433J-ROUTE-SMALL-INGRAM THRU 433J-EXIT                  
+032400        ELSE                                                              
+032500        IF WS-STAPLES-AC                                                  
+032600          PERFORM 433K-ROUTE-SMALL-STAPLES THRU 433K-EXIT                 
+032700        ELSE                                                              
+032800        IF WS-TECH-DATA-AC                                                
+032900          PERFORM 433L-ROUTE-SMALL-TECH-DATA THRU 433L-EXIT               
+033000        END-IF                                                            
+033100        END-IF                                                            
+033200        END-IF                                                            
+033300        END-IF                                                            
+033400        END-IF.                                                           
+033401                                                                          
+033402 433G-EXIT.                                                               
+033403      EXIT.                                                               
+033404                                                                          
+033405* 433H SMALL PARCEL ROUTING GUIDE LOGIC FOR DOUGLAS STEWART.              
+033406* CALLED FROM 433G.                                                       
+033407                                                                          
+033408 433H-ROUTE-SMALL-DOUG-STEW.                                              
+033409                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+033410     IF NOT ORSH-OVERSIZE-PRODUCT                                         
+033420       IF WS-TRUE-UPS                                                     
+033430         MOVE  '589885'          TO WS-3RD-PARTY-ACCT                     
+033440                                    WS-H-THRD-PTY-ACT             SXP02047
+033450                                    WS-3RD-PARTY-SAVE                     
+033460         MOVE WS-HOLD-CBLBAT-CARRIER                                      
+033470                                 TO ORSH-CARRIER-CODE                     
+033480         MOVE 'P'                TO ORSH-FRT-OUT-CODE                     
+033490         PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT                 
+033500       ELSE                                                               
+033600          MOVE 'XC'              TO ORSH-CARRIER-CODE             KZB24135
+033800          MOVE 'NO 3RD PTY  '    TO ORSH-SHIP-VIA                 KZB24135
+034000          MOVE 'T'               TO ORSH-FRT-OUT-CODE             KZB24135
+034300          MOVE 'N'               TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                  KZB24135
+                   CONTINUE                                             KZB24135
+                ELSE                                                    KZB24135
+033700             MOVE 'S'            TO WS-ORDER-PRINT-FLAG           KZB24135
+034100             MOVE 'S'            TO ORSH-STATUS                   KZB24135
+034200             MOVE 'SF'           TO ORSH-HOLD-REASON              KZB24135
+034400          END-IF                                                  KZB24135
+             END-IF                                                     KZB24135
+034500     ELSE                                                                 
+034600        MOVE 'XC'                TO ORSH-CARRIER-CODE             KZB24135
+034800        MOVE 'OVERSIZED   '      TO ORSH-SHIP-VIA                 KZB24135
+034900        MOVE 'T'                 TO ORSH-FRT-OUT-CODE             KZB24135
+035200        MOVE 'N'                 TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+              IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                    KZB24135
+                 CONTINUE                                               KZB24135
+              ELSE                                                      KZB24135
+034700          MOVE 'S'               TO WS-ORDER-PRINT-FLAG           KZB24135
+035000          MOVE 'S'               TO ORSH-STATUS                   KZB24135
+035100          MOVE 'SF'              TO ORSH-HOLD-REASON              KZB24135
+              END-IF                                                    KZB24135
+035300     END-IF.                                                              
+035301                                                                          
+035302 433H-EXIT.                                                               
+035303      EXIT.                                                               
+035304                                                                          
+035305* 433I SMALL PARCEL ROUTING GUIDE LOGIC FOR D&H DESTRIBUTING.             
+035306* CALLED FROM 433G.                                                       
+035307                                                                          
+035308 433I-ROUTE-SMALL-D-AND-H.                                                
+035309                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+035310     IF (ORSH-TOTAL-WEIGHT < 200) AND                                     
+035320         NOT ORSH-OVERSIZE-PRODUCT                                        
+035330       IF WS-TRUE-UPS                                                     
+035340          MOVE  'A532R1'         TO WS-3RD-PARTY-ACCT                     
+035350                                    WS-H-THRD-PTY-ACT             SXP02047
+035360                                    WS-3RD-PARTY-SAVE                     
+035370          MOVE WS-HOLD-CBLBAT-CARRIER                                     
+035380                                 TO ORSH-CARRIER-CODE                     
+035390          MOVE 'P'               TO ORSH-FRT-OUT-CODE                     
+035400          PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT                
+035500       ELSE                                                               
+035600          MOVE 'XC'              TO ORSH-CARRIER-CODE             KZB24135
+035800          MOVE 'NO 3RD PTY  '    TO ORSH-SHIP-VIA                 KZB24135
+036000          MOVE 'T'               TO ORSH-FRT-OUT-CODE             KZB24135
+036300          MOVE 'N'               TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                  KZB24135
+                   CONTINUE                                             KZB24135
+                ELSE                                                    KZB24135
+035700             MOVE 'S'            TO WS-ORDER-PRINT-FLAG           KZB24135
+036100             MOVE 'S'            TO ORSH-STATUS                   KZB24135
+036200             MOVE 'SF'           TO ORSH-HOLD-REASON              KZB24135
+                END-IF                                                  KZB24135
+036400       END-IF                                                             
+036500     ELSE                                                                 
+036600      IF (ORSH-TOTAL-WEIGHT > 200) OR                             KZB24135
+036700         ORSH-OVERSIZE-PRODUCT                                    KZB24135
+036800         MOVE 'XC'               TO ORSH-CARRIER-CODE             KZB24135
+037000         MOVE ' > 200 LBS  '     TO ORSH-SHIP-VIA                 KZB24135
+037100         MOVE 'T'                TO ORSH-FRT-OUT-CODE             KZB24135
+037400         MOVE 'N'                TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+               IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                   KZB24135
+                  CONTINUE                                              KZB24135
+               ELSE                                                     KZB24135
+036900            MOVE 'S'             TO WS-ORDER-PRINT-FLAG           KZB24135
+M37200            MOVE 'S'             TO ORSH-STATUS                   KZB24135
+037300            MOVE 'SF'            TO ORSH-HOLD-REASON              KZB24135
+               END-IF                                                   KZB24135
+037500      END-IF                                                      KZB24135
+037600     END-IF.                                                              
+037601                                                                          
+037602 433I-EXIT.                                                               
+037603      EXIT.                                                               
+037604                                                                          
+037605* 433J SMALL PARCEL ROUTING GUIDE LOGIC FOR INGRAM MICRO.                 
+037606* CALLED FROM 433G.                                                       
+037607                                                                          
+037608 433J-ROUTE-SMALL-INGRAM.                                                 
+037609                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+037610     IF NOT ORSH-OVERSIZE-PRODUCT                                         
+037620       IF WS-TRUE-UPS                                                     
+037630          MOVE  '92AV01      '   TO WS-3RD-PARTY-ACCT                     
+037640                                    WS-H-THRD-PTY-ACT             SXP02047
+037650                                    WS-3RD-PARTY-SAVE                     
+037660          MOVE WS-HOLD-CBLBAT-CARRIER                                     
+037670                                 TO ORSH-CARRIER-CODE                     
+037680          MOVE 'P'               TO ORSH-FRT-OUT-CODE                     
+037690          PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT                
+037700       ELSE                                                               
+037800         IF WS-FEDEX                                                      
+037900            MOVE  '197817909   ' TO WS-3RD-PARTY-ACCT                     
+038000                                    WS-H-THRD-PTY-ACT             SXP02047
+038100                                    WS-3RD-PARTY-SAVE                     
+038200            MOVE WS-HOLD-CBLBAT-CARRIER                                   
+038300                                 TO ORSH-CARRIER-CODE                     
+038400            MOVE 'P'             TO ORSH-FRT-OUT-CODE                     
+038500            PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT              
+038600         ELSE                                                             
+038700          IF WS-AIRBORNE                                                  
+038800             MOVE '205546625   ' TO WS-3RD-PARTY-ACCT                     
+038900                                    WS-H-THRD-PTY-ACT             SXP02047
+039000                                    WS-3RD-PARTY-SAVE                     
+039100             MOVE WS-HOLD-CBLBAT-CARRIER                                  
+039200                                 TO ORSH-CARRIER-CODE                     
+039300             MOVE 'P'            TO ORSH-FRT-OUT-CODE                     
+039400             PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT             
+039500          ELSE                                                            
+039600             MOVE 'XC'           TO ORSH-CARRIER-CODE                     
+039800             MOVE 'NO 3RD PTY  ' TO ORSH-SHIP-VIA                 KZB24135
+040000             MOVE 'T'            TO ORSH-FRT-OUT-CODE                     
+040300             MOVE 'N'            TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                   IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET               KZB24135
+                      CONTINUE                                          KZB24135
+                   ELSE                                                 KZB24135
+039700                MOVE 'S'         TO WS-ORDER-PRINT-FLAG           KZB24135
+040100                MOVE 'S'         TO ORSH-STATUS                   KZB24135
+040200                MOVE 'SF'        TO ORSH-HOLD-REASON              KZB24135
+                   END-IF                                               KZB24135
+040400          END-IF                                                  KZB24135
+040500         END-IF                                                           
+040600       END-IF                                                             
+040700     ELSE                                                                 
+040800        IF ORSH-OVERSIZE-PRODUCT                                  KZB24135
+040900           MOVE 'XC'             TO ORSH-CARRIER-CODE             KZB24135
+041100           MOVE 'OVERSIZED '     TO ORSH-SHIP-VIA                 KZB24135
+041200           MOVE 'T'              TO ORSH-FRT-OUT-CODE             KZB24135
+041500           MOVE 'N'              TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                  KZB24135
+                   CONTINUE                                             KZB24135
+                ELSE                                                    KZB24135
+041000             MOVE 'S'            TO WS-ORDER-PRINT-FLAG           KZB24135
+041300             MOVE 'S'            TO ORSH-STATUS                   KZB24135
+041400             MOVE 'SF'           TO ORSH-HOLD-REASON              KZB24135
+                END-IF                                                  KZB24135
+              END-IF                                                    KZB24135
+041600     END-IF.                                                              
+041601                                                                          
+041602 433J-EXIT.                                                               
+041603      EXIT.                                                               
+041604                                                                          
+041605* 433K SMALL PARCEL ROUTING GUIDE LOGIC FOR STAPLES.                      
+041606* CALLED FROM 433G.                                                       
+041607                                                                          
+041608 433K-ROUTE-SMALL-STAPLES.                                                
+041609                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+041610      IF NOT ORSH-OVERSIZE-PRODUCT                                        
+041620        IF WS-TRUE-UPS                                                    
+041630           MOVE  '61E28W      '  TO WS-3RD-PARTY-ACCT                     
+041640                                    WS-H-THRD-PTY-ACT             SXP02047
+041650                                    WS-3RD-PARTY-SAVE                     
+041660           MOVE WS-HOLD-CBLBAT-CARRIER                                    
+041670                                 TO ORSH-CARRIER-CODE                     
+041680           MOVE 'P'              TO ORSH-FRT-OUT-CODE                     
+041690           PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT               
+041700        ELSE                                                              
+041800           MOVE 'XC'             TO ORSH-CARRIER-CODE             KZB24135
+042000           MOVE 'NO 3RD PTY  '   TO ORSH-SHIP-VIA                 KZB24135
+042200           MOVE 'T'              TO ORSH-FRT-OUT-CODE             KZB24135
+042500           MOVE 'N'              TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                 IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                 KZB24135
+                    CONTINUE                                            KZB24135
+                 ELSE                                                   KZB24135
+041900             MOVE 'S'            TO WS-ORDER-PRINT-FLAG           KZB24135
+042300             MOVE 'S'            TO ORSH-STATUS                   KZB24135
+042400             MOVE 'SF'           TO ORSH-HOLD-REASON              KZB24135
+                 END-IF                                                 KZB24135
+              END-IF                                                    KZB24135
+042700      ELSE                                                                
+042800         IF ORSH-OVERSIZE-PRODUCT                                 KZB24135
+042900            MOVE 'XC'            TO ORSH-CARRIER-CODE             KZB24135
+043100            MOVE 'OVERSIZED   '  TO ORSH-SHIP-VIA                 KZB24135
+043200            MOVE 'T'             TO ORSH-FRT-OUT-CODE             KZB24135
+043500            MOVE 'N'             TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                 IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                 KZB24135
+                    CONTINUE                                            KZB24135
+                 ELSE                                                   KZB24135
+043000              MOVE 'S'           TO WS-ORDER-PRINT-FLAG           KZB24135
+043300              MOVE 'S'           TO ORSH-STATUS                   KZB24135
+043400              MOVE 'SF'          TO ORSH-HOLD-REASON              KZB24135
+                 END-IF                                                 KZB24135
+               END-IF                                                   KZB24135
+043600      END-IF.                                                             
+043601                                                                          
+043602 433K-EXIT.                                                               
+043603      EXIT.                                                               
+043604                                                                          
+043605* 433L SMALL PARCEL ROUTING GUIDE LOGIC FOR TECH DATA.                    
+043606* CALLED FROM 433G.                                                       
+043607                                                                          
+043608 433L-ROUTE-SMALL-TECH-DATA.                                              
+043609                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+043610      IF NOT ORSH-OVERSIZE-PRODUCT                                        
+043620        IF WS-TRUE-UPS                                                    
+043630           MOVE WS-HOLD-CBLBAT-CARRIER                                    
+043640                                 TO ORSH-CARRIER-CODE                     
+043650           MOVE 'P'              TO ORSH-FRT-OUT-CODE                     
+043660           MOVE  'CONSGN'        TO WS-3RD-PARTY-ACCT                     
+043670                                    WS-H-THRD-PTY-ACT             SXP02047
+043680                                    WS-3RD-PARTY-SAVE                     
+043690           PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT               
+043700        ELSE                                                              
+043800           MOVE 'XC'             TO ORSH-CARRIER-CODE                     
+044000           MOVE 'NO 3RD PTY  '   TO ORSH-SHIP-VIA                         
+044100           MOVE 'T'              TO ORSH-FRT-OUT-CODE                     
+044400           MOVE 'N'              TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                 IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                 KZB24135
+                    CONTINUE                                            KZB24135
+                 ELSE                                                   KZB24135
+043900              MOVE 'S'           TO WS-ORDER-PRINT-FLAG           KZB24135
+044200              MOVE 'S'           TO ORSH-STATUS                   KZB24135
+044300              MOVE 'SF'          TO ORSH-HOLD-REASON              KZB24135
+                 END-IF                                                 KZB24135
+044500        END-IF                                                            
+044600      ELSE                                                                
+044700         IF ORSH-OVERSIZE-PRODUCT                                 KZB24135
+044800            MOVE 'XC'            TO ORSH-CARRIER-CODE             KZB24135
+045000            MOVE 'OVERSIZED   '  TO ORSH-SHIP-VIA                 KZB24135
+045100            MOVE 'T'             TO ORSH-FRT-OUT-CODE             KZB24135
+045400            MOVE 'N'             TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                  IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                KZB24135
+                     CONTINUE                                           KZB24135
+                  ELSE                                                  KZB24135
+044900               MOVE 'S'          TO WS-ORDER-PRINT-FLAG           KZB24135
+045200               MOVE 'S'          TO ORSH-STATUS                   KZB24135
+045300               MOVE 'SF'         TO ORSH-HOLD-REASON              KZB24135
+                  END-IF                                                KZB24135
+               END-IF                                                   KZB24135
+045500      END-IF.                                                             
+045501                                                                          
+045502 433L-EXIT.                                                               
+045503      EXIT.                                                               
+045504                                                                          
+045505* 433M ROUTING GUIDE LOGIC FOR ROUTING GUIDE CUSTOMERS                    
+045506* WITH NO CARRIER CODE ON THE ORDER.  CALLED FROM 433A.                   
+045507                                                                          
+045508 433M-ROUTING-GUIDE-CUSTOMER.                                             
+045509                                                                          
+045510     IF WS-DOUGLAS-STEWART-AC                                             
+045520        PERFORM 433N-ROUTE-DOUG-STEW THRU 433N-EXIT                       
+045530     ELSE                                                                 
+045540     IF WS-D-AND-H-DEST-AC                                                
+045550        PERFORM 433O-ROUTE-D-AND-H   THRU 433O-EXIT                       
+045560     ELSE                                                                 
+045570     IF WS-INGRAM-MICRO-AC                                                
+045580        PERFORM 433P-ROUTE-INGRAM    THRU 433P-EXIT                       
+045590     ELSE                                                                 
+045600     IF WS-STAPLES-AC                                                     
+045700        PERFORM 433Q-ROUTE-STAPLES   THRU 433Q-EXIT                       
+045800     ELSE                                                                 
+045900     IF WS-TECH-DATA-AC                                                   
+046000        PERFORM 433R-ROUTE-TECH-DATA THRU 433R-EXIT                       
+046100     END-IF                                                               
+046200     END-IF                                                               
+046300     END-IF                                                               
+046400     END-IF                                                               
+046500     END-IF.                                                              
+046600                                                                          
+046700 433M-EXIT.                                                               
+046800      EXIT.                                                               
+046900                                                                          
+047000* 433N ROUTING GUIDE LOGIC FOR DOUGLAS STEWART.                           
+047100* NO CARRIER CODE ON THE ORDER.  CALLED FROM 433A.                        
+047200                                                                          
+047300 433N-ROUTE-DOUG-STEW.                                                    
+047400                                                                          
+047500     IF ORSH-TOTAL-WEIGHT < 151 AND                                       
+047600        NOT ORSH-OVERSIZE-PRODUCT                                         
+047700        MOVE 'UG'                TO ORSH-CARRIER-CODE                     
+047800        MOVE '589885'            TO WS-3RD-PARTY-ACCT                     
+047900                                    WS-H-THRD-PTY-ACT             SXP02047
+048000                                    WS-3RD-PARTY-SAVE                     
+048100        MOVE 'P'                 TO ORSH-FRT-OUT-CODE                     
+048200        PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT                  
+048300     ELSE                                                                 
+048400       IF ORSH-TOTAL-WEIGHT > 150 OR ORSH-OVERSIZE-PRODUCT                
+048500          PERFORM 433W-DEFAULT-CARRIER THRU 433W-EXIT                     
+048600          MOVE 'T'               TO ORSH-FRT-OUT-CODE                     
+048700          MOVE 'Y'               TO WS-ROUT-GUIDE-BASERATE-SW     SJD01302
+048800       END-IF                                                             
+048900     END-IF.                                                              
+049000                                                                          
+049100 433N-EXIT.                                                               
+049200      EXIT.                                                               
+049300                                                                          
+049400* 433O ROUTING GUIDE LOGIC FOR D&H DESTRIBUTING.                          
+049500* NO CARRIER CODE ON THE ORDER.  CALLED FROM 433A.                        
+049600                                                                          
+049700 433O-ROUTE-D-AND-H.                                                      
+049800                                                                          
+049900     IF ORSH-TOTAL-WEIGHT < 401 AND                                       
+050000        NOT ORSH-OVERSIZE-PRODUCT                                         
+050100        MOVE 'UG'                TO ORSH-CARRIER-CODE                     
+050200        MOVE 'P'                 TO ORSH-FRT-OUT-CODE                     
+050300        MOVE  'A532R1'           TO WS-3RD-PARTY-ACCT                     
+050400                                    WS-H-THRD-PTY-ACT             SXP02047
+050500                                    WS-3RD-PARTY-SAVE                     
+050600        PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT                  
+050700     ELSE                                                                 
+050800      IF (ORSH-TOTAL-WEIGHT > 401 AND                                     
+050900          ORSH-TOTAL-WEIGHT < 7000)  OR                                   
+051000         (ORSH-TOTAL-WEIGHT < 7000)  AND                                  
+051100          ORSH-OVERSIZE-PRODUCT                                           
+051200          PERFORM 433W-DEFAULT-CARRIER THRU 433W-EXIT                     
+051300         MOVE 'T'                TO ORSH-FRT-OUT-CODE                     
+051400      ELSE                                                                
+051500        IF ORSH-TOTAL-WEIGHT > 7000                                       
+051600           MOVE 'FP'             TO ORSH-CARRIER-CODE                     
+051700           MOVE 'T'              TO ORSH-FRT-OUT-CODE                     
+051800           MOVE 'N'              TO WS-ROUT-GUIDE-BASERATE-SW     SJD01302
+051900      END-IF                                                              
+052000     END-IF.                                                              
+052100                                                                          
+052200 433O-EXIT.                                                               
+052300      EXIT.                                                               
+052400                                                                          
+052500* 433P ROUTING GUIDE LOGIC FOR INGRAM MICRO. NO CARRIER CODE              
+052600* ON THE ORDER. CALLED FROM 433A.                                         
+052700                                                                          
+052800 433P-ROUTE-INGRAM.                                                       
+052900                                                                          
+053000     IF ORSH-BR-NBR-SHIP-FROM = ORH-BILL-TO-BR-NBR                        
+053100       MOVE 'Q4'                 TO ORSH-CARRIER-CODE                     
+053200       MOVE 'P'                  TO ORSH-FRT-OUT-CODE                     
+053300     ELSE                                                                 
+053400       IF (ORSH-TOTAL-WEIGHT < 251) AND                                   
+053500           NOT  ORSH-OVERSIZE-PRODUCT                                     
+053600           MOVE 'RG'             TO ORSH-CARRIER-CODE                     
+053700           MOVE 'P'              TO ORSH-FRT-OUT-CODE                     
+053800           MOVE  'COLLECT     '  TO WS-3RD-PARTY-ACCT             INF08143
+053900                                    WS-H-THRD-PTY-ACT             SXP02047
+054000       ELSE                                                               
+054100         IF ((ORSH-TOTAL-WEIGHT > 250)  AND                               
+054200            (ORSH-TOTAL-WEIGHT < 10001)) OR                               
+054300            ((ORSH-TOTAL-WEIGHT < 10001) AND                              
+054400            (ORSH-OVERSIZE-PRODUCT))                                      
+054500             PERFORM 433W-DEFAULT-CARRIER THRU 433W-EXIT                  
+054600             MOVE 'T'            TO ORSH-FRT-OUT-CODE                     
+054700         ELSE                                                             
+054800           IF (ORSH-TOTAL-WEIGHT > 9999)                                  
+054900               MOVE 'CV'         TO ORSH-CARRIER-CODE                     
+055000               MOVE 'COVENENT    '                                        
+055100                                 TO ORSH-SHIP-VIA                         
+055200               MOVE 'T'          TO ORSH-FRT-OUT-CODE                     
+055300               MOVE 'N'          TO WS-ROUT-GUIDE-BASERATE-SW     SJD01302
+055400           END-IF                                                         
+055500         END-IF                                                           
+055600       END-IF                                                             
+055700     END-IF.                                                              
+055800                                                                          
+055900 433P-EXIT.                                                               
+056000      EXIT.                                                               
+056100                                                                          
+056200* 433Q ROUTING GUIDE LOGIC FOR STAPLES. NO CARRIER CODE ON                
+056300* ORDER.  CALLED FROM 433A.                                               
+056400                                                                          
+056500 433Q-ROUTE-STAPLES.                                                      
+056600                                                                          
+056700      IF (ORSH-TOTAL-WEIGHT < 651) AND                                    
+056800         NOT  ORSH-OVERSIZE-PRODUCT                                       
+056900         MOVE 'UG'               TO ORSH-CARRIER-CODE                     
+057000         MOVE 'P'                TO ORSH-FRT-OUT-CODE                     
+057100         MOVE  '61E28W'          TO WS-3RD-PARTY-ACCT                     
+057200                                    WS-H-THRD-PTY-ACT             SXP02047
+057300                                    WS-3RD-PARTY-SAVE                     
+057400         PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT                 
+057500      ELSE                                                                
+057600        IF(ORSH-TOTAL-WEIGHT > 650 AND                                    
+057700           ORSH-TOTAL-WEIGHT < 3001) OR                                   
+057800          (ORSH-TOTAL-WEIGHT < 3001  AND                                  
+057900           ORSH-OVERSIZE-PRODUCT)                                         
+058000           PERFORM 433W-DEFAULT-CARRIER THRU 433W-EXIT                    
+058100           MOVE 'T'              TO ORSH-FRT-OUT-CODE                     
+058200        ELSE                                                              
+058300          IF ORSH-TOTAL-WEIGHT > 3000                                     
+058400             MOVE 'XC'           TO ORSH-CARRIER-CODE                     
+058500             MOVE 'MS CARRIER  ' TO ORSH-SHIP-VIA                         
+058600             MOVE 'N'            TO WS-ROUT-GUIDE-BASERATE-SW     SJD01302
+058700             MOVE 'T'            TO ORSH-FRT-OUT-CODE                     
+058800          END-IF                                                          
+058900       END-IF                                                             
+059000     END-IF.                                                              
+059100                                                                          
+059200 433Q-EXIT.                                                               
+059300      EXIT.                                                               
+059400                                                                          
+059500* 433R ROUTING GUIDE LOGIC FOR TECH DATA. NO CARRIER CODE                 
+059600* ON ORDER.  CALLED FROM 433A.                                            
+059700                                                                          
+059800 433R-ROUTE-TECH-DATA.                                                    
+059900                                                                          
+060000     IF (ORSH-TOTAL-WEIGHT < 151) AND                                     
+060100         NOT  ORSH-OVERSIZE-PRODUCT                                       
+060200        MOVE 'UG'                TO ORSH-CARRIER-CODE                     
+060300        MOVE 'P'                 TO ORSH-FRT-OUT-CODE                     
+060400        MOVE  'CONSIGN'          TO WS-3RD-PARTY-ACCT                     
+060500                                    WS-H-THRD-PTY-ACT             SXP02047
+060600                                    WS-3RD-PARTY-SAVE                     
+060700       PERFORM 433X-3RD-PARTY-VALIDATION THRU 433X-EXIT                   
+060800     ELSE                                                                 
+060900       IF ((ORSH-TOTAL-WEIGHT > 150) AND                                  
+061000           (ORSH-TOTAL-WEIGHT < 10001)) OR                                
+061100          ((ORSH-TOTAL-WEIGHT < 10001) AND                                
+061200          (ORSH-OVERSIZE-PRODUCT))                                        
+061300           PERFORM 433W-DEFAULT-CARRIER THRU 433W-EXIT                    
+061400          MOVE 'T'               TO ORSH-FRT-OUT-CODE                     
+061500       ELSE                                                               
+061600         IF ORSH-TOTAL-WEIGHT > 10000                                     
+061700            MOVE 'SR'            TO ORSH-CARRIER-CODE                     
+061800            MOVE 'SRM        '   TO ORSH-SHIP-VIA                         
+061900            MOVE 'T'             TO ORSH-FRT-OUT-CODE                     
+062000            MOVE 'N'             TO WS-ROUT-GUIDE-BASERATE-SW     SJD01302
+062100         END-IF                                                           
+062200       END-IF                                                             
+062300     END-IF.                                                              
+062400                                                                          
+062500 433R-EXIT.                                                               
+062600      EXIT.                                                               
+062700                                                                          
+062800* 433S LOGIC FOR ORDERS THAT ARE NOT SPECIFIC ROUTING GUIDE               
+062900* CUSTOMERS AND DO NOT HAVE A CARRIER CODE ON THE ORDER.                  
+063000                                                                          
+063100 433S-NO-CARRIER-CODE-SENT.                                               
+063200                                                                          
+063300      EVALUATE  TRUE                                                      
+063400        WHEN ORSH-FRT-OUT-CODE = 'P'                                      
+063500          PERFORM 433T-PREPAID-LOGIC  THRU 433T-EXIT                      
+063600                                                                          
+063700        WHEN OTHER                                                        
+063800          PERFORM 433U-NO-CC-3RD-PRTY-OR-COLLECT                          
+063900                       THRU 433U-EXIT                                     
+064000      END-EVALUATE.                                                       
+064100                                                                          
+064200 433S-EXIT.                                                               
+064300      EXIT.                                                               
+064400                                                                          
+064500* 433T LOGIC FOR PREPAID ORDERS THAT DO NOT HAVE A                        
+064600* CARRIER CODE ON THE ORDER.                                              
+064700                                                                          
+064800 433T-PREPAID-LOGIC.                                                      
+064900                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+065000      PERFORM 434A-GET-RECEIVE-AND-BUS-DAYS THRU 434A-EXIT.               
+065100                                                                          
+065200     IF WS-VALID-BUS-DATE                                                 
+065300       IF WS-EXPECTED-DELIVERY-DATE <=                                    
+065400                                   WS-ORDER-RECEIVED-DATE                 
+065500          MOVE 'XC'              TO ORSH-CARRIER-CODE                     
+065700          MOVE 'EDD INVALD  '    TO ORSH-SHIP-VIA                         
+065800          MOVE 'P'               TO ORSH-FRT-OUT-CODE                     
+066100          MOVE 'N'               TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                  KZB24135
+                   CONTINUE                                             KZB24135
+                ELSE                                                    KZB24135
+065600             MOVE 'S'            TO WS-ORDER-PRINT-FLAG           KZB24135
+065900             MOVE 'S'            TO ORSH-STATUS                   KZB24135
+066000             MOVE 'SF'           TO ORSH-HOLD-REASON              KZB24135
+                END-IF                                                  KZB24135
+             END-IF                                                     KZB24135
+066200     END-IF.                                                      KZB24135
+                                                                                
+066300 433T-EXIT.                                                               
+066400      EXIT.                                                               
+066500                                                                          
+066600* 433U LOGIC FOR A ORDER WITH NO CARRIER CODE, NOT A SPECIFIC             
+066700* ROUTING GUIDE CUSTOMER, AND NO EXPECTED DELIVERY DATE.                  
+066800* CALLED FROM 433S.                                                       
+066900                                                                          
+067000 433U-NO-CC-3RD-PRTY-OR-COLLECT.                                          
+067100                                                                          
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+067200     MOVE 'XC'                   TO ORSH-CARRIER-CODE             KZB24135
+067400     MOVE 'NOT PRE-PD  '         TO ORSH-SHIP-VIA                 KZB24135
+067700     MOVE 'N'                    TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+           IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                       KZB24135
+               CONTINUE                                                 KZB24135
+           ELSE                                                         KZB24135
+067300         MOVE 'S'                TO WS-ORDER-PRINT-FLAG           KZB24135
+067500         MOVE 'S'                TO ORSH-STATUS                   KZB24135
+067600         MOVE 'SF'               TO ORSH-HOLD-REASON              KZB24135
+           END-IF.                                                      KZB24135
+067800                                                                          
+067900 433U-EXIT.                                                               
+068000      EXIT.                                                               
+068100                                                                          
+068200* 433V LOGIC FOR A PREPAID ORDER WITH NO CARRIER CODE, AND NO             
+068300* EXPECTED DELIVERY DATE. CALLED FROM 433A.                               
+068400                                                                          
+068500 433V-PREPAID-NO-CC-NO-EDD.                                               
+068600                                                                          
+068700      PERFORM 434A-GET-RECEIVE-AND-BUS-DAYS                               
+068800                   THRU 434A-EXIT                                         
+068900      MOVE 99                    TO WS-ROUTING-TRANSIT-DAYS.              
+069000      MOVE 'Y'                   TO WS-ROUT-GUIDE-BASERATE-SW.    SJD01302
+069100                                                                          
+069200 433V-EXIT.                                                               
+069300      EXIT.                                                               
+069400                                                                          
+069500 433W-DEFAULT-CARRIER.                                                    
+           PERFORM 433Y-CALL-TBXHOLD THRU 433Y-EXIT.                    KZB24135
+137720     IF WS-DFLT-CARR-PARA-SW > SPACES                                     
+137730        IF ORSH-DIST-NBR = 1 AND                                          
+137740           ORSH-SHIP-NBR = 1                                              
+137750           MOVE ORSH-CARRIER-SW         TO WS-DFLT-CARRIER-SW             
+137760           MOVE ORSH-CARRIER-CODE       TO WS-DFLT-CARRIER-CODE           
+137770           MOVE ORSH-SHIP-VIA           TO WS-DFLT-SHIP-VIA               
+137780           MOVE ORSH-FRT-OUT-CODE       TO WS-DFLT-FRT-CODE               
+137790           MOVE ORSH-FO-OVERRIDE-CODE   TO WS-DFLT-FO-OVERRIDE            
+137800           MOVE WS-3RD-PARTY-ACCT       TO WS-DFLT-FRT-ACCT               
+137810        END-IF                                                            
+137820*                                                                         
+137830        MOVE 'N'                     TO WS-DEFAULT-CARRIER-SW             
+137840        EVALUATE WS-DFLT-CARR-PARA-SW                                     
+137850        WHEN 'E'                                                          
+137860           PERFORM 159-FIND-DFLT-BRANCH-CARR THRU 159-EXIT                
+137870                   VARYING DFLT-INDX FROM 1 BY 1                          
+137880                     UNTIL DFLT-INDX > 10                                 
+137890        WHEN 'U'                                                          
+137900           PERFORM 159A-FIND-DFLT-BRANCH-CARR THRU 159A-EXIT              
+137910                   VARYING DFLT-INDX FROM 1 BY 1                          
+137920                     UNTIL DFLT-INDX > 10                                 
+137930        END-EVALUATE                                                      
+137940*                                                                         
+137950        IF DEFAULT-CARRIER-FOUND                                          
+137960           NEXT SENTENCE                                                  
+137970        ELSE                                                              
+137980           MOVE 'XC'             TO ORSH-CARRIER-CODE                     
+138000           MOVE 'INV DF CAR  '   TO ORSH-SHIP-VIA                 KZB24135
+138201           MOVE 'N'              TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+                 IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                 KZB24135
+                    CONTINUE                                            KZB24135
+                 ELSE                                                   KZB24135
+137990              MOVE 'S'           TO WS-ORDER-PRINT-FLAG           KZB24135
+138100              MOVE 'S'           TO ORSH-STATUS                   KZB24135
+138200              MOVE 'SF'          TO ORSH-HOLD-REASON              KZB24135
+138202           END-IF                                                 KZB24135
+              END-IF                                                    KZB24135
+138203     ELSE                                                         KZB24135
+138206        MOVE 'XC'                TO ORSH-CARRIER-CODE             KZB24135
+138208        MOVE 'INV DF CAR  '      TO ORSH-SHIP-VIA                 KZB24135
+138210        MOVE 'N'                 TO WS-ROUT-GUIDE-BASERATE-SW     KZB24135
+              IF TB-HLD-NORESP AND TB-HLD-DO-NOT-SET                    KZB24135
+138204           CONTINUE                                               KZB24135
+138205        ELSE                                                      KZB24135
+138207           MOVE 'S'              TO WS-ORDER-PRINT-FLAG           KZB24135
+138209           MOVE 'S'              TO ORSH-STATUS                   KZB24135
+                 MOVE 'SF'             TO ORSH-HOLD-REASON              KZB24135
+138211        END-IF                                                    KZB24135
+           END-IF.                                                      KZB24135
+                                                                                
+138212 433W-EXIT.                                                               
+138220      EXIT.                                                               
+138230                                                                          
+138231 433X-3RD-PARTY-VALIDATION.                                               
+138232****************************************************************          
+138233* PROCESS 3RD PARTY UPS ACCOUNT THAT WILL BE TAKEN OFF THE     *          
+138234* CBLBAT FILE OR THE CUSTOMER DATABASE (THERE IS ONE AT EACH   *          
+138235* BILL-TO/SHIP-TO SUFFIX)                                      *          
+138236****************************************************************          
+138237     MOVE ORSH-CARRIER-CODE      TO  WS-CARR-CODE(3:2).                   
+138238     MOVE TC-COMPANY             TO  WS-CARR-CODE(1:2).                   
+138239     MOVE 'N'                    TO  WS-UPS-OVERRIDE.                     
+138240     MOVE 'N'                    TO  WS-BAX-OVERRIDE.                     
+                                                                                
+138250     IF WS-H-THRD-PTY-ACT > SPACES                                SXP02047
+138260        IF WS-GE AND NOT WS-TRUE-UPS AND NOT WS-FEDEX                     
+138270           NEXT SENTENCE                                                  
+138271        ELSE                                                              
+              IF WS-BAX  OR                                             RPM02110
+                 WS-RPS  OR                                             RPM02110
+                 WS-TRUE-UPS                                            RPM02110
+                 PERFORM 037-VALIDATE-3RD-PTY-ACCT THRU 037-EXIT        RPM02110
+              ELSE                                                      RPM02110
+                 PERFORM 038-3RD-PARTY-ACCT-EDIT   THRU 038-EXIT.       RPM02110
+138294 433X-EXIT.                                                               
+138295      EXIT.                                                               
+                                                                        KZB24135
+       433Y-CALL-TBXHOLD.                                               KZB24135
+                                                                        KZB24135
+           MOVE ORH-COMPANY            TO TB-HLD-COMPANY.               KZB24135
+           MOVE 'SF'                   TO TB-HLD-CODE.                  KZB24135
+           CALL 'SYU510'            USING TB-HOLD-PROC-IA.              KZB24135
+                                                                        KZB24135
+                                                                        KZB24135
+       433Y-EXIT. EXIT.                                                 KZB24135
+                                                                        KZB24135

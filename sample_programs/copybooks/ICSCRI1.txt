@@ -1,0 +1,145 @@
+      *                                                                *        
+      ******************************************************************        
+      ***                                                            ***        
+      ***  START OF COPYBOOK ICSCRI1                                 ***        
+      ***                                                            ***        
+      ******************************************************************        
+      *                                                                *        
+      *================================================================*        
+      *                                                                *        
+      * PURPOSE:                                                       *        
+      *                                                                *        
+      *  THIS COPYBOOK IS USED TO CONTROL THE CONVERSION OF REMOTE     *        
+      *  COSTS TO LOCAL COSTS.  THIS COPYBOOK CAN ONLY WORK IF THE     *        
+      *  PROGRAM USES INVENTORY SHARING LOGIC, THE STANDARD INVENTORY  *        
+      *  SHARING COPYBOOKS (ECW*), AND THE REGIONALIZED INVENTORY      *        
+      *  TOOLKIT COPYBOOK (CURRENTLY CALLED ICSCRI2).                  *        
+      *                                                                *        
+      * REVISION INFO:                                                 *        
+      * 07/30/01  WFP  NEW COPYBOOK.                                   *WFP01211
+      *                                                                *        
+      *================================================================*        
+      *                                                                *        
+      ***                                                        ***            
+      ***  THIS PARAGRAPH WILL DETERMINE IF REMOTE COSTS SHOULD  ***            
+      ***  BE USED, AND IF THE CONVERSION PROGRAMS NEEDS TO BE   ***            
+      ***  CALLED.                                               ***            
+      ***                                                        ***            
+                                                                                
+       8000-ICRI-SET-IH-DATA-SUPER.                                             
+                                                                                
+      *===>  IF THE LOCAL COMPANY IS NOT SET FOR INVENTORY SHARING,             
+      *===>  THEN WE CANNOT USE THE REGIONALIZED INVENTORY LOGIC.               
+      *===>  SINCE THIS COPYBOOK SHOULD ONLY BE USED BY INVENTORY               
+      *===>  SHARING PROGRAMS, THEN REAL-TIME COSTS MUST BE NEEDED.             
+      *===>  IN SUCH A CASE, THE COSTS MUST BE OBTAINED FROM THE                
+      *===>  REMOTE DATABASE, OR ELSE THE REGIONALIZED INVENTORY                
+      *===>  LOGIC CANNOT WORK.                                                 
+                                                                                
+           IF TB-CPO-ALT-INVENTORY-ALLOWED                                      
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              MOVE 'XX'                                                         
+                TO ICRI-DATA-STATUS-SW                                          
+              GO TO 8000-ICRI-EXIT.                                             
+                                                                                
+      *===>  IF THE LOCAL COMPANY CODE HAS NOT BEEN SET, THEN THIS              
+      *===>  MUST BE THE FIRST RUN OF THE PROGRAM.  SO, INITIALIZE              
+      *===>  THE FULL I-O AREA, AND SET THE COMPANY CODE, WHICH WILL            
+      *===>  FORCE A THE CALL OF SYU889.                                        
+                                                                                
+           IF TC-COMPANY = WS-INAL2-CO                                          
+              MOVE 'Y'                                                          
+                TO ICRI-SKU-STATUS-SW                                           
+           ELSE                                                                 
+           IF ICRI-FORCE-PROCESSING                                             
+              MOVE 'N'                                                          
+                TO ICRI-SKU-STATUS-SW                                           
+           ELSE                                                                 
+              MOVE 'N'                                                          
+                TO ICRI-SKU-STATUS-SW                                           
+              GO TO 8000-ICRI-EXIT.                                             
+                                                                                
+           IF WS-INSHED-NORESP                                                  
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              MOVE 'N'                                                          
+                TO ICRI-DATA-STATUS-SW                                          
+              GO TO 8000-ICRI-EXIT.                                             
+                                                                                
+           IF INI-COMPONENT-BUSINESS-SW > SPACES                                
+            OR ICRI-FORCE-PROCESSING                                            
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              MOVE 'XX'                                                         
+                TO ICRI-DATA-STATUS-SW                                          
+              GO TO 8000-ICRI-EXIT.                                             
+                                                                                
+           IF ICRI-LOC-CO > SPACES                                              
+            AND ICRI-LOC-CO = TC-COMPANY                                        
+              IF ICRI-LOC-PART > SPACES                                         
+               AND WS-INAL2-PART = ICRI-LOC-PART                                
+                 GO TO 8000-ICRI-EXIT                                           
+              ELSE                                                              
+                 INITIALIZE ICRI-DATA-STATUS-SW                                 
+                 INITIALIZE ICRI-LAST-BRANCH-INSBRN                             
+           ELSE                                                                 
+              INITIALIZE ICRI-DATA-STATUS-SW                                    
+              INITIALIZE ICRI-LAST-BRANCH-INSBRN                                
+              MOVE 'Y'                                                          
+                TO ICRI-SKU-STATUS-SW                                           
+              MOVE TC-COMPANY                                                   
+                TO ICRI-LOC-CO.                                                 
+                                                                                
+      *===>  ENSURE THAT IH COSTS HAVE BEEN SET.                                
+                                                                                
+      *===>  IF THE INVENTORY HOLDING COSTS HAVE NOT ALREADY BEEN               
+      *===>  OBTAINED AND CONVERTED, THEN GET THE REMOTE INSHED                 
+      *===>  SEGMENT AND CONVERT THE COSTS.  AFTERWARDS, REPOSTION              
+      *===>  THE PCB POINTER TO THE LOCAL PCB, AND OBTAIN THE LOCAL             
+      *===>  INSHED SEGMENT.                                                    
+                                                                                
+           IF ICRI-DO-NOT-USE-RI                                                
+              GO TO 8000-ICRI-EXIT                                              
+           ELSE                                                                 
+           IF ICRI-LOC-PART > SPACES                                            
+            AND WS-INAL2-PART = ICRI-LOC-PART                                   
+            AND ICRI-DATA-FOUND                                                 
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              PERFORM 8200-ICRI-INIT-COST-CONV-DATA                             
+                 THRU 8200-ICRI-EXIT                                            
+              IF ICRI-DATA-FOUND                                                
+                 MOVE ICRI-INV-OWNING-COMPANY                                   
+                   TO WS-INAL2-CO                                               
+                      WS-PCB-REGION                                             
+                 MOVE 'I2'                                                      
+                   TO WS-PCB-TYPE                                               
+                 PERFORM 8888-SETUP-DLI-CALL                                    
+                    THRU 8888-SETUP-DLI-CALL-EXIT                               
+                 PERFORM 1550-GU-INSHED-AL2-ONLY                                
+                 IF WS-INSHED-NORESP                                            
+                    PERFORM 8400-ICRI-CONV-COST-DATA                            
+                       THRU 8400-ICRI-EXIT                                      
+                 ELSE                                                           
+                    MOVE 'N'                                                    
+                      TO ICRI-DATA-STATUS-SW                                    
+                 END-IF                                                         
+                 MOVE ICRI-LOC-CO                                               
+                   TO WS-INAL2-CO                                               
+                      WS-PCB-REGION                                             
+                 PERFORM 8888-SETUP-DLI-CALL                                    
+                    THRU 8888-SETUP-DLI-CALL-EXIT                               
+                 PERFORM 1550-GU-INSHED-AL2-ONLY.                               
+                                                                                
+       8000-ICRI-EXIT.                                                          
+                                                                                
+           EXIT.                                                                
+                                                                                
+      *                                                                *        
+      ******************************************************************        
+      ***                                                            ***        
+      ***  END OF COPYBOOK ICSCRI1                                   ***        
+      ***                                                            ***        
+      ******************************************************************        
+      *                                                                *        

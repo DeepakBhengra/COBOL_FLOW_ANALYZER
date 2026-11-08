@@ -1,0 +1,199 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT401                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV401 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV401-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV401-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV401-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV401-PARTNER-ID                             *  AZS06016
+      *              - EDV401-SRCE-SYS-KEY-ID                        *  AZS06016
+      *              - EDV401-INTERNET-ADDR-TXT                      *  AZS06016
+      *              - EDV401-SEND-THRU-ID                           *  AZS06016
+      *              - EDV401-DATA-STORE-MECH-ID                     *  AZS06016
+      *              - EDV401-FORMAT-ID                              *  AZS06016
+      *              - EDV401-DOC-ID                                 *  AZS06016
+      *              - EDV401-APPL-ID                                *  AZS06016
+      *              - EDV401-TRANSLATOR-ID                          *  AZS06016
+      *              - EDV401-TRANSLATION-ID                         *  AZS06016
+      *              - EDV401-PRCS-OPTN-FLG                          *  AZS06016
+      *              - EDV401-CYCLE-INTVL                            *  AZS06016
+      *              - EDV401-CYCLE-LST-RUN-TS                       *  AZS06016
+      *                                                              *  AZS06016
+      *    OUTPUT: EDV401-OUTPUT-DATA                                *          
+      *          - EDV401-ROW-COUNT                                  *          
+      *          - EDV401-MODULE-RESULT-CD                           *          
+      *          - EDV401-MODULE-MESSAGE                             *          
+      *          - EDV401-DATABASE-RESULT-CODES:                     *          
+      *              - EDV401-SQLCODE                                *          
+      *              - EDV401-SQLSTATE                               *          
+      *              - EDV401-SQL-MESSAGE                            *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV401 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV401-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV401-PARTNER-ID.                *          
+      *     MOVE 'S ' TO EDV401-ACTION-CD.     .                     *          
+      *     MOVE 'PARTNER_LOOKUP  ' TO EDV401-OBJECT-ID.             *          
+      *                                                              *          
+      *     CALL 'EDV401' USING EDV401-COMMUNICATIONS-AREA.          *          
+      *     IF EDV401-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV401 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT401 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                08/06/16  KZC   ADD NEW OVERRIDE APPL BID FLD *  KZC16219
+      *                                CAN BE USED ON OUTBOUND APP   *  KZC16219
+      *                                DATA TO STATE THE ACTUAL CE   *  KZC16219
+      *                                BATCH NAME FORMAT WILL BE A*B *  KZC16219
+      *                                WHERE A IS THIS NEW FIELD,*   *  KZC16219
+      *                                IS STAR AND B IS PID.         *  KZC16219
+      *                01/16/06  AZS   ADD EDV401-CYCLE-INTVL        *  AZS06016
+      *                                    EDV401-CYCLE-LST-RUN-TS   *  AZS06016
+      *                06/16/05  LAR   ADDED NEW CURSOR #3           *  LAR05168
+      *                05/04/04  KWC   ADD EDV401-KEY-DOC-ID2.       *  KWC04125
+      *                03/23/04  KWC   ADDED NEW FIELDS:             *  KWC04083
+      *                                 EDV401-KEY-PARTNER-ID        *  KWC04083
+      *                                 EDV401-CURSOR-OPEN-2         *  KWC04083
+      *                                 EDV401-CURSOR-FETCH-2        *  KWC04083
+      *                                 EDV401-CURSOR-CL-2           *  KWC04083
+      *                04/17/02  WWZ   ADDED PRCS_OPTN_FLG.          *  MOG02107
+      *                04/22/01  KXR   ORIGINAL.                     *          
+      ****************************************************************          
+                                                                                
+       01  EDV401-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV401-ACTION-CD                     PIC  X(002).                
+               88  EDV401-SELECT                    VALUE 'S '.                 
+               88  EDV401-INSERT                    VALUE 'I '.                 
+               88  EDV401-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV401-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV401-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV401-CURSOR-OPEN-2             VALUE 'O2'.         KWC04083
+               88  EDV401-CURSOR-OPEN-3             VALUE 'O3'.         LAR05168
+               88  EDV401-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV401-CURSOR-FETCH-2            VALUE 'F2'.         KWC04083
+               88  EDV401-CURSOR-FETCH-3            VALUE 'F3'.         LAR05168
+               88  EDV401-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV401-CURSOR-CL-2               VALUE 'C2'.         KWC04083
+               88  EDV401-CURSOR-CL-3               VALUE 'C3'.         LAR05168
+               88  EDV401-COUNT                     VALUE 'C '.                 
+               88  EDV401-MAX                       VALUE 'MX'.                 
+               88  EDV401-MIN                       VALUE 'MN'.                 
+               88  EDV401-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV401-MASS-UPDATE               VALUE 'MU'.                 
+               88  EDV401-MASS-INSERT               VALUE 'MI'.                 
+           05  EDV401-USER-ID                       PIC  X(010).                
+           05  EDV401-KEY-AREA.                                                 
+               10  EDV401-KEY-CO-CD                 PIC  X(002).                
+               10  EDV401-KEY-PARTNER-ID            PIC  X(015).        KWC04083
+               10  EDV401-KEY-PARTNER-TYPE-CD       PIC  X(002).                
+               10  EDV401-KEY-SRCE-SYS-ID           PIC  X(006).                
+               10  EDV401-KEY-SRCE-SYS-KEY-ID       PIC  X(030).                
+               10  EDV401-KEY-DIR-FLG-CD            PIC  X(001).                
+               10  EDV401-KEY-DOC-ID                PIC  X(010).                
+               10  EDV401-KEY-DOC-ID2               PIC  X(010).        KWC04125
+               10  EDV401-KEY-FREQ-ID               PIC  X(001).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV401-INPUT-OUTPUT-AREA.                                        
+               10  EDV401-OBJECT-ID                 PIC  X(030).                
+                   88  EDV401-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV401-PARTNER-LOOKUP        VALUE                       
+                                  'PARTNER LOOKUP                '.             
+               10  EDV401-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV401-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV401-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV401-PARTNER-ID            PIC  X(015).                
+                   15  EDV401-SRCE-SYS-KEY-ID       PIC  X(030).        KWC04083
+                   15  EDV401-INTERNET-ADDR-TXT     PIC  X(050).                
+                   15  EDV401-SEND-THRU-ID          PIC  X(015).                
+                   15  EDV401-DATA-STORE-MECH-ID    PIC  X(010).                
+                   15  EDV401-FORMAT-ID             PIC  X(010).                
+                   15  EDV401-DOC-ID                PIC  X(010).        KWC04125
+                   15  EDV401-APPL-ID               PIC  X(010).                
+                   15  EDV401-TRANSLATOR-ID         PIC  X(010).                
+                   15  EDV401-TRANSLATION-ID        PIC  X(010).                
+                   15  EDV401-PRCS-OPTN-FLG         PIC  X(002).        MOG02107
+                   15  EDV401-CYCLE-INTVL           PIC  9(004).        AZS06016
+                   15  EDV401-CYCLE-LST-RUN-TS      PIC  X(026).        AZS06016
+                   15  EDV401-OVRD-APPL-BATCH-ID    PIC  X(010).        KZC16219
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV401-OUTPUT-DATA.                                              
+               10  EDV401-ROW-COUNT             PIC  S9(009).                   
+               10  EDV401-MODULE-RESULT-CD      PIC  X(002).                    
+                   88  EDV401-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV401-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV401-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV401-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV401-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV401-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV401-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV401-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV401-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV401-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV401-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV401-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV401-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV401-EXCEPTION-MESSAGE.                                    
+                   15  EDV401-MSG-OBJECT            PIC  X(030).                
+                   15  EDV401-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV401-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV401-SQLCA.                                            
+                       20  EDV401-SQLCAID           PIC  X(008).                
+                       20  EDV401-SQLCABC           PIC  S9(009).               
+                       20  EDV401-SQLCODE           PIC  S9(009).               
+                       20  EDV401-SQLERRM.                                      
+                           25  EDV401-SQLERRML      PIC  S9(004).               
+                           25  EDV401-SQLERRMC      PIC  X(070).                
+                       20  EDV401-SQLERRP           PIC  X(008).                
+                       20  EDV401-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV401-SQLWARN.                                      
+                           25  EDV401-SQLWARN0      PIC  X(001).                
+                           25  EDV401-SQLWARN1      PIC  X(001).                
+                           25  EDV401-SQLWARN2      PIC  X(001).                
+                           25  EDV401-SQLWARN3      PIC  X(001).                
+                           25  EDV401-SQLWARN4      PIC  X(001).                
+                           25  EDV401-SQLWARN5      PIC  X(001).                
+                           25  EDV401-SQLWARN6      PIC  X(001).                
+                           25  EDV401-SQLWARN7      PIC  X(001).                
+                       20  EDV401-SQLEXT.                                       
+                           25  EDV401-SQLWARN8      PIC  X(001).                
+                           25  EDV401-SQLWARN9      PIC  X(001).                
+                           25  EDV401-SQLWARNA      PIC  X(001).                
+                           25  EDV401-SQLSTATE      PIC  X(005).                

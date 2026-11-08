@@ -1,0 +1,115 @@
+      *================================================================*        
+      *  COPYBOOK: ICR643DB                                            *        
+      *     SQL DECLARATIONS TO BE USED IN THE CALLING PROGRAM WHICH   *        
+      *     USING PROCEDURAL COPYBOOK ICS643 TO DO EU SEARCH USING     *        
+      *     ACOP BID#.                                                 *        
+      *                                                                *        
+      *================================================================*        
+      * REVISION INFO:                                                 *        
+      * 05/04/24 CDL EVEREST ICLCOP KEY EXPANSION                      *CDL24125
+      * 02/03/17 RZS CORRECTED NAMING CONVENTION.                      *RZS17034
+      * 01/20/17 RZS TO STOP QUERY FROM RETRIEVING EXPIRED ACOPS.      *RZS17020
+      * 01/13/17 RZS NEW COPYBOOK.                                     *RZS17013
+      *----------------------------------------=-----------------------*        
+      *================================================================*        
+      * CURSOR DECLARATION FOR TB-ACOP-PROD-GRP PROCESSING                      
+      *                                                                         
+           EXEC SQL                                                             
+             DECLARE PROD_GP_ACOP_CURS CURSOR FOR                               
+                                                                                
+                SELECT B.ACOP_EU_ID,                                            
+                       B.VEND_BID_NBR                                           
+                  FROM PROD_GP_VEND_XREF A,                                     
+                       ACOP_TRK          B,                                     
+                       ACOP_PROD_GP      C                                      
+                 WHERE A.CO_CD           = :ICR643WS-DB2-CO-CD          RZS17034
+                   AND A.CO_CD           = C.CO_CD                              
+                   AND A.ACOP_PROD_GP_CD = C.ACOP_PROD_GP_CD                    
+                   AND C.STUS_CD         = 'A'                                  
+                   AND A.CO_CD           = B.CO_CD                              
+                   AND A.ACOP_PROD_GP_CD = B.ACOP_PROD_GP_CD                    
+                   AND B.ACOP_ACTV_FLG   = 'Y'                                  
+                   AND B.ACOP_PROD_GP_CD IS NOT NULL                            
+                   AND                                                          
+      *             -- PRODUCT GROUP BY VENDOR SPECIFIC ACOPS                   
+                      (                                                         
+      *                                        --  CUSTOMER / ENDUSER           
+                       (                                                        
+                        B.ACOP_TYP_CD    = '140'                                
+                        AND B.BR_NBR     = :ICR643WS-DB2-BR-NBR         RZS17034
+                        AND B.CUST_NBR   = :ICR643WS-DB2-CUST-NBR       RZS17034
+                       )                                                        
+                      )                                                         
+      *                                                                         
+      *            -- END OF PRODUCT GROUP "VENDOR SPECIFIC ACOPS"              
+      *                                                                         
+                UNION                                                           
+                SELECT B.ACOP_EU_ID,                                            
+                       B.VEND_BID_NBR                                           
+                  FROM PROD_GP_PROD_XREF A,                                     
+                       ACOP_TRK          B,                                     
+                       ACOP_PROD_GP      C                                      
+                 WHERE A.CO_CD           = :ICR643WS-DB2-CO-CD          RZS17034
+                   AND A.IM_PART_NBR     = :ICR643WS-DB2-PART-NBR       RZS17034
+                   AND A.CO_CD           = C.CO_CD                              
+                   AND A.ACOP_PROD_GP_CD = C.ACOP_PROD_GP_CD                    
+                   AND C.STUS_CD         = 'A'                                  
+                   AND A.CO_CD           = B.CO_CD                              
+                   AND A.ACOP_PROD_GP_CD = B.ACOP_PROD_GP_CD                    
+                   AND B.ACOP_ACTV_FLG   = 'Y'                                  
+                   AND B.ACOP_PROD_GP_CD IS NOT NULL                            
+                   AND                                                          
+      *              -- PRODUCT GROUP "PART SPECIFIC ACOPS"                     
+                      (                                                         
+      *                                        --  CUSTOMER / ENDUSER           
+                        (                                                       
+                         B.ACOP_TYP_CD    = '140'                               
+                         AND B.BR_NBR     = :ICR643WS-DB2-BR-NBR        RZS17034
+                         AND B.CUST_NBR   = :ICR643WS-DB2-CUST-NBR      RZS17034
+                        )                                                       
+                      )                                                         
+      *                                                                         
+      *          --END OF PRODUCT GROUP "PART SPECIFIC ACOPS"                   
+      *                                                                         
+                UNION                                                           
+                SELECT B.ACOP_EU_ID,                                            
+                       B.VEND_BID_NBR                                           
+                  FROM ACOP_TRK B                                               
+                 WHERE B.CO_CD           = : ICR643WS-DB2-CO-CD         RZS17034
+                   AND B.ACOP_PROD_GP_CD IS NULL                                
+                   AND B.ACOP_ACTV_FLG   = 'Y'                                  
+                   AND                                                          
+      *                                         --  CUSTOMER / ENDUSER          
+                        (                                                       
+                         B.ACOP_TYP_CD    = '240'                               
+                         AND B.BR_NBR     = :ICR643WS-DB2-BR-NBR        RZS17034
+                         AND B.CUST_NBR   = :ICR643WS-DB2-CUST-NBR      RZS17034
+                         AND B.PART_NBR   = :ICR643WS-DB2-PART-NBR      RZS17034
+                        )                                                       
+      *                                                                         
+      *          --END OF "PART SPECIFIC ACOPS"                                 
+           END-EXEC.                                                            
+      *                                                                         
+      * CURSOR DECLARATION FOR NON TB-ACOP-PROD-GRP PROCESSING                  
+      *                                                                         
+           EXEC SQL                                                             
+             DECLARE ACOP_TRK_CURS CURSOR FOR                                   
+      *- PART CUSTOMER EU SPECIFIC                                              
+                SELECT                                                          
+                       ACOP_EU_ID,                                              
+                       VEND_BID_NBR,                                            
+                       ACOP_TRK_NBR,                                            
+                       ACOP_SEQ_NBR,                                    CDL24125
+                       ACOP_EFF_DT                                      CDL24125
+                  FROM ACOP_TRK                                                 
+                  WHERE CO_CD            = :ICR643WS-DB2-CO-CD          RZS17034
+                    AND ACOP_TYP_CD      = '240'                                
+                    AND PART_NBR         = :ICR643WS-DB2-PART-NBR       RZS17034
+                    AND BR_NBR           = :ICR643WS-DB2-BR-NBR         RZS17034
+                    AND CUST_NBR         = :ICR643WS-DB2-CUST-NBR       RZS17034
+                    AND ACOP_ACTV_FLG    = 'Y'                                  
+                    AND ACOP_EFF_DT     <= :ICR643WS-DB2-TOD-DATE       RZS17034
+                    AND ACOP_EXP_DT     >= :ICR643WS-DB2-TOD-DATE       RZS17034
+                FOR FETCH ONLY                                                  
+           END-EXEC.                                                            
+      *                                                                         

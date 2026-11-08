@@ -1,0 +1,263 @@
+      ****************************************************************          
+      *   PROGRAM:                                                   *          
+      *      CICS: CAP749 - LINKED TO                                *          
+      *                                                              *          
+      ****************************************************************          
+      *                                                              *          
+      *  COPYBOOK: CAW749                                            *          
+      *                                                              *          
+      *  PROGRAM FUNCTION:                                           *          
+      *                                                              *          
+      *  THE PROGRAM IS DESIGNED TO RETRIEVE THE CALMST INFORMATION  *          
+      *  FROM DB2 OR VSAM DEPENDING ON THE SWITCH IN TBXCORP3OR      *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                01/31/06  TKC   ADDED:  CAP-CONV-CHAR-FLG -   *  TKC06031
+      *                                         CONVERT CHARACTER SW *  TKC06031
+      *                12/09/05  PAG   ADDED:  CAP-WEB-ACCESS-DT,    *  PAG05343
+      *                                        CAP-WEB-ACCESS-FLG.   *  PAG05343
+      *                07/24/03  GAF   ADDED:  CAP-DF-RMA-ONLY,      *  GAF03204
+      *                          GAF           CBR-DF-RMA-ONLY       *  GAF03204
+      *                08/15/02  MCS   ORIGINAL...                   *  MCS02227
+      ****************************************************************          
+                                                                                
+       01  CA749-LINK-DATA.                                                     
+           05  CA749-AREA-LENGTH          PIC S9(4) COMP VALUE +866.            
+           05  CA749-PGM-NME              PIC X(08) VALUE 'CAP749  '.           
+                                                                                
+       01  CMR-EMAIL-USERS-REC.                                                 
+           05  CMR-KEY                  PIC X(6).                               
+           05  CMR-NBR-EMAIL-USERS      PIC S9(3)    COMP-3.                    
+           05  CMR-EMAIL-USER-ID        OCCURS 52 TIMES                         
+                                            INDEXED BY CAP-EMAIL-INDX           
+                                            PIC X(8).                           
+                                                                                
+       01  CA749-PARM-DATA.                                                     
+           05  CA749-CAPS-PROC-TYPE       PIC X(02).                            
+           05  WS-CAP-RECORD-KEY.                                               
+               10  WS-CAP-ID-CODE         PIC X(04) VALUE SPACES.               
+               10  WS-CAP-BUYER-NBR     PIC X(02)      VALUE SPACES.            
+                   88  WS-CAP-CORPORATE-REC            VALUE '  '.              
+                   88  WS-CAP-DEFAULT-BUYER            VALUE '00'.              
+           05  CA749-OPER-ID              PIC X(08).                            
+           05  CA749-CAPS-RTN-CODE        PIC X(02).                            
+           05  CAP-HEADER-REC.                                                  
+               10  CAP-KEY.                                                     
+                   15  CAP-CAPS-ID-CODE     PIC X(4).                           
+                   15  CAP-BUYER-NBR        PIC X(2).                           
+                       88  CAP-CORPORATE-REC             VALUE '  '.            
+                       88  CAP-DEFAULT-BUYER             VALUE '00'.            
+               10  CAP-COMPANY              PIC X(2).                           
+               10  CAP-BR-NBR               PIC X(2).                           
+               10  CAP-BILL-TO-BR-CUST-NBR.                                     
+                   15  CAP-BILL-TO-BR-NBR   PIC X(2).                           
+                   15  CAP-BILL-TO-CUST-NBR PIC X(6).                           
+                   15  CAP-BILL-TO-SUFFIX   PIC X(3).                           
+               10  CAP-XREF-BR-CUST-NBR.                                        
+                   15  CAP-XREF-BR-NBR      PIC X(2).                           
+                   15  CAP-XREF-CUST-NBR    PIC X(6).                           
+               10  CAP-SCREEN-SIZE-CODE     PIC X(1).                           
+                   88  CAP-SMALL                         VALUE '1'.             
+                   88  CAP-LARGE                         VALUE '2', ' '.        
+                   88  CAP-HARDCOPY                      VALUE 'P'.             
+               10  CAP-DEF-LINE-TYPE        PIC X.                              
+                   88  CAP-OUR-NBR                       VALUE 'P'.             
+                   88  CAP-CUST-NBR                      VALUE 'S'.             
+                   88  CAP-VENDOR-CATALOG                VALUE 'V'.             
+               10  CAP-DEF-ACCT-NBR         PIC X(16).                          
+               10  CAP-DEF-VIA              PIC X(12).                          
+               10  CAP-DEF-DISTRI-CODE      PIC X.                              
+                   88  CAP-DISTRIB                       VALUE 'Y'.             
+                   88  CAP-NO-DISTRI                     VALUE 'N'.             
+               10  CAP-CUST-TYPE            PIC X.                              
+               10  CAP-SHIP-TO-CUST-SUF     PIC X(3).                           
+               10  CAP-DELETE-FLAG          PIC X.                              
+                   88  CAP-DELETED          VALUE 'D'.                          
+               10  CAP-QTY-ON-ORDER-FLAG    PIC X      VALUE SPACE.             
+                   88  CAP-DISPLAY-QTY-ON-ORD          VALUE 'Y'                
+                                                             SPACE              
+                                                             LOW-VALUE.         
+                   88  CAP-DO-NOT-DISPLAY-QTY-ON-ORD   VALUE 'N'.               
+               10  CAP-SHIP-FROM-BRANCH              OCCURS 5 TIMES.            
+                   15  CAP-SF-TYPE          PIC X.                              
+                   15  CAP-SF-CTL-BR-NBR    PIC X(2).                           
+                   15  CAP-SF-BR-CUST-NBR.                                      
+                       20  CAP-SF-BR-NBR    PIC X(2).                           
+                       20  CAP-SF-CUST-NBR  PIC X(6).                           
+               10  CAP-GUARANTEED-VALUE     PIC X.                              
+               10  CAP-GUARANTEED-CARRIER   PIC XX.                             
+               10  CAP-CONTACT-NAME         PIC X(35).                          
+               10  CAP-COMMENTS             PIC X(55).                          
+               10  CAP-THIRD-PARTY-FRT-SW   PIC X.                              
+                       88 CAP-THIRD-PARTY-FRT         VALUE 'Y'.                
+                       88 CAP-NO-THIRD-PARTY-FRT      VALUE 'N', ' '.           
+               10  CAP-FAX-NBR              PIC X(15).                          
+               10  CAP-PHONE-NBR            PIC X(15).                          
+               10  CAP-DATE-CREATED         PIC X(06).                          
+               10  CAP-END-USER-SW          PIC X(01).                          
+                   88  CAP-END-USER         VALUE 'Y'.                          
+               10  CAP-GOVERNMENT-SW        PIC X(01).                          
+                   88  CAP-GOVERNMENT       VALUE 'Y'.                          
+               10  CAP-HOLD-ORDER-LIMIT-AMT PIC S9(15) COMP-3.                  
+               10  CAP-INV-SHARING-SW       PIC X(01).                          
+                   88  CAP-INV-SHARING      VALUE 'Y'.                          
+               10  CAP-IMDSI-ENABLE-SW      PIC X      VALUE ' '.               
+                   88 CAP-IMDSI-ENABLE      VALUE 'Y'.                          
+               10  CAP-DYNAMIC-SW           PIC X      VALUE ' '.               
+                   88 CAP-DYNAMIC           VALUE 'Y'.                          
+               10  CAP-ADMIN-NBR            PIC X(02).                          
+               10  CAP-AOD-SW               PIC X(01).                          
+                   88  CAP-AOD-REQUIRED               VALUE 'Y'.                
+                   88  CAP-AOD-NOT-REQUIRED           VALUE 'N'.                
+               10  CAP-DETAILED-II-SW       PIC X(01).                          
+                   88 CAP-DETAILED-II                 VALUE 'Y'.                
+               10  CAP-CAP741-LAST-USE-DATE PIC 9(5).                           
+               10  CAP-DF-RMA-ONLY          PIC X.                      GAF03204
+               10  CAP-WEB-ACCESS-DT        PIC X(06).                  PAG05343
+               10  CAP-WEB-ACCESS-FLG       PIC X(01).                  PAG05343
+               10  CAP-CONV-CHAR-FLG        PIC X(01).                  TKC06031
+                   88 CAP-CONV-CHAR         VALUE 'Y'.                  TKC06031
+               10  FILLER                   PIC X(142).                 TKC06031
+           05  CBR-BUYER-REC.                                                   
+               10  CBR-BUYER-REC-KEY        PIC X(6).                           
+               10  CBR-BUYER-SEC-CODE       PIC X(4).                           
+               10  CBR-BUYER-NAME           PIC X(35).                          
+               10  CBR-BUYER-VENDOR-NBR     PIC X(8).                           
+               10  CBR-PO-PREFIX            PIC X(15).                          
+               10  CBR-BUYER-MAX-ORD-AMT    PIC S9(15) COMP-3.                  
+               10  CBR-MTD-TIME             PIC S9(8)  COMP.                    
+               10  CBR-MTD-II-CNT           PIC S9(4)  COMP.                    
+               10  CBR-MTD-ORD-CNT          PIC S9(4)  COMP.                    
+               10  CBR-MTD-QO-CNT           PIC S9(4)  COMP.                    
+               10  CBR-MTD-OP-CNT           PIC S9(4)  COMP.                    
+               10  CBR-MTD-CALL-CNT         PIC S9(4)  COMP.                    
+               10  CBR-BUYER-OPTIONS.                                           
+                   15  CBR-PRICE-DISPLY-SW  PIC X(1).                           
+                       88  CBR-PRICE-NOT-DISPLAYED         VALUE 'N'.           
+                   15  CBR-ORDER-ENTRY-SW   PIC X(1).                           
+                       88  CBR-ORDER-ENTRY-NOT-ALLOWED     VALUE 'N'.           
+                   15  CBR-SHIP-TO-ENTRY-SW PIC X(1).                           
+                       88  CBR-REQUIRE-SHIP-TO-ENTRY       VALUE 'Y'.           
+                   15  CBR-REQUIRED-DATE-SW PIC X(1).                           
+                       88  CBR-REQ-DATE-REQUIRED           VALUE 'Y'.           
+                   15  CBR-REVIEW-ORDERS-SW PIC X(1).                           
+                       88  CBR-REVIEW-BUYER-ORDERS-ONLY    VALUE 'Y'.           
+                   15  CBR-CHANGE-ORDERS-SW PIC X(1).                           
+                       88  CBR-CHANGE-BUYER-ORDERS-ONLY    VALUE 'Y'.           
+                   15  CBR-XREF-PARTS-SW    PIC X(1).                           
+                       88  CBR-XREF-PARTS-ONLY             VALUE 'Y'.           
+               10  CBR-CAPS-HOLD-SW         PIC X.                              
+                   88  CBR-CAPS-HOLD                       VALUE 'Y'.           
+               10  CBR-EMAIL-MSG-SW         PIC X(1).                           
+                   88  CBR-EMAIL-MSG-WAITING               VALUE 'Y'.           
+               10  CBR-SEC-DATE-CHG         PIC S9(5)  COMP-3.                  
+               10  CBR-BUYER-ORDER-RELEASE  PIC X.                              
+               10  CBR-PART-XREF-UPDATE-SW  PIC X(1).                           
+                       88 CBR-PART-XREF-UPDATE             VALUE 'Y'.           
+               10  CBR-CUST-INQ-ALLOWED-SW  PIC X(1).                           
+                       88 CBR-CUST-INQ-ALLOWED             VALUE 'Y'.           
+               10  CBR-TIMEOUT-SW           PIC X(1).                           
+                       88 CBR-TIMEOUT-USED            VALUE 'Y'                 
+                                                            SPACE               
+                                                            LOW-VALUES.         
+                       88 CBR-TIMEOUT-NOT-USED        VALUE 'N'.                
+               10  CBR-SHIP-TO-BUYER-SUF    PIC X(03).                          
+               10  CBR-VENDOR-XREF-UPDATE-SW PIC X(01).                         
+                   88 CBR-VENDOR-XREF-UPDATE          VALUE 'Y'.                
+               10  CBR-RMA-REVIEW-SW         PIC X(01).                         
+                   88 CBR-RMA-REVIEW-ALLOWED          VALUE 'Y'.                
+               10  CBR-II-TIME              PIC S9(8)  COMP.                    
+               10  CBR-OE-TIME              PIC S9(8)  COMP.                    
+               10  CBR-OT-TIME              PIC S9(8)  COMP.                    
+               10  CBR-OR-TIME              PIC S9(8)  COMP.                    
+               10  CBR-BUYER-PHONE-NBR      PIC X(15).                          
+               10  CBR-BUYER-PHONE-EXT      PIC X(4).                           
+               10  CBR-BUYER-FAX-NBR        PIC X(15).                          
+               10  CBR-BUYER-SUFFIX         PIC X(3).                           
+               10  CBR-LANGUAGE-CODE        PIC X(1).                           
+               10  CBR-MTD-ROEF-CNT         PIC S9(7)  COMP-3.                  
+               10  CBR-MTD-IHR-CNT          PIC S9(7)  COMP-3.                  
+               10  CBR-CONFIG-SW            PIC X(1).                           
+                   88 CBR-CONFIG-ALLOWED              VALUE 'Y'.                
+               10  CBR-CONFIG-PHONE-N       PIC X(15).                          
+               10  CBR-CONFIG-TECH-CONTACT  PIC X(21).                          
+               10  CBR-PLUS-SW              PIC X(01).                          
+               10  CBR-INTER-MTD-TIME       PIC 9(8).                           
+               10  CBR-INTER-MTD-CNT        PIC 9(4).                           
+               10  CBR-INTER-MTD-FILE-CNT   PIC 9(4).                           
+               10  CBR-INTER-ORD-AMT        PIC 9(9) COMP-3.                    
+               10  CBR-INTER-CALL-CNT       PIC 9(4).                           
+               10  CBR-INTER-CFILE-TRANS    PIC X(01).                          
+                   88 CBR-IN-FTP-USE          VALUE 'F'.                        
+                   88 CBR-IN-LU62             VALUE 'L'.                        
+               10  CBR-INTER-EFILE-TRANS    PIC X(01).                          
+                   88 CBR-IN-EFTP-USE         VALUE 'F'.                        
+                   88 CBR-IN-ELU62            VALUE 'L'.                        
+               10  CBR-INTER-NOTES          PIC X(01).                          
+                   88 CBR-IN-NOTES-ABLE       VALUE 'Y'.                        
+                   88 CBR-IN-NOTES-NOTABLE    VALUE 'N'.                        
+               10  CBR-INTER-CFILE-NAME     PIC X(08).                          
+               10  CBR-INTER-EFILE-NAME     PIC X(08).                          
+               10  CBR-INTER-EPG-FILET      PIC X(01).                          
+                   88 CBR-INTERNET-ADMIN      VALUE 'A'.                        
+                   88 CBR-IN-MAC              VALUE 'M'.                        
+                   88 CBR-IN-WINDOWS          VALUE 'W'.                        
+                   88 CBR-IN-DOS              VALUE 'D'.                        
+               10  CBR-ADMIN-FILET REDEFINES CBR-INTER-EPG-FILET.               
+                   15 CBR-ADMIN-FLAG        PIC X(01).                          
+                      88 CBR-VALID-ADMIN VALUES ARE ' ', 'A'.                   
+               10  CBR-INTER-NOTES-TIME     PIC 9(8).                           
+               10  CBR-INTER-FILE-TIME      PIC 9(8).                           
+               10  CBR-INTER-OR-TIME        PIC 9(8).                           
+               10  CBR-INTER-ACCESS-CODE    PIC X(01).                          
+                   88 CBR-IN-ACCESS-YES       VALUE 'Y'.                        
+                   88 CBR-IN-ACCESS-NO        VALUE 'N'.                        
+               10  CBR-INTER-ADDRESS        PIC X(40).                          
+               10  CBR-INTER-NAME           PIC X(35).                          
+               10  CBR-INTER-DATE-PSWD-CHGD PIC X(08).                          
+               10  CBR-INTER-PASSWORD       PIC X(04).                          
+               10  CBR-INTER-PREV-PASS      PIC X(04).                          
+               10  CBR-INTER-DATE-CREATE    PIC X(08).                          
+               10  CBR-INTER-PREV-PASS2     PIC X(04).                          
+               10  CBR-INTER-PREV-PASS3     PIC X(04).                          
+               10  CBR-INTER-PREV-PASS4     PIC X(04).                          
+               10  CBR-ORDER-SPLIT          PIC X(01).                          
+                   88  CBR-ORDER-SPLIT-ENABLED   VALUE 'Y'.                     
+                   88  CBR-ORDER-SPLIT-DISABLED  VALUE 'N'.                     
+               10  CBR-CREATE-DATE          PIC X(06).                          
+               10  CBR-LAST-MAINT-DATE      PIC X(06).                          
+               10  CBR-WEB-REPORTING        PIC X(01).                          
+                   88  CBR-REPORTING        VALUE 'Y'.                          
+               10  CBR-FTP-DOWNLOAD         PIC X(01).                          
+                   88  CBR-FTP              VALUE 'Y'.                          
+               10  CBR-ORDER-MAINT-VIA-CAPS.                                    
+                   15  CBR-ORDER-DELETE-FLAG                                    
+                                            PIC X(01).                          
+                   15  CBR-ORDER-LINE-CHANGE-FLAG                               
+                                            PIC X(01).                          
+                   15  CBR-ORDER-REPRINT-FLAG                                   
+                                            PIC X(01).                          
+               10  CBR-CONFIG-ORDER-SW      PIC X.                              
+                   88 CBR-CONFIG-ORDER-ALLOWED  VALUE 'Y'.                      
+               10  CBR-BACKORDER-DELETE-SW  PIC X.                              
+                   88 CBR-NO-BACKORDER-DELETE   VALUE 'N'.                      
+               10  CBR-CHANGE-SUFFIX-SW     PIC X.                              
+                   88 CBR-NO-CHANGE-SUFFIX      VALUE 'N'.                      
+                   88 CBR-CHANGE-SUFFIX         VALUE 'Y'.                      
+               10  CBR-KWHSE-ADMIN-SW       PIC X(1).                           
+                   88 CBR-KWHSE-AUTHORITY       VALUE 'Y'.                      
+                   88 CBR-KWHSE-NO-AUTHORITY    VALUE 'N'.                      
+               10  CBR-LAST-ACTIVITY-DATE   PIC S9(07)   COMP-3.                
+               10  CBR-DF-RMA-ONLY          PIC X.                      GAF03204
+               10  FILLER-1                 PIC X(2).                   GAF03204
+               10  CBR-PARENT-CUSTOMER-SW   PIC X.                              
+                   88 CBR-CHILD-ACCESS          VALUE 'Y'.                      
+                   88 CBR-NO-CHILD-ACCESS       VALUE 'N'.                      
+               10  CBR-SECURITY-LOCK-SW     PIC X.                              
+                   88 CBR-SECURITY-LOCK         VALUE 'L'.                      
+                   88 CBR-SECURITY-LOCK-OFF     VALUE ' '.                      
+               10  CBR-PW-INVALID-CNTR      PIC 9(1).                           

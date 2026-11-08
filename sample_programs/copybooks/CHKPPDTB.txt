@@ -1,0 +1,237 @@
+      ******************************************************************RMF95129
+      *   CHKPPDTB - CHECKPOINT/RESTART PROCEDURE DIVISION COPYBOOK    *TXM97052
+      * THIS COPYBOOK CONTAINS THE PROCEDURE DIVISION ROUTINES TO      *RMF95129
+      * ISSUE CHECKPOINT/RESTART CALLS.                                *RMF95129
+      *                                                                *RMF95129
+      * THIS COPYBOOK MUST BE USED IN CONJUCTION WITH COPYBOOKS:       *RMF95129
+      *    CHKPWS -    WORKING STORAGE DEFINITIONS                     *RMF95129
+      *    CHKPCTL -   COPYBOOK FOR THE CONTROL RECORD                 *RMF95129
+      *    TBIVALUE-   COPYBOOK FOR CHECKPOINT DATABASE-ID             *TXM97052
+      *    IOPCB -     IOPCB FOR CHECKPOINT CALLS                      *RMF95129
+      *    GSPCB01 -   PCB FOR GSAM FILES                              *RMF95296
+      *    CKCXP0  -   PCB FOR CHECKPOINT CONTROL DATABASE             *RMF95296
+      *    CKSHED  -   SEGMENT LAYOUT FOR CHECKPOINT CONTROL DATABASE  *RMF95296
+      *    CKKHEAD -   SSA FOR CHECKPOINT CONTROL DATABASE             *RMF95296
+      *    CKIO1000-   GU CALL FOR CHECKPOINT CONTROL DATABASE         *RMF95296
+      *    DLXFUNC -   DLI FUNCTION CODES                              *RMF95129
+      *    ERXPARM -   IMS ABEND WORKING STORAGE                       *RMF95129
+      *    ERXBATCH -  IMS ABEND ROUTINES                              *RMF95129
+      ******************************************************************RMF95129
+      * INGRAM MICRO REVISIONS:                                        *RMF95129
+      * 11/04/22 MXV   ADD ELAPSED TIME CHECKPOINT LOGIC.              *MXV22308
+      * 07/23/99 BCD   ADDITIONAL STANDARDS                            *BCD99203
+      * 02/21/97 TXM   ADD ROUTINE TO DETERMINE CHECKPOINT DB KEY      *TXM97052
+      *                FROM TBXVALUE TABLE ON TBLMST AS ALTERNATIVE    *TXM97052
+      *                TO CONTROL CARD READ.                           *TXM97052
+      *                ** THIS COPYBOOK WAS CREATED FROM CHKPPD  **    *TXM97052
+      *                ** AND SHOULD BE USED IN PLACE OF CHKPPD  **    *TXM97052
+      *                ** IN ALL CHECK POINT PROCESSING.         **    *TXM97052
+      *                ** (CHKPPD WILL BE REPLACED BY THIS MODULE)*    *TXM97052
+      * 10/25/95 RMF   CHANGED TO USED A CHECKPOINT DATABASE.          *RMF95296
+      * 05/09/95 RMF   INITIAL INSTALLATION                            *RMF95129
+      ******************************************************************RMF95129
+                                                                                
+      ******************************************************************RMF95129
+       9000-CHECK-FOR-RESTART.                                                  
+      ******************************************************************RMF95129
+      **** THIS ROUTINE DOES THE INITIAL XRST CALL TO SEE WHETHER    ***RMF95129
+      **** THE PROGRAM IS BEING RESTARTED. IF IT IS, ALL HELD DATA   ***RMF95129
+      **** IS LOADED TO THE XRST-WORKAREA AND CHKP-WORK-AREA-1.      ***RMF95129
+      **** THIS PROCEDURE THEN CALLS 9200- TO PERFORM THE INITIAL    ***RMF95129
+      **** CHECKPOINT CALL.                                          ***RMF95129
+                                                                                
+           MOVE LENGTH OF CHKP-WORK-AREA-1                              BCD99203
+                                          TO  CHKP-WORK-AREA-1-LN.      MXV22308
+                                                                        MXV22308
+           CALL 'CBLTDLI'              USING  XRST                      MXV22308
+                                              IOPCB                     MXV22308
+                                              CHKP-IOAREA-LN            MXV22308
+                                              XRST-WORKAREA             MXV22308
+                                              CHKP-WORK-AREA-0-LN       MXV22308
+                                              CHKP-WORK-AREA-0          MXV22308
+                                              CHKP-WORK-AREA-1-LN       MXV22308
+                                              CHKP-WORK-AREA-1.         MXV22308
+                                                                        MXV22308
+           IF IO-STATUS-CODE NOT = SPACES                               MXV22308
+              DISPLAY '*********** BAD STATUS CODE **************'      MXV22308
+              DISPLAY '9000-CHECK-FOR-RESTART'                          MXV22308
+              DISPLAY 'STATUS = ' IO-STATUS-CODE                        MXV22308
+              MOVE 'DL/1'                 TO  WS-ERROR-CODE             MXV22308
+              MOVE SPACES                 TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+              MOVE IOPCB                  TO  WS-ERROR-DL1-PCB          MXV22308
+              MOVE 'X900'                 TO  WS-ERROR-DL1-ABCODE       MXV22308
+              PERFORM 999-ABEND                                         MXV22308
+           END-IF                                                       MXV22308
+                                                                        MXV22308
+           IF XRST-WORKAREA NOT  = SPACES                               MXV22308
+              DISPLAY '******************************************'      MXV22308
+              DISPLAY CHKP-PSB-NAME  ' RESTARTED AT ' XRST-CHKP         MXV22308
+              DISPLAY '******************************************'      MXV22308
+              MOVE 'Y'                    TO  CHKP-RESTART-SW           MXV22308
+              MOVE XRST-CHKP              TO  CHKP-ID                   MXV22308
+              IF CHKP-BACKOUT-TO-BEGINNING                              MXV22308
+                 DISPLAY '******************************************'   MXV22308
+                 DISPLAY '        BACKOUT TO  THE BEGINNING          '  MXV22308
+                 DISPLAY '******************************************'   MXV22308
+              ELSE                                                      MXV22308
+                 NEXT SENTENCE                                          MXV22308
+           ELSE                                                         MXV22308
+              DISPLAY '******************************************'      MXV22308
+              DISPLAY CHKP-PSB-NAME  ' STARTED FROM THE BEGINNING '     MXV22308
+              DISPLAY '******************************************'      MXV22308
+              MOVE 'N'                    TO  CHKP-RESTART-SW           MXV22308
+           END-IF                                                       MXV22308
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+      *    GET ELAPSED TIME IN SECONDS                                  MXV22308
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           MOVE 'XXELAPSED'               TO  WS-CKSHED-KEY-VALUE       MXV22308
+                                                                        MXV22308
+           PERFORM 1000-GU-CKSHED                                       MXV22308
+                                                                        MXV22308
+           IF WS-CKSHED-NORESP                                          MXV22308
+              MOVE CKH-CHKPT-LIMIT        TO  CHKP-LIMIT-TIME           MXV22308
+           ELSE                                                         MXV22308
+              SET CHKP-LIMIT-TIME-DEFAULT TO  TRUE                      MXV22308
+           END-IF                                                       MXV22308
+                                                                        MXV22308
+           MOVE CHKPCTL-CHKP-KEY          TO  WS-CKSHED-KEY-VALUE.      MXV22308
+                                                                        MXV22308
+           PERFORM 1000-GU-CKSHED.                                      MXV22308
+                                                                        MXV22308
+           IF WS-CKSHED-NORESP                                          MXV22308
+              MOVE CKH-CHKPT-LIMIT        TO  CHKP-LIMIT                MXV22308
+              MOVE CKH-CHKPT-ID           TO  CHKP-ID-1-4               MXV22308
+           END-IF                                                       MXV22308
+                                                                        MXV22308
+           DISPLAY 'CHECKPOINT ID: '    CKH-CHKPT-ID.                   BCD99203
+           DISPLAY 'CHECKPOINT LIMIT: ' CKH-CHKPT-LIMIT.                BCD99203
+           DISPLAY 'CHECKPOINT TIME:  ' CHKP-LIMIT-TIME                 MXV22308
+                                                                        MXV22308
+      *> GET/SAVE INITIAL TIME                                          MXV22308
+           PERFORM GET-CURRENT-TIME                                     MXV22308
+                                                                        MXV22308
+           PERFORM 9200-CHECKPOINT-CALL.                                MXV22308
+                                                                        MXV22308
+      ******************************************************************RMF95129
+       9100-CHECKPOINT-ROUTINE.                                                 
+      ******************************************************************RMF95129
+                                                                                
+      *    THIS ROUTINE DETERMINES IF A CHECKPOINT IS READY TO BE       MXV22308
+      *    TAKEN. CHECKPOINTS ARE TAKEN WHEN THE CHECKPOINT COUNT       MXV22308
+      *    IS GREATER THAN THE COUNT LIMIT OR XX SECONDS HAVE ELAPSED   MXV22308
+      *    SINCE THE LAST CHECKPOINT CALL.                              MXV22308
+                                                                        MXV22308
+           MOVE 'N'                       TO  CHKP-TAKEN-SW.            MXV22308
+                                                                        MXV22308
+      *> ANYTHING UPDATED ?                                             MXV22308
+           IF CHKP-COUNT > ZERO                                         MXV22308
+              PERFORM GET-CURRENT-TIME                                  MXV22308
+              COMPUTE CHKP-SECONDS-ELAPSED =                            MXV22308
+                      CHKP-SECONDS - CHKP-SECONDS-PREVIOUS              MXV22308
+              IF CHKP-COUNT           > CHKP-LIMIT      OR              MXV22308
+                 CHKP-SECONDS-ELAPSED > CHKP-LIMIT-TIME                 MXV22308
+                    MOVE 'N'           TO  CHKP-BACKOUT-TO-BEGINNING-SW MXV22308
+                    PERFORM 9200-CHECKPOINT-CALL                        MXV22308
+              END-IF                                                    MXV22308
+           END-IF.                                                      MXV22308
+                                                                                
+      ******************************************************************RMF95129
+       9200-CHECKPOINT-CALL.                                                    
+      ******************************************************************RMF95129
+                                                                                
+      **** THIS ROUTINE ISSUES THE CHKP CALL. THE CHKP-ID-CTR IS     ***RMF95129
+      **** INCREMENTED IN OFER TO GIVE THE CHECKPOINT A UNIQUE ID.   ***RMF95129
+                                                                                
+           ADD 1                          TO  CHKP-ID-CTR.              MXV22308
+                                                                        MXV22308
+           CALL 'CBLTDLI'              USING  CHKP                      MXV22308
+                                              IOPCB                     MXV22308
+                                              CHKP-IOAREA-LN            MXV22308
+                                              CHKP-ID                   MXV22308
+                                              CHKP-WORK-AREA-0-LN       MXV22308
+                                              CHKP-WORK-AREA-0          MXV22308
+                                              CHKP-WORK-AREA-1-LN       MXV22308
+                                              CHKP-WORK-AREA-1.         MXV22308
+                                                                                
+           IF IO-STATUS-CODE NOT = SPACES                                       
+              DISPLAY '*********** BAD STATUS CODE **************'              
+              DISPLAY '9200-CHECKPOINT-CALL'                                    
+              DISPLAY 'STATUS = ' IO-STATUS-CODE                                
+              MOVE 'DL/1'                 TO  WS-ERROR-CODE             MXV22308
+              MOVE SPACES                 TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+              MOVE IOPCB                  TO  WS-ERROR-DL1-PCB          MXV22308
+              MOVE 'X920'                 TO  WS-ERROR-DL1-ABCODE       MXV22308
+              PERFORM 999-ABEND                                         MXV22308
+           END-IF                                                       MXV22308
+                                                                        MXV22308
+           DISPLAY 'CHECKPOINT: '             CHKP-ID                   MXV22308
+                   ' COUNT: '                 CHKP-COUNT                MXV22308
+                   ' ELAPSED: '               CHKP-SECONDS-ELAPSED      MXV22308
+                   ' DATE/TIME: '             CHKP-GREGORIAN            MXV22308
+                                                                        MXV22308
+           MOVE ZERO                      TO  CHKP-COUNT                MXV22308
+           MOVE CHKP-SECONDS              TO  CHKP-SECONDS-PREVIOUS     MXV22308
+           MOVE 'Y'                       TO  CHKP-TAKEN-SW.            MXV22308
+                                                                                
+      ******************************************************************TXM97052
+       9300-READ-TBXVALUE.                                              TXM97052
+      ******************************************************************TXM97052
+                                                                        TXM97052
+      **** THIS ROUTINE WILL DETERMINE THE CHECKPOINT KEY TO THE     ***TXM97052
+      **** CHECKPOINT DATABASE WITHOUT CONTROL CARD INPUT.           ***TXM97052
+      **** BEFORE PERFORMING THIS PARAGRAPH DO THE FOLLOWING:        ***TXM97052
+      ****    1. SET UP WORKING STORAGE FIELD WS-PROGRAM-ID          ***TXM97052
+      ****           WS-PROGRAM-ID  PIC X(8) VALUE 'MXV22308'        ***MXV22308
+      ****           WHERE VALUE CONTAINS THE PROGRAM ID.            ***TXM97052
+      ****    2. MOVE (COMPANY CODE) TO TB-CO-VAL-COMPANY-CODE.      ***TXM97052
+                                                                        TXM97052
+           CALL 'SYU500'    USING TB-CO-VAL-TABLE-IA.                   TXM97052
+                                                                        TXM97052
+           IF  NOT TB-CO-VAL-NORESP                                     TXM97052
+               DISPLAY 'BAD READ TBXVALUE TABLE ON TBLMST  KEY= '       TXM97052
+                        TB-CO-VAL-COMPANY-CODE                          TXM97052
+               PERFORM 999-ABEND                                        MXV22308
+           END-IF                                                       MXV22308
+                                                                        TXM97052
+           IF  TB-CO-VAL-CHKP-DB-ID   NOT GREATER SPACE                 TXM97052
+               DISPLAY 'TBXVALUE CHECKPOINT DATABASE ID IS INVALID '    TXM97052
+                       '=>' TB-CO-VAL-CHKP-DB-ID '<='                   TXM97052
+               PERFORM 999-ABEND                                        MXV22308
+           END-IF                                                       MXV22308
+                                                                        TXM97052
+           IF  WS-PROGRAM-ID NOT GREATER SPACE                          TXM97052
+               DISPLAY 'WS-PROGRAM-ID INVALID, MUST CONTAIN PROGRAM-ID' TXM97052
+                       '=>' WS-PROGRAM-ID '<='                          TXM97052
+               PERFORM 999-ABEND                                        MXV22308
+           END-IF                                                       MXV22308
+                                                                        TXM97052
+           MOVE TB-CO-VAL-CHKP-DB-ID       TO  CHKPCTL-SUFFIX.          MXV22308
+           MOVE WS-PROGRAM-ID              TO  CHKPCTL-PROGRAM-NAME.    MXV22308
+           MOVE CHKPCTL-CHKP-KEY           TO  WS-CKSHED-KEY-VALUE.     MXV22308
+                                                                        TXM97052
+           DISPLAY 'CHECKPOINT CONTROL KEY: ' WS-CKSHED-KEY-VALUE.      BCD99203
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+       GET-CURRENT-TIME.                                                MXV22308
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+      *----------------------------------------------------------------*MXV22308
+      *   WE WANT NUMBER OF SECONDS SINCE 00:00:00 ON 14 OCTOBER 1582   MXV22308
+      *----------------------------------------------------------------*MXV22308
+                                                                        MXV22308
+           CALL 'CEELOCT'              USING  CHKP-LILIAN               MXV22308
+                                              CHKP-SECONDS              MXV22308
+                                              CHKP-GREGORIAN            MXV22308
+                                              CHKP-FC                   MXV22308
+                                                                        MXV22308
+           IF CHKP-FC NOT = LOW-VALUES                                  MXV22308
+              DISPLAY '*********** GET TIME CALL **************'        MXV22308
+              DISPLAY 'GET-CURRENT-TIME'                                MXV22308
+              DISPLAY 'STATUS = ' CHKP-FC                               MXV22308
+              MOVE 'TIME'                 TO  WS-ERROR-CODE             MXV22308
+              MOVE SPACES                 TO  WS-ERROR-OPTIONAL-DATA    MXV22308
+              PERFORM 999-ABEND                                         MXV22308
+           END-IF.                                                      MXV22308
+                                                                        MXV22308

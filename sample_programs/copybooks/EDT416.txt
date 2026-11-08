@@ -1,0 +1,160 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT416                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINE  EDV416 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV416-INPUT-DATA                                 *          
+      *            - ACTION CODE                                     *          
+      *            - COMPANY CODE                                    *          
+      *     INPUT/OUTPUT: EDV416-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV416-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *            - EDV416-CO-CD                                    *          
+      *            - EDV416-CO-NAM                                   *          
+      *            - EDV416-PARTITON-NBR                             *          
+      *            - EDV416-BUS-REGN-CD                              *          
+      *            - EDV416-CNTRY-CD                                 *          
+      *                                                              *          
+      *    OUTPUT: EDV416-OUTPUT-DATA                                *          
+      *             - EDV416-MODULE-RESULT-CD                        *          
+      *             - EDV416-MODULE-MESSAGE                          *          
+      *             - EDV416-DATABASE-RESULT-CODES:                  *          
+      *                 - EDV416-SQLCODE                             *          
+      *                 - EDV416-SQLSTATE                            *          
+      *                 - EDV416-SQL-MESSAGE                         *          
+      *                                                              *          
+      *   PROCESS:                                                   *          
+      *            1) VALIDATE THE ACTION CODE.                      *          
+      *            2) EVALUTE THE ACTION CODE AND PERFORM THE        *          
+      *               REQUESTED FUNCTION DOING THE FOLLOWING:        *          
+      *               A. EDIT THE INPUT PARAMETERS RELATED TO THE    *          
+      *                  ACTION CODE REQUEST.                        *          
+      *               B. PERFORM THE REQUESTED ACTION AGAINST THE    *          
+      *                  WW.COMPANY TABLE.                           *          
+      *                  DATA AREAS AND CALL THE AUDIT TRAIL LOGGING *          
+      *            3) WHEN ANY PARAMETER EDITS FAIL, TABLE I/O       *          
+      *               RETURNS AN INVALID SQLCODE,                    *          
+      *               FORMAT THE APPROPRIATE RESULT CODE AND MESSAGE *          
+      *               BEFORE RETURNING TO THE CALLING PROGRAM.       *          
+      *            4) IF ALL EDITS AND I/O ARE SUCCESSFULLY COMPLETED*          
+      *               FORMAT THE APPROPRIATE RESULT CODE AND MESSAGE *          
+      *               BEFORE RETURNING TO THE CALLING PROGRAM.       *          
+      *                                                              *          
+      *   EDV416 EXAMPLE CALL FOR AN SELECT ACTION FOR WW_COMPANY:   *          
+      *                                                              *          
+      *    INITIALIZE     EDV416-COMMUNICATIONS-AREA.                *          
+      *    SET EDV416-SELECT            TO TRUE.                     *          
+      *                                                              *          
+      *  DEFAULT THE MODULE STATUS CODE TO 'OK' FOR THE START OF THE *          
+      *  EDIT AND I/O PROCESS.                                       *          
+      *                                                              *          
+      *    SET EDV416-STATUS-OKAY      TO TRUE.                      *          
+      *                                                              *          
+      *    MOVE "COMPANY CODE"         TO EDV416-KEY-CO-CD.          *          
+      *                                                              *          
+      *    MOVE 1                      TO EDV416-ARRAY-COUNT.        *          
+      *    MOVE "COMPANY CODE"         TO EDV416-CO-CD(1).           *          
+      *                                                              *          
+      *    CALL 'EDV416' USING EDV416-COMMUNICATIONS-AREA.           *          
+      *                                                              *          
+      *     IF EDV416-STATUS-OKAY                                    *          
+      *     THEN                                                     *          
+      *          ..........                                          *          
+      *     ELSE                                                     *          
+      *          ..........                                          *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING AN  'SELECT' ACTION                 *          
+      *                                                              *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV416 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT042 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      * DATE    PROG COMMENT                                         *          
+      * -------------------------------------------------------------*          
+      * 04/08/03 MKL ORIGINAL MODELED AFTER EDV042                   *          
+      ****************************************************************          
+                                                                                
+       01  EDV416-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV416-ACTION-CD                     PIC  X(002).                
+               88  EDV416-SELECT                    VALUE 'S '.                 
+           05  EDV416-KEY-AREA.                                                 
+               10  EDV416-KEY-CO-CD                 PIC  X(002).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV416-INPUT-OUTPUT-AREA.                                        
+               10  EDV416-OBJECT-ID                 PIC  X(030).                
+                   88  EDV416-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV416-COMPANY               VALUE                       
+                                  'WW_COMPANY                    '.             
+               10  EDV416-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV416-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV416-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV416-CO-CD            PIC  X(002).                     
+                   15  EDV416-CO-NAM           PIC  X(035).                     
+                   15  EDV416-PARTITON-NBR     PIC  S9(4) USAGE COMP.           
+                   15  EDV416-BUS-REGN-CD      PIC  X(002).                     
+                   15  EDV416-CNTRY-CD         PIC  X(002).                     
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV416-OUTPUT-DATA.                                              
+               10  EDV416-ROW-COUNT             PIC  S9(009).                   
+               10  EDV416-MODULE-RESULT-CD      PIC  X(002).                    
+                   88  EDV416-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV416-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV416-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV416-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV416-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV416-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV416-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV416-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV416-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV416-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV416-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV416-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV416-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV416-EXCEPTION-MESSAGE.                                    
+                   15  EDV416-MSG-OBJECT            PIC  X(030).                
+                   15  EDV416-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV416-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV416-SQLCA.                                            
+                       20  EDV416-SQLCAID           PIC  X(008).                
+                       20  EDV416-SQLCABC           PIC  S9(009).               
+                       20  EDV416-SQLCODE           PIC  S9(009).               
+                       20  EDV416-SQLERRM.                                      
+                           25  EDV416-SQLERRML      PIC  S9(004).               
+                           25  EDV416-SQLERRMC      PIC  X(070).                
+                       20  EDV416-SQLERRP           PIC  X(008).                
+                       20  EDV416-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV416-SQLWARN.                                      
+                           25  EDV416-SQLWARN0      PIC  X(001).                
+                           25  EDV416-SQLWARN1      PIC  X(001).                
+                           25  EDV416-SQLWARN2      PIC  X(001).                
+                           25  EDV416-SQLWARN3      PIC  X(001).                
+                           25  EDV416-SQLWARN4      PIC  X(001).                
+                           25  EDV416-SQLWARN5      PIC  X(001).                
+                           25  EDV416-SQLWARN6      PIC  X(001).                
+                           25  EDV416-SQLWARN7      PIC  X(001).                
+                       20  EDV416-SQLEXT.                                       
+                           25  EDV416-SQLWARN8      PIC  X(001).                
+                           25  EDV416-SQLWARN9      PIC  X(001).                
+                           25  EDV416-SQLWARNA      PIC  X(001).                
+                           25  EDV416-SQLSTATE      PIC  X(005).                

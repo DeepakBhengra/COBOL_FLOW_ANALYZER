@@ -1,0 +1,323 @@
+      ***************************************************************           
+      *     EDI CONFIGURATION REQUEST                                           
+      *                                                                         
+      *  PURPOSE:  RECORD LAYOUT FROM CAP647 TO EDI CONFIG DRIVER               
+      *            TO BUILD A CONFIG SYSTEM ON THE FLY....                      
+      *            THIS WILL BE A TSQ TO BE PASS FROM EDI CAP647                
+      *            PROGRAM WILL RUN BACKGROUND                                  
+      *                                                                         
+      *  NOTE:                                                                  
+      *    CEW005-LINE-INT-STAGE = (B)ASE UNIT, WILL NOT BE AVAILABLE           
+      *    CEW005-OPERATING-SYSTEM, WILL NOT BE AVAILABLE                       
+      *    IF TEXT IS PASSED ON COMMENT LINE IT WILL APPEAR                     
+      *       ON SALES ORDER                                                    
+      *    IF TEXT IS PASSED AS AN INSTRUCTION LINE IT WILL ONLY                
+      *       PRINT AT CONFIG LAB                                               
+      *                                                                         
+      *     INGRAM FIELD            VS                  CEW005                  
+      *  ====================                 =========================         
+      *  ORL-COMMOD-CODE                         CEW005-FEES-MISC-CODE          
+      *  ORL-CAT-NBR AND  ORL-CUST-ITEM-NBR      CEW005-FEES-MISC-PART          
+      *  ORL-CONFIG-UNIT-PRICE                   CEW005-LINE-UNIT-PRICE         
+      *  ORL-CUS-ORIG-UNIT-PRICE                 CEW005-LINE-CUST-PRICE         
+      *  ORL-CUST-LINE-NBR                       CEW005-LINE-CUST-LINE-NBR      
+      *  ORL-CUST-ITEM-NBR                       CEW005-LINE-CUST-PART-NBR      
+      *  ORL-AGGREGATE-CODE                      CEW005-AGGREAGTE-CODE          
+      *      MUST BE (S)TAGE OR (I)NTEGRATE    10000S OR 10000I                 
+      *  ORL-UP-OVERRIDE-SW                      CEW005-UP-PRICE-OVERRIDE       
+      *      CEW005-UP-PRICE-OVERRIDE = E USE CUST PRICE.                       
+      *  ORL-DESCRIPTION                         CEW005-LINE-DESC               
+      *  ORL-UNIT-PRICE-END-USER                 CEW005-LINE-END-USER-PRICE     
+      *  ORL-CONFIGURATION-LAB                   CEW005-LAB-CODE                
+      *  ORL-VENDOR-PART-NBR                     CEW005-MFG-PART-NBR    TSR98097
+      *  ORL-CONFIG-FAMILY                       CEW005-CONFIG-FAMILY   TSR98097
+      *  ORL-SEQUENCE                            CEW005-MFG-SEQUENCE    TSR98097
+      *  ORL-PARENT                              CEW005-MFG-PARENT      TSR98097
+      *  ORL-LINK                                CEW005-MFG-LINK        TSR98097
+      *  ORL-MFG-TYPE-CODE                       CEW005-MFG-TYPE-CODE   TSR98097
+      *  ORL-MFG-TLA-IND                         CEW005-MFG-TLA-IND     TSR98097
+      *  ORL-MFG-OPTION-SW                       CEW005-MFG-OPTION-SW   TSR98097
+      *  ORSH-BR-NBR-SHIP-FROM                   CEW005-CONFIG-SHIP-FROM        
+      *  ORL-ADJUSTED-COST                       CEW005-LINE-ADJ-COST   TSR98097
+      *                                                                         
+      * 09/06/14 RYA ADDED FLAG CEW005-LINE-VISIBLE-RES-FLG             RYA14248
+      * 10/23/02 JER ADD HDR CEW005-TOT-ORD-CFG-WEIGHT                  JER02348
+      *  02/15/02  KWC ADD CEW005-LINE-SEQ-NBR.                         KWC02046
+      * 06/08/01  TSR ADD CEW005-DO-NOT-TRANSFER-SW.                    TSR01159
+      *  05/22/01 DJP ALLOW CUST TO SET BASE PART                       DJP01142
+      *  11/05/99 TKC ADD CEW005-IS-REMOTE-NBR TO HEADER AREA           TKC99309
+      *  07/15/99 TSR  ADD SHIP-TO-SUF & SLA CODES.                     TSR99200
+      *  06/22/99 TSR  MODIFY P&A FOR ORACLE.                           TSR99174
+      *  05/17/99 DJP ADDED ACOP-PRICING FIELD                          DJP99137
+      *  04/20/99 DJP CHANGED BOP FLAG FROM 'P' TO 'B'                  DJP99110
+      *  12/10/98 TSR ADD CEW005-PROGRAM-CODE TO DISTINGUISH SPECIAL    TSR98344
+      *               PROCESSING FOR AAP.                               TSR98344
+      *  09/18/98 DJP ADD 88-LEVEL FOR ALL STAGED ITEMS CONFIG          DJP98261
+      *  08/06/98 MWO ADD 88-LEVELS TO ITEM-TYPE (IBM AAP) AND          MWO98218
+      *               TO MFG-TYPE-CODE (SUBASSEMBLY).                   MWO98218
+      *  04/07/98 TSR ADDED FIELDS FOR ORACLE INTERFACE                 TSR98097
+      *  02/02/98 TSR EXPANDED COPYBOOK AND ADDED MISC FIELDS           TSR98033
+      *  01/01/97 TSR ADDED FIELDS FOR END-ORDER PROCESS CAPS/WEB       TSR98001
+      *               ADDED FIELDS FOR CONFIGURATION EXPLODE.           TSR98001
+      *  08/00/96 ELB THIS COPYBOOK IS BORN                                     
+      ***************************************************************           
+       01  CEW005-EDI-CONFIG-REQUEST.                                           
+           05  CEW005-RECORD-TYPE              PIC X(02).                       
+               88  CEW005-HEADER                        VALUE 'H '.             
+               88  CEW005-LINE                          VALUE 'L '.             
+               88  CEW005-FEES                          VALUE 'F '.             
+               88  CEW005-INSTRUCTION                   VALUE 'I '.             
+               88  CEW005-REJECTION                     VALUE 'R '.     TSR98001
+           05  CEW005-ITEM-NBR                 PIC S9(04) COMP.                 
+           05  CEW005-DATA-AREA                PIC X(500).                      
+                                                                                
+       01  CEW005-DATA-AREA-DETAIL.                                             
+           05  CEW005-HEADER-AREA.                                              
+               10  CEW005-COMPANY-CODE         PIC X(02).                       
+               10  CEW005-ORDER-CUST.                                           
+                   15  CEW005-CUST-BR          PIC X(02).                       
+                   15  CEW005-CUST-NBR         PIC X(06).                       
+                   15  CEW005-CUST-SUFFIX      PIC X(03).                       
+               10  CEW005-CONFIG-NAME          PIC X(12).                       
+               10  CEW005-PROGRAM-CODE         PIC X(01).               TSR98344
+                   88 CEW005-AAP           VALUE 'A'.                   TSR98344
+               10  CEW005-ACOP-PRICING-SW      PIC X(01).               DJP99137
+                       88  CEW005-ALLOW-ACOP-DEFAULT     VALUE ' '.     DJP99137
+                       88  CEW005-ALLOW-ACOP-PRICING     VALUE ' ' 'Y'. DJP99137
+                       88  CEW005-IGNORE-ACOP-PRICING    VALUE 'N'.     DJP99137
+               10  CEW005-CONFIG-TYPE          PIC X(01).               TSR98097
+                   88 CEW005-TLA           VALUE 'T'.                   TSR98097
+                   88 CEW005-BOP           VALUE 'B'.                   DJP99110
+               10  CEW005-CONFIG-FAMILY        PIC X(03).               TSR98033
+               10  CEW005-SHIP-TO-SUF          PIC X(03).               TSR99200
+               10  CEW005-SLA                  PIC X(04).               TSR99200
+               10  FILLER                      PIC X(13).               TSR99200
+               10  CEW005-CONFIG-ORDER-NBR.                             TSR98001
+                   15  CEW005-ORDER-BR         PIC X(02).               TSR98001
+                   15  CEW005-ORDER-NBR        PIC X(05).               TSR98001
+                   15  CEW005-ORDER-DIST       PIC X(02).               TSR98001
+               10  CEW005-CONFIG-FINAL-DIST    PIC X(02).               TSR98001
+               10  CEW005-CUST-ORDER-NBR       PIC X(18).                       
+               10  CEW005-LAB-CODE             PIC X(06).                       
+               10  CEW005-ORDER-QTY            PIC S9(07) COMP-3.               
+               10  CEW005-OPERATING-SYSTEM     PIC X(05).                       
+               10  CEW005-OPTIONS.                                              
+                   15  CEW005-ALLOW-TRANSFER   PIC X(01).                       
+                       88  CEW005-TRANSFER-DEFAULT       VALUE 'Y'.             
+                       88  CEW005-TRANSFER-YES           VALUE 'Y'.             
+                       88  CEW005-TRANSFER-NO            VALUE 'N'.             
+                       88  CEW005-TRANSFER-VALID         VALUE                  
+                           'Y' 'N'.                                             
+                   15  CEW005-EXPEDTE-TRANSFER PIC X(01).                       
+                       88  CEW005-EXPEDITE-DEFAULT       VALUE 'Y'.             
+                       88  CEW005-EXPEDITE-YES           VALUE 'Y'.             
+                       88  CEW005-EXPEDITE-NO            VALUE 'N'.             
+                       88  CEW005-EXPEDITE-VALID         VALUE                  
+                           'Y' 'N' ' '.                                 TSR98097
+                   15  CEW005-MULTI-DIST       PIC X(01).                       
+                       88  CEW005-DIST-DEFAULT           VALUE 'Y'.             
+                       88  CEW005-SHIP-COMPLETE          VALUE 'Y'.             
+                       88  CEW005-DIST-NO                VALUE 'N'.             
+                       88  CEW005-DIST-VALID             VALUE                  
+                           'Y' 'N'.                                             
+               10  CEW005-OPTIONS-WITH-FEES.                                    
+                   15  FILLER                  PIC X(12).               TSR98097
+                   15  CEW005-ASSET-TAGS       PIC X(01).                       
+                       88  CEW005-ASSET-DEFAULT          VALUE 'N'.             
+                   15  CEW005-EXPEDTE-BUILD    PIC X(01).                       
+                       88  CEW005-BUILD-DEFAULT          VALUE 'N'.             
+                   15  CEW005-EXTEND-TEST      PIC X(01).                       
+                       88  CEW005-TEST-DEFAULT           VALUE 'N'.             
+                       88  CEW005-TEST-YES               VALUE 'Y'.             
+                       88  CEW005-TEST-NO                VALUE 'N'.             
+                       88  CEW005-TEST-VALID             VALUE                  
+                           'Y' 'N'.                                             
+                   15  CEW005-BURN-IN          PIC X(01).                       
+                       88  CEW005-BURNIN-DEFAULT         VALUE 'N'.             
+                       88  CEW005-BURNIN-8HRS            VALUE '1'.             
+                       88  CEW005-BURNIN-24HRS           VALUE '2'.             
+                       88  CEW005-BURNIN-48HRS           VALUE '3'.             
+                       88  CEW005-BURNIN-VALID           VALUE                  
+                           'N' '1' '2' '3'.                                     
+                   15  CEW005-USE-CUST-FEE-SW  PIC X(01).                       
+                       88  CEW005-USE-CUST-FEE           VALUE 'E'.             
+                   15  CEW005-IMAGE-MB         PIC X(06).                       
+               10  CEW005-STATUS               PIC X(01).                       
+                   88  CEW005-WORK                      VALUE 'W'.              
+                   88  CEW005-PENDING                   VALUE 'P'.              
+                   88  CEW005-APPROVED                  VALUE 'A'.              
+                   88  CEW005-REJECTED                  VALUE 'R'.              
+                   88  CEW005-PRE-LINK-ERROR            VALUE 'E'.              
+                   88  CEW005-STATUS-VALID              VALUE                   
+                       'W' 'P' 'A' 'R' 'E'.                                     
+               10  CEW005-CONFIG-DETAIL-STATUS.                                 
+                   15  CEW005-LOC-AVAIL          PIC 9(03).             TSR98001
+                   15  CEW005-LOC-XFER           PIC 9(03).                     
+                   15  CEW005-REM-XFER           PIC 9(03).                     
+                   15  CEW005-TOTAL-BUILD        PIC 9(03).                     
+                   15  CEW005-TOTAL-BACKORDER    PIC 9(03).                     
+                   15  CEW005-AVAIL-ETA          PIC S9(07) COMP-3.             
+                   15  CEW005-LOC-XFER-ETA       PIC S9(07) COMP-3.             
+                   15  CEW005-REM-XFER-ETA       PIC S9(07) COMP-3.             
+                   15  CEW005-BUILD-ETA          PIC S9(07) COMP-3.             
+                   15  CEW005-BACKORDER-ETA      PIC S9(07) COMP-3.             
+               10  CEW005-CONFIG-SHIP-FROM       PIC X(02).                     
+               10  CEW005-EDI-MISC-FIELDS.                                      
+                   15  CEW005-EDI-COMPANY-CODE   PIC X(02).                     
+                   15  CEW005-CONFIGURATION-TYPE PIC X(06).                     
+               10  CEW005-ERROR-CODE           PIC X(06).                       
+                   88 CFG-CONFIG-SUCCESSFUL    VALUE '      '.                  
+                   88 CFG-CONFIG-ERROR         VALUE 'EDI001'.                  
+               10  CEW005-ERROR-CODE-9 REDEFINES CEW005-ERROR-CODE              
+                                               PIC 9(06).                       
+               10  CEW005-ERROR-RESPONSE       PIC X(70).                       
+               10  CEW005-ERROR-RESPONSE-X REDEFINES                            
+                   CEW005-ERROR-RESPONSE.                                       
+                   15  CEW005-ERROR-RESPONSE1  PIC X(35).                       
+                   15  CEW005-ERROR-RESPONSE2  PIC X(35).                       
+               10  CEW005-ERROR-PGM-NAME       PIC X(10).                       
+               10  CEW005-TOTAL-SALES          PIC S9(15)V99 COMP-3.            
+               10  CEW005-TOTAL-COST           PIC S9(15)V99 COMP-3.            
+               10  CEW005-TOTAL-LINES          PIC S9(03)    COMP-3.            
+               10  CEW005-TOTAL-WEIGHT         PIC S9(09)V99 COMP-3.            
+               10  CEW005-FIRST-LINE-WRITTEN   PIC 9(03) VALUE 0.               
+               10  CEW005-LAST-LINE-WRITTEN    PIC 9(03) VALUE 0.               
+               10  CEW005-TOTAL-FEES           PIC S9(13)V9(4) COMP-3.          
+               10  CEW005-SHIP-FROM            PIC X(02).               TSR98001
+               10  CEW005-CONFIG-DESC          PIC X(35).               TSR98033
+               10  CEW005-IS-NBR               PIC X(04).               TSR98097
+               10  CEW005-IS-REMOTE-NBR        PIC X(05).               TKC99309
+               10  CEW005-BASE-PART-NBR        PIC X(12).               DJP01142
+               10  CEW005-BP-OVERRIDE          PIC X(01).               DJP01142
+                   88  CEW005-BASE-PART-OVERRIDE   VALUE 'Y'.           DJP01142
+               10  CEW005-TOT-ORD-CFG-WEIGHT   PIC S9(09)V99 COMP-3.    JER02348
+                                                                                
+           05  CEW005-LINE-AREA.                                                
+               10  CEW005-LINE-TYPE            PIC X(01).                       
+                   88  CEW005-PART-LINE            VALUE 'P'.                   
+                   88  CEW005-COMMENT-TYPE         VALUE 'C'.                   
+                   88  CEW005-STATUS-TYPE          VALUE 'S'.           TSR98001
+                   88  CEW005-CONTACT-LINE         VALUE 'K'.           TSR98001
+                   88  CEW005-NONSTOCK-LINE        VALUE 'N'.           TSR98097
+                   88  CEW005-ADDED-DESC           VALUE '*'.           TSR98097
+                   88  CEW005-VALID-LINE-TYPE      VALUE                TSR98097
+                       'P' 'C' 'S' 'K' 'N' '*'.                         TSR98097
+               10  CEW005-LINE-IM-LINE-NBR     PIC 9(03).                       
+               10  CEW005-LINE-CUST-LINE-NBR   PIC X(03).                       
+               10  CEW005-LINE-PART-NBR        PIC X(12).                       
+               10  CEW005-LINE-CUST-PART-NBR   PIC X(12).                       
+               10  CEW005-LINE-SUB-PART-NBR    PIC X(12).                       
+               10  CEW005-AGGREGATE-NBR.                                        
+                   15  CEW005-AGGREGATE-CODE   PIC X(05).                       
+                   15  CEW005-LINE-INIT-STAGE  PIC X(01).                       
+                       88  CEW005-LINE-DEFAULT         VALUE 'A'.       TSR98097
+                       88  CEW005-LINE-BASE-UNIT       VALUE 'B'.               
+                       88  CEW005-LINE-INTEGRATE       VALUE 'I'.               
+                       88  CEW005-LINE-STAGE           VALUE 'S'.               
+                       88  CEW005-MFG-ADD-ON           VALUE 'A'.       TSR98097
+                       88  CEW005-MFG-INCLUDED         VALUE 'N'.       TSR98097
+                       88  CEW005-STAGED-ITEMS-ONLY    VALUE 'J'.       DJP98261
+                       88  CEW005-LINE-VALID           VALUE                    
+                           'B' 'I' 'S' ' ' 'A' 'N' 'J'.                 DJP98261
+               10  CEW005-LINE-QTY-PER         PIC S9(07) COMP-3.               
+               10  CEW005-LINE-QTY-ORDERED     PIC S9(09) COMP-3.               
+               10  CEW005-LINE-UNIT-PRICE      PIC S9(13)V9(4) COMP-3.          
+               10  CEW005-LINE-CUST-PRICE      PIC S9(15)V9(2) COMP-3.          
+               10  CEW005-LINE-END-USER-PRICE  PIC S9(15)V9(2) COMP-3.          
+               10  CEW005-LINE-DESC            PIC X(35).                       
+               10  CEW005-UP-PRICE-OVERRIDE    PIC X(01).                       
+                   88  CEW005-USE-CUST-PRICE           VALUE 'E'.               
+               10  CEW005-LINE-CANCEL-DATE     PIC S9(07).                      
+               10  CEW005-LINE-FREE-ITEM-SW    PIC X(01).                       
+               10  CEW005-LINE-ACCEPT-REJECT   PIC X(01).                       
+                       88  CEW005-LINE-REJECT          VALUE 'R'.               
+               10  CEW005-LINE-REJECT-CODE     PIC X(02).                       
+               10  CEW005-LINE-OPTIONS-W-FEES.                                  
+                   15  CEW005-LINE-ASSET-TAG   PIC X(01).                       
+                       88  CEW005-LINE-ASSET-DEFAULT   VALUE 'N'.               
+                       88  CEW005-LINE-ASSET-YES       VALUE 'Y'.               
+                       88  CEW005-LINE-ASSET-NO        VALUE 'N'.               
+                       88  CEW005-LINE-ASSET-VALID     VALUE                    
+                           'N' 'Y'.                                             
+               10  CEW005-ITEM-TYPE            PIC X(01).                       
+                   88  CEW005-SYSTEM-ITEM              VALUE 'S'.               
+                   88  CEW005-SYSTEM-PART              VALUE 'X'.       TSR99174
+                   88  CEW005-PROMO-ITEM               VALUE 'P'.               
+                   88  CEW005-ITEM-AAP-PARTS-INCLUDED  VALUE 'I'.       MWO98218
+                   88  CEW005-ITEM-AAP-PARTS-DELETED   VALUE 'D'.       MWO98218
+                   88  CEW005-ITEM-AAP-PARTS-ADDED     VALUE 'A'.       MWO98218
+               10  CEW005-REJECTED-LINE-SW     PIC X(01).                       
+                   88  CEW005-REJECTED-LINE            VALUE 'Y'.               
+               10  CEW005-LINE-RESPONSE.                                        
+                   15  CEW005-LINE-INV-ETA     PIC S9(07) COMP-3.               
+                   15  CEW005-LINE-BO-QTY      PIC S9(07) COMP-3.               
+                   15  CEW005-LINE-LOCAL-QTY   PIC S9(07) COMP-3.               
+                   15  CEW005-LINE-LOCAL-XFER-QTY                               
+                                               PIC S9(07) COMP-3.               
+                   15  CEW005-LINE-REMOTE-XFER-QTY                              
+                                               PIC S9(07) COMP-3.               
+                                                                        TSR98001
+               10  CEW005-CFC-CFSCMP.                                   TSR98001
+                   15  CEW005-CFC-SYSTEM-ITEM.                          TSR98001
+                       20 CEW005-CFC-SYSTEM-CO  PIC X(02).              TSR98001
+                       20 CEW005-CFC-SYSTEM-NBR PIC X(12).              TSR98001
+                   15  CEW005-CFC-NEG-QTY-IND   PIC X(01).              TSR98001
+                       88  CEW005-CFC-NEG-QTY          VALUE 'D'.       TSR98001
+                   15  CEW005-CFH-TOKEN         PIC 9(07).              TSR98001
+               10  CEW005-STATUS-AREA.                                  TSR98001
+                   15  CEW005-COUNT-IN-PCR     PIC S9(5).               TSR98001
+                   15  CEW005-COUNT-IN-PCH     PIC S9(5).               TSR98001
+                   15  CEW005-COUNT-IN-STG     PIC S9(5).               TSR98001
+                   15  CEW005-COUNT-IN-STH     PIC S9(5).               TSR98001
+                   15  CEW005-COUNT-IN-WIP     PIC S9(5).               TSR98001
+                   15  CEW005-COUNT-IN-QAA     PIC S9(5).               TSR98001
+                   15  CEW005-COUNT-IN-QAH     PIC S9(5).               TSR98001
+                   15  CEW005-COUNT-IN-BIN     PIC S9(5).               TSR98001
+                   15  CEW005-COUNT-IN-OSH     PIC S9(5).               TSR98001
+                   15  CEW005-ON-HOLD-FLAG     PIC X(01).               TSR98001
+               10  CEW005-MFG-PART-NBR         PIC X(20).               TSR98097
+               10  CEW005-MFG-SEQUENCE         PIC X(03).               TSR98097
+               10  CEW005-MFG-PARENT           PIC X(03).               TSR98097
+               10  CEW005-MFG-LINK             PIC X(03).               TSR98097
+               10  CEW005-MFG-TLA-IND          PIC X(01).               TSR98097
+                   88  CEW005-MFG-TLA              VALUE 'Y'.           TSR98097
+               10  CEW005-MFG-TYPE-CODE        PIC X(01).               TSR98097
+                   88  CEW005-MFG-CLASS            VALUE 'C'.           TSR98097
+                   88  CEW005-MFG-KIT              VALUE 'K'.           TSR98097
+                   88  CEW005-MFG-MODEL            VALUE 'M'.           TSR98097
+                   88  CEW005-MFG-STANDARD         VALUE 'S'.           TSR98097
+                   88  CEW005-MFG-SUBASSEMBLY      VALUE 'A'.           MWO98218
+                   88  CEW005-MFG-TYPE-VALID                            TSR98097
+                       VALUE 'S' 'M' 'K' 'C' 'A'.                       MWO98218
+               10  CEW005-MFG-OPTION-SW        PIC X(01).               TSR98097
+                   88  CEW005-MFG-OPTION           VALUE 'Y'.           TSR98097
+               10  CEW005-MFG-FEE-BYPASS-SW    PIC X(01).               TSR98097
+                   88  CEW005-MFG-FEE-BYPASS       VALUE 'Y'.           TSR98097
+                   88  CEW005-MFG-APPLY-FEES       VALUE ' '.           TSR98097
+               10  CEW005-UP-COST-OVERRIDE     PIC X(01).               TSR98097
+                   88  CEW005-OVERRIDE-COST            VALUE 'Y'.       TSR98097
+               10  CEW005-LINE-UNIT-COST       PIC S9(13)V9(4) COMP-3.  TSR98097
+               10  CEW005-LINE-ADJ-COST        PIC S9(13)V9(4) COMP-3.  TSR98344
+               10  CEW005-DO-NOT-TRANSFER-SW   PIC X(01).               TSR01159
+                   88  CEW005-DO-NOT-TRANSFER          VALUE 'Y'.       TSR01159
+               10  CEW005-LINE-SEQ-NBR         PIC 9(03).               KWC02046
+               10  CEW005-LINE-VISIBLE-RES-FLG PIC X.                   RYA14248
+                                                                                
+           05  CEW005-FEES-AREA.                                                
+               10  CEW005-FEES-IM-LINE-NBR     PIC 9(03).                       
+               10  CEW005-FEES-QTY-PER         PIC S9(07) COMP-3.               
+               10  CEW005-FEES-QTY-ORDERED     PIC S9(07) COMP-3.               
+               10  CEW005-FEES-CUST-LINE-NBR   PIC X(03).                       
+               10  CEW005-FEES-MISC-CODE       PIC X(03).                       
+               10  CEW005-FEES-CUST-PART       PIC X(12).                       
+               10  CEW005-FEES-DESC            PIC X(35).                       
+               10  CEW005-FEES-AMOUNT          PIC S9(13)V9(4) COMP-3.          
+               10  CEW005-CUST-FEES-AMOUNT     PIC S9(13)V9(4) COMP-3.          
+               10  CEW005-FEES-SEQ-NBR         PIC 9(03).               KWC02046
+                                                                                
+           05  CEW005-INSTRUCTION-AREA.                                         
+               10  CEW005-INS-TEXT             PIC X(70).                       
+                                                                        TSR98001
+           05  CEW005-REJECTION-AREA.                                   TSR98001
+               10  CEW005-REJ-SEQ              PIC S9(4) COMP.          TSR98001
+               10  CEW005-REJ-TEXT             PIC X(70).               TSR98001

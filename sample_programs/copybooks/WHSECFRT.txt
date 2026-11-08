@@ -1,0 +1,2023 @@
+000100***************************************************************** ESS01131
+000200****  COPYBOOK  WHSECFRT  *************************************** ESS01131
+000200****  ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !  ** ESS01131
+000200****                                                           ** ESS01131
+000200****         I M P O R T A N T  -  P L E A S E   R E A D       ** ESS01131
+000200****                                                           ** ESS01131
+000200****  ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !  ** ESS01131
+000200****            IF YOU ARE CHANGING THIS COPYBOOK,             ** ESS01131
+000200****            PLEASE MAKE SURE THAT YOU INCLUDE              ** ESS01131
+000200****            CHANGES TO WHSECFRB AS WELL.                   ** ESS01131
+000200****            WHSECFRB IS A BATCH VERSION AND A              ** ESS01131
+000200****            CLONE OF WHSECFRT.                             ** ESS01131
+000200****            THE ONLY CHANGE IS THE CALL-ROUTINE            ** ESS01131
+000200****            WHSECFRT USES 'SYU510' TO READ TABLES          ** ESS01131
+000200****            WHSECFRB USES 'SYU500' TO READ TABLES.         ** ESS01131
+000200****                                                           ** ESS01131
+000200****  ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !  ** ESS01131
+000200****                                                           ** ESS01131
+000300****  PROCEDURE DIVISION LOGIC FOR EC FREIGHT                   *         
+000400****  WORKING STORAGE FIELDS ARE IN WHWECFRT                    *         
+000500****   THIS IS USED IN ALL PROGRAMS WHERE FREIGHT CALCULATIONS  *         
+000600****   ARE NEEDED.                                              *         
+      ****    09/13/24 SS4  FREIGHT CHARGES TO BE PICKED BASED ON     * SS424257
+      ****                  THE TBXCORP7-TB-CPO7-CUST-CC-OVERRIDE-YES,* SS424257
+      ****                  CUM507 SCREEN-NEW FLAG CUST OVERRIDE      * SS424257
+      ****                  COM002 SCREEN-NEW FLAG CARR CD OVERRIDE   * SS424257
+      ****                  ========================================  * SS424257
+      ****                  CUST-OVRD ¦ CARR-CD-OVRD ¦ FRT PICKED FRM * SS424257
+      ****                  ========================================  * SS424257
+      ****                    Y       ¦      Y       ¦ COM002 SCREEN  * SS424257
+      ****                    Y       ¦      N       ¦ CUM507 SCREEN  * SS424257
+      ****                    N       ¦      Y       ¦ CUM507 SCREEN  * SS424257
+      ****                    N       ¦      N       ¦ CUM507 SCREEN  * SS424257
+      ****                  ========================================  * SS424257
+      ****    06/10/22 VZM  HERMES GERMANY CHANGES FOR FREIGHT.       * VZM22161
+      ****    10/11/19 AP3  FOR FREIGHT RULE 9, CORRECTION MADE TO    * APX19284
+      ****                  AVOID DOUBLING OF THE FREIGHT CHARGE.     * APX19284
+      ****    05/05/17 KYC  CRN2387 FREIGHT CHANGE AT EURO            * KYC17093
+      ****    04/16/15 MYN  MODIFIED TO RETRIEVE WEB FREIGHT FOR      * MYN15106
+      ****                  ONLINE ORDERS ONLY                        * MYN15106
+      ****    04/19/13 DAK  ADDED BRIGHT POINT INDIA                  * RLH13109
+      ****    03/09/11 LNT  CHANGE BFR-PCT FIELD TO BFR-PCT-IA FIELD  * LNT11068
+      ****                  FOR INDIA PROCESSING ONLY                 * LNT11068
+      ****    02/23/09 SAG  PRODUCTION FIX - CURRENCY CONVERSION      * SAG09054
+      ****                  LOGIC WHEN CHARGE-TYPE = SHIPMENT VALUE   * SAG09054
+      ****    01/06/09 SAG  SKIP THE CURRENCY CONVERSION PART WHEN    * SAG09006
+      ****                  FREIGHT IS CALCULATED AS PERCENTAGE OF    * SAG09006
+      ****                  ORDER VALUE.                                SAG09006
+      ****    09/24/07 SHW  CONVERSION OF CALCULATED FREIGHT REVENUE  * SHW07267
+      ****                  AMOUNT FROM LOCAL CURRENCY TO ORDER       * SHW07267
+      ****                  CURRENCY.                                 * SHW07267
+      ****    11/30/06 TXS  DO NOT CALCULATE COST IF ORDER IS BILLED  * TXS06335
+      ****                  BY THE WMS                                * TXS06335
+      ****    10/09/06 ESS  RULE-6 - FIRST ENTRY CANNOT BE FOR EACHES * ESS06280
+      ****                  HENCE TREAT THE FIRST ENTRY TO BE TOTAL   * ESS06280
+      ****                  THIS WILL STOP SOC7 ABENDS AS WELL        * ESS06280
+      ****    04/28/06 TGF  STOP ABEND WHEN INDEX GOES NEGATIVE.      * TGF06118
+      ****    04/25/06 MYF  FIX INSURANCE RATE CALCULATION            * MYF06115
+      ****    07/01/05 TXS  FIX COST RULE-6 TO PICK UP THE LAST 'T'   * TXS05186
+      ****                  COST RATE                                 * TXS05186
+      ****    02/13/05 TLC  CORRECT REVENUE FOR CONSOLIDATION         * TLC05044
+      ****    02/03/05 TLC  USE 2DP FOR WEIGHT IF CARRIER FLAGGED     * TLC05034
+      ****    04/02/04 TXS  CHARGE FLAT RATE REVENUE ON BACKORDERS    * TXS04125
+      ****    01/28/03 TLC  USE 99999  IF GREATER NEEDED FOR COST     * TLC03028
+      ****    11/05/02 TLC  ALLOW BY BOX FOR REVENUE                  * TLC02308
+      ****    10/25/02 GZS  NEW RULE G FOR GR CARRIER IN FRANCE       * GZS02298
+      ****                  DELETED RULE 1 CALCULATIONS FOR GR CARRIER* GZS02298
+      ****                  IN FRANCE                                 * GZS02298
+      ****    09/20/02 GZS  RULE1 - ADDITIONAL CALCULATIONS FOR       * GZS02263
+      ****                  FRENCH CARRIER GRAVELEAU                  * GZS02263
+      ****    08/30/02 ESS  NEW RULE - E FOR ITALY CARRIERS           * ESS02240
+      ****    08/30/02 ESS  NEW RULE - F FOR AU CARRIER IN FRANCE     * ESS02240
+      ****    06/06/02 AXG  RULE1 - COST TABLE ERROR SETS AN ERROR    * AXG02190
+      ****                  FLAG BUT WAS NOT BEEN CHACKED TO EXIT.    * AXG02190
+      ****                  ADDED EXIT PARAGRAPH WHEN COST TABLE ERROR* AXG02190
+000610****    10/31/01 TLC  RULES 7 AND 8 FOR MEXICO                  * TLC01303
+000610****                  % INVOICE VALUE IN REVENUE                * TLC01303
+      ****    09/24/01 GZS  ADDED RULE AND EACHES FIELDS TO CUSTOMER  * GZS01267
+      ****                  REVENUE RECORD                            * GZS01267
+      ****                  ADDED COST RULE D FOR TOF GERMANY         * GZS01267
+      ****    08/01/01 ESS  NEW FRENCH UPS CARRIER UX                 * ESS01262
+      ****    06/21/01 GZS  ADDED COST RULE A FOR FRENCH MORY CARRIERS* GZS01198
+      ****             ESS  ADDED COST RULE B AND RULE 9              * GZS01198
+      ****    06/18/01 GZS  ADDED FREIGHT REVENUE RULES 1-6, AND C    * GZS01169
+000610****    05/17/01 ESS  FINLAND UPS CHANGES                       * TXS01137
+000610****    05/09/01 ESS  CHANGED THE USE OF ORDER DATABASE         * ESS01131
+000610****                  VARIABLES TO WHWECFRT VARIABLES           * ESS01131
+000610****    05/01/01 TXS  NEW RULE C                                * TXS01111
+000610****    10/01/00 ESS  NEW RULES 4, 5 AND 6                      * ESS01100
+000610****    10/01/00 MEP  MINIMUM FREIGHT/ORDER LIMITS PROJECT      * MEP00275
+000700****    07/03/00 TLC  COST PER WEIGHT OF EACH BOX               * TLC00220
+000800****                  ALLOW WEIGHT FOR CUST REVENUE AND         * TLC00220
+000900****                  VALUE FOR COST                            * TLC00220
+001000****    06/29/00 TLC  CORRECT FREE FREIGHT CALCULATION          * TLC00181
+001100****    02/22/00 TLC  NEW COPYBOOK                              * TLC00108
+001200*****************************************************************         
+001300*                                                                         
+001400 F1000-CALCULATE-FREIGHT.                                                 
+001500                                                                          
+001600     IF NOT  WS-FR-COST-ONLY                                      TLC00220
+001700        MOVE 'N' TO WS-FR-FREE-FRT-FLAG                           TLC00220
+001800                    WS-FR-CUST-FLAG                               TLC00220
+001900                    WS-FR-COST-ERROR-FLAG                         TLC00220
+002000                    WS-FR-REV-ERROR-FLAG                          TLC00220
+002100     END-IF.                                                      TLC00220
+002200                                                                          
+002300     IF WS-WMS-BILLING-SW = 'Y'                                   TXS06335
+002300        NEXT SENTENCE                                             TXS06335
+002300     ELSE                                                         TXS06335
+002300        PERFORM F1100-COST THRU F1100-EXIT.                       TXS06335
+002400                                                                          
+002500     IF (WS-FR-COST-ERROR AND NOT                                 TLC00220
+002600     (WS-FR-BOX-SHIP-PAL-FLAG = 'B' AND WS-FR-WEIGHT)) OR         TLC00220
+002700      WS-FR-COST-ONLY                                             TLC00220
+002800       IF WS-WMS-BILLING-SW NOT = 'Y'                             TXS06335
+002800        GO TO F1000-EXIT                                                  
+002800       END-IF                                                     TXS06335
+002900     END-IF.                                                              
+003000                                                                          
+003501     IF WS-FR-CORP-LIMIT > 0 AND                                  MEP00275
+003510        WS-FR-ORDER-VALUE > WS-FR-CORP-LIMIT                      MEP00275
+003600        MOVE 'Y' TO WS-FR-FREE-FRT-FLAG                                   
+003700     ELSE                                                                 
+003800           PERFORM F1200-CUST-REV-REC THRU F1200-EXIT                     
+003900        IF WS-FR-CUST-FOUND                                               
+056200* ONLY IF TBXCORP7 SWITCH IS SET AND CUP507-OVERRIDE FLAG IS SET, SS424257
+056200* ONLY THEN THE COP002-COLBFR FILE WILL BE READ.                  SS424257
+056200           IF TB-CPO7-CUST-CC-OVERRIDE-YES                        SS424257
+056200              IF CFR-COM002-OVRRDE-FLAG = 'Y'                     SS424257
+056200                 PERFORM F1300-BR-REV-REC                         SS424257
+056200                    THRU F1300-EXIT                               SS424257
+056200              END-IF                                              SS424257
+056200           END-IF                                                 SS424257
+004100        ELSE                                                              
+004200           PERFORM F1300-BR-REV-REC THRU F1300-EXIT                       
+004300        END-IF                                                            
+004400        IF WS-FR-REV-ERROR                                                
+004500           GO TO F1000-EXIT                                               
+004600        END-IF                                                            
+004700     END-IF.                                                              
+004800                                                                          
+004900     IF WS-FR-FREE-FRT                                                    
+005000        CONTINUE                                                          
+005100     ELSE                                                                 
+005200        PERFORM F1400-REV-CHARGE THRU F1400-EXIT                          
+005300        IF WS-FR-CUST-FOUND                                               
+005400           CONTINUE                                                       
+005500        ELSE                                                              
+005600           IF BFR-CHARGE-COST = 'Y' AND                                   
+005700            WS-FR-COST > WS-FR-REV                                        
+005800              MOVE WS-FR-COST TO WS-FR-REV                                
+                    IF WS-CITYLINK                                      TXS01111
+                       MOVE 'N' TO WS-FR-ROUND-FLAG                     TXS01111
+                    ELSE                                                TXS01111
+005900                 MOVE 'Y' TO WS-FR-ROUND-FLAG                     TXS01111
+                    END-IF                                              TXS01111
+006000           END-IF                                                         
+006100        END-IF                                                            
+006200     END-IF.                                                              
+006300                                                                          
+006400 F1000-EXIT.                                                              
+006500     EXIT.                                                                
+006600                                                                          
+006700 F1100-COST.                                                              
+006800                                                                          
+006900     IF WS-FR-COST-ONLY                                           TLC00220
+007000        GO TO F1100-CONT                                          TLC00220
+007100     END-IF.                                                      TLC00220
+007200                                                                  TLC00220
+007300     MOVE WS-FR-CO      TO FC-COMPANY.                                    
+007400     MOVE WS-FR-CC      TO FC-CC.                                         
+007500     MOVE SPACES        TO FC-T-CNTRY                                     
+007600                           FC-F-CNTRY                                     
+007700                           FC-ZONE.                                       
+007800     MOVE 'H'           TO FC-REC-TYPE.                                   
+007900                                                                          
+008000     PERFORM F1105-READ-CFC-FILE THRU F1105-EXIT.                         
+008100                                                                          
+008200     IF WS-CFC-NOTFND                                                     
+008300        MOVE 'CARRIER NOT ON COLCFC FILE'  TO WS-FR-MESSAGE               
+008400        MOVE 'Y' TO WS-FR-COST-ERROR-FLAG                                 
+008500     END-IF.                                                              
+008600                                                                          
+008700     IF WS-FR-COST-ERROR                                                  
+008800        GO TO F1100-EXIT                                                  
+008900     END-IF.                                                              
+009000                                                                          
+009100     MOVE FC-BOX-SHIP-PAL-FLAG  TO WS-FR-BOX-SHIP-PAL-FLAG.               
+009200     MOVE FC-RULE               TO WS-FR-RULE.                            
+009300     MOVE FC-QTY-WGT-FLAG       TO WS-FR-QTY-WGT-FLAG.                    
+009400                                                                          
+009500     IF FC-INSURANCE NUMERIC                                              
+009600        MOVE FC-INSURANCE          TO WS-FR-INSURANCE                     
+009700     ELSE                                                                 
+009800        MOVE 0                     TO WS-FR-INSURANCE                     
+009900     END-IF.                                                              
+010000                                                                          
+010100     IF FC-ZONE-DISCOUNT NUMERIC                                          
+010200        MOVE FC-ZONE-DISCOUNT      TO WS-FR-ZONE-DISCOUNT                 
+010300     ELSE                                                                 
+010400        MOVE 0                     TO WS-FR-ZONE-DISCOUNT                 
+010500     END-IF.                                                              
+010600                                                                          
+010700     MOVE WS-FR-ZONE            TO FC-ZONE.                               
+010800     MOVE WS-FR-TO-CC           TO FC-T-CNTRY.                            
+010900     MOVE WS-FR-FROM-CC         TO FC-F-CNTRY.                            
+011000     MOVE 'D'                   TO FC-REC-TYPE.                           
+011100                                                                          
+011200     PERFORM F1105-READ-CFC-FILE THRU F1105-EXIT.                         
+011300                                                                          
+011400     IF WS-CFC-NOTFND                                                     
+011500        IF WS-FR-ZONE = '**' AND WS-FR-RULE > SPACES              ESS01100
+                IF WS-FR-RULE NOT = '0'                                 TXS01111
+011600           MOVE 'ZONE NOT ON COLCFC FILE'  TO WS-FR-MESSAGE               
+011700           MOVE 'Y' TO WS-FR-COST-ERROR-FLAG                              
+                END-IF                                                  TXS01111
+011800        ELSE                                                              
+011900           MOVE '**' TO FC-ZONE                                           
+012000           PERFORM F1105-READ-CFC-FILE THRU F1105-EXIT                    
+012100           IF WS-CFC-NOTFND AND WS-FR-RULE > SPACES               ESS01100
+                   IF WS-FR-RULE NOT = '0'                              TXS01111
+012200              MOVE 'ZONE NOT ON COLCFC FILE'  TO WS-FR-MESSAGE            
+012300              MOVE 'Y' TO WS-FR-COST-ERROR-FLAG                           
+                   END-IF                                               TXS01111
+012400           END-IF                                                         
+012500        END-IF                                                            
+012600     END-IF.                                                              
+012700                                                                          
+012800     IF WS-FR-COST-ERROR                                                  
+012900        GO TO F1100-EXIT                                                  
+013000     END-IF.                                                              
+013100                                                                          
+013200 F1100-CONT.                                                      TLC00220
+013300     EVALUATE WS-FR-BOX-SHIP-PAL-FLAG                                     
+013400     WHEN 'B'                                                             
+013500        IF WS-FR-WEIGHT                                           TLC00220
+013600           IF WS-WEIGHT-DP-FLAG = 'Y'                             TLC05034
+013600              MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-BY-TOTAL           TLC05034
+013600           ELSE                                                   TLC05034
+013600              MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-BY-TOTAL-CALC      TLC05034
+013700              IF WS-FR-TOTAL-WEIGHT > WS-FR-BY-TOTAL-CALC         TLC05034
+013800                 ADD 1 TO WS-FR-BY-TOTAL-CALC                     TLC05034
+013700              END-IF                                              TLC05034
+013600              MOVE WS-FR-BY-TOTAL-CALC TO WS-FR-BY-TOTAL          TLC05034
+013900           END-IF                                                 TLC05034
+014000        ELSE                                                      TLC00220
+014100           MOVE WS-FR-BOXES        TO WS-FR-BY-TOTAL              TLC00220
+014200        END-IF                                                    TLC00220
+014300     WHEN 'P'                                                             
+014400        MOVE WS-FR-PALS  TO WS-FR-BY-TOTAL                                
+014500     WHEN 'S'                                                             
+014600        EVALUATE WS-FR-QTY-WGT-FLAG                               TLC00220
+014700        WHEN 'V'                                                  TLC00220
+014800           MOVE WS-FR-SHIP-VALUE TO WS-FR-BY-TOTAL-CALC           TLC05034
+014900           IF WS-FR-SHIP-VALUE > WS-FR-BY-TOTAL-CALC              TLC00XXX
+015000              ADD 1 TO WS-FR-BY-TOTAL-CALC                        TLC05034
+015100           END-IF                                                 TLC00220
+013600           MOVE WS-FR-BY-TOTAL-CALC TO WS-FR-BY-TOTAL             TLC05034
+015200        WHEN 'W'                                                  TLC00220
+015300           IF WS-WEIGHT-DP-FLAG = 'Y'                             TLC05034
+015300              MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-BY-TOTAL           TLC05034
+015300           ELSE                                                   TLC05034
+015300              MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-BY-TOTAL-CALC      TLC05034
+015300              IF WS-FR-TOTAL-WEIGHT > WS-FR-BY-TOTAL-CALC         TLC05034
+015300                 ADD 1 TO WS-FR-BY-TOTAL-CALC                     TLC05034
+015300              END-IF                                              TLC05034
+015300              MOVE WS-FR-BY-TOTAL-CALC TO WS-FR-BY-TOTAL          TLC05034
+015300           END-IF                                                 TLC05034
+015700        WHEN OTHER                                                TLC00220
+015800           MOVE 1                  TO WS-FR-BY-TOTAL              TLC00220
+015900        END-EVALUATE                                              TLC00220
+016000     END-EVALUATE.                                                        
+016100                                                                          
+014800     IF WS-FR-SHIP-VALUE NUMERIC                                  TLC01303
+014800        MOVE WS-FR-SHIP-VALUE TO WS-FR-SHIP-VALUE-PC              TLC01303
+014800     ELSE                                                         TLC01303
+014800        MOVE 0                TO WS-FR-SHIP-VALUE-PC              TLC01303
+014800     END-IF.                                                      TLC01303
+014800                                                                  TLC01303
+014900     IF WS-FR-SHIP-VALUE > WS-FR-SHIP-VALUE-PC                    TLC01303
+015000        ADD 1 TO WS-FR-SHIP-VALUE-PC                              TLC01303
+015100     END-IF.                                                      TLC01303
+                                                                        TLC01303
+016200     EVALUATE WS-FR-RULE                                                  
+016300     WHEN '0'                                                             
+016400        MOVE ZERO TO WS-FR-COST                                           
+016500     WHEN '1'                                                             
+016600        PERFORM F1110-COST-RULE-1 THRU F1110-EXIT                         
+016700     WHEN '2'                                                             
+016800        PERFORM F1120-COST-RULE-2 THRU F1120-EXIT                         
+016900     WHEN '3'                                                             
+016900     WHEN '8'                                                     TLC01303
+017000        PERFORM F1130-COST-RULE-3 THRU F1130-EXIT                         
+016900     WHEN '4'                                                     ESS01100
+017000        PERFORM F1140-COST-RULE-4 THRU F1140-EXIT                 ESS01100
+016900     WHEN '5'                                                     ESS01100
+017000        PERFORM F1150-COST-RULE-5 THRU F1150-EXIT                 ESS01100
+016900     WHEN '6'                                                     ESS01100
+017000        PERFORM F1160-COST-RULE-6 THRU F1160-EXIT                 ESS01100
+016900     WHEN '7'                                                     TLC01303
+017000        PERFORM F1170-COST-RULE-7 THRU F1170-EXIT                 TLC01303
+016900     WHEN '9'                                                     GZS01198
+017000        PERFORM F1190-COST-RULE-9 THRU F1190-EXIT                 GZS01198
+           WHEN 'A'                                                     GZS01198
+018200        PERFORM F11A0-COST-RULE-A THRU F11A0-EXIT                 GZS01198
+018200     WHEN 'B'                                                     GZS01198
+018200        PERFORM F11B0-COST-RULE-B THRU F11B0-EXIT                 GZS01198
+018200     WHEN 'C'                                                     TXS01111
+018200        PERFORM F11C0-COST-RULE-C THRU F11C0-EXIT                 TXS01111
+018200     WHEN 'D'                                                     GZS01267
+018200        PERFORM F11D0-COST-RULE-D THRU F11D0-EXIT                 GZS01267
+018200     WHEN 'E'                                                     ESS02240
+018200        PERFORM F11E0-COST-RULE-E THRU F11E0-EXIT                 ESS02240
+018200     WHEN 'F'                                                     ESS02240
+018200        PERFORM F11F0-COST-RULE-F THRU F11F0-EXIT                 ESS02240
+018200     WHEN 'G'                                                     GZS02298
+018200        PERFORM F11G0-COST-RULE-G THRU F11G0-EXIT                 GZS02298
+017100     END-EVALUATE.                                                        
+017200                                                                          
+017300     IF WS-FR-INSURANCE > 0 AND WS-FR-INS-AMT NOT > 0             MYF06115
+017400        COMPUTE WS-FR-INS-AMT ROUNDED =                                   
+017500        ((WS-FR-INSURANCE * WS-FR-SHIP-VALUE) / 100)                      
+017600        ADD WS-FR-INS-AMT TO WS-FR-COST                                   
+017700     END-IF.                                                              
+017800                                                                          
+           IF WS-FR-MIN-FRT-COST NUMERIC AND                            TLC01303
+            WS-FR-MIN-FRT-COST > 0 AND                                  TLC01303
+            WS-FR-MIN-FRT-COST > WS-FR-COST                             TLC01303
+              MOVE WS-FR-MIN-FRT-COST TO WS-FR-COST                     TLC01303
+           END-IF.                                                      TLC01303
+                                                                        TLC01303
+017900 F1100-EXIT.                                                              
+018000     EXIT.                                                                
+018100                                                                          
+018200 F1110-COST-RULE-1.                                                       
+018300                                                                          
+018400     MOVE 1 TO WS-FR-SUB1.                                                
+018500     MOVE 0 TO WS-FR-SUB2.                                                
+018600                                                                          
+018700     PERFORM UNTIL WS-FR-SUB1 > 100                                       
+018800        IF FC-LT-OR-EQ-AMT (WS-FR-SUB1) NOT NUMERIC                       
+018900           MOVE 999 TO WS-FR-SUB1                                         
+019000        ELSE                                                              
+019100           IF FC-LT-OR-EQ-AMT (WS-FR-SUB1) < WS-FR-BY-TOTAL               
+                  AND FC-LT-OR-EQ-AMT (WS-FR-SUB1) < 99999              TLC03028
+019200              ADD 1 TO WS-FR-SUB1                                         
+019300           ELSE                                                           
+019400              MOVE WS-FR-SUB1 TO WS-FR-SUB2                               
+019500              MOVE 999 TO WS-FR-SUB1                                      
+019600           END-IF                                                         
+019700        END-IF                                                            
+019800     END-PERFORM.                                                         
+019900                                                                          
+020000     IF WS-FR-SUB1 > 100 AND WS-FR-SUB2 = 0                               
+020100        EVALUATE WS-FR-BOX-SHIP-PAL-FLAG                                  
+020200        WHEN 'B'                                                          
+020300           IF WS-FR-WEIGHT                                        TLC00220
+020400              MOVE 'TOO HEAVY FOR CARRIER (COST)' TO WS-FR-MESSAGETLC00220
+020500           ELSE                                                   TLC00220
+020600              MOVE 'TOO MANY BOXES FOR CARRIER (COST)'            TLC00220
+020700                                                  TO WS-FR-MESSAGE        
+020800           END-IF                                                 TLC00220
+020900        WHEN 'P'                                                          
+021000           IF WS-FR-WEIGHT                                        TLC00220
+021100              MOVE 'TOO HEAVY FOR CARRIER (COST)' TO WS-FR-MESSAGETLC00220
+021200           ELSE                                                   TLC00220
+021300              MOVE 'TOO MANY PALLETS FOR CARRIER (COST)'          TLC00220
+021400                                                  TO WS-FR-MESSAGETLC00220
+021500           END-IF                                                 TLC00220
+021600        WHEN 'S'                                                          
+021700           EVALUATE WS-FR-QTY-WGT-FLAG                            TLC00220
+021800           WHEN 'V'                                               TLC00220
+021900              MOVE 'VALUE TOO GREAT FOR CARRIER (COST)'           TLC00220
+022000                                                  TO WS-FR-MESSAGETLC00220
+022100           WHEN 'W'                                               TLC00220
+022200              MOVE 'TOO HEAVY FOR CARRIER (COST)' TO WS-FR-MESSAGETLC00220
+022300           WHEN OTHER                                             TLC00220
+022400              MOVE 'COST TABLE ERROR'             TO WS-FR-MESSAGE        
+022500           END-EVALUATE                                           TLC00220
+022600        END-EVALUATE                                                      
+022700        MOVE 'Y' TO WS-FR-COST-ERROR-FLAG                                 
+022800        GO TO F1110-EXIT                                                  
+022900     END-IF.                                                              
+023000                                                                          
+           EVALUATE FC-EACH-TOT-FLAG (WS-FR-SUB2)                       TLC01303
+023100     WHEN 'T'                                                     TLC01303
+023200        MOVE FC-COST (WS-FR-SUB2) TO WS-FR-TEMP-COST                      
+023300     WHEN 'E'                                                     TLC01303
+023400        MULTIPLY FC-COST (WS-FR-SUB2) BY WS-FR-BY-TOTAL           TLC01303
+023500         GIVING WS-FR-TEMP-COST                                   TLC01303
+           WHEN 'P'                                                     TLC01303
+              IF FC-DISCOUNT (WS-FR-SUB2) > 0                           TLC01303
+                 SET WS-FR-FCT-INDX TO FC-DISCOUNT (WS-FR-SUB2)         TLC01303
+                 DIVIDE FC-COST (WS-FR-SUB2) BY                         TLC01303
+                            WS-FR-FACTOR (WS-FR-FCT-INDX)               TLC01303
+                    GIVING WS-FR-PERCENTAGE-CALC                        TLC01303
+              ELSE                                                      TLC01303
+                 MOVE FC-COST (WS-FR-SUB2) TO                           TLC01303
+                           WS-FR-PERCENTAGE-CALC                        TLC01303
+              END-IF                                                    TLC01303
+              DIVIDE WS-FR-PERCENTAGE-CALC BY 100                       TLC01303
+              GIVING WS-FR-PERCENTAGE-CALC                              TLC01303
+              COMPUTE WS-FR-TEMP-COST ROUNDED = WS-FR-SHIP-VALUE-PC     TLC01303
+                  * WS-FR-PERCENTAGE-CALC                               TLC01303
+023600     END-EVALUATE.                                                TLC01303
+023700                                                                          
+023800     IF FC-DISCOUNT (WS-FR-SUB2) NUMERIC AND                              
+023900      FC-DISCOUNT (WS-FR-SUB2) > 0                                        
+             AND FC-EACH-TOT-FLAG (WS-FR-SUB2) NOT = 'P'                TLC01303
+024000        COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                        
+024100           (FC-DISCOUNT (WS-FR-SUB2) / 100)                               
+024200        SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST                      
+024300           GIVING WS-FR-TEMP-COST                                         
+024400     ELSE                                                                 
+024500        IF FC-ZONE-DISCOUNT NUMERIC AND FC-ZONE-DISCOUNT > 0              
+024600           COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                     
+024700              (FC-ZONE-DISCOUNT / 100)                                    
+024800           SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST                   
+024900              GIVING WS-FR-TEMP-COST                                      
+025000        END-IF                                                            
+025100     END-IF.                                                              
+025200                                                                          
+           IF WS-FR-RULE = '7'                                          TLC01303
+              ADD WS-FR-TEMP-COST TO WS-FR-COST                         TLC01303
+           ELSE                                                         TLC01303
+025300        MOVE WS-FR-TEMP-COST TO WS-FR-COST                        TLC01303
+           END-IF.                                                      TLC01303
+025400                                                                          
+025400     IF WS-UPS-EXP-EUROPE OR WS-UPS-DOMESTIC-EXPRESS              ESS01262
+025400        IF FC-EACH-TOT-FLAG (WS-FR-SUB2) = 'E'                    TXS01137
+025400           COMPUTE WS-FR-COST = WS-FR-COST / 10                   TXS01137
+025400        END-IF                                                    TXS01137
+025400     END-IF.                                                      TXS01137
+025400                                                                  TXS01137
+025500 F1110-EXIT.                                                              
+025600     EXIT.                                                                
+025700                                                                          
+025800 F1120-COST-RULE-2.                                                       
+025900                                                                          
+026000     MOVE WS-FR-BY-TOTAL TO WS-FR-AMT-LEFT.                               
+026100     MOVE 1              TO WS-FR-SUB1.                                   
+026200     MOVE 0              TO WS-FR-SUB2.                                   
+026300     MOVE 0              TO WS-FR-PREV-AMT                                
+026400                            WS-FR-COST                                    
+026500                            WS-FR-CURRENT-AMT.                            
+026600                                                                          
+026700     PERFORM F1121-COST-2-CALC THRU F1121-EXIT                            
+026800                       UNTIL WS-FR-SUB1 > 100                             
+026900                                                                          
+027000     IF WS-FR-SUB1 > 100 AND WS-FR-SUB2 > 0                               
+027100        EVALUATE WS-FR-BOX-SHIP-PAL-FLAG                                  
+027200        WHEN 'B'                                                          
+027300           IF WS-FR-WEIGHT                                        TLC00220
+027400              MOVE 'TOO HEAVY FOR CARRIER (COST)' TO WS-FR-MESSAGETLC00220
+027500           ELSE                                                   TLC00220
+027600              MOVE 'TOO MANY BOXES FOR CARRIER (COST)'            TLC00220
+027700                                                  TO WS-FR-MESSAGE        
+027800           END-IF                                                 TLC00220
+027900        WHEN 'P'                                                          
+028000           IF WS-FR-WEIGHT                                        TLC00220
+028100              MOVE 'TOO HEAVY FOR CARRIER (COST)' TO WS-FR-MESSAGETLC00220
+028200           ELSE                                                   TLC00220
+028300              MOVE 'TOO MANY PALLETS FOR CARRIER (COST)'          TLC00220
+028400                                                  TO WS-FR-MESSAGETLC00220
+028500           END-IF                                                 TLC00220
+028600        WHEN 'S'                                                          
+028700           EVALUATE WS-FR-QTY-WGT-FLAG                            TLC00220
+028800           WHEN 'V'                                               TLC00220
+028900              MOVE 'VALUE TOO GREAT FOR CARRIER (COST)'           TLC00220
+029000                                                  TO WS-FR-MESSAGETLC00220
+029100           WHEN 'W'                                               TLC00220
+029200              MOVE 'TOO HEAVY FOR CARRIER (COST)' TO WS-FR-MESSAGETLC00220
+029300           WHEN OTHER                                             TLC00220
+029400              MOVE 'COST TABLE ERROR'             TO WS-FR-MESSAGE        
+029500           END-EVALUATE                                           TLC00220
+029600        END-EVALUATE                                                      
+029700        MOVE 'Y' TO WS-FR-COST-ERROR-FLAG                                 
+029800        GO TO F1120-EXIT                                                  
+029900     END-IF.                                                              
+030000                                                                          
+030100                                                                          
+030200 F1120-EXIT.                                                              
+030300     EXIT.                                                                
+030400                                                                          
+030500 F1121-COST-2-CALC.                                                       
+030600                                                                          
+030700     IF FC-LT-OR-EQ-AMT (WS-FR-SUB1) NOT NUMERIC                          
+030800        MOVE 999 TO WS-FR-SUB1                                            
+030900        GO TO F1121-EXIT                                                  
+031000     END-IF.                                                              
+031100                                                                          
+031200     SUBTRACT WS-FR-PREV-AMT FROM FC-LT-OR-EQ-AMT (WS-FR-SUB1)            
+031300      GIVING WS-FR-CURRENT-AMT.                                           
+031400                                                                          
+031500     IF WS-FR-AMT-LEFT > WS-FR-CURRENT-AMT                                
+              EVALUATE FC-EACH-TOT-FLAG (WS-FR-SUB1)                    TLC01303
+023100        WHEN 'T'                                                  TLC01303
+031700           MOVE FC-COST (WS-FR-SUB1) TO WS-FR-TEMP-COST                   
+023300        WHEN 'E'                                                  TLC01303
+031900           MULTIPLY WS-FR-CURRENT-AMT BY FC-COST (WS-FR-SUB1)             
+032000            GIVING WS-FR-TEMP-COST                                        
+              WHEN 'P'                                                  TLC01303
+                 IF FC-DISCOUNT (WS-FR-SUB1)  > 0                       TLC01303
+                    SET WS-FR-FCT-INDX TO FC-DISCOUNT (WS-FR-SUB1)      TLC01303
+                    DIVIDE FC-COST (WS-FR-SUB1) BY                      TLC01303
+                               WS-FR-FACTOR (WS-FR-FCT-INDX)            TLC01303
+                       GIVING WS-FR-PERCENTAGE-CALC                     TLC01303
+                 ELSE                                                   TLC01303
+                    MOVE FC-COST (WS-FR-SUB1) TO WS-FR-PERCENTAGE-CALC  TLC01303
+                 END-IF                                                 TLC01303
+                 DIVIDE WS-FR-PERCENTAGE-CALC BY 100                    TLC01303
+                 GIVING WS-FR-PERCENTAGE-CALC                           TLC01303
+                 COMPUTE WS-FR-TEMP-COST ROUNDED = WS-FR-CURRENT-AMT    TLC01303
+                     * WS-FR-PERCENTAGE-CALC                            TLC01303
+023600        END-EVALUATE                                              TLC01303
+032200        SUBTRACT WS-FR-CURRENT-AMT FROM WS-FR-AMT-LEFT                    
+032300        MOVE FC-LT-OR-EQ-AMT (WS-FR-SUB1) TO WS-FR-PREV-AMT               
+032400     ELSE                                                                 
+              EVALUATE FC-EACH-TOT-FLAG (WS-FR-SUB1)                    TLC01303
+023100        WHEN 'T'                                                  TLC01303
+032600           MOVE FC-COST (WS-FR-SUB1) TO WS-FR-TEMP-COST                   
+023300        WHEN 'E'                                                  TLC01303
+032800           MULTIPLY WS-FR-AMT-LEFT BY FC-COST (WS-FR-SUB1)                
+032900            GIVING WS-FR-TEMP-COST                                        
+              WHEN 'P'                                                  TLC01303
+                 IF FC-DISCOUNT (WS-FR-SUB1) > 0                        TLC01303
+                    SET WS-FR-FCT-INDX TO FC-DISCOUNT (WS-FR-SUB1)      TLC01303
+                    DIVIDE FC-COST (WS-FR-SUB1) BY                      TLC01303
+                               WS-FR-FACTOR (WS-FR-FCT-INDX)            TLC01303
+                       GIVING WS-FR-PERCENTAGE-CALC                     TLC01303
+                 ELSE                                                   TLC01303
+                    MOVE FC-COST (WS-FR-SUB1) TO WS-FR-PERCENTAGE-CALC  TLC01303
+                 END-IF                                                 TLC01303
+                 DIVIDE WS-FR-PERCENTAGE-CALC BY 100                    TLC01303
+                 GIVING WS-FR-PERCENTAGE-CALC                           TLC01303
+                 COMPUTE WS-FR-TEMP-COST ROUNDED = WS-FR-AMT-LEFT       TLC01303
+                     * WS-FR-PERCENTAGE-CALC                            TLC01303
+023600        END-EVALUATE                                              TLC01303
+033100        MOVE 0 TO WS-FR-AMT-LEFT                                          
+033200     END-IF.                                                              
+033300                                                                          
+033400     IF FC-DISCOUNT (WS-FR-SUB1) NUMERIC AND                              
+033500      FC-DISCOUNT (WS-FR-SUB1) > 0                                        
+            AND FC-EACH-TOT-FLAG (WS-FR-SUB1) NOT = 'P'                 TLC01303
+033600        COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                        
+033700           (FC-DISCOUNT (WS-FR-SUB1) / 100)                               
+033800        SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST                      
+033900           GIVING WS-FR-TEMP-COST                                         
+034000     ELSE                                                                 
+034100        IF FC-ZONE-DISCOUNT NUMERIC AND FC-ZONE-DISCOUNT > 0              
+034200           COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                     
+034300              (FC-ZONE-DISCOUNT / 100)                                    
+034400           SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST                   
+034500              GIVING WS-FR-TEMP-COST                                      
+034600        END-IF                                                            
+034700     END-IF.                                                              
+034800                                                                          
+034900     ADD WS-FR-TEMP-COST TO WS-FR-COST.                                   
+035000                                                                          
+035100     IF WS-FR-AMT-LEFT > 0                                                
+035200        ADD 1 TO WS-FR-SUB1                                               
+035300                 WS-FR-SUB2                                               
+035400     ELSE                                                                 
+035500        MOVE 999 TO WS-FR-SUB1                                            
+035600        MOVE 0   TO WS-FR-SUB2                                            
+035700     END-IF.                                                              
+035800                                                                          
+035900 F1121-EXIT.                                                              
+036000     EXIT.                                                                
+036100                                                                          
+036200 F1130-COST-RULE-3.                                                       
+036300                                                                          
+036400     IF FC-COST (1) NOT NUMERIC                                           
+036500        MOVE 0 TO FC-COST (1)                                             
+036600     END-IF.                                                              
+036700                                                                          
+           EVALUATE FC-EACH-TOT-FLAG (1)                                TLC01303
+023100     WHEN 'T'                                                     TLC01303
+036900        MOVE FC-COST (1) TO WS-FR-TEMP-COST                               
+023300     WHEN 'E'                                                     TLC01303
+037100        MULTIPLY FC-COST (1) BY WS-FR-BY-TOTAL                            
+037200         GIVING WS-FR-TEMP-COST                                           
+           WHEN 'P'                                                     TLC01303
+              IF FC-DISCOUNT (1) > 0                                    TLC01303
+                 SET WS-FR-FCT-INDX TO FC-DISCOUNT (1)                  TLC01303
+                 DIVIDE FC-COST (1)          BY                         TLC01303
+                            WS-FR-FACTOR (WS-FR-FCT-INDX)               TLC01303
+                    GIVING WS-FR-PERCENTAGE-CALC                        TLC01303
+              ELSE                                                      TLC01303
+                 MOVE FC-COST (1) TO WS-FR-PERCENTAGE-CALC              TLC01303
+              END-IF                                                    TLC01303
+              DIVIDE WS-FR-PERCENTAGE-CALC BY 100                       TLC01303
+              GIVING WS-FR-PERCENTAGE-CALC                              TLC01303
+              COMPUTE WS-FR-TEMP-COST ROUNDED = WS-FR-SHIP-VALUE-PC     TLC01303
+                  * WS-FR-PERCENTAGE-CALC                               TLC01303
+023600     END-EVALUATE.                                                TLC01303
+037400                                                                          
+037500     IF FC-DISCOUNT (1) NUMERIC AND                                       
+037600      FC-DISCOUNT (1) > 0                                                 
+            AND FC-EACH-TOT-FLAG (1) NOT = 'P'                          TLC01303
+037700        COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                        
+037800           (FC-DISCOUNT (WS-FR-SUB2) / 100)                               
+037900        SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST                      
+038000           GIVING WS-FR-TEMP-COST                                         
+038100     ELSE                                                                 
+038200        IF FC-ZONE-DISCOUNT NUMERIC AND FC-ZONE-DISCOUNT > 0              
+038300           COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                     
+038400              (FC-ZONE-DISCOUNT / 100)                                    
+038500           SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST                   
+038600              GIVING WS-FR-TEMP-COST                                      
+038700        END-IF                                                            
+038800     END-IF.                                                              
+038900                                                                          
+039000     MOVE WS-FR-TEMP-COST TO WS-FR-COST.                                  
+039100                                                                          
+039200     IF FC-LT-OR-EQ-AMT (1) NUMERIC     AND                               
+039300      FC-LT-OR-EQ-AMT (1) NOT < WS-FR-BY-TOTAL                            
+#TEMP         IF WS-FR-RULE = '9'                                       APX19284
+#TEMP            MOVE 0 TO WS-FR-COST                                   APX19284
+#TEMP         END-IF                                                    APX19284
+039400        GO TO F1130-EXIT                                                  
+039500     END-IF.                                                              
+039600                                                                          
+039700     MOVE 2 TO WS-FR-SUB1.                                                
+039800     MOVE 0 TO WS-FR-SUB2.                                                
+039900                                                                          
+040000     PERFORM UNTIL WS-FR-SUB1 > 100                                       
+040100        IF FC-LT-OR-EQ-AMT (WS-FR-SUB1) NOT NUMERIC                       
+040200           MOVE 999 TO WS-FR-SUB1                                         
+040300        ELSE                                                              
+040400           IF FC-LT-OR-EQ-AMT (WS-FR-SUB1) < WS-FR-BY-TOTAL               
+                  AND FC-LT-OR-EQ-AMT (WS-FR-SUB1) < 99999              TLC03028
+040500              ADD 1 TO WS-FR-SUB1                                         
+040600           ELSE                                                           
+040700              MOVE WS-FR-SUB1 TO WS-FR-SUB2                               
+040800              MOVE 999 TO WS-FR-SUB1                                      
+040900           END-IF                                                         
+041000        END-IF                                                            
+041100     END-PERFORM.                                                         
+041200                                                                          
+041300     IF WS-FR-SUB1 > 100 AND WS-FR-SUB2 = 0                               
+041400        EVALUATE WS-FR-BOX-SHIP-PAL-FLAG                                  
+041500        WHEN 'B'                                                          
+041600           IF WS-FR-WEIGHT                                        TLC00220
+041700              MOVE 'TOO HEAVY FOR CARRIER (COST)' TO WS-FR-MESSAGETLC00220
+041800           ELSE                                                   TLC00220
+041900              MOVE 'TOO MANY BOXES FOR CARRIER (COST)'            TLC00220
+042000                                                  TO WS-FR-MESSAGE        
+042100           END-IF                                                 TLC00220
+042200        WHEN 'P'                                                          
+042300           IF WS-FR-WEIGHT                                        TLC00220
+042400              MOVE 'TOO HEAVY FOR CARRIER (COST)' TO WS-FR-MESSAGETLC00220
+042500           ELSE                                                   TLC00220
+042600              MOVE 'TOO MANY PALLETS FOR CARRIER (COST)'          TLC00220
+042700                                                  TO WS-FR-MESSAGETLC00220
+042800           END-IF                                                 TLC00220
+042900        WHEN 'S'                                                          
+043000           EVALUATE WS-FR-QTY-WGT-FLAG                            TLC00220
+043100           WHEN 'V'                                               TLC00220
+043200              MOVE 'VALUE TOO GREAT FOR CARRIER (COST)'           TLC00220
+043300                                                  TO WS-FR-MESSAGETLC00220
+043400           WHEN 'W'                                               TLC00220
+043500              MOVE 'TOO HEAVY FOR CARRIER (COST)' TO WS-FR-MESSAGETLC00220
+043600           WHEN OTHER                                             TLC00220
+043700              MOVE 'COST TABLE ERROR'             TO WS-FR-MESSAGE        
+043800           END-EVALUATE                                           TLC00220
+043900        END-EVALUATE                                                      
+044000        MOVE 'Y' TO WS-FR-COST-ERROR-FLAG                                 
+044100        GO TO F1130-EXIT                                                  
+044200     END-IF.                                                              
+044300                                                                          
+           EVALUATE FC-EACH-TOT-FLAG (WS-FR-SUB2)                       TLC01303
+023100     WHEN 'T'                                                     TLC01303
+023200        MOVE FC-COST (WS-FR-SUB2) TO WS-FR-TEMP-COST                      
+023300     WHEN 'E'                                                     TLC01303
+              IF WS-FR-RULE = '8'                                       TLC01303
+                 COMPUTE WS-FR-SUB2-MINUS-1 = WS-FR-SUB2 - 1            TLC01303
+                 ADD FC-COST (WS-FR-SUB2-MINUS-1) TO WS-FR-COST         TLC01303
+                 SUBTRACT  FC-LT-OR-EQ-AMT (WS-FR-SUB2-MINUS-1)         TLC01303
+                  FROM WS-FR-BY-TOTAL                                   TLC01303
+                 IF FC-DISCOUNT (WS-FR-SUB2)  NUMERIC AND               TLC01303
+                    FC-DISCOUNT (WS-FR-SUB2)  > 0                       TLC01303
+                    SET WS-FR-FCT-INDX TO FC-DISCOUNT (WS-FR-SUB2)      TLC01303
+                    DIVIDE FC-COST (WS-FR-SUB2) BY                      TLC01303
+                            WS-FR-FACTOR (WS-FR-FCT-INDX)               TLC01303
+                    GIVING WS-FR-PERCENTAGE-CALC                        TLC01303
+                    COMPUTE WS-FR-TEMP-COST ROUNDED = WS-FR-BY-TOTAL    TLC01303
+                     * WS-FR-PERCENTAGE-CALC                            TLC01303
+                 ELSE                                                   TLC01303
+                    COMPUTE WS-FR-TEMP-COST ROUNDED = WS-FR-BY-TOTAL    TLC01303
+                     * FC-COST (WS-FR-SUB2)                             TLC01303
+                 END-IF                                                 TLC01303
+              ELSE                                                      TLC01303
+023400           MULTIPLY FC-COST (WS-FR-SUB2) BY WS-FR-BY-TOTAL        TLC01303
+023500            GIVING WS-FR-TEMP-COST                                TLC01303
+              END-IF                                                    TLC01303
+           WHEN 'P'                                                     TLC01303
+              IF FC-DISCOUNT (WS-FR-SUB2) > 0                           TLC01303
+                 SET WS-FR-FCT-INDX TO FC-DISCOUNT (WS-FR-SUB2)         TLC01303
+                 DIVIDE FC-COST (WS-FR-SUB2) BY                         TLC01303
+                            WS-FR-FACTOR (WS-FR-FCT-INDX)               TLC01303
+                    GIVING WS-FR-PERCENTAGE-CALC                        TLC01303
+              ELSE                                                      TLC01303
+                 MOVE FC-COST (WS-FR-SUB2) TO WS-FR-PERCENTAGE-CALC     TLC01303
+              END-IF                                                    TLC01303
+              DIVIDE WS-FR-PERCENTAGE-CALC BY 100                       TLC01303
+              GIVING WS-FR-PERCENTAGE-CALC                              TLC01303
+              COMPUTE WS-FR-TEMP-COST ROUNDED = WS-FR-SHIP-VALUE-PC     TLC01303
+                  * WS-FR-PERCENTAGE-CALC                               TLC01303
+023600     END-EVALUATE.                                                TLC01303
+045000                                                                          
+045100     IF FC-DISCOUNT (WS-FR-SUB2) NUMERIC AND                              
+045200      FC-DISCOUNT (WS-FR-SUB2) > 0                                        
+            AND FC-EACH-TOT-FLAG (WS-FR-SUB2) NOT = 'P'                 TLC01303
+            AND NOT (FC-EACH-TOT-FLAG (WS-FR-SUB2) = 'E'                TLC01303
+            AND WS-FR-RULE = '8')                                       TLC01303
+045300        COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                        
+045400           (FC-DISCOUNT (WS-FR-SUB2) / 100)                               
+045500        SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST                      
+045600           GIVING WS-FR-TEMP-COST                                         
+045700     ELSE                                                                 
+045800        IF FC-ZONE-DISCOUNT NUMERIC AND FC-ZONE-DISCOUNT > 0              
+045900           COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                     
+046000              (FC-ZONE-DISCOUNT / 100)                                    
+046100           SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST                   
+046200              GIVING WS-FR-TEMP-COST                                      
+046300        END-IF                                                            
+046400     END-IF.                                                              
+046500                                                                          
+046600* THIS IS BECAUSE RULE 5, WE ADD ONLY FOR THE EACHES FIELDS.      ESS01100
+046600     IF WS-FR-RULE = '3' OR '8'                                   TLC01303
+046600     ADD WS-FR-TEMP-COST TO WS-FR-COST.                                   
+046700                                                                          
+046800 F1130-EXIT.                                                              
+046900     EXIT.                                                                
+047000                                                                          
+018200 F1140-COST-RULE-4.                                               ESS01100
+017000                                                                  ESS01100
+017000     PERFORM F1130-COST-RULE-3 THRU F1130-EXIT                    ESS01100
+017000                                                                  ESS01100
+044400     IF FC-EACH-TOT-FLAG (WS-FR-SUB2) = 'E'                       ESS01100
+044400        COMPUTE WS-FR-SUB2-MINUS-1 = WS-FR-SUB2 - 1               ESS01100
+044400        COMPUTE WS-FR-COST = WS-FR-COST +                         ESS01100
+044400         ((WS-FR-BY-TOTAL - FC-LT-OR-EQ-AMT(WS-FR-SUB2-MINUS-1))  ESS01100
+044400           * FC-COST(WS-FR-SUB2))                                 ESS01100
+044400     ELSE                                                         ESS01100
+046600        MOVE WS-FR-TEMP-COST TO WS-FR-COST                        ESS01100
+044400     END-IF.                                                      ESS01100
+018200                                                                  ESS01100
+018200 F1140-EXIT.                                                      ESS01100
+018200       EXIT.                                                      ESS01100
+018200*                                                                 ESS01100
+018200 F1150-COST-RULE-5.                                               ESS01100
+017000                                                                  ESS01100
+017000     PERFORM F1130-COST-RULE-3 THRU F1130-EXIT                    ESS01100
+017000                                                                  ESS01100
+044400     IF FC-EACH-TOT-FLAG (WS-FR-SUB2) = 'E'                       ESS01100
+046600        ADD  WS-FR-TEMP-COST TO WS-FR-COST                        ESS01100
+044400     ELSE                                                         ESS01100
+046600        MOVE WS-FR-TEMP-COST TO WS-FR-COST                        ESS01100
+044400     END-IF.                                                      ESS01100
+018200                                                                  ESS01100
+018200 F1150-EXIT.                                                      ESS01100
+018200       EXIT.                                                      ESS01100
+018200*                                                                 ESS01100
+018200 F1160-COST-RULE-6.                                               ESS01100
+017000                                                                  ESS01100
+017000     PERFORM F1110-COST-RULE-1 THRU F1110-EXIT.                   ESS01100
+017000                                                                  ESS01100
+044400     IF FC-EACH-TOT-FLAG (WS-FR-SUB2) = 'E'                       ESS01100
+044400      IF WS-FR-SUB2 > 1                                           ESS06280
+044400        COMPUTE WS-FR-SUB2-MINUS-1 = (WS-FR-SUB2 - 1)             ESS01100
+             PERFORM UNTIL (FC-EACH-TOT-FLAG (WS-FR-SUB2-MINUS-1) = 'T')TXS05186
+                   OR (WS-FR-SUB2-MINUS-1 <= 0)                         TGF06118
+                 COMPUTE WS-FR-SUB2-MINUS-1 = (WS-FR-SUB2-MINUS-1 - 1)  TXS05186
+              END-PERFORM                                               TXS05186
+              IF WS-FR-SUB2-MINUS-1 <= 0                                TGF06118
+                 MOVE +1               TO WS-FR-SUB2-MINUS-1            TGF06118
+              END-IF                                                    TGF06118
+044400        COMPUTE WS-FR-TEMP-COST = FC-COST(WS-FR-SUB2-MINUS-1) +   ESS01100
+044400         ((WS-FR-BY-TOTAL - FC-LT-OR-EQ-AMT(WS-FR-SUB2-MINUS-1))  ESS01100
+044400           * FC-COST(WS-FR-SUB2))                                 ESS01100
+046600        MOVE WS-FR-TEMP-COST TO WS-FR-COST                        ESS01100
+044400      ELSE                                                        ESS06280
+044400        MOVE FC-COST (WS-FR-SUB2) TO WS-FR-TEMP-COST              ESS06280
+044400        MOVE WS-FR-TEMP-COST TO WS-FR-COST                        ESS06280
+044400      END-IF                                                      ESS06280
+044400     END-IF.                                                      ESS01100
+018200                                                                  ESS01100
+018200 F1160-EXIT.                                                      ESS01100
+018200       EXIT.                                                      ESS01100
+018200                                                                  TLC01303
+018200 F1170-COST-RULE-7.                                               TLC01303
+018300                                                                  TLC01303
+018500     MOVE 0 TO WS-FR-TEMP-COST                                    TLC01303
+025300               WS-FR-COST.                                        TLC01303
+025400                                                                  TLC01303
+           PERFORM F1110-COST-RULE-1 THRU F1110-EXIT                    TLC01303
+                                                                        TLC01303
+018500     MOVE 0 TO WS-FR-TEMP-COST.                                   TLC01303
+025400                                                                  TLC01303
+010700     MOVE WS-FR-ZONE            TO FC-ZONE.                       TLC01303
+010700     MOVE 'C'                   TO FC-ZONE (1:1)                  TLC01303
+011000     MOVE 'D'                   TO FC-REC-TYPE.                   TLC01303
+011100                                                                  TLC01303
+011200     PERFORM F1105-READ-CFC-FILE THRU F1105-EXIT.                 TLC01303
+011300                                                                  TLC01303
+011400     IF WS-CFC-NOTFND                                             TLC01303
+011500        IF WS-FR-ZONE = 'C*'                                      TLC01303
+011600           CONTINUE                                               TLC01303
+011800        ELSE                                                      TLC01303
+011900           MOVE 'C*' TO FC-ZONE                                   TLC01303
+012000           PERFORM F1105-READ-CFC-FILE THRU F1105-EXIT            TLC01303
+012500        END-IF                                                    TLC01303
+012600     END-IF.                                                      TLC01303
+012700                                                                  TLC01303
+012700     IF WS-CFC-NORESP                                             TLC01303
+012700        MOVE 'B' TO WS-FR-BOX-SHIP-PAL-FLAG                       TLC01303
+014100        MOVE WS-FR-BOXES TO WS-FR-BY-TOTAL                        TLC01303
+012700        PERFORM F1110-COST-RULE-1 THRU F1110-EXIT                 TLC01303
+012700     END-IF.                                                      TLC01303
+012700                                                                  TLC01303
+025500 F1170-EXIT.                                                      TLC01303
+025600     EXIT.                                                        TLC01303
+018200*                                                                 ESS01100
+018200 F1190-COST-RULE-9.                                               GZS01198
+018200      IF WS-FR-ZONE NOT = 'CD'                                    GZS01198
+018200         PERFORM F1130-COST-RULE-3 THRU F1130-EXIT                GZS01198
+018200         ADD WS-FR-TEMP-COST TO WS-FR-COST                        GZS01198
+018200         GO TO F1190-EXIT                                         GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200* THE FOLLOWING CODE IS ONLY FOR COD ORDERS.                      GZS01198
+018200*     SIMILAR TO RULE 3                                           GZS01198
+018200      MOVE WS-FR-SHIP-VALUE TO WS-FR-BY-TOTAL                     GZS01198
+018200      IF WS-FR-SHIP-VALUE > WS-FR-BY-TOTAL                        GZS01198
+018200         ADD 1 TO WS-FR-BY-TOTAL                                  GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      MOVE ZEROES          TO WS-FR-RULE-9-VALUE                  GZS01198
+018200                              WS-FR-RULE-9-VALUE-R.               GZS01198
+018200      MOVE WS-FR-BY-TOTAL  TO WS-FR-RULE-9-VALUE.                 GZS01198
+018200                                                                  GZS01198
+018200      IF FC-COST (1) NOT NUMERIC                                  GZS01198
+018200        MOVE 0 TO FC-COST (1)                                     GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      IF FC-EACH-TOT-FLAG (1) = 'T'                               GZS01198
+018200         MOVE FC-COST (1) TO WS-FR-TEMP-COST                      GZS01198
+018200      ELSE                                                        GZS01198
+018200         MULTIPLY FC-COST (1) BY WS-FR-THOUSANDS                  GZS01198
+018200         GIVING WS-FR-TEMP-COST                                   GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      MOVE WS-FR-TEMP-COST TO WS-FR-COST.                         GZS01198
+018200      IF WS-FR-THOUSANDS NOT < WS-FR-RULE-9-BASE                  GZS01198
+018200      COMPUTE WS-FR-THOUSANDS =                                   GZS01198
+018200                              WS-FR-THOUSANDS - WS-FR-RULE-9-BASE.GZS01198
+018200*                             WS-FR-RULE-9-VALUE.                 GZS01198
+018200*     MOVE WS-FR-THOUSANDS TO WS-FR-RULE-9-BASE.                  GZS01198
+018200*                                                                 GZS01198
+018200      IF FC-LT-OR-EQ-AMT (1) NUMERIC AND                          GZS01198
+018200       FC-LT-OR-EQ-AMT (1) NOT < WS-FR-BY-TOTAL                   GZS01198
+018200         GO TO F1190-EXIT                                         GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      MOVE 2 TO WS-FR-SUB1.                                       GZS01198
+018200      MOVE 0 TO WS-FR-SUB2.                                       GZS01198
+018200                                                                  GZS01198
+018200      PERFORM UNTIL WS-FR-SUB1 > 100                              GZS01198
+018200         IF FC-LT-OR-EQ-AMT (WS-FR-SUB1) NOT NUMERIC              GZS01198
+018200            MOVE 999 TO WS-FR-SUB1                                GZS01198
+018200         ELSE                                                     GZS01198
+018200            IF FC-LT-OR-EQ-AMT (WS-FR-SUB1) < WS-FR-BY-TOTAL      GZS01198
+018200               ADD 1 TO WS-FR-SUB1                                GZS01198
+018200            ELSE                                                  GZS01198
+018200               MOVE WS-FR-SUB1 TO WS-FR-SUB2                      GZS01198
+018200               MOVE 999 TO WS-FR-SUB1                             GZS01198
+018200            END-IF                                                GZS01198
+018200         END-IF                                                   GZS01198
+018200      END-PERFORM.                                                GZS01198
+018200                                                                  GZS01198
+018200*     MOVE WS-FR-BY-TOTAL       TO WS-FR-RULE-9-VALUE             GZS01198
+018200                                                                  GZS01198
+018200      IF FC-EACH-TOT-FLAG (WS-FR-SUB2) = 'T'                      GZS01198
+018200         MOVE FC-COST (WS-FR-SUB2) TO WS-FR-TEMP-COST             GZS01198
+018200      ELSE                                                        GZS01198
+018200         COMPUTE WS-FR-TEMP-COST = (WS-FR-THOUSANDS               GZS01198
+018200                                    * FC-COST (WS-FR-SUB2))       GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      ADD WS-FR-TEMP-COST TO WS-FR-COST.                          GZS01198
+018200                                                                  GZS01198
+018200 F1190-EXIT.                                                      GZS01198
+018200       EXIT.                                                      GZS01198
+018200*                                                                 GZS01198
+018200 F11A0-COST-RULE-A.                                               GZS01198
+016600     PERFORM F1110-COST-RULE-1 THRU F1110-EXIT.                   GZS01198
+           IF  WS-FR-COST-ERROR-FLAG  = 'Y'                             AXG02190
+               GO TO F11A0-EXIT                                         AXG02190
+           END-IF.                                                      AXG02190
+023100     IF FC-EACH-TOT-FLAG (WS-FR-SUB2) = 'T'                       GZS01198
+023200        MOVE FC-COST (WS-FR-SUB2) TO WS-FR-COST                   GZS01198
+023300     ELSE                                                         GZS01198
+023400        MULTIPLY FC-COST (WS-FR-SUB2) BY WS-FR-TOTAL-WEIGHT       GZS01198
+023500         GIVING WS-FR-COST                                        GZS01198
+023600     END-IF.                                                      GZS01198
+           IF WS-FR-ZONE = '20'                                         GZS01198
+            MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-BY-TOTAL                   GZS01198
+016600      PERFORM F1110-COST-RULE-1 THRU F1110-EXIT                   GZS01198
+            COMPUTE WS-FR-WEIGHT-DIVIDED  = WS-FR-TOTAL-WEIGHT / 100    GZS01198
+            MOVE WS-FR-WEIGHT-DIVIDED TO WS-FR-WEIGHT-TRUNCATED         GZS01198
+            IF WS-FR-WEIGHT-DIVIDED > WS-FR-WEIGHT-TRUNCATED            GZS01198
+              ADD 1 TO WS-FR-WEIGHT-TRUNCATED                           GZS01198
+            END-IF                                                      GZS01198
+            IF FC-EACH-TOT-FLAG (WS-FR-SUB2) = 'T'                      GZS01198
+              IF WS-FR-WEIGHT-TRUNCATED = 1                             GZS01198
+                MOVE FC-COST (1) TO WS-FR-COST                          GZS01198
+              ELSE                                                      GZS01198
+                 COMPUTE WS-FR-COST = FC-COST (WS-FR-SUB2) *            GZS01198
+                                             WS-FR-WEIGHT-TRUNCATED     GZS01198
+              END-IF                                                    GZS01198
+            END-IF                                                      GZS01198
+           END-IF.                                                      GZS01198
+                                                                        GZS01198
+018200 F11A0-EXIT.                                                      GZS01198
+018200       EXIT.                                                      GZS01198
+018200                                                                  GZS01198
+018200 F11B0-COST-RULE-B.                                               GZS01198
+018200     PERFORM F1110-COST-RULE-1 THRU F1110-EXIT.                   GZS01198
+018200     IF TB-CPO-EUROPEAN-RESELLER                                  GZS01198
+018200        MOVE 'ER'                TO TB-RTE-CO                     GZS01198
+018200     ELSE                                                         GZS01198
+018200        MOVE WS-FR-CO            TO TB-RTE-CO.                    GZS01198
+018200     MOVE '**'                   TO TB-RTE-SF.                    GZS01198
+018200     MOVE WS-FR-CC               TO TB-RTE-CC.                    GZS01198
+018200     MOVE 'FC'                   TO TB-RTE-ZONE.                  GZS01198
+018200                                                                  GZS01198
+018200     CALL 'SYU510'           USING TB-RATE-NAME-IA.               GZS01198
+018200     IF TB-RTE-NORESP                                             GZS01198
+018200        IF WS-FR-BY-TOTAL < TB-RTE-HIGH                           GZS01198
+018200           ADD TB-RTE-BASE-RATE TO WS-FR-COST                     GZS01198
+018200        ELSE                                                      GZS01198
+018200        IF WS-FR-BY-TOTAL < TB-RTE-HIGH1                          GZS01198
+018200           ADD TB-RTE-UNIT1 TO WS-FR-COST                         GZS01198
+018200        ELSE                                                      GZS01198
+018200        IF WS-FR-BY-TOTAL < TB-RTE-HIGH2                          GZS01198
+018200           ADD TB-RTE-UNIT2 TO WS-FR-COST                         GZS01198
+018200        ELSE                                                      GZS01198
+018200           ADD TB-RTE-UNIT3 TO WS-FR-COST                         GZS01198
+018200        END-IF                                                    GZS01198
+018200     END-IF.                                                      GZS01198
+018200                                                                  GZS01198
+018200 F11B0-EXIT.                                                      GZS01198
+018200       EXIT.                                                      GZS01198
+018200*                                                                 GZS01198
+018200 F11C0-COST-RULE-C.                                               TXS01111
+018200     PERFORM F1160-COST-RULE-6 THRU F1160-EXIT.                   TXS01111
+018200     IF TB-CPO-EUROPEAN-RESELLER                                  TXS01111
+018200        MOVE 'ER'                TO TB-RTE-CO                     TXS01111
+018200     ELSE                                                         TXS01111
+018200        MOVE WS-FR-CO            TO TB-RTE-CO.                    ESS01131
+018200     MOVE '**'                   TO TB-RTE-SF.                    TXS01111
+018200     MOVE WS-FR-CC               TO TB-RTE-CC.                    ESS01131
+018200     MOVE '**'                   TO TB-RTE-ZONE.                  TXS01111
+018200                                                                  TXS01111
+018200     CALL 'SYU510'           USING TB-RATE-NAME-IA.               TXS01111
+018200     IF TB-RTE-NORESP                                             TXS01111
+018200        IF WS-FR-BY-TOTAL > TB-RTE-LOW2 AND                       TXS01111
+018200           WS-FR-BY-TOTAL < TB-RTE-HIGH2                          TXS01111
+018200           ADD TB-RTE-UNIT2 TO WS-FR-COST                         TXS01111
+018200        END-IF                                                    TXS01111
+018200        IF WS-FR-BY-TOTAL > TB-RTE-LOW3 AND                       TXS01111
+018200           WS-FR-BY-TOTAL < TB-RTE-HIGH3                          TXS01111
+018200           ADD TB-RTE-UNIT3 TO WS-FR-COST                         TXS01111
+018200        END-IF                                                    TXS01111
+018200        IF WS-FR-BY-TOTAL > TB-RTE-LOW4                           TXS01111
+018200           ADD TB-RTE-UNIT4 TO WS-FR-COST                         TXS01111
+018200        END-IF                                                    TXS01111
+018200     END-IF.                                                      TXS01111
+018200                                                                  TXS01111
+018200 F11C0-EXIT.                                                      TXS01111
+018200       EXIT.                                                      TXS01111
+018200*                                                                 GZS01267
+018200 F11D0-COST-RULE-D.                                               GZS01267
+036400                                                                  GZS01267
+039000     IF (WS-FR-TOTAL-WEIGHT > FC-LT-OR-EQ-AMT (2)) OR             GZS01267
+039000        WS-FR-ZONE = 'CD'                                         GZS01267
+018200        PERFORM F1110-COST-RULE-1 THRU F1110-EXIT                 GZS01267
+018200        GO TO F11D0-EXIT                                          GZS01267
+018200     END-IF                                                       GZS01267
+018200                                                                  GZS01267
+036400     IF FC-COST (1) NOT NUMERIC                                   GZS01267
+036500        MOVE 0 TO FC-COST (1)                                     GZS01267
+036600     END-IF.                                                      GZS01267
+036700                                                                  GZS01267
+           EVALUATE FC-EACH-TOT-FLAG (1)                                TLC01303
+036800     WHEN 'T'                                                     TLC01303
+036900        MOVE FC-COST (1) TO WS-FR-TEMP-COST                       GZS01267
+037000     WHEN 'E'                                                     TLC01303
+037100        MULTIPLY FC-COST (1) BY WS-FR-BY-TOTAL                    GZS01267
+037200         GIVING WS-FR-TEMP-COST                                   GZS01267
+           WHEN 'P'                                                     TLC01303
+              IF FC-DISCOUNT (1) > 0                                    TLC01303
+                 SET WS-FR-FCT-INDX TO FC-DISCOUNT (1)                  TLC01303
+                 DIVIDE FC-COST (1) BY                                  TLC01303
+                            WS-FR-FACTOR (WS-FR-FCT-INDX)               TLC01303
+                    GIVING WS-FR-PERCENTAGE-CALC                        TLC01303
+              ELSE                                                      TLC01303
+                 MOVE FC-COST (1)  TO                                   TLC01303
+                           WS-FR-PERCENTAGE-CALC                        TLC01303
+              END-IF                                                    TLC01303
+              DIVIDE WS-FR-PERCENTAGE-CALC BY 100                       TLC01303
+              GIVING WS-FR-PERCENTAGE-CALC                              TLC01303
+              COMPUTE WS-FR-TEMP-COST ROUNDED = WS-FR-SHIP-VALUE-PC     TLC01303
+                  * WS-FR-PERCENTAGE-CALC                               TLC01303
+023600     END-EVALUATE.                                                TLC01303
+037400                                                                  GZS01267
+037500     IF FC-DISCOUNT (1) NUMERIC AND                               GZS01267
+037600      FC-DISCOUNT (1) > 0                                         GZS01267
+            AND FC-EACH-TOT-FLAG (1) NOT = 'P'                          TLC01303
+037700        COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                GZS01267
+037800           (FC-DISCOUNT (WS-FR-SUB2) / 100)                       GZS01267
+037900        SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST              GZS01267
+038000           GIVING WS-FR-TEMP-COST                                 GZS01267
+038100     ELSE                                                         GZS01267
+038200        IF FC-ZONE-DISCOUNT NUMERIC AND FC-ZONE-DISCOUNT > 0      GZS01267
+038300           COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *             GZS01267
+038400              (FC-ZONE-DISCOUNT / 100)                            GZS01267
+038500           SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST           GZS01267
+038600              GIVING WS-FR-TEMP-COST                              GZS01267
+038700        END-IF                                                    GZS01267
+038800     END-IF.                                                      GZS01267
+038900                                                                  GZS01267
+039000     COMPUTE WS-FR-TEMP-COST = WS-FR-TEMP-COST *                  GZS01267
+039000                               WS-FR-CARTON-LOWER                 GZS01267
+039000     MOVE WS-FR-TEMP-COST   TO WS-FR-COST                         GZS01267
+036400                                                                  GZS01267
+036400     IF FC-COST (2) NOT NUMERIC                                   GZS01267
+036500        MOVE 0 TO FC-COST (2)                                     GZS01267
+036600     END-IF.                                                      GZS01267
+036700                                                                  GZS01267
+           EVALUATE FC-EACH-TOT-FLAG (2)                                TLC01303
+036800     WHEN 'T'                                                     TLC01303
+036900        MOVE FC-COST (2) TO WS-FR-TEMP-COST                       GZS01267
+037000     WHEN 'E'                                                     TLC01303
+037100        MULTIPLY FC-COST (2) BY WS-FR-BY-TOTAL                    GZS01267
+037200         GIVING WS-FR-TEMP-COST                                   GZS01267
+           WHEN 'P'                                                     TLC01303
+              IF FC-DISCOUNT (2) > 0                                    TLC01303
+                 SET WS-FR-FCT-INDX TO FC-DISCOUNT (2)                  TLC01303
+                 DIVIDE FC-COST (2) BY                                  TLC01303
+                            WS-FR-FACTOR (WS-FR-FCT-INDX)               TLC01303
+                    GIVING WS-FR-PERCENTAGE-CALC                        TLC01303
+              ELSE                                                      TLC01303
+                 MOVE FC-COST (2)  TO                                   TLC01303
+                           WS-FR-PERCENTAGE-CALC                        TLC01303
+              END-IF                                                    TLC01303
+              DIVIDE WS-FR-PERCENTAGE-CALC BY 100                       TLC01303
+              GIVING WS-FR-PERCENTAGE-CALC                              TLC01303
+              COMPUTE WS-FR-TEMP-COST ROUNDED = WS-FR-SHIP-VALUE-PC     TLC01303
+                  * WS-FR-PERCENTAGE-CALC                               TLC01303
+023600     END-EVALUATE.                                                TLC01303
+037400                                                                  GZS01267
+037500     IF FC-DISCOUNT (2) NUMERIC AND                               GZS01267
+037600      FC-DISCOUNT (2) > 0                                         GZS01267
+            AND FC-EACH-TOT-FLAG (2) NOT = 'P'                          TLC01303
+037700        COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *                GZS01267
+037800           (FC-DISCOUNT (WS-FR-SUB2) / 100)                       GZS01267
+037900        SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST              GZS01267
+038000           GIVING WS-FR-TEMP-COST                                 GZS01267
+038100     ELSE                                                         GZS01267
+038200        IF FC-ZONE-DISCOUNT NUMERIC AND FC-ZONE-DISCOUNT > 0      GZS01267
+038300           COMPUTE WS-FR-DISC-AMT = WS-FR-TEMP-COST *             GZS01267
+038400              (FC-ZONE-DISCOUNT / 100)                            GZS01267
+038500           SUBTRACT WS-FR-DISC-AMT FROM WS-FR-TEMP-COST           GZS01267
+038600              GIVING WS-FR-TEMP-COST                              GZS01267
+038700        END-IF                                                    GZS01267
+038800     END-IF.                                                      GZS01267
+038900                                                                  GZS01267
+039000     COMPUTE WS-FR-TEMP-COST = WS-FR-TEMP-COST *                  GZS01267
+039000                               WS-FR-CARTON-UPPER                 GZS01267
+039000     COMPUTE WS-FR-COST =                                         GZS01267
+039000                           WS-FR-TEMP-COST + WS-FR-COST.          GZS01267
+018200                                                                  GZS01267
+018200 F11D0-EXIT.                                                      GZS01267
+018200       EXIT.                                                      GZS01267
+018200                                                                  ESS02240
+018200 F11E0-COST-RULE-E.                                               ESS02240
+017000                                                                  ESS02240
+017000     PERFORM F1110-COST-RULE-1 THRU F1110-EXIT.                   ESS02240
+017000                                                                  ESS02240
+017000     IF  WS-FR-COST-ERROR-FLAG  = 'Y'                             ESS02240
+017000         GO TO F11E0-EXIT                                         ESS02240
+017000     END-IF.                                                      ESS02240
+017000                                                                  ESS02240
+044400     IF FC-LT-OR-EQ-AMT (WS-FR-SUB2) = 99999                      ESS02240
+044400        MOVE ZERO TO WS-FR-ROUNDED                                ESS02240
+044400        COMPUTE WS-FR-ROUNDED = WS-FR-BY-TOTAL / FC-COST(1)       ESS02240
+044400        IF WS-FR-ROUNDED-DEC > 0                                  ESS02240
+044400           ADD 1 TO WS-FR-ROUNDED-DIGIT                           ESS02240
+044400        END-IF                                                    ESS02240
+044400        COMPUTE WS-FR-TEMP-COST =                                 ESS02240
+044400           (WS-FR-ROUNDED-DIGIT  * FC-COST(WS-FR-SUB2))           ESS02240
+046600        MOVE WS-FR-TEMP-COST TO WS-FR-COST                        ESS02240
+044400     END-IF.                                                      ESS02240
+018200                                                                  ESS02240
+018200 F11E0-EXIT.                                                      ESS02240
+018200       EXIT.                                                      ESS02240
+018200                                                                  ESS02240
+018200 F11F0-COST-RULE-F.                                               ESS02240
+017000                                                                  ESS02240
+017000     PERFORM F1110-COST-RULE-1 THRU F1110-EXIT.                   ESS02240
+017000                                                                  ESS02240
+017000     IF  WS-FR-COST-ERROR-FLAG  = 'Y'                             ESS02240
+017000         GO TO F11F0-EXIT                                         ESS02240
+017000     END-IF.                                                      ESS02240
+017000                                                                  ESS02240
+017000     COMPUTE WS-FR-COST = WS-FR-COST / FC-COST(1).                ESS02240
+018200                                                                  ESS02240
+018200 F11F0-EXIT.                                                      ESS02240
+018200       EXIT.                                                      ESS02240
+                                                                        ESS02240
+018200 F11G0-COST-RULE-G.                                               GZS02298
+017000                                                                  GZS02298
+017000     PERFORM F1110-COST-RULE-1 THRU F1110-EXIT.                   GZS02298
+017000                                                                  GZS02298
+017000     IF  WS-FR-COST-ERROR-FLAG  = 'Y'                             GZS02298
+017000         GO TO F11G0-EXIT                                         GZS02298
+017000     END-IF.                                                      GZS02298
+                                                                        GZS02298
+           IF WS-FR-TOTAL-WEIGHT > 100                                  GZS02298
+              MOVE ZEROES TO WS-FR-TOTAL-WGT                            GZS02298
+                             WS-FR-TOTAL-WGT-R                          GZS02298
+                             WS-FR-WEIGHT-FACTOR                        GZS02298
+              MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-TOTAL-WGT                GZS02298
+              IF WS-FR-WHOLE(9:1) > 0                                   GZS02298
+                 ADD 10 TO WS-FR-WHOLE                                  GZS02298
+                 DIVIDE WS-FR-WHOLE BY 10 GIVING WS-FR-WHOLE            GZS02298
+                 MULTIPLY WS-FR-WHOLE BY 10 GIVING WS-FR-WHOLE          GZS02298
+              END-IF                                                    GZS02298
+              COMPUTE WS-FR-BASERATE = WS-FR-WHOLE / 100                GZS02298
+              COMPUTE WS-FR-COST = WS-FR-BASERATE * WS-FR-COST          GZS02298
+           END-IF.                                                      GZS02298
+                                                                        GZS02298
+018200                                                                  GZS02298
+018200 F11G0-EXIT.                                                      GZS02298
+018200       EXIT.                                                      GZS02298
+                                                                        GZS02298
+047100 F1200-CUST-REV-REC.                                                      
+047200                                                                          
+047300     MOVE WS-FR-CO        TO CFR-COMPANY.                                 
+047400     MOVE WS-FR-BRANCH    TO CFR-BRANCH.                                  
+047700     MOVE WS-FR-CC        TO CFR-CC.                                      
+           IF ORH-FROM-WEB                                              MYN15106
+              OR ORH-FROM-HERMES-ORDER                                  VZM22161
+              MOVE WS-FR-CO        TO CU-COMPANY                        MYN15106
+              MOVE WS-FR-BRANCH    TO CU-BR-NBR                         MYN15106
+              MOVE WS-FR-CUSTOMER  TO CU-CUST-NBR                       MYN15106
+              PERFORM F1200A-GU-CUSHED                                  MYN15106
+              IF WS-FR-CUSHED-NORESP                                    MYN15106
+                 MOVE SPACES       TO WS-CUSMSC-KEY-VALUE               MYN15106
+                 MOVE '8'          TO WS-CUM-SEG-TYPE                   MYN15106
+                 PERFORM F1200B-GU-CUSMSC                               MYN15106
+                 IF WS-FR-CUSMSC-NORESP                                 MYN15106
+                    MOVE CUM-WEB-FRT-GROUP      TO WS-FR-WEB-FRT-GROUP  MYN15106
+                    IF WS-FR-WEB-FRT-GROUP > SPACES AND                 MYN15106
+                       WS-FR-WEB-FRT-GROUP(1:1) = 'W'                   MYN15106
+                       MOVE WS-FR-WEB-FRT-GROUP TO CFR-CUSTOMER         MYN15106
+                       MOVE 'WEB'               TO CFR-CUST-SUFF        MYN15106
+                    ELSE                                                MYN15106
+                       MOVE 'WGENER'            TO CFR-CUSTOMER         MYN15106
+                       MOVE 'WEB'               TO CFR-CUST-SUFF        MYN15106
+                    END-IF                                              MYN15106
+                 ELSE                                                   MYN15106
+                    IF WS-FR-CUSMSC-NOTFND                              MYN15106
+                       MOVE 'WGENER'            TO CFR-CUSTOMER         MYN15106
+                       MOVE 'WEB'               TO CFR-CUST-SUFF        MYN15106
+                    END-IF                                              MYN15106
+                 END-IF                                                 MYN15106
+              END-IF                                                    MYN15106
+           ELSE                                                         MYN15106
+              MOVE WS-FR-CUSTOMER  TO CFR-CUSTOMER                      MYN15106
+              MOVE WS-FR-CUST-SUFF TO CFR-CUST-SUFF                     MYN15106
+           END-IF.                                                      MYN15106
+047800                                                                          
+047900     PERFORM F1205-READ-CFR-FILE THRU F1205-EXIT.                         
+048000                                                                          
+           IF WS-CFR-NOTFND AND (ORH-FROM-WEB                           VZM22161
+                   OR ORH-FROM-HERMES-ORDER)                            VZM22161
+              MOVE WS-FR-CUSTOMER  TO CFR-CUSTOMER                      MYN15106
+              MOVE 'WEB'           TO CFR-CUST-SUFF                     MYN15106
+              PERFORM F1205-READ-CFR-FILE THRU F1205-EXIT               MYN15106
+              IF WS-CFR-NOTFND                                          MYN15106
+                 MOVE '000'      TO CFR-CUST-SUFF                       MYN15106
+                 PERFORM F1205-READ-CFR-FILE THRU F1205-EXIT            MYN15106
+              END-IF                                                    MYN15106
+           ELSE                                                         MYN15106
+              IF WS-CFR-NOTFND                                          MYN15106
+                 MOVE '000'      TO CFR-CUST-SUFF                       MYN15106
+                 PERFORM F1205-READ-CFR-FILE THRU F1205-EXIT            MYN15106
+              END-IF                                                    MYN15106
+           END-IF.                                                      MYN15106
+048500                                                                          
+048600     IF WS-CFR-NORESP                                                     
+048700        MOVE 'Y' TO WS-FR-CUST-FLAG                                       
+048800     ELSE                                                                 
+048900        MOVE 'N' TO WS-FR-CUST-FLAG                                       
+049000        GO TO F1200-EXIT                                                  
+049100     END-IF.                                                              
+049200                                                                          
+049300     MOVE CFR-CHARGE-TYPE TO WS-FR-CHARGE-TYPE.                           
+049400                                                                          
+049500     IF CFR-PCT NUMERIC                                                   
+049600        MOVE CFR-PCT TO WS-FR-PCT                                         
+049700     ELSE                                                                 
+049800        MOVE 0       TO WS-FR-PCT                                         
+049900     END-IF.                                                              
+050000                                                                          
+057500     IF CFR-RULE > SPACES                                         GZS01267
+057500        MOVE CFR-RULE TO WS-FR-REV-RULE                           GZS01267
+057500     ELSE                                                         GZS01267
+057500        MOVE SPACES   TO WS-FR-REV-RULE                           GZS01267
+057500     END-IF.                                                      GZS01267
+                                                                        GZS01267
+           IF CFR-CHARGE-TYPE = 'V'                                     SAG09054
+              IF TB-CAR3-LOCAL-CURRENCY-CODE                            SAG09054
+                                    > SPACES AND                        SAG09054
+                 TB-CAR3-LOCAL-CURRENCY-CODE                            SAG09054
+                                    NOT EQUAL TB-CPO-CURRENCY-CODE      SAG09054
+              MOVE WS-FR-CO              TO TB-CURR-CO                  SAG09054
+              MOVE TB-CPO-CURRENCY-CODE  TO TB-CURR-FROM-CURR-CODE      SAG09054
+              MOVE TB-CAR3-LOCAL-CURRENCY-CODE                          SAG09054
+                                         TO TB-CURR-TO-CURR-CODE        SAG09054
+              CALL 'SYU510'              USING TB-CURR-TABLE-IA         SAG09054
+              IF TB-CURR-NORESP                                         SAG09054
+                 COMPUTE WS-FR-SHIP-VALUE                               SAG09054
+                         = WS-FR-SHIP-VALUE * TB-CURR-SELL-RATE         SAG09054
+              END-IF.                                                   SAG09054
+                                                                        SAG09054
+050100     MOVE 1 TO WS-FR-SUB1.                                        SAG09054
+050200                                                                          
+050300     PERFORM UNTIL WS-FR-SUB1 > 20                                        
+050400        IF CFR-LT-OR-EQ-AMT (WS-FR-SUB1) NUMERIC                          
+050500           MOVE CFR-LT-OR-EQ-AMT (WS-FR-SUB1)                             
+050600                                TO WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1)        
+050700        ELSE                                                              
+050800           MOVE 0               TO WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1)        
+050900        END-IF                                                            
+051000        IF CFR-CHARGE (WS-FR-SUB1) NUMERIC                                
+051100           MOVE CFR-CHARGE (WS-FR-SUB1)                                   
+051200                                TO WS-FR-CHARGE (WS-FR-SUB1)              
+051300        ELSE                                                              
+051400          MOVE 0                TO WS-FR-CHARGE (WS-FR-SUB1)              
+051500        END-IF                                                            
+058900        IF CFR-EACHES-TOTAL (WS-FR-SUB1) > SPACES                 GZS01267
+058900           MOVE CFR-EACHES-TOTAL (WS-FR-SUB1)                     GZS01267
+                                          TO WS-FR-REV-T-E (WS-FR-SUB1) GZS01267
+058900        ELSE                                                      GZS01267
+058900           MOVE 'T'                 TO WS-FR-REV-T-E (WS-FR-SUB1) GZS01267
+058900        END-IF                                                    GZS01267
+051600        ADD 1 TO WS-FR-SUB1                                               
+051700     END-PERFORM.                                                         
+051800                                                                          
+051900 F1200-EXIT.                                                              
+052000     EXIT.                                                                
+052100                                                                          
+       F1200A-GU-CUSHED.                                                MYN15106
+           CALL 'CBLTDLI' USING     GU                                  MYN15106
+                                    CUPCB                               MYN15106
+                                    CU-CUSHED                           MYN15106
+                                    WS-CUSHED-SSA.                      MYN15106
+           IF CUPCB-NORESP                                              MYN15106
+              MOVE 'Y'              TO WS-FR-CUSHED-IO-SW               MYN15106
+           ELSE                                                         MYN15106
+              IF CUPCB-NOTFND                                           MYN15106
+                 MOVE 'N'           TO WS-FR-CUSHED-IO-SW               MYN15106
+              ELSE                                                      MYN15106
+                 MOVE 'C000'        TO WS-ABCODE                        MYN15106
+                 MOVE CUPCB-STS     TO WS-STATUS                        MYN15106
+                 MOVE 'DL/1'        TO WS-ERROR-CODE                    MYN15106
+                 MOVE SPACES        TO WS-ERROR-OPTIONAL-DATA           MYN15106
+                 MOVE CUPCB         TO WS-ERROR-DL1-PCB                 MYN15106
+                 MOVE WS-ABCODE     TO WS-ERROR-DL1-ABCODE              MYN15106
+                 PERFORM 999-ABEND                                      MYN15106
+              END-IF                                                    MYN15106
+           END-IF.                                                      MYN15106
+                                                                        MYN15106
+       F1200B-GU-CUSMSC.                                                MYN15106
+           CALL 'CBLTDLI' USING     GU                                  MYN15106
+                                    CUPCB                               MYN15106
+                                    CUM-CUSMSC                          MYN15106
+                                    WS-CUSHED-SSA                       MYN15106
+                                    WS-CUSMSC-SSA.                      MYN15106
+           IF CUPCB-NORESP                                              MYN15106
+              MOVE 'Y'              TO WS-FR-CUSMSC-IO-SW               MYN15106
+              MOVE 'Y'              TO WS-FR-CUSHED-IO-SW               MYN15106
+           ELSE                                                         MYN15106
+              IF CUPCB-NOTFND                                           MYN15106
+                 MOVE 'N'           TO WS-FR-CUSMSC-IO-SW               MYN15106
+                 IF CUPCB-SEG-NAME EQUAL 'CUSMSC  '                     MYN15106
+                    MOVE 'Y'        TO WS-FR-CUSMSC-IO-SW               MYN15106
+                 ELSE                                                   MYN15106
+                    MOVE 'N'        TO WS-FR-CUSMSC-IO-SW               MYN15106
+              ELSE                                                      MYN15106
+                 MOVE 'I008'        TO WS-ABCODE                        MYN15106
+                 MOVE CUPCB-STS     TO WS-STATUS                        MYN15106
+                 MOVE 'DL/1'        TO WS-ERROR-CODE                    MYN15106
+                 MOVE SPACES        TO WS-ERROR-OPTIONAL-DATA           MYN15106
+                 MOVE CUPCB         TO WS-ERROR-DL1-PCB                 MYN15106
+                 MOVE WS-ABCODE     TO WS-ERROR-DL1-ABCODE              MYN15106
+                 PERFORM 999-ABEND                                      MYN15106
+              END-IF                                                    MYN15106
+           END-IF.                                                      MYN15106
+                                                                        MYN15106
+052200 F1300-BR-REV-REC.                                                        
+052300                                                                          
+052400     MOVE WS-FR-CO        TO BFR-COMPANY.                                 
+052500     MOVE WS-FR-BRANCH    TO BFR-BRANCH.                                  
+052600     MOVE WS-FR-CC        TO BFR-CC.                                      
+052700     MOVE WS-FR-ZONE      TO BFR-ZONE.                                    
+052800     MOVE WS-FR-FROM-CC   TO BFR-F-CNTRY.                                 
+052900     MOVE WS-FR-TO-CC     TO BFR-T-CNTRY.                                 
+053000                                                                          
+053100     PERFORM F1305-READ-BFR-FILE THRU F1305-EXIT.                         
+053200                                                                          
+053300     IF WS-BFR-NOTFND                                                     
+053400        IF WS-FR-ZONE = '**'                                              
+053500           CONTINUE                                                       
+053600        ELSE                                                              
+053700           MOVE '**' TO BFR-ZONE                                          
+053800           PERFORM F1305-READ-BFR-FILE THRU F1305-EXIT                    
+053900        END-IF                                                            
+054000     END-IF.                                                              
+054100                                                                          
+054200     IF WS-BFR-NOTFND                                                     
+054300        MOVE '00'       TO BFR-BRANCH                                     
+054400        MOVE WS-FR-ZONE TO BFR-ZONE                                       
+054500        PERFORM F1305-READ-BFR-FILE THRU F1305-EXIT                       
+054600     END-IF.                                                              
+054700                                                                          
+054800     IF WS-BFR-NOTFND AND WS-FR-ZONE NOT = '**'                           
+054900        MOVE '**' TO BFR-ZONE                                             
+055000        PERFORM F1305-READ-BFR-FILE THRU F1305-EXIT                       
+055100     END-IF.                                                              
+055200                                                                          
+055300     IF WS-BFR-NORESP                                                     
+056200* ONLY IF TBXCORP7 SWITCH IS SET AND CUP507-OVERRIDE FLAG IS SET, SS424257
+056200* AND COP002-OVERRIDE FLAG IS SET,THEN THE FREIGHT CHARGE WILL BE SS424257
+056200* PICKED FROM COM002 SCREEN.                                      SS424257
+056200        IF TB-CPO7-CUST-CC-OVERRIDE-YES                           SS424257
+056200           IF CFR-COM002-OVRRDE-FLAG = 'Y'                        SS424257
+056200              IF BFR-COM507-OVRRDE-FLAG ='Y'                      SS424257
+056200                 CONTINUE                                         SS424257
+056200              ELSE                                                SS424257
+056200                 GO TO F1300-EXIT                                 SS424257
+056200              END-IF                                              SS424257
+056200           END-IF                                                 SS424257
+056200        END-IF                                                    SS424257
+055500     ELSE                                                                 
+055600        MOVE 'INVALID CARRIER/ZONE'  TO WS-FR-MESSAGE                     
+055700        MOVE 'Y' TO WS-FR-REV-ERROR-FLAG                                  
+055800        GO TO F1300-EXIT                                                  
+055900     END-IF.                                                              
+056000                                                                          
+056110     IF WS-FR-CORP-LIMIT = 0 AND                                  MEP00275
+056200      BFR-THRESHOLD > 0 AND                                       TLC00181
+056300      WS-FR-ORDER-VALUE > BFR-THRESHOLD                                   
+056400        MOVE 'Y' TO WS-FR-FREE-FRT-FLAG                                   
+056500     END-IF.                                                              
+056600                                                                          
+056700     MOVE BFR-CHARGE-TYPE TO WS-FR-CHARGE-TYPE.                           
+056800                                                                          
+           IF WS-FR-CO = 'IA' OR 'BI'                                   RLH13109
+              IF BFR-PCT-IA NUMERIC                                     LNT11068
+                 MOVE BFR-PCT-IA TO WS-FR-PCT                           LNT11068
+              ELSE                                                      LNT11068
+                 MOVE 0          TO WS-FR-PCT                           LNT11068
+              END-IF                                                    LNT11068
+           ELSE                                                         LNT11068
+             IF BFR-PCT NUMERIC                                         LNT11068
+056900          MOVE BFR-PCT TO WS-FR-PCT                               LNT11068
+057000       ELSE                                                       LNT11068
+057100          MOVE 0       TO WS-FR-PCT                               LNT11068
+057200       END-IF                                                     LNT11068
+057300     END-IF.                                                      LNT11068
+057400                                                                          
+057500     IF BFR-RULE > SPACES                                         GZS01169
+057500        MOVE BFR-RULE TO WS-FR-REV-RULE                           GZS01169
+057500     ELSE                                                         GZS01169
+057500        MOVE SPACES   TO WS-FR-REV-RULE                           GZS01169
+057500     END-IF.                                                      GZS01169
+057500                                                                  GZS01169
+           IF BFR-CHARGE-TYPE = 'V'                                     KYC17093
+              IF TB-CAR3-LOCAL-CURRENCY-CODE > SPACES AND               KYC17093
+                 TB-CAR3-LOCAL-CURRENCY-CODE NOT EQUAL                  KYC17093
+                                             TB-CPO-CURRENCY-CODE       KYC17093
+                 MOVE WS-FR-CO               TO TB-CURR-CO              KYC17093
+                 MOVE TB-CPO-CURRENCY-CODE   TO TB-CURR-FROM-CURR-CODE  KYC17093
+                 MOVE TB-CAR3-LOCAL-CURRENCY-CODE                       KYC17093
+                                             TO TB-CURR-TO-CURR-CODE    KYC17093
+                 CALL 'SYU510'               USING TB-CURR-TABLE-IA     KYC17093
+                 IF TB-CURR-NORESP                                      KYC17093
+                    COMPUTE WS-FR-SHIP-VALUE                            KYC17093
+                            = WS-FR-SHIP-VALUE * TB-CURR-SELL-RATE      KYC17093
+                 END-IF                                                 KYC17093
+              END-IF                                                    KYC17093
+           END-IF.                                                      KYC17093
+                                                                        KYC17093
+057500     MOVE 1 TO WS-FR-SUB1.                                                
+057600                                                                          
+057700     PERFORM UNTIL WS-FR-SUB1 > 20                                        
+057800        IF BFR-LT-OR-EQ-AMT (WS-FR-SUB1) NUMERIC                          
+057900           MOVE BFR-LT-OR-EQ-AMT (WS-FR-SUB1)                             
+058000                              TO WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1)          
+058100        ELSE                                                              
+058200           MOVE 0             TO WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1)          
+058300        END-IF                                                            
+058400        IF BFR-CHARGE (WS-FR-SUB1) NUMERIC                                
+058500           MOVE BFR-CHARGE (WS-FR-SUB1)                                   
+058600                              TO WS-FR-CHARGE (WS-FR-SUB1)                
+058700        ELSE                                                              
+058800           MOVE 0                   TO WS-FR-CHARGE (WS-FR-SUB1)          
+058900        END-IF                                                            
+058900        IF BFR-EACHES-TOTAL (WS-FR-SUB1) > SPACES                 GZS01169
+058900           MOVE BFR-EACHES-TOTAL (WS-FR-SUB1)                     GZS01169
+                                          TO WS-FR-REV-T-E (WS-FR-SUB1) GZS01169
+058900        ELSE                                                      GZS01169
+058900           MOVE 'T'                 TO WS-FR-REV-T-E (WS-FR-SUB1) GZS01169
+058900        END-IF                                                    GZS01169
+059000        ADD 1 TO WS-FR-SUB1                                               
+059100     END-PERFORM.                                                         
+059200                                                                          
+059300 F1300-EXIT.                                                              
+059400     EXIT.                                                                
+059500                                                                          
+059600 F1400-REV-CHARGE.                                                        
+059700                                                                          
+           IF ORSH-SHIP-NBR > 1                                         TXS04125
+              IF CFR-BACKORDER-FLAG = 'Y'                               TXS04125
+                 IF CFR-BACKORDER-FRT NUMERIC AND                       TXS04125
+                        CFR-BACKORDER-FRT > 0                           TXS04125
+                    MOVE CFR-BACKORDER-FRT TO WS-FR-REV                 TXS04125
+                    GO TO F1400-EXIT                                    TXS04125
+                 ELSE                                                   TXS04125
+                    NEXT SENTENCE                                       TXS04125
+                 END-IF                                                 TXS04125
+              END-IF                                                    TXS04125
+              IF BFR-CHARGE-BO = 'Y'                                    TXS04125
+                 IF BFR-BACKORDER-FRT NUMERIC AND                       TXS04125
+                        BFR-BACKORDER-FRT > 0                           TXS04125
+                    MOVE BFR-BACKORDER-FRT TO WS-FR-REV                 TXS04125
+                    GO TO F1400-EXIT                                    TXS04125
+                 END-IF                                                 TXS04125
+              END-IF                                                    TXS04125
+           END-IF.                                                      TXS04125
+                                                                        TXS04125
+059800     EVALUATE WS-FR-CHARGE-TYPE                                           
+059900     WHEN 'C'                                                             
+              IF WS-FR-CO = 'IA' OR 'BI'                                RLH13109
+060000           COMPUTE WS-FR-REV ROUNDED =                            LNT11068
+060100           ((WS-FR-SHIP-VALUE * WS-FR-PCT ) / 100)                LNT11068
+060200           GO TO F1400-EXIT                                       LNT11068
+              ELSE                                                      LNT11068
+                 COMPUTE WS-FR-REV ROUNDED =                            LNT11068
+                 ((WS-FR-COST * WS-FR-PCT ) / 100)                      LNT11068
+                 GO TO F1400-EXIT                                       LNT11068
+              END-IF                                                    LNT11068
+060300     WHEN 'P'                                                     ESS01100
+060400           IF WS-FR-PALS > 0                                      ESS01100
+060400              MOVE WS-FR-PALS      TO WS-FR-BY-TOTAL              ESS01100
+060400           ELSE                                                   ESS01100
+060400              MOVE 1               TO WS-FR-BY-TOTAL              ESS01100
+060400           END-IF                                                 ESS01100
+060300     WHEN 'B'                                                     TLC02308
+060400           IF WS-FR-BOXES > 0                                     TLC02308
+060400              MOVE WS-FR-BOXES     TO WS-FR-BY-TOTAL              TLC02308
+060400           ELSE                                                   TLC02308
+060400              MOVE 1               TO WS-FR-BY-TOTAL              TLC02308
+060400           END-IF                                                 TLC02308
+060300     WHEN 'V'                                                             
+060400           MOVE WS-FR-SHIP-VALUE   TO WS-FR-BY-TOTAL                      
+060500     WHEN 'W'                                                             
+                 IF WS-FR-TOTAL-WEIGHT-CONS NUMERIC AND                 TLC05044
+                  WS-FR-TOTAL-WEIGHT-CONS > 0                           TLC05044
+                    MOVE WS-FR-TOTAL-WEIGHT-CONS TO WS-FR-TOTAL-WEIGHT  TLC05044
+                 END-IF                                                 TLC05044
+013600           IF WS-WEIGHT-DP-FLAG = 'Y'                             TLC05034
+013600              MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-BY-TOTAL           TLC05034
+013600           ELSE                                                   TLC05034
+013600              MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-BY-TOTAL-CALC      TLC05034
+013700              IF WS-FR-TOTAL-WEIGHT > WS-FR-BY-TOTAL-CALC         TLC05034
+013800                 ADD 1 TO WS-FR-BY-TOTAL-CALC                     TLC05034
+013700              END-IF                                              TLC05034
+013600              MOVE WS-FR-BY-TOTAL-CALC TO WS-FR-BY-TOTAL          TLC05034
+013900           END-IF                                                 TLC05034
+061000     END-EVALUATE.                                                        
+061100                                                                          
+016200     EVALUATE WS-FR-REV-RULE                                      GZS01169
+016300     WHEN '0'                                                     GZS01169
+016400        MOVE ZERO TO WS-FR-REV                                    GZS01169
+016500     WHEN '1'                                                     GZS01169
+016900     WHEN '7'                                                     TLC01303
+016500     WHEN ' '                                                     GZS01169
+016600        PERFORM F1110-REV-RULE-1 THRU F1110-REV-EXIT              GZS01169
+016700     WHEN '2'                                                     GZS01169
+016800        PERFORM F1120-REV-RULE-2 THRU F1120-REV-EXIT              GZS01169
+016900     WHEN '3'                                                     GZS01169
+016900     WHEN '8'                                                     TLC01303
+017000        PERFORM F1130-REV-RULE-3 THRU F1130-REV-EXIT              GZS01169
+016900     WHEN '4'                                                     GZS01169
+017000        PERFORM F1140-REV-RULE-4 THRU F1140-REV-EXIT              GZS01169
+016900     WHEN '5'                                                     GZS01169
+017000        PERFORM F1150-REV-RULE-5 THRU F1150-REV-EXIT              GZS01169
+016900     WHEN '6'                                                     GZS01169
+017000        PERFORM F1160-REV-RULE-6 THRU F1160-REV-EXIT              GZS01169
+           WHEN '9'                                                     GZS01198
+              PERFORM F1190-REV-RULE-9 THRU F1190-REV-EXIT              GZS01198
+           WHEN 'A'                                                     GZS01198
+018200        PERFORM F11A0-REV-RULE-A THRU F11A0-REV-EXIT              GZS01198
+           WHEN 'B'                                                     GZS01198
+018200        PERFORM F11B0-REV-RULE-B THRU F11B0-REV-EXIT              GZS01198
+018200     WHEN 'C'                                                     GZS01169
+018200        PERFORM F11C0-REV-RULE-C THRU F11C0-REV-EXIT              GZS01169
+018200     WHEN 'D'                                                     GZS01267
+018200        PERFORM F11D0-REV-RULE-D THRU F11D0-REV-EXIT              GZS01267
+018200     WHEN 'E'                                                     ESS02240
+018200        PERFORM F11E0-REV-RULE-E THRU F11E0-REV-EXIT              ESS02240
+018200     WHEN 'F'                                                     ESS02240
+018200        PERFORM F11F0-REV-RULE-F THRU F11F0-REV-EXIT              ESS02240
+018200     WHEN 'G'                                                     GZS02298
+018200        PERFORM F11G0-REV-RULE-G THRU F11G0-REV-EXIT              GZS02298
+017100     END-EVALUATE.                                                GZS01169
+                                                                        SHW07267
+           IF TB-CAR3-LOCAL-CURRENCY-CODE                               SHW07267
+                                    > SPACES AND                        SHW07267
+              TB-CAR3-LOCAL-CURRENCY-CODE                               SHW07267
+                                    NOT EQUAL TB-CPO-CURRENCY-CODE      SHW07267
+              MOVE WS-FR-CO                    TO TB-CURR-CO            SHW07267
+              MOVE TB-CAR3-LOCAL-CURRENCY-CODE                          SHW07267
+                                               TO TB-CURR-FROM-CURR-CODESHW07267
+              MOVE TB-CPO-CURRENCY-CODE        TO TB-CURR-TO-CURR-CODE  SHW07267
+              CALL 'SYU510'                    USING TB-CURR-TABLE-IA   SHW07267
+              IF TB-CURR-NORESP                                         SHW07267
+                IF NOT WS-FR-REV-PERCENT                                SAG09006
+                 COMPUTE WS-FR-REV = WS-FR-REV * TB-CURR-SELL-RATE      SHW07267
+              END-IF                                                    SHW07267
+           END-IF.                                                      SHW07267
+                                                                        SHW07267
+       F1400-EXIT.                                                      GZS01169
+018200       EXIT.                                                      GZS01169
+061400                                                                  GZS01169
+016600 F1110-REV-RULE-1.                                                GZS01169
+016600                                                                  GZS01169
+061200     MOVE 1 TO WS-FR-SUB1.                                        GZS01169
+061500     PERFORM UNTIL WS-FR-SUB1 > 20                                GZS01169
+030700     IF WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1) NOT NUMERIC               GZS01169
+030800        MOVE 99 TO WS-FR-SUB1                                     GZS01169
+           ELSE                                                         GZS01169
+061600        IF WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1) < WS-FR-BY-TOTAL       GZS01169
+061700           ADD 1 TO WS-FR-SUB1                                    GZS01169
+061800        ELSE                                                      GZS01169
+                 EVALUATE WS-FR-REV-T-E (WS-FR-SUB1)                    TLC01303
+                 WHEN 'E'                                               TLC01303
+061900              COMPUTE WS-FR-REV = WS-FR-CHARGE (WS-FR-SUB1)       GZS01169
+061900                                * WS-FR-BY-TOTAL                  GZS01169
+061900           WHEN 'T'                                               TLC01303
+061900              MOVE WS-FR-CHARGE (WS-FR-SUB1) TO WS-FR-REV         GZS01169
+061900           WHEN 'P'                                               TLC01303
+061900              MOVE WS-FR-CHARGE (WS-FR-SUB1) TO                   TLC01303
+061900                  WS-FR-PERCENTAGE-CALC                           TLC01303
+061900              DIVIDE WS-FR-PERCENTAGE-CALC BY 100 GIVING          TLC01303
+061900                        WS-FR-PERCENTAGE-CALC                     TLC01303
+061900              COMPUTE WS-FR-REV ROUNDED = WS-FR-SHIP-VALUE-PC     TLC01303
+061900                     *  WS-FR-PERCENTAGE-CALC                     TLC01303
+                    MOVE 'Y'            TO WS-FR-REV-PERCENT-SW         SAG09006
+061900           END-EVALUATE                                           TLC01303
+019400           MOVE WS-FR-SUB1 TO WS-FR-SUB2                          GZS01169
+062100           MOVE 99 TO WS-FR-SUB1                                  GZS01169
+062200        END-IF                                                    GZS01169
+           END-IF                                                       GZS01169
+062300     END-PERFORM.                                                 GZS01169
+016600                                                                  GZS01169
+016600 F1110-REV-EXIT.                                                  GZS01169
+030300     EXIT.                                                        GZS01169
+016600                                                                  GZS01169
+062400 F1120-REV-RULE-2.                                                GZS01169
+026000     MOVE WS-FR-BY-TOTAL TO WS-FR-AMT-LEFT.                       GZS01169
+026100     MOVE 1              TO WS-FR-SUB1.                           GZS01169
+026200     MOVE 0              TO WS-FR-SUB2                            GZS01169
+026300                            WS-FR-PREV-AMT                        GZS01169
+026400                            WS-FR-REV                             GZS01169
+                                  WS-FR-TEMP-REV                        GZS01169
+026500                            WS-FR-CURRENT-AMT.                    GZS01169
+           PERFORM UNTIL WS-FR-SUB1 > 20                                GZS01169
+030700      IF WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1) NOT NUMERIC              GZS01169
+030800         MOVE 99 TO WS-FR-SUB1                                    GZS01169
+            ELSE                                                        GZS01169
+031200      SUBTRACT WS-FR-PREV-AMT FROM WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1)GZS01169
+031300               GIVING WS-FR-CURRENT-AMT                           GZS01169
+031500         IF WS-FR-AMT-LEFT > WS-FR-CURRENT-AMT                    GZS01169
+                  EVALUATE WS-FR-REV-T-E (WS-FR-SUB1)                   TLC01303
+031600            WHEN 'T'                                              TLC01303
+031700               MOVE WS-FR-CHARGE (WS-FR-SUB1) TO WS-FR-TEMP-REV   GZS01169
+031800            WHEN 'E'                                              TLC01303
+031900               MULTIPLY WS-FR-CURRENT-AMT BY                      GZS01169
+032000                WS-FR-CHARGE (WS-FR-SUB1) GIVING WS-FR-TEMP-REV   GZS01169
+032100            WHEN 'P'                                              TLC01303
+061900              MOVE WS-FR-CHARGE (WS-FR-SUB1) TO                   TLC01303
+061900                  WS-FR-PERCENTAGE-CALC                           TLC01303
+061900              DIVIDE WS-FR-PERCENTAGE-CALC BY 100 GIVING          TLC01303
+061900                        WS-FR-PERCENTAGE-CALC                     TLC01303
+061900              COMPUTE WS-FR-TEMP-REV ROUNDED = WS-FR-CURRENT-AMT  TLC01303
+061900                     *  WS-FR-PERCENTAGE-CALC                     TLC01303
+061900            END-EVALUATE                                          TLC01303
+032200            SUBTRACT WS-FR-CURRENT-AMT FROM WS-FR-AMT-LEFT        GZS01169
+032300            MOVE WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1) TO WS-FR-PREV-AMTGZS01169
+032400         ELSE                                                     GZS01169
+                  EVALUATE WS-FR-REV-T-E (WS-FR-SUB1)                   TLC01303
+031600            WHEN 'T'                                              TLC01303
+032600               MOVE WS-FR-CHARGE (WS-FR-SUB1) TO WS-FR-TEMP-REV   GZS01169
+031800            WHEN 'E'                                              TLC01303
+032800              MULTIPLY WS-FR-AMT-LEFT BY WS-FR-CHARGE (WS-FR-SUB1)GZS01169
+032900                GIVING WS-FR-TEMP-REV                             GZS01169
+032100            WHEN 'P'                                              TLC01303
+061900              MOVE WS-FR-CHARGE (WS-FR-SUB1) TO                   TLC01303
+061900                  WS-FR-PERCENTAGE-CALC                           TLC01303
+061900              DIVIDE WS-FR-PERCENTAGE-CALC BY 100 GIVING          TLC01303
+061900                        WS-FR-PERCENTAGE-CALC                     TLC01303
+061900              COMPUTE WS-FR-TEMP-REV ROUNDED = WS-FR-AMT-LEFT     TLC01303
+061900                     *  WS-FR-PERCENTAGE-CALC                     TLC01303
+061900            END-EVALUATE                                          TLC01303
+033100            MOVE 0  TO WS-FR-AMT-LEFT                             GZS01169
+                  MOVE 99 TO WS-FR-SUB1                                 GZS01169
+033200         END-IF                                                   GZS01169
+            ADD WS-FR-TEMP-REV TO WS-FR-REV                             GZS01169
+            ADD 1 TO WS-FR-SUB1                                         GZS01169
+            END-IF                                                      GZS01169
+           END-PERFORM.                                                 GZS01169
+       F1120-REV-EXIT.                                                  GZS01169
+030300     EXIT.                                                        GZS01169
+062500                                                                  GZS01169
+036200 F1130-REV-RULE-3.                                                GZS01169
+026300     MOVE 0              TO WS-FR-REV                             GZS01169
+                                  WS-FR-TEMP-REV.                       GZS01169
+036300     MOVE 1              TO WS-FR-SUB1                            GZS02298
+036300                            WS-FR-SUB2.                           GZS02298
+036700                                                                  GZS01169
+036400     IF WS-FR-CHARGE (1) NOT NUMERIC                              GZS01169
+036500        MOVE 0 TO WS-FR-CHARGE (1)                                GZS01169
+036600     END-IF.                                                      GZS01169
+           EVALUATE WS-FR-REV-T-E (1)                                   TLC01303
+036800     WHEN 'T'                                                     TLC01303
+036900        MOVE WS-FR-CHARGE (1) TO WS-FR-TEMP-REV                   GZS01169
+037000     WHEN 'E'                                                     TLC01303
+037100        MULTIPLY WS-FR-CHARGE (1) BY WS-FR-BY-TOTAL               GZS01169
+037200         GIVING WS-FR-TEMP-REV                                    GZS01169
+032100     WHEN 'P'                                                     TLC01303
+061900        MOVE WS-FR-CHARGE (1) TO  WS-FR-PERCENTAGE-CALC           TLC01303
+061900        DIVIDE WS-FR-PERCENTAGE-CALC BY 100 GIVING                TLC01303
+061900                        WS-FR-PERCENTAGE-CALC                     TLC01303
+061900        COMPUTE WS-FR-TEMP-REV ROUNDED = WS-FR-SHIP-VALUE-PC      TLC01303
+061900                     *  WS-FR-PERCENTAGE-CALC                     TLC01303
+061900     END-EVALUATE                                                 TLC01303
+039000     MOVE WS-FR-TEMP-REV TO WS-FR-REV.                            GZS01169
+039200     IF WS-FR-LT-OR-EQ-AMT (1) NUMERIC     AND                    GZS01169
+039300      WS-FR-LT-OR-EQ-AMT (1) NOT < WS-FR-BY-TOTAL                 GZS01169
+#TEMP         IF WS-FR-RULE = '9'                                       APX19284
+#TEMP            MOVE 0 TO WS-FR-REV                                    APX19284
+#TEMP         END-IF                                                    APX19284
+039400        GO TO F1130-REV-EXIT                                      GZS01169
+039500     END-IF.                                                      GZS01169
+039600                                                                  GZS01169
+039700     MOVE 2 TO WS-FR-SUB1.                                        GZS01169
+039800     MOVE 0 TO WS-FR-SUB2.                                        GZS01169
+040000     PERFORM UNTIL WS-FR-SUB1 > 20                                GZS01169
+030700      IF WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1) NOT NUMERIC              GZS01169
+030800            MOVE 99 TO WS-FR-SUB1                                 GZS01169
+            ELSE                                                        GZS01169
+040400        IF WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1) < WS-FR-BY-TOTAL       GZS01169
+040500               ADD 1 TO WS-FR-SUB1                                GZS01169
+040600        ELSE                                                      GZS01169
+                EVALUATE WS-FR-REV-T-E (WS-FR-SUB1)                     TLC01303
+                WHEN 'T'                                                TLC01303
+                   MOVE WS-FR-CHARGE (WS-FR-SUB1) TO WS-FR-TEMP-REV     GZS01169
+                WHEN 'E'                                                TLC01303
+                   IF WS-FR-RULE = '8'                                  TLC01303
+                      COMPUTE WS-FR-SUB2-MINUS-1 = WS-FR-SUB1 - 1       TLC01303
+                      ADD WS-FR-CHARGE (WS-FR-SUB2-MINUS-1)             TLC01303
+                                                       TO WS-FR-REV     TLC01303
+                      SUBTRACT WS-FR-LT-OR-EQ-AMT (WS-FR-SUB2-MINUS-1)  TLC01303
+                       FROM WS-FR-BY-TOTAL                              TLC01303
+                      COMPUTE WS-FR-TEMP-REV ROUNDED = WS-FR-BY-TOTAL   TLC01303
+                       * WS-FR-CHARGE (WS-FR-SUB1)                      TLC01303
+                   ELSE                                                 TLC01303
+                      MULTIPLY WS-FR-BY-TOTAL BY                        TLC01303
+                       WS-FR-CHARGE (WS-FR-SUB1) GIVING WS-FR-TEMP-REV  TLC01303
+                   END-IF                                               TLC01303
+                WHEN 'P'                                                TLC01303
+061900             MOVE WS-FR-CHARGE (WS-FR-SUB1) TO                    TLC01303
+                         WS-FR-PERCENTAGE-CALC                          TLC01303
+061900             DIVIDE WS-FR-PERCENTAGE-CALC BY 100 GIVING           TLC01303
+061900                        WS-FR-PERCENTAGE-CALC                     TLC01303
+061900             COMPUTE WS-FR-TEMP-REV ROUNDED = WS-FR-SHIP-VALUE-PC TLC01303
+061900                     *  WS-FR-PERCENTAGE-CALC                     TLC01303
+061900          END-EVALUATE                                            TLC01303
+                MOVE WS-FR-SUB1 TO WS-FR-SUB2                           GZS01169
+040800          MOVE 99 TO WS-FR-SUB1                                   GZS01169
+040900         END-IF                                                   GZS01169
+            END-IF                                                      GZS01169
+041100     END-PERFORM.                                                 GZS01169
+                                                                        GZS01169
+046600* THIS IS BECAUSE RULE 5, WE ADD ONLY FOR THE EACHES FIELDS.      GZS01169
+046600     IF WS-FR-REV-RULE = '3'  OR '8'                              TLC01303
+           ADD WS-FR-TEMP-REV TO WS-FR-REV.                             GZS01169
+                                                                        GZS01169
+       F1130-REV-EXIT.                                                  GZS01169
+030300     EXIT.                                                        GZS01169
+                                                                        GZS01169
+036200 F1140-REV-RULE-4.                                                GZS01169
+017000     PERFORM F1130-REV-RULE-3 THRU F1130-REV-EXIT                 GZS01169
+017000                                                                  GZS01169
+044400     IF WS-FR-REV-T-E (WS-FR-SUB2) = 'E'                          GZS01169
+044400       COMPUTE WS-FR-SUB2-MINUS-1 = WS-FR-SUB2 - 1                GZS01169
+044400       COMPUTE WS-FR-REV = WS-FR-REV +                            GZS01169
+044400       ((WS-FR-BY-TOTAL - WS-FR-LT-OR-EQ-AMT (WS-FR-SUB2-MINUS-1))GZS01169
+044400                      * WS-FR-CHARGE (WS-FR-SUB2))                GZS01169
+044400     ELSE                                                         GZS01169
+046600       MOVE WS-FR-TEMP-REV TO WS-FR-REV                           GZS01169
+044400     END-IF.                                                      GZS01169
+018200                                                                  GZS01169
+018200 F1140-REV-EXIT.                                                  GZS01169
+030300     EXIT.                                                        GZS01169
+018200                                                                  GZS01169
+                                                                        GZS01169
+018200 F1150-REV-RULE-5.                                                GZS01169
+017000                                                                  GZS01169
+017000     PERFORM F1130-REV-RULE-3 THRU F1130-REV-EXIT                 GZS01169
+017000                                                                  GZS01169
+044400     IF WS-FR-REV-T-E (WS-FR-SUB2) = 'E'                          GZS01169
+046600        ADD  WS-FR-TEMP-REV TO WS-FR-REV                          GZS01169
+044400     ELSE                                                         GZS01169
+046600        MOVE WS-FR-TEMP-REV TO WS-FR-REV                          GZS01169
+044400     END-IF.                                                      GZS01169
+018200                                                                  GZS01169
+018200 F1150-REV-EXIT.                                                  GZS01169
+030300     EXIT.                                                        GZS01169
+018200                                                                  GZS01169
+018200 F1160-REV-RULE-6.                                                GZS01169
+017000                                                                  GZS01169
+017000     PERFORM F1110-REV-RULE-1 THRU F1110-REV-EXIT.                GZS01169
+017000                                                                  GZS01169
+044400     IF WS-FR-REV-T-E (WS-FR-SUB2) = 'E'                          GZS01169
+044400     IF WS-FR-SUB2 > 1                                            ESS06280
+044400      COMPUTE WS-FR-SUB2-MINUS-1 = WS-FR-SUB2 - 1                 GZS01169
+044400      COMPUTE WS-FR-TEMP-REV = WS-FR-CHARGE (WS-FR-SUB2-MINUS-1) +GZS01169
+044400       ((WS-FR-BY-TOTAL - WS-FR-LT-OR-EQ-AMT (WS-FR-SUB2-MINUS-1))GZS01169
+044400                     * WS-FR-CHARGE (WS-FR-SUB2))                 GZS01169
+046600      MOVE WS-FR-TEMP-REV TO WS-FR-REV                            GZS01169
+044400     ELSE                                                         ESS06280
+044400       MOVE WS-FR-CHARGE (WS-FR-SUB2) TO WS-FR-REV                ESS06280
+044400     END-IF                                                       ESS06280
+044400     END-IF.                                                      GZS01169
+       F1160-REV-EXIT.                                                  GZS01169
+030300     EXIT.                                                        GZS01169
+                                                                        GZS01169
+018200 F1190-REV-RULE-9.                                                GZS01198
+018200      IF WS-FR-ZONE NOT = 'CD'                                    GZS01198
+018200         PERFORM F1130-REV-RULE-3 THRU F1130-REV-EXIT             GZS01198
+018200         ADD WS-FR-TEMP-REV TO WS-FR-REV                          GZS01198
+018200         GO TO F1190-REV-EXIT                                     GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200* THE FOLLOWING CODE IS ONLY FOR COD ORDERS.                      GZS01198
+018200*     SIMILAR TO RULE 3                                           GZS01198
+018200      MOVE WS-FR-SHIP-VALUE TO WS-FR-BY-TOTAL                     GZS01198
+018200      IF WS-FR-SHIP-VALUE > WS-FR-BY-TOTAL                        GZS01198
+018200         ADD 1 TO WS-FR-BY-TOTAL                                  GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      MOVE ZEROES          TO WS-FR-RULE-9-VALUE                  GZS01198
+018200      MOVE WS-FR-BY-TOTAL  TO WS-FR-RULE-9-VALUE.                 GZS01198
+018200                                                                  GZS01198
+018200      IF WS-FR-CHARGE (1) NOT NUMERIC                             GZS01198
+018200        MOVE 0 TO WS-FR-CHARGE (1)                                GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      IF WS-FR-REV-T-E (1) = 'T'                                  GZS01198
+018200         MOVE WS-FR-CHARGE (1) TO WS-FR-TEMP-REV                  GZS01198
+018200      ELSE                                                        GZS01198
+018200         MULTIPLY WS-FR-CHARGE (1) BY WS-FR-THOUSANDS             GZS01198
+018200         GIVING WS-FR-TEMP-REV                                    GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      MOVE WS-FR-TEMP-REV  TO WS-FR-REV.                          GZS01198
+018200      IF WS-FR-THOUSANDS NOT < WS-FR-RULE-9-BASE                  GZS01198
+018200      COMPUTE WS-FR-THOUSANDS =                                   GZS01198
+018200                              WS-FR-THOUSANDS - WS-FR-RULE-9-BASE.GZS01198
+018200*                             WS-FR-RULE-9-VALUE.                 GZS01198
+018200*     MOVE WS-FR-THOUSANDS TO WS-FR-RULE-9-BASE.                  GZS01198
+018200*                                                                 GZS01198
+018200      IF WS-FR-LT-OR-EQ-AMT (1) NUMERIC AND                       GZS01198
+018200       WS-FR-LT-OR-EQ-AMT (1) NOT < WS-FR-BY-TOTAL                GZS01198
+018200         GO TO F1190-REV-EXIT                                     GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      MOVE 2 TO WS-FR-SUB1.                                       GZS01198
+018200      MOVE 0 TO WS-FR-SUB2.                                       GZS01198
+018200                                                                  GZS01198
+018200      PERFORM UNTIL WS-FR-SUB1 > 100                              GZS01198
+018200         IF WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1) NOT NUMERIC           GZS01198
+018200            MOVE 999 TO WS-FR-SUB1                                GZS01198
+018200         ELSE                                                     GZS01198
+018200            IF WS-FR-LT-OR-EQ-AMT (WS-FR-SUB1) < WS-FR-BY-TOTAL   GZS01198
+018200               ADD 1 TO WS-FR-SUB1                                GZS01198
+018200            ELSE                                                  GZS01198
+018200               MOVE WS-FR-SUB1 TO WS-FR-SUB2                      GZS01198
+018200               MOVE 999 TO WS-FR-SUB1                             GZS01198
+018200            END-IF                                                GZS01198
+018200         END-IF                                                   GZS01198
+018200      END-PERFORM.                                                GZS01198
+018200                                                                  GZS01198
+018200*     MOVE WS-FR-BY-TOTAL       TO WS-FR-RULE-9-VALUE             GZS01198
+018200                                                                  GZS01198
+018200      IF WS-FR-REV-T-E (WS-FR-SUB2) = 'T'                         GZS01198
+018200         MOVE WS-FR-CHARGE (WS-FR-SUB2) TO WS-FR-TEMP-REV         GZS01198
+018200      ELSE                                                        GZS01198
+018200         COMPUTE WS-FR-TEMP-REV  = (WS-FR-THOUSANDS               GZS01198
+018200                                    * WS-FR-CHARGE (WS-FR-SUB2))  GZS01198
+018200      END-IF.                                                     GZS01198
+018200                                                                  GZS01198
+018200      ADD WS-FR-TEMP-REV TO WS-FR-REV.                            GZS01198
+018200                                                                  GZS01198
+018200 F1190-REV-EXIT.                                                  GZS01198
+018200       EXIT.                                                      GZS01198
+018200*                                                                 GZS01198
+018200 F11A0-REV-RULE-A.                                                GZS01198
+016600     PERFORM F1110-REV-RULE-1 THRU F1110-REV-EXIT.                GZS01198
+023100     IF WS-FR-REV-T-E (WS-FR-SUB2) = 'T'                          GZS01198
+023200        MOVE WS-FR-CHARGE (WS-FR-SUB2) TO WS-FR-REV               GZS01198
+023300     ELSE                                                         GZS01198
+023400        MULTIPLY WS-FR-CHARGE (WS-FR-SUB2) BY WS-FR-TOTAL-WEIGHT  GZS01198
+023500         GIVING WS-FR-REV                                         GZS01198
+023600     END-IF.                                                      GZS01198
+           IF WS-FR-ZONE = '20'                                         GZS01198
+            MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-BY-TOTAL                   GZS01198
+016600      PERFORM F1110-REV-RULE-1 THRU F1110-REV-EXIT                GZS01198
+            COMPUTE WS-FR-WEIGHT-DIVIDED  = WS-FR-TOTAL-WEIGHT / 100    GZS01198
+            MOVE WS-FR-WEIGHT-DIVIDED TO WS-FR-WEIGHT-TRUNCATED         GZS01198
+            IF WS-FR-WEIGHT-DIVIDED > WS-FR-WEIGHT-TRUNCATED            GZS01198
+              ADD 1 TO WS-FR-WEIGHT-TRUNCATED                           GZS01198
+            END-IF                                                      GZS01198
+            IF WS-FR-REV-T-E (WS-FR-SUB2) = 'T'                         GZS01198
+              IF WS-FR-WEIGHT-TRUNCATED = 1                             GZS01198
+                MOVE WS-FR-CHARGE (1) TO WS-FR-REV                      GZS01198
+              ELSE                                                      GZS01198
+                 COMPUTE WS-FR-REV = WS-FR-CHARGE (WS-FR-SUB2) *        GZS01198
+                                             WS-FR-WEIGHT-TRUNCATED     GZS01198
+              END-IF                                                    GZS01198
+            END-IF                                                      GZS01198
+           END-IF.                                                      GZS01198
+                                                                        GZS01198
+018200 F11A0-REV-EXIT.                                                  GZS01198
+018200       EXIT.                                                      GZS01198
+018200*                                                                 GZS01198
+018200 F11B0-REV-RULE-B.                                                GZS01198
+018200     PERFORM F1110-REV-RULE-1 THRU F1110-REV-EXIT.                GZS01198
+018200     IF TB-CPO-EUROPEAN-RESELLER                                  GZS01198
+018200        MOVE 'ER'                TO TB-RTE-CO                     GZS01198
+018200     ELSE                                                         GZS01198
+018200        MOVE WS-FR-CO            TO TB-RTE-CO.                    GZS01198
+018200     MOVE '**'                   TO TB-RTE-SF.                    GZS01198
+018200     MOVE WS-FR-CC               TO TB-RTE-CC.                    GZS01198
+018200     MOVE 'FR'                   TO TB-RTE-ZONE.                  GZS01198
+018200                                                                  GZS01198
+018200     CALL 'SYU510'           USING TB-RATE-NAME-IA.               GZS01198
+018200     IF TB-RTE-NORESP                                             GZS01198
+018200        IF WS-FR-BY-TOTAL < TB-RTE-HIGH                           GZS01198
+018200           ADD TB-RTE-BASE-RATE TO WS-FR-REV                      GZS01198
+018200        ELSE                                                      GZS01198
+018200        IF WS-FR-BY-TOTAL < TB-RTE-HIGH1                          GZS01198
+018200           ADD TB-RTE-UNIT1 TO WS-FR-REV                          GZS01198
+018200        ELSE                                                      GZS01198
+018200        IF WS-FR-BY-TOTAL < TB-RTE-HIGH2                          GZS01198
+018200           ADD TB-RTE-UNIT2 TO WS-FR-REV                          GZS01198
+018200        ELSE                                                      GZS01198
+018200           ADD TB-RTE-UNIT3 TO WS-FR-REV                          GZS01198
+018200        END-IF                                                    GZS01198
+018200     END-IF.                                                      GZS01198
+018200                                                                  GZS01198
+018200 F11B0-REV-EXIT.                                                  GZS01198
+018200       EXIT.                                                      GZS01198
+018200*                                                                 GZS01198
+018200 F11C0-REV-RULE-C.                                                GZS01169
+018200     PERFORM F1160-REV-RULE-6 THRU F1160-REV-EXIT.                GZS01169
+018200     IF TB-CPO-EUROPEAN-RESELLER                                  GZS01169
+018200        MOVE 'ER'                TO TB-RTE-CO                     GZS01169
+018200     ELSE                                                         GZS01169
+018200        MOVE WS-FR-CO            TO TB-RTE-CO.                    GZS01169
+018200     MOVE '**'                   TO TB-RTE-SF.                    GZS01169
+018200     MOVE WS-FR-CC               TO TB-RTE-CC.                    GZS01169
+018200     MOVE '**'                   TO TB-RTE-ZONE.                  GZS01169
+018200                                                                  GZS01169
+018200     CALL 'SYU510'           USING TB-RATE-NAME-IA.               GZS01169
+018200     IF TB-RTE-NORESP                                             GZS01169
+018200        IF WS-FR-BY-TOTAL > TB-RTE-LOW2 AND                       GZS01169
+018200           WS-FR-BY-TOTAL < TB-RTE-HIGH2                          GZS01169
+018200           ADD TB-RTE-UNIT2 TO WS-FR-REV                          GZS01169
+018200        END-IF                                                    GZS01169
+018200        IF WS-FR-BY-TOTAL > TB-RTE-LOW3 AND                       GZS01169
+018200           WS-FR-BY-TOTAL < TB-RTE-HIGH3                          GZS01169
+018200           ADD TB-RTE-UNIT3 TO WS-FR-REV                          GZS01169
+018200        END-IF                                                    GZS01169
+018200        IF WS-FR-BY-TOTAL > TB-RTE-LOW4                           GZS01169
+018200           ADD TB-RTE-UNIT4 TO WS-FR-REV                          GZS01169
+018200        END-IF                                                    GZS01169
+018200     END-IF.                                                      GZS01169
+018200                                                                  GZS01169
+018200 F11C0-REV-EXIT.                                                  GZS01169
+018200       EXIT.                                                      GZS01169
+018200*                                                                 GZS01267
+018200 F11D0-REV-RULE-D.                                                GZS01267
+036400                                                                  GZS01267
+039000     IF WS-FR-TOTAL-WEIGHT > WS-FR-LT-OR-EQ-AMT (2)               GZS01267
+018200        PERFORM F1110-REV-RULE-1 THRU F1110-REV-EXIT              GZS01267
+018200        GO TO F11D0-REV-EXIT                                      GZS01267
+018200     END-IF                                                       GZS01267
+018200                                                                  GZS01267
+036400     IF WS-FR-CHARGE (1) NOT NUMERIC                              GZS01267
+036500        MOVE 0 TO WS-FR-CHARGE (1)                                GZS01267
+036600     END-IF.                                                      GZS01267
+036700                                                                  GZS01267
+           EVALUATE WS-FR-REV-T-E (1)                                   TLC01303
+036800     WHEN 'T'                                                     TLC01303
+036900        MOVE WS-FR-CHARGE (1) TO WS-FR-TEMP-REV                   GZS01267
+037000     WHEN 'E'                                                     TLC01303
+037100        MULTIPLY WS-FR-CHARGE (1) BY WS-FR-BY-TOTAL               GZS01267
+037200         GIVING WS-FR-TEMP-REV                                    GZS01267
+           WHEN 'P'                                                     TLC01303
+061900        MOVE WS-FR-CHARGE (1) TO WS-FR-PERCENTAGE-CALC            TLC01303
+              DIVIDE WS-FR-PERCENTAGE-CALC BY 100 GIVING                TLC01303
+061900                        WS-FR-PERCENTAGE-CALC                     TLC01303
+061900        COMPUTE WS-FR-TEMP-REV ROUNDED = WS-FR-SHIP-VALUE-PC      TLC01303
+061900                     *  WS-FR-PERCENTAGE-CALC                     TLC01303
+037300     END-EVALUATE.                                                TLC01303
+037400                                                                  GZS01267
+039000     COMPUTE WS-FR-TEMP-REV = WS-FR-TEMP-REV *                    GZS01267
+039000                               WS-FR-CARTON-LOWER                 GZS01267
+039000     MOVE WS-FR-TEMP-REV    TO WS-FR-REV                          GZS01267
+036400                                                                  GZS01267
+036400     IF WS-FR-CHARGE (2) NOT NUMERIC                              GZS01267
+036500        MOVE 0 TO WS-FR-CHARGE (2)                                GZS01267
+036600     END-IF.                                                      GZS01267
+036700                                                                  GZS01267
+           EVALUATE WS-FR-REV-T-E (2)                                   TLC01303
+036800     WHEN 'T'                                                     TLC01303
+036900        MOVE WS-FR-CHARGE (2) TO WS-FR-TEMP-REV                   GZS01267
+037000     WHEN 'E'                                                     TLC01303
+037100        MULTIPLY WS-FR-CHARGE (2) BY WS-FR-BY-TOTAL               GZS01267
+037200         GIVING WS-FR-TEMP-REV                                    GZS01267
+           WHEN 'P'                                                     TLC01303
+061900        MOVE WS-FR-CHARGE (2) TO WS-FR-PERCENTAGE-CALC            TLC01303
+              DIVIDE WS-FR-PERCENTAGE-CALC BY 100 GIVING                TLC01303
+061900                        WS-FR-PERCENTAGE-CALC                     TLC01303
+061900        COMPUTE WS-FR-TEMP-REV ROUNDED = WS-FR-SHIP-VALUE-PC      TLC01303
+061900                     *  WS-FR-PERCENTAGE-CALC                     TLC01303
+037300     END-EVALUATE.                                                TLC01303
+037400                                                                  GZS01267
+039000     COMPUTE WS-FR-TEMP-REV = WS-FR-TEMP-REV *                    GZS01267
+039000                               WS-FR-CARTON-UPPER                 GZS01267
+039000     COMPUTE WS-FR-REV =                                          GZS01267
+039000                           WS-FR-TEMP-REV + WS-FR-REV.            GZS01267
+018200                                                                  GZS01267
+018200 F11D0-REV-EXIT.                                                  GZS01267
+018200       EXIT.                                                      GZS01267
+018200                                                                  ESS02240
+018200 F11E0-REV-RULE-E.                                                ESS02240
+017000                                                                  ESS02240
+017000     PERFORM F1110-REV-RULE-1 THRU F1110-REV-EXIT.                GZS02298
+017000                                                                  ESS02240
+044400     IF WS-FR-LT-OR-EQ-AMT (WS-FR-SUB2) = 999999999               ESS02240
+044400        MOVE ZERO TO WS-FR-ROUNDED                                ESS02240
+044400        COMPUTE WS-FR-ROUNDED = WS-FR-BY-TOTAL / WS-FR-CHARGE(1)  ESS02240
+044400        IF WS-FR-ROUNDED-DEC > 0                                  ESS02240
+044400           ADD 1 TO WS-FR-ROUNDED-DIGIT                           ESS02240
+044400        END-IF                                                    ESS02240
+044400        COMPUTE WS-FR-TEMP-REV =                                  ESS02240
+044400             (WS-FR-ROUNDED-DIGIT  * WS-FR-CHARGE(WS-FR-SUB2))    ESS02240
+046600        MOVE WS-FR-TEMP-REV TO WS-FR-REV                          ESS02240
+044400     END-IF.                                                      ESS02240
+018200                                                                  ESS02240
+018200 F11E0-REV-EXIT.                                                  ESS02240
+018200       EXIT.                                                      ESS02240
+018200                                                                  ESS02240
+018200 F11F0-REV-RULE-F.                                                ESS02240
+017000                                                                  ESS02240
+017000     PERFORM F1110-REV-RULE-1 THRU F1110-REV-EXIT.                GZS02298
+017000     COMPUTE WS-FR-REV = WS-FR-REV / WS-FR-CHARGE(1).             ESS02240
+017000                                                                  ESS02240
+018200 F11F0-REV-EXIT.                                                  ESS02240
+018200       EXIT.                                                      ESS02240
+                                                                        ESS02240
+018200 F11G0-REV-RULE-G.                                                GZS02298
+017000                                                                  GZS02298
+017000     PERFORM F1110-REV-RULE-1 THRU F1110-REV-EXIT.                GZS02298
+017000                                                                  GZS02298
+           IF WS-FR-TOTAL-WEIGHT > 100                                  GZS02298
+              MOVE ZEROES TO WS-FR-TOTAL-WGT                            GZS02298
+                             WS-FR-TOTAL-WGT-R                          GZS02298
+                             WS-FR-WEIGHT-FACTOR                        GZS02298
+              MOVE WS-FR-TOTAL-WEIGHT TO WS-FR-TOTAL-WGT                GZS02298
+              IF WS-FR-WHOLE(9:1) > 0                                   GZS02298
+                 ADD 10 TO WS-FR-WHOLE                                  GZS02298
+                 DIVIDE WS-FR-WHOLE BY 10 GIVING WS-FR-WHOLE            GZS02298
+                 MULTIPLY WS-FR-WHOLE BY 10 GIVING WS-FR-WHOLE          GZS02298
+              END-IF                                                    GZS02298
+              COMPUTE WS-FR-BASERATE = WS-FR-WHOLE / 100                GZS02298
+              COMPUTE WS-FR-REV = WS-FR-BASERATE * WS-FR-REV            GZS02298
+           END-IF.                                                      GZS02298
+                                                                        GZS02298
+018200 F11G0-REV-EXIT.                                                  GZS02298
+018200       EXIT.                                                      GZS02298
+                                                                        GZS02298

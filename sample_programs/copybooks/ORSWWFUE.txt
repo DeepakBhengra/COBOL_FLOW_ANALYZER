@@ -1,0 +1,52 @@
+﻿      * 09/09/22 AXR  EUROPE FUEL CHARGE CALCULATION.                  *AXR22252
+      *                                                                *        
+      **==============================================================**        
+      *                                                                *        
+      *   THIS COPYBOOK USED TO CALCULATE THE FUEL CHARGE FOR THE SALES*        
+      *   ORDER AND INVOKED IN ORP560MD MODULE.                        *        
+      *                                                                         
+      *   TO CALCULATE THE FUEL CHARGE FOLLOWING PARAMETER IS VALIDATED         
+      *   1) COMPANY CODE + CARRIER CODE ENTRY SHOULD BE AVAILABLE              
+      *      IN TBXCAR4 TABLE                                                   
+      *   2) VALID PERCENTAGE SHOULD BE AVAILABLE IN                            
+      *   **************************************************************        
+                                                                                
+       379-ADD-FUEL-CHARGE-PARA.                                                
+                                                                                
+            MOVE ZEROS                 TO WS-FUEL-CHARGE-AMT                    
+                                          WS-FUEL-CHARGE-PCT.                   
+            MOVE ORH-COMPANY           TO TB-CAR4-CO.                           
+            MOVE ORSH-CARRIER-CODE     TO TB-CAR4-CODE.                         
+            CALL 'SYU510'           USING TB-CARRIER4-TABLE-IA.                 
+            IF TB-CAR4-NORESP                                                   
+              IF TB-CAR4-FUEL-CHARGE-RATE IS NUMERIC                            
+                 MOVE TB-CAR4-FUEL-CHARGE-RATE                                  
+                                       TO WS-FUEL-CHARGE-PCT                    
+              ELSE                                                              
+                 MOVE ZEROS            TO WS-FUEL-CHARGE-PCT                    
+              END-IF                                                            
+            END-IF.                                                             
+                                                                                
+            IF WS-FUEL-CHARGE-PCT > ZEROES                                      
+               IF WS-UPDATE-FRT-OUT-AMT                                         
+                  MOVE WS-FRT-OUT-AMT  TO WS-FRT-INS-COST                       
+               ELSE                                                             
+                  MOVE ORSH-FRT-OUT-AMT                                         
+                                       TO WS-FRT-INS-COST                       
+               END-IF                                                           
+               IF WS-FR-INS-AMT > ZEROES                                        
+                  COMPUTE WS-FRT-NO-INS-COST = WS-FRT-INS-COST                  
+                                             - WS-FR-INS-AMT                    
+               ELSE                                                             
+                  MOVE WS-FRT-INS-COST TO WS-FRT-NO-INS-COST                    
+               END-IF                                                           
+               COMPUTE WS-FUEL-CHARGE-AMT    = WS-FUEL-CHARGE-PCT               
+                                             * WS-FRT-NO-INS-COST               
+               COMPUTE WS-FRT-OUT-AMT        = WS-FRT-INS-COST                  
+                                             + WS-FUEL-CHARGE-AMT               
+               SET WS-UPDATE-FRT-OUT-AMT                                        
+                                       TO TRUE                                  
+            END-IF.                                                             
+                                                                                
+       379-ADD-FUEL-CHARGE-PARA-EXIT.                                           
+           EXIT.                                                                

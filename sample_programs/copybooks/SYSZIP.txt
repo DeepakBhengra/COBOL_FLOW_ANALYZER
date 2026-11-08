@@ -1,0 +1,388 @@
+      ******************************************************************        
+      *** YEAR 2000 REMEDIATED                                         *        
+      ******************************************************************        
+      ******************************************************************        
+      *         NAME: SYSZIP                                                    
+      *=================================================================        
+      * NMBR | DATE  | PGMR | DESCRIPTION                                       
+      *------+-------+------+-------------------------------------------        
+      *      |080224 | RYB  |ADDED SYWZIP-2-COUNTRY = 'PL' FOR POLAND   RYB24215
+      *      |040422 | NR1  |ITALY CONVERSION - Z3 COMPANY CODE CHANGES NR122063
+      *      |032920 | VXA  | SE8534 - PORTUGAL POSTAL CODE LOGIC       VXA20089
+      *      |       |      | ADJUSTMENT FOR FULFILLMENT ORDER          VXA20089
+      *      |080219 | TEH  | PORTUGAL CONVERSION PROJECT               TEH19214
+      *      |070809 | SVS  | FIX TO AVOID LOOPING WHEN ZIP CODE STARTS INF09189
+      *      |       |      | WITH A SPACE                              INF09189
+      *      |080505 | KXA  | ADDED COMPANY CODES 'HU','EE','LT', 'LV', KXA05217
+      *      |       |      | 'RO', 'CZ' AND 'SK'                       KXA05217
+      * 33244|010705 | CBL  | EXTEND ADDRESS FROM X(35) TO X(55)        CBL05007
+      *      |032504 | CBL  | ADDED COMPANY CODE 'DC' TO VALIDATION     CBL04085
+      *      |061502 | KXA  | CREATED THIS COPYBOOK TO VALIDATE THE ZIP         
+      *      |       |      | CODE SUPPLIED IN THE CITY/ZIP FIELDS.             
+      *=================================================================        
+      *  THIS COPYBOOK IS USED WITH SYWZIP TO CORRECTLY FORMAT         *        
+      *  EUROPEAN ZIP/POSTAL CODES. PROCESSING FOR UK IS NOT INCLUDED  *        
+      *                                                                *        
+      *  FIELD "SYWZIP-ERROR-SW" WILL CONTAIN A CODE INDICATING      *          
+      *    THE RESULTS OF THE VALIDATION. ("N" IS A NORMAL RESPONSE).  *        
+      *                                                                *        
+      *  INITIALIZE THE FOLLOWING FIELDS.                              *        
+      *     THE ADDRESS LINE WITH ZIP/CITY.... SYWZIP-2-ADDR           *        
+      *     THE ZIP CODE...................... SYWZIP-2-ZIP            *        
+      *     COUNTRY CODE...................... SYWZIP-2-COUNTRY        *        
+      *                                                                *        
+      *  THE OUTPUT WILL BE IN SYWZIP-2-ADDR AND SYWZIP-2-ZIP          *        
+      *                                                                *        
+      *                                                                *        
+      *================================================================*        
+      *  EXAMPLE:                                                      *        
+      *================================================================*        
+      *                                                                *        
+      *  WORKING-STORAGE SECTION                                       *        
+      *      ...                                                       *        
+      *      COPY SYWZIP.                                              *        
+      *      ...                                                       *        
+      *  PROCEDURE DIVISION.                                           *        
+      *      ...                                                       *        
+      *      MOVE WS-CITY-FIELD        TO SYWZIP-2-ADDR.               *        
+      *      MOVE WS-ZIP-FIELD         TO SYWZIP-2-ZIP.                *        
+      *      MOVE WS-COUNTRY           TO SYWZIP-2-COUNTRY.            *        
+      *                                                                *        
+      *      PERFORM SYSZIP-000-VALIDATE THRU SYSZIP-000-EXIT.         *        
+      *      IF SYWZIP-ERROR                                           *        
+      *         **  YOUR ERROR PROCESSING  **                          *        
+      *      ELSE                                                      *        
+      *          MOVE SYWZIP-2-ADDR    TO WS-CITY-FIELD                *        
+      *          MOVE SYWZIP-2-ZIP     TO WS-ZIP-FIELD                 *        
+      *      END-IF.                                                   *        
+      *      ...                                                       *        
+      *      COPY SYSZIP.                                              *        
+      ******************************************************************        
+                                                                                
+       SYSZIP-000-VALIDATE.                                                     
+                                                                                
+           MOVE 'N000'                 TO SYWZIP-ERR.                           
+           EVALUATE SYWZIP-2-COUNTRY                                            
+             WHEN 'AT'                                                          
+               MOVE '22LA-__4N____'    TO SYWZIP-IN-ARRAY                       
+               MOVE '2S2K4'            TO SYWZIP-OUT-ARRAY                      
+             WHEN 'BE'                                                          
+               MOVE '22LB-__4N____'    TO SYWZIP-IN-ARRAY                       
+               MOVE '2S2K4'            TO SYWZIP-OUT-ARRAY                      
+             WHEN 'CH'                                                          
+               MOVE '23LCH-_4N____'    TO SYWZIP-IN-ARRAY                       
+               MOVE '2S3K4'            TO SYWZIP-OUT-ARRAY                      
+             WHEN 'DE'                                                          
+             WHEN 'PL'                                                  RYB24215
+             WHEN 'DC'                                                  CBL04085
+             WHEN 'ES'                                                          
+             WHEN 'FI'                                                          
+             WHEN 'FR'                                                          
+               MOVE '20?____5N____'    TO SYWZIP-IN-ARRAY                       
+               MOVE '1K5'              TO SYWZIP-OUT-ARRAY                      
+             WHEN 'PT'                                                  TEH19214
+               IF SYWZIP-2-ZIP(5:1) = '-'                               VXA20089
+                  MOVE SPACES TO SYWZIP-2-ZIP(5:1)                      VXA20089
+                  MOVE '40?____4N____1L ___3N____'  TO SYWZIP-IN-ARRAY  VXA20089
+                  MOVE '1K8'                        TO SYWZIP-OUT-ARRAY VXA20089
+               ELSE                                                     VXA20089
+                  MOVE '40?____4N____1L ___3N____'  TO SYWZIP-IN-ARRAY  VXA20089
+                  MOVE '1K8'                        TO SYWZIP-OUT-ARRAY VXA20089
+               END-IF                                                   VXA20089
+             WHEN 'DK'                                                          
+             WHEN 'NO'                                                          
+             WHEN 'HU'                                                  KXA05217
+               MOVE '20?____4N____'    TO SYWZIP-IN-ARRAY                       
+               MOVE '1K4'              TO SYWZIP-OUT-ARRAY                      
+             WHEN 'FO'                                                          
+               MOVE '23LFR-_3N____'    TO SYWZIP-IN-ARRAY                       
+               MOVE '2S3K3'            TO SYWZIP-OUT-ARRAY                      
+             WHEN 'IT'                                                          
+             WHEN 'Z3'                                                  NR122063
+      *        MOVE '40?____5N____2L -__2A____'                                 
+               MOVE '20?____5N____'    TO SYWZIP-IN-ARRAY               KXA05217
+               MOVE '1K5'              TO SYWZIP-OUT-ARRAY                      
+             WHEN 'LT'                                                  KXA05217
+               MOVE '23LLT-_5N____'    TO SYWZIP-IN-ARRAY               KXA05217
+               MOVE '2S3K5'            TO SYWZIP-OUT-ARRAY              KXA05217
+             WHEN 'LU'                                                          
+               MOVE '22LL-__4N____'    TO SYWZIP-IN-ARRAY                       
+               MOVE '2S2K4'            TO SYWZIP-OUT-ARRAY                      
+             WHEN 'LV'                                                  KXA05217
+               MOVE '23LLV-_4N____'    TO SYWZIP-IN-ARRAY               KXA05217
+               MOVE '2S3K4'            TO SYWZIP-OUT-ARRAY              KXA05217
+             WHEN 'NL'                                                          
+               MOVE '43LNL-_4N____1L ___2A____'                                 
+                                       TO SYWZIP-IN-ARRAY                       
+               MOVE '4S3K4S1K2'        TO SYWZIP-OUT-ARRAY                      
+             WHEN 'SE'                                                          
+             WHEN 'CZ'                                                  KXA05217
+             WHEN 'SK'                                                  KXA05217
+               MOVE '40?____3N____1L ___2N____'                                 
+                                       TO SYWZIP-IN-ARRAY                       
+               MOVE '1K6'              TO SYWZIP-OUT-ARRAY                      
+             WHEN 'RO'                                                  KXA05217
+               MOVE '20?____6N____'    TO SYWZIP-IN-ARRAY               KXA05217
+               MOVE '1K6'              TO SYWZIP-OUT-ARRAY              KXA05217
+             WHEN OTHER                                                         
+                MOVE 'W100'            TO SYWZIP-ERR                            
+                GO TO SYSZIP-000-EXIT                                           
+           END-EVALUATE.                                                        
+                                                                                
+           IF SYWZIP-2-ADDR NOT = SPACES AND                                    
+              SYWZIP-2-ZIP NOT = SPACES                                         
+                PERFORM SYSZIP-010-PRE-PROCESS THRU SYSZIP-010-EXIT             
+           END-IF.                                                              
+                                                                                
+           MOVE 'N0'                   TO SYWZIP-ERR-1.                         
+           MOVE SYWZIP-2-ADDR          TO SYWZIP-IN.                            
+           PERFORM SYSZIP-020-PROCESS THRU SYSZIP-020-EXIT.                     
+           MOVE SYWZIP-ERROR-CODE-1    TO SYWZIP-ERROR-CODE-3.                  
+                                                                                
+           IF SYWZIP-ERROR                                                      
+               MOVE SPACES             TO SYWZIP-SAVE                           
+           ELSE                                                                 
+               MOVE SYWZIP-OUT         TO SYWZIP-SAVE                           
+               MOVE SYWZIP-F-LEN       TO SYWZIP-SAVE-FL                        
+           END-IF.                                                              
+                                                                                
+           MOVE SYWZIP-REST            TO SYWZIP-CITY.                          
+           MOVE 'N0'                   TO SYWZIP-ERR-1.                         
+           MOVE SYWZIP-2-ZIP           TO SYWZIP-IN.                            
+           PERFORM SYSZIP-020-PROCESS THRU SYSZIP-020-EXIT.                     
+           MOVE SYWZIP-ERROR-CODE-1    TO SYWZIP-ERROR-CODE-2.                  
+                                                                                
+           IF SYWZIP-ERROR                                                      
+               IF SYWZIP-SAVE = SPACES                                          
+                   MOVE 'YZ'           TO SYWZIP-ERR-1                          
+               ELSE                                                             
+                   MOVE 'N0'           TO SYWZIP-ERR-1                          
+                   MOVE SYWZIP-SAVE-FL TO SYWZIP-F-LEN                          
+                   MOVE SYWZIP-SAVE    TO SYWZIP-2-ADDR                         
+                                          SYWZIP-OUT                            
+               END-IF                                                           
+           ELSE                                                                 
+               IF SYWZIP-SAVE = SPACES                                          
+                   MOVE 'N0'           TO SYWZIP-ERR-1                          
+                   MOVE SYWZIP-OUT     TO SYWZIP-2-ADDR                         
+               ELSE                                                             
+                   IF SYWZIP-OUT = SYWZIP-SAVE                                  
+                       MOVE 'N0'       TO SYWZIP-ERR-1                          
+                       MOVE SYWZIP-OUT TO SYWZIP-2-ADDR                         
+                   ELSE                                                         
+                       MOVE 'YD'       TO SYWZIP-ERR-1                          
+                   END-IF                                                       
+               END-IF                                                           
+           END-IF.                                                              
+                                                                                
+           IF SYWZIP-NO-ERROR                                                   
+               IF SYWZIP-CITY = SPACES                                          
+                   MOVE 'YC'           TO SYWZIP-ERR-1                          
+               ELSE                                                             
+                   ADD 2               TO SYWZIP-F-LEN                          
+                   COMPUTE SYWZIP-T-LEN = 56 - SYWZIP-F-LEN             CBL05007
+                   MOVE SYWZIP-CITY TO                                          
+                                SYWZIP-2-ADDR(SYWZIP-F-LEN:SYWZIP-T-LEN)        
+               END-IF                                                           
+           END-IF.                                                              
+                                                                                
+           IF SYWZIP-NO-ERROR                                                   
+               MOVE 1                  TO SYWZIP-I-IX                           
+                                          SYWZIP-O-IX                           
+               MOVE SPACES             TO SYWZIP-2-ZIP                          
+               PERFORM SYSZIP-050-POST-PROCESS THRU SYSZIP-050-EXIT             
+                 VARYING SYWZIP-IX FROM 1 BY 1                                  
+                   UNTIL SYWZIP-IX > SYWZIP-OUT-OCC OR                          
+                         SYWZIP-OUT-ELEMENT(SYWZIP-IX) = SPACES                 
+           END-IF.                                                              
+                                                                                
+       SYSZIP-000-EXIT.                                                         
+           EXIT.                                                                
+      *                                                                         
+       SYSZIP-010-PRE-PROCESS.                                                  
+                                                                                
+           MOVE 1                      TO SYWZIP-I-IX.                          
+           PERFORM UNTIL SYWZIP-2-ADDR(SYWZIP-I-IX:1) NOT = SPACE               
+                      OR SYWZIP-I-IX > 55                               CBL05007
+               ADD 1                   TO SYWZIP-I-IX                           
+           END-PERFORM.                                                         
+                                                                                
+           MOVE 1                      TO SYWZIP-IX.                            
+           PERFORM UNTIL SYWZIP-2-ZIP(SYWZIP-IX:1) NOT = SPACE                  
+                      OR SYWZIP-IX > 10                                         
+               ADD 1                   TO SYWZIP-IX                     INF09189
+           END-PERFORM.                                                         
+                                                                                
+           MOVE 10                     TO SYWZIP-IX2.                           
+           PERFORM UNTIL SYWZIP-2-ZIP(SYWZIP-IX2:1) NOT = SPACE                 
+                      OR SYWZIP-IX2 <= SYWZIP-IX                                
+               SUBTRACT 1            FROM SYWZIP-IX2                            
+           END-PERFORM.                                                         
+                                                                                
+           COMPUTE SYWZIP-T-LEN = SYWZIP-IX2 - SYWZIP-IX + 1            INF09189
+           IF SYWZIP-2-ADDR(SYWZIP-I-IX:SYWZIP-T-LEN) =                         
+              SYWZIP-2-ZIP(SYWZIP-IX:SYWZIP-T-LEN)                              
+               MOVE SPACES             TO                                       
+                             SYWZIP-2-ADDR(SYWZIP-I-IX:SYWZIP-T-LEN)            
+           END-IF.                                                              
+                                                                                
+       SYSZIP-010-EXIT.                                                         
+           EXIT.                                                                
+      *                                                                         
+       SYSZIP-020-PROCESS.                                                      
+                                                                                
+           MOVE 1                      TO SYWZIP-I-IX                           
+                                          SYWZIP-O-IX.                          
+           MOVE ZERO                   TO SYWZIP-F-LEN.                         
+           MOVE SPACES                 TO SYWZIP-OUT.                           
+                                                                                
+           PERFORM UNTIL SYWZIP-IN(SYWZIP-I-IX:1) NOT = SPACE                   
+                      OR SYWZIP-I-IX > 55                               CBL05007
+               ADD 1                   TO SYWZIP-I-IX                           
+           END-PERFORM.                                                         
+                                                                                
+           MOVE SYWZIP-I-IX            TO SYWZIP-C-IX.                          
+           IF SYWZIP-I-IX > 55                                          CBL05007
+               MOVE 'YB'               TO SYWZIP-ERR-1                          
+           END-IF.                                                              
+                                                                                
+           IF SYWZIP-LEN(1) > 0 AND                                             
+              NOT SYWZIP-ERROR                                                  
+               MOVE SYWZIP-LEN(1)      TO SYWZIP-T-LEN                          
+                                          SYWZIP-F-LEN                          
+               MOVE SYWZIP-LIT(1)      TO SYWZIP-OUT(1:SYWZIP-T-LEN)            
+               ADD SYWZIP-T-LEN        TO SYWZIP-O-IX                           
+               IF SYWZIP-IN(SYWZIP-I-IX:SYWZIP-T-LEN) =                         
+                  SYWZIP-OUT(1:SYWZIP-T-LEN)                                    
+                   ADD SYWZIP-T-LEN    TO SYWZIP-I-IX                           
+               ELSE                                                             
+                   COMPUTE SYWZIP-IX2 = SYWZIP-T-LEN - 1                        
+                   IF SYWZIP-T-LEN > 1 AND                                      
+                      SYWZIP-OUT(SYWZIP-T-LEN:1) = '-' AND                      
+                      SYWZIP-IN(SYWZIP-I-IX:SYWZIP-IX2) =                       
+                         SYWZIP-OUT(1:SYWZIP-IX2)                               
+                       ADD SYWZIP-IX2  TO SYWZIP-I-IX                           
+                   END-IF                                                       
+               END-IF                                                           
+           END-IF.                                                              
+                                                                                
+           PERFORM SYSZIP-030-ELEMENT THRU SYSZIP-030-EXIT                      
+             VARYING SYWZIP-IX FROM 2 BY 1                                      
+               UNTIL SYWZIP-IX > SYWZIP-IN-OCC                                  
+                  OR SYWZIP-IN-ELEMENT(SYWZIP-IX) = SPACES                      
+                  OR SYWZIP-ERROR.                                              
+                                                                                
+           IF NOT SYWZIP-ERROR AND                                              
+              SYWZIP-IN(SYWZIP-I-IX:1) NOT = SPACE                              
+               MOVE 'YE'               TO SYWZIP-ERR-1                          
+               PERFORM UNTIL SYWZIP-IN(SYWZIP-I-IX:1) = SPACE                   
+                          OR SYWZIP-I-IX > 55                           CBL05007
+                   ADD 1               TO SYWZIP-I-IX                           
+               END-PERFORM                                                      
+           END-IF.                                                              
+                                                                                
+           IF SYWZIP-ERROR                                                      
+               MOVE SYWZIP-C-IX        TO SYWZIP-I-IX                           
+           ELSE                                                                 
+               PERFORM UNTIL SYWZIP-IN(SYWZIP-I-IX:1) NOT = SPACE               
+                          OR SYWZIP-I-IX > 55                           CBL05007
+                   ADD 1               TO SYWZIP-I-IX                           
+               END-PERFORM                                                      
+           END-IF.                                                              
+                                                                                
+           IF SYWZIP-I-IX <= 55                                         CBL05007
+               COMPUTE SYWZIP-T-LEN = 56 - SYWZIP-I-IX                  CBL05007
+               MOVE SYWZIP-IN(SYWZIP-I-IX:SYWZIP-T-LEN)                         
+                                       TO SYWZIP-REST                           
+           ELSE                                                                 
+               MOVE SPACES             TO SYWZIP-REST                           
+           END-IF.                                                              
+                                                                                
+       SYSZIP-020-EXIT.                                                         
+           EXIT.                                                                
+      *                                                                         
+       SYSZIP-030-ELEMENT.                                                      
+                                                                                
+           MOVE SYWZIP-LEN(SYWZIP-IX)  TO SYWZIP-T-LEN.                         
+           ADD SYWZIP-LEN(SYWZIP-IX)   TO SYWZIP-F-LEN.                         
+           MOVE SYWZIP-LIT(SYWZIP-IX)  TO SYWZIP-T-LIT.                         
+                                                                                
+           EVALUATE SYWZIP-TYPE(SYWZIP-IX)                                      
+             WHEN 'L'                                                           
+                 MOVE SYWZIP-T-LIT     TO                                       
+                          SYWZIP-OUT(SYWZIP-O-IX:SYWZIP-T-LEN)                  
+                 IF SYWZIP-IN(SYWZIP-I-IX:SYWZIP-T-LEN) =                       
+                    SYWZIP-T-LIT(1:SYWZIP-T-LEN)                                
+                     ADD SYWZIP-T-LEN  TO SYWZIP-I-IX                           
+                     ADD SYWZIP-T-LEN  TO SYWZIP-O-IX                           
+                 ELSE                                                           
+                     IF SYWZIP-T-LEN = 1 AND                                    
+                       (SYWZIP-OUT(SYWZIP-O-IX:1) = '-' OR                      
+                        SYWZIP-OUT(SYWZIP-O-IX:1) = ' ')                        
+                         ADD 1         TO SYWZIP-O-IX                           
+                     ELSE                                                       
+                         MOVE 'YL'     TO SYWZIP-ERR-1                          
+                     END-IF                                                     
+                 END-IF                                                         
+             WHEN 'N'                                                           
+             WHEN 'A'                                                           
+             WHEN 'X'                                                           
+                 COMPUTE SYWZIP-IX2 = SYWZIP-I-IX + SYWZIP-T-LEN - 1            
+                 PERFORM SYSZIP-040-ELEMENT-TEST THRU SYSZIP-040-EXIT           
+                   UNTIL SYWZIP-I-IX > SYWZIP-IX2                               
+                     OR SYWZIP-I-IX > 55                                CBL05007
+                     OR SYWZIP-ERROR                                            
+             WHEN OTHER                                                         
+                 MOVE 'Y?'             TO SYWZIP-ERR-1                          
+           END-EVALUATE.                                                        
+                                                                                
+       SYSZIP-030-EXIT.                                                         
+            EXIT.                                                               
+      *                                                                         
+       SYSZIP-040-ELEMENT-TEST.                                                 
+                                                                                
+           MOVE SYWZIP-IN(SYWZIP-I-IX:1) TO SYWZIP-ELEMENT-TEST.                
+           EVALUATE SYWZIP-TYPE(SYWZIP-IX)                                      
+             WHEN 'N'                                                           
+               IF NOT SYWZIP-ELEMENT-NUM                                        
+                   MOVE 'YN'           TO SYWZIP-ERR-1                          
+                   GO TO SYSZIP-040-EXIT                                        
+               END-IF                                                           
+             WHEN 'A'                                                           
+               IF NOT SYWZIP-ELEMENT-ALPHA                                      
+                   MOVE 'YA'           TO SYWZIP-ERR-1                          
+                   GO TO SYSZIP-040-EXIT                                        
+               END-IF                                                           
+             WHEN 'X'                                                           
+               IF NOT SYWZIP-ELEMENT-ALPHA AND                                  
+                  NOT SYWZIP-ELEMENT-NUM                                        
+                   MOVE 'YX'           TO SYWZIP-ERR-1                          
+                   GO TO SYSZIP-040-EXIT                                        
+               END-IF                                                           
+           END-EVALUATE.                                                        
+                                                                                
+           MOVE SYWZIP-IN(SYWZIP-I-IX:1) TO                                     
+                SYWZIP-OUT(SYWZIP-O-IX:1).                                      
+           ADD 1                       TO SYWZIP-I-IX.                          
+           ADD 1                       TO SYWZIP-O-IX.                          
+                                                                                
+       SYSZIP-040-EXIT.                                                         
+            EXIT.                                                               
+      *                                                                         
+       SYSZIP-050-POST-PROCESS.                                                 
+                                                                                
+           EVALUATE SYWZIP-TYPE2(SYWZIP-IX)                                     
+             WHEN 'K'                                                           
+               MOVE SYWZIP-LEN2(SYWZIP-IX)                                      
+                                       TO SYWZIP-T-LEN                          
+               MOVE SYWZIP-OUT(SYWZIP-I-IX:SYWZIP-T-LEN)                        
+                 TO SYWZIP-2-ZIP(SYWZIP-O-IX:SYWZIP-T-LEN)                      
+               ADD SYWZIP-T-LEN        TO SYWZIP-I-IX                           
+                                          SYWZIP-O-IX                           
+             WHEN 'S'                                                           
+               ADD SYWZIP-LEN2(SYWZIP-IX)                                       
+                                       TO SYWZIP-I-IX                           
+           END-EVALUATE.                                                        
+                                                                                
+       SYSZIP-050-EXIT.                                                         
+            EXIT.                                                               

@@ -1,0 +1,160 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT029                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV029 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV029-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV029-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV029-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV029-CO-CD                                  *          
+      *              - EDV029-PARTNER-ID                             *          
+      *              - EDV029-CREDIT-MEMO-FLG                        *          
+      *              - EDV029-ASSET-TAG-FLG                          *          
+      *              - EDV029-EDI-PO-FLG                             *          
+      *              - EDV029-ZERO-VALUE-FLG                         *          
+      *              - EDV029-REFUSAL-FLG                            *          
+      *              - EDV029-COMPONENTS-FLG                         *          
+      *              - EDV029-INTEREST-INV-FLG                       *          
+      *              - EDV029-LST-CHG-TS                             *          
+      *              - EDV029-LST-CHG-NAM                            *          
+      *                                                              *          
+      *    OUTPUT: EDV029-OUTPUT-DATA                                *          
+      *          - EDV029-ROW-COUNT                                  *          
+      *          - EDV029-MODULE-RESULT-CD                           *          
+      *          - EDV029-MODULE-MESSAGE                             *          
+      *          - EDV029-DATABASE-RESULT-CODES:                     *          
+      *              - EDV029-SQLCA VALUES                           *          
+      *              - EDV029-SQLCODE                                *          
+      *              - EDV029-SQLSTATE                               *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV029 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV029-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV029-PARTNER-ID.                *          
+      *     MOVE 'S ' TO EDV029-ACTION-CD.     .                     *          
+      *     MOVE 'IE_SPECIAL_LABEL' TO EDV029-OBJECT-ID.             *          
+      *                                                              *          
+      *     CALL 'EDV029' USING EDV029-COMMUNICATIONS-AREA.          *          
+      *     IF EDV029-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV029 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT001 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                11/20/01  KXR   ORIGINAL.                     *  KXR01324
+      ****************************************************************          
+                                                                                
+       01  EDV029-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV029-ACTION-CD                     PIC  X(002).                
+               88  EDV029-SELECT                    VALUE 'S '.                 
+               88  EDV029-INSERT                    VALUE 'I '.                 
+               88  EDV029-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV029-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV029-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV029-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV029-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV029-COUNT                     VALUE 'C '.                 
+               88  EDV029-MAX                       VALUE 'MX'.                 
+               88  EDV029-MIN                       VALUE 'MN'.                 
+               88  EDV029-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV029-MASS-UPDATE               VALUE 'MU'.                 
+               88  EDV029-MASS-INSERT               VALUE 'MI'.                 
+           05  EDV029-USER-ID                       PIC  X(010).                
+           05  EDV029-KEY-AREA.                                                 
+               10  EDV029-KEY-CO-CD                 PIC  X(002).                
+               10  EDV029-KEY-PARTNER-ID            PIC  X(015).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV029-INPUT-OUTPUT-AREA.                                        
+               10  EDV029-OBJECT-ID                 PIC  X(030).                
+                   88  EDV029-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV029-IE-SPECIAL-LABEL      VALUE                       
+                                  'IE_SPECIAL-LABEL              '.             
+               10  EDV029-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV029-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV029-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV029-CO-CD                 PIC  X(002).                
+                   15  EDV029-PARTNER-ID            PIC  X(015).                
+                   15  EDV029-LBL-CD                PIC  X(010).                
+                   15  EDV029-LBL-ADDR-TXT          PIC  X(050).                
+                   15  EDV029-LST-CHG-TS            PIC  X(026).                
+                   15  EDV029-LST-CHG-NAM           PIC  X(015).                
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV029-OUTPUT-DATA.                                              
+               10  EDV029-ROW-COUNT                 PIC  S9(009).               
+               10  EDV029-MODULE-RESULT-CD          PIC  X(002).                
+                   88  EDV029-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV029-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV029-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV029-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV029-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV029-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV029-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV029-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV029-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV029-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV029-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV029-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV029-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV029-EXCEPTION-MESSAGE.                                    
+                   15  EDV029-MSG-OBJECT            PIC  X(030).                
+                   15  EDV029-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV029-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV029-SQLCA.                                            
+                       20  EDV029-SQLCAID           PIC  X(008).                
+                       20  EDV029-SQLCABC           PIC  S9(009).               
+                       20  EDV029-SQLCODE           PIC  S9(009).               
+                       20  EDV029-SQLERRM.                                      
+                           25  EDV029-SQLERRML      PIC  S9(004).               
+                           25  EDV029-SQLERRMC      PIC  X(070).                
+                       20  EDV029-SQLERRP           PIC  X(008).                
+                       20  EDV029-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV029-SQLWARN.                                      
+                           25  EDV029-SQLWARN0      PIC  X(001).                
+                           25  EDV029-SQLWARN1      PIC  X(001).                
+                           25  EDV029-SQLWARN2      PIC  X(001).                
+                           25  EDV029-SQLWARN3      PIC  X(001).                
+                           25  EDV029-SQLWARN4      PIC  X(001).                
+                           25  EDV029-SQLWARN5      PIC  X(001).                
+                           25  EDV029-SQLWARN6      PIC  X(001).                
+                           25  EDV029-SQLWARN7      PIC  X(001).                
+                       20  EDV029-SQLEXT.                                       
+                           25  EDV029-SQLWARN8      PIC  X(001).                
+                           25  EDV029-SQLWARN9      PIC  X(001).                
+                           25  EDV029-SQLWARNA      PIC  X(001).                
+                           25  EDV029-SQLSTATE      PIC  X(005).                

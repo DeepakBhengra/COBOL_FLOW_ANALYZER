@@ -1,0 +1,438 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. ORP694T.
+      * Test program: the pasted paragraph 1200-FORMAT-ORDER-LINE-REQ from ORP694, wrapped so it
+      * can be analysed on its own. Working fields not declared here are left undeclared.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY ORRORL.
+       COPY ORRORH.
+       COPY CORORL.
+       COPY TBIINLN.
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           PERFORM 1200-FORMAT-ORDER-LINE-REQ THRU 1200-EXIT
+           STOP RUN.
+       1200-FORMAT-ORDER-LINE-REQ.
+           INITIALIZE CORORL-LU62-ORDER-LINE-REQUEST.
+           IF WS-CALLED-FROM-SB-PARA
+              MOVE 'B' TO CORORL-REQUEST-TYPE
+           ELSE
+              MOVE LENGTH OF ORRORL-LINE-REQUEST TO WS-LINE-LEN
+              MOVE WS-SAVE-LINE (SUB)          TO WS-SAVE-LINE-X
+              MOVE WS-SAVE-LINE-X(1:WS-LINE-LEN) TO ORRORL-LINE-REQUEST
+           END-IF.
+           IF ORRORL-REQUEST-FUNCTION  NOT = 'OL'
+              SET WS-NO-MORE-LINES TO TRUE
+              GO TO 1200-EXIT.
+           IF (ORRORH-COUNTRY-CODE  = 'MD' OR 'UK' OR 'FT')
+               AND TB-IL2-ALLOW-SPECIAL-CHAR
+              PERFORM 1130-BYPASS-LINE-SPEC-CHAR  THRU  1130-EXIT
+           END-IF.
+           MOVE ORRORL-LINE-REQUEST       TO VC-TEXT-AREA.
+           MOVE LENGTH OF ORRORL-LINE-REQUEST  TO VC-SUB-MAX.
+           IF ORRORH-COUNTRY-CODE  = 'MD' OR 'UK' OR 'FT'
+              IF WS-PRICE-OVRDE-OK-TERM-ID NOT = 'HERM'
+                 PERFORM V100-CLEANUP-TEXT      THRU V100-EXIT
+                 IF VC-INVLD-CHAR-COUNT > 0
+                 MOVE 'LC'                      TO SND-ERR-CODE
+                 MOVE 'INVALID LINE CHARS     ' TO SND-ERR-TEXT
+                 MOVE  VC-TXT-OFFSET-COUNT TO WS-ORRORL-LAYOUT
+                 PERFORM 1205-CHECK-LINE-ERROR THRU 1205-EXIT
+                 SET  WS-ERROR-FOUND      TO TRUE
+                 GO TO 1200-EXIT.
+           IF (ORRORH-COUNTRY-CODE  = 'MD' OR 'UK' OR 'FT')
+               AND TB-IL2-ALLOW-SPECIAL-CHAR
+              MOVE WS-ENTITLED-P-NAME    TO ORRORL-ENTITLED-P-NAME
+              MOVE WS-ENTITLED-P-ADDR1   TO ORRORL-ENTITLED-P-ADDR1
+              MOVE WS-ENTITLED-P-ADDR2   TO ORRORL-ENTITLED-P-ADDR2
+              MOVE WS-ENTITLED-P-CITY    TO ORRORL-ENTITLED-P-CITY
+              MOVE WS-ENTITLED-P-STATE   TO ORRORL-ENTITLED-P-STATE
+              MOVE WS-ENTITLED-EMAIL-ADDR
+                                         TO ORRORL-ENTITLED-EMAIL-ADDR
+              MOVE WS-ENTITLED-CTC-NAME  TO ORRORL-ENTITLED-CTC-NAME
+              MOVE WS-ASSET-P-NAME       TO ORRORL-ASSET-P-NAME
+              MOVE WS-ASSET-P-ADDR1      TO ORRORL-ASSET-P-ADDR1
+              MOVE WS-ASSET-P-ADDR2      TO ORRORL-ASSET-P-ADDR2
+              MOVE WS-ASSET-P-CITY       TO ORRORL-ASSET-P-CITY
+              MOVE WS-ASSET-P-STATE      TO ORRORL-ASSET-P-STATE
+              MOVE WS-ASSET-EMAIL-ADDR   TO ORRORL-ASSET-EMAIL-ADDR
+              MOVE WS-ASSET-CTC-NAME     TO ORRORL-ASSET-CTC-NAME
+              MOVE WS-SYS-MGR-CTC        TO ORRORL-SYS-MGR-CTC
+              MOVE WS-SS-EU-CO-NAM       TO ORRORL-SS-EU-CO-NAM
+              MOVE WS-SS-EU-CO-ADDR-1    TO ORRORL-SS-EU-CO-ADDR-1
+              MOVE WS-SS-EU-CO-ADDR-2    TO ORRORL-SS-EU-CO-ADDR-2
+              MOVE WS-SS-EU-CO-CITY      TO ORRORL-SS-EU-CO-CITY
+              MOVE WS-SS-EU-CO-ST-PVNC-CD
+                                         TO ORRORL-SS-EU-CO-ST-PVNC-CD
+              MOVE WS-SS-EU-CTAC-NAM     TO ORRORL-SS-EU-CTAC-NAM
+              MOVE WS-SS-END-USER-EMAIL  TO ORRORL-SS-END-USER-EMAIL
+           END-IF.
+           MOVE 'LULA'                   TO CORORL-TRAN-ID.
+           MOVE 'IM'                     TO CORORL-SYSTEM-ID.
+           MOVE ORRORH-CUSTOMER-BR       TO CORORL-BR-NBR.
+           MOVE ORRORH-CUSTOMER-NBR      TO CORORL-CUST-NBR.
+           MOVE ORRORH-COUNTRY-CODE      TO CORORL-COMPANY-CODE
+                                            CORORL-COMPANY.
+           IF CORORL-COMPANY = 'T1'
+              MOVE 'MD'                  TO CORORL-COMPANY
+                                            CORORL-COMPANY-CODE.
+           MOVE 'ORL'                    TO CORORL-RECORD-ID
+           MOVE WS-SAVE-ORDER-BR         TO CORORL-INGRAM-ORDER-BR
+           MOVE WS-SAVE-ORDER-NBR        TO CORORL-INGRAM-ORDER-NBR
+           IF WS-CALLED-FROM-SB-PARA
+              MOVE WS-SB-ORDER-DIST (WS-SB-SUB) TO
+                   CORORL-INGRAM-ORDER-DIST
+              MOVE WS-SB-ORDER-SHIP (WS-SB-SUB) TO
+                   CORORL-INGRAM-ORDER-SHIP
+           ELSE
+              MOVE '1'                   TO CORORL-INGRAM-ORDER-DIST
+                                            CORORL-INGRAM-ORDER-SHIP
+           END-IF
+           MOVE ORRORL-CUST-TO-ING-PO-NBR
+                                         TO CORORL-CUSTOMER-TO-INGRAM-PO
+           MOVE ORRORL-CUST-LINE-NBR     TO CORORL-CUSTOMER-LINE-NBR.
+           MOVE ORRORL-ING-LINE-NBR      TO CORORL-INGRAM-LINE-NBR.
+           MOVE ORRORL-CUST-PART-NBR     TO CORORL-CUSTOMER-PART-NBR.
+           MOVE ORRORL-ING-PART-NBR      TO CORORL-INGRAM-PART-NBR.
+           MOVE ORRORL-QTY-ORDERED (4:4) TO CORORL-QTY-ORDERED-A.
+           MOVE ORRORL-QTY-ORDERED       TO CORORL-QTY-ORDERED1-A.
+           MOVE ORRORL-NEW-WAREHSE-NBR   TO CORORL-NEW-WAREHOUSE-NBR.
+           MOVE ORRORL-NEW-WAREHSE-CO    TO CORORL-NEW-WAREHOUSE-CO.
+           MOVE ORRORL-PROMISE-DATE      TO CORORL-PROMISE-DATE
+           MOVE ORRORL-GSN               TO CORORL-GSN
+           MOVE ORRORL-VSN               TO CORORL-VSN.
+           MOVE ORRORL-HW-WAR-CUST-LNE-NBR-1
+                              TO CORORL-HW-WAR-CUST-LNE-NBR-1
+           MOVE ORRORL-HW-WAR-CUST-LNE-NBR-2
+                              TO CORORL-HW-WAR-CUST-LNE-NBR-2
+           MOVE ORRORL-HW-WAR-CUST-LNE-NBR-3
+                              TO CORORL-HW-WAR-CUST-LNE-NBR-3
+           MOVE ORRORL-HW-WAR-CUST-LNE-NBR-4
+                              TO CORORL-HW-WAR-CUST-LNE-NBR-4
+           IF ORRORL-SS-END-USER-EMAIL > SPACES
+              MOVE ORRORL-SS-END-USER-EMAIL TO
+                               CORORL-SS-END-USER-EMAIL
+           ELSE
+              MOVE SPACES TO CORORL-SS-END-USER-EMAIL
+           END-IF
+           IF ORRORL-SS-END-USER-CTAC-PHNE > SPACES
+              MOVE ORRORL-SS-END-USER-CTAC-PHNE TO
+                              CORORL-SS-END-USER-CTAC-PHNE
+           ELSE
+              MOVE SPACES TO CORORL-SS-END-USER-CTAC-PHNE
+           END-IF
+           MOVE ORRORL-GDS-SVCS-DOP      TO CORORL-GDS-SVCS-DOP
+           MOVE ORRORL-ENTITLED-P-NAME   TO CORORL-ENTITLED-P-NAME
+           MOVE ORRORL-ENTITLED-P-ADDR1  TO CORORL-ENTITLED-P-ADDR1
+           MOVE ORRORL-ENTITLED-P-ADDR2  TO CORORL-ENTITLED-P-ADDR2
+           MOVE ORRORL-ENTITLED-P-CITY   TO CORORL-ENTITLED-P-CITY
+           MOVE ORRORL-ENTITLED-P-STATE  TO CORORL-ENTITLED-P-STATE
+           MOVE ORRORL-ENTITLED-P-ZIP    TO CORORL-ENTITLED-P-ZIP
+           MOVE ORRORL-ENTITLED-P-CNTRY  TO CORORL-ENTITLED-P-CNTRY
+           MOVE ORRORL-ENTITLED-EMAIL-ADDR
+                                         TO CORORL-ENTITLED-EMAIL-ADDR
+           MOVE ORRORL-ENTITLED-EMAIL-IND
+                                         TO CORORL-ENTITLED-EMAIL-IND
+           MOVE ORRORL-ENTITLED-P-PHONE  TO CORORL-ENTITLED-P-PHONE
+           MOVE ORRORL-ASSET-P-NAME      TO CORORL-ASSET-P-NAME
+           MOVE ORRORL-ASSET-P-ADDR1     TO CORORL-ASSET-P-ADDR1
+           MOVE ORRORL-ASSET-P-ADDR2     TO CORORL-ASSET-P-ADDR2
+           MOVE ORRORL-ASSET-P-CITY      TO CORORL-ASSET-P-CITY
+           MOVE ORRORL-ASSET-P-STATE     TO CORORL-ASSET-P-STATE
+           MOVE ORRORL-ASSET-P-ZIP       TO CORORL-ASSET-P-ZIP
+           MOVE ORRORL-ASSET-P-CNTRY     TO CORORL-ASSET-P-CNTRY
+           MOVE ORRORL-ASSET-EMAIL-ADDR
+                                         TO CORORL-ASSET-EMAIL-ADDR
+           MOVE ORRORL-ASSET-EMAIL-IND   TO CORORL-ASSET-EMAIL-IND
+           MOVE ORRORL-ASSET-P-PHONE     TO CORORL-ASSET-P-PHONE
+           MOVE ORRORL-UCID              TO CORORL-UCID
+           MOVE ORRORL-LOID              TO CORORL-LOID
+           MOVE ORRORL-ENTITLED-CTC-NAME TO CORORL-ENTITLED-CTC-NAME
+           MOVE ORRORL-ASSET-CTC-NAME    TO CORORL-ASSET-CTC-NAME
+           MOVE ORRORL-SYS-MGR-CTC       TO CORORL-SYS-MGR-CTC
+           MOVE ORRORL-API-VERIFY-IND    TO CORORL-API-VERIFY-IND
+           IF ORRORL-SS-EU-CO-NAM > SPACES
+              MOVE ORRORL-SS-EU-CO-NAM TO CORORL-SS-EU-CO-NAM
+           ELSE
+              MOVE SPACES TO CORORL-SS-EU-CO-NAM
+           END-IF.
+           IF ORRORL-SS-EU-CO-ADDR-1 > SPACES
+              MOVE ORRORL-SS-EU-CO-ADDR-1 TO CORORL-SS-EU-CO-ADDR-1
+           ELSE
+              MOVE SPACES TO CORORL-SS-EU-CO-ADDR-1
+           END-IF.
+           IF ORRORL-SS-EU-CO-ADDR-2  > SPACES
+              MOVE ORRORL-SS-EU-CO-ADDR-2  TO CORORL-SS-EU-CO-ADDR-2
+           ELSE
+              MOVE SPACES TO CORORL-SS-EU-CO-ADDR-2
+           END-IF.
+           IF ORRORL-SS-EU-CO-CITY > SPACES
+              MOVE ORRORL-SS-EU-CO-CITY TO CORORL-SS-EU-CO-CITY
+           ELSE
+              MOVE SPACES TO CORORL-SS-EU-CO-CITY
+           END-IF.
+           IF ORRORL-SS-EU-CO-ST-PVNC-CD > SPACES
+              MOVE ORRORL-SS-EU-CO-ST-PVNC-CD TO
+                                 CORORL-SS-EU-CO-ST-PVNC-CD
+           ELSE
+              MOVE SPACES TO CORORL-SS-EU-CO-ST-PVNC-CD
+           END-IF.
+           IF ORRORL-SS-EU-POST-CD > SPACES
+              MOVE ORRORL-SS-EU-POST-CD TO CORORL-SS-EU-POST-CD
+           ELSE
+              MOVE SPACES TO CORORL-SS-EU-POST-CD
+           END-IF .
+           IF ORRORL-SS-EU-CTRY-CD > SPACES
+              MOVE ORRORL-SS-EU-CTRY-CD TO CORORL-SS-EU-CTRY-CD
+           ELSE
+              MOVE SPACES TO CORORL-SS-EU-CTRY-CD
+           END-IF.
+           IF ORRORL-SS-EU-CTAC-NAM > SPACES
+              MOVE ORRORL-SS-EU-CTAC-NAM TO CORORL-SS-EU-CTAC-NAM
+           ELSE
+              MOVE SPACES TO CORORL-SS-EU-CTAC-NAM
+           END-IF.
+           MOVE ORRORL-ORIGINAL-RSLR-PRICE
+                                      TO CORORL-ORIGINAL-RSLR-PRICE.
+           MOVE ORRORL-ICMS-CODE      TO CORORL-ICMS-CODE.
+           MOVE ORRORL-TES-CODE       TO CORORL-TES-CODE.
+           MOVE ORRORL-HB-DEAL-SEQ-NO TO CORORL-HB-DEAL-SEQ-NO.
+           IF ORRORL-END-USER-PRICE  NUMERIC
+              MOVE ORRORL-END-USER-PRICE TO CORORL-AUC-SEL-PRICE
+           ELSE
+              MOVE ZEROS                 TO CORORL-AUC-SEL-PRICE.
+           MOVE ORRORL-VAT-CODE          TO CORORL-VAT-CODE.
+           IF ORRORL-DSLINK-UNIQUE-ID > SPACES
+              MOVE ORRORL-DSLINK-UNIQUE-ID TO CORORL-DSLINK-UNIQUE-ID
+           ELSE
+              MOVE SPACES                  TO CORORL-DSLINK-UNIQUE-ID
+           END-IF.
+           MOVE ORRORL-PROD-MDL-NUMBER   TO CORORL-PROD-MDL-NUMBER.
+           MOVE ORRORL-LCNSG-SRV-NUMBER  TO CORORL-LCNSG-SRV-NUMBER.
+           MOVE ORRORH-OPER-ID           TO CORORL-OPER-ID.
+           IF ORRORH-SIMULATED-ORDER-SW > SPACE
+              MOVE ORRORH-SIMULATED-ORDER-SW
+                                   TO CORORL-SIMULATED-ORDER-SW
+           ELSE
+              MOVE SPACE TO CORORL-SIMULATED-ORDER-SW
+           END-IF.
+           MOVE  ORRORL-UNIT-PRICE-OVRD-IND
+                                      TO CORORL-UNIT-PRICE-OVRD-IND.
+           IF ORRORL-UNIT-PRICE  NUMERIC
+              AND ORRORL-UNIT-PRICE  GREATER THAN ZEROES
+              AND (TB-IL-ALLOW-PRICE-OVRD OR CORORL-SIMULATED-ORDER)
+                IF ORRORL-BILL-ONLY-LINE
+                  IF TB-IL-AUC-PRICE-COST
+                    MOVE ORRORL-UNIT-PRICE TO CORORL-AUC-SEL-PRICE
+                  END-IF
+                ELSE
+                  MOVE ORRORL-UNIT-PRICE TO CORORL-UNIT-PRICE
+                  MOVE 'Y'               TO CORORL-UNIT-PRICE-SW
+                END-IF
+           END-IF.
+           IF ORRORL-UNIT-PRICE  NUMERIC AND
+              ORRORL-UNIT-PRICE  GREATER THAN ZEROES AND
+             (TB-IL-ALLOW-PRICE-OVRD                 OR
+             (TB-IL-ALLOW-PRC-OVD-N-BILLONLY         AND
+               NOT  ORRORL-BILL-ONLY-LINE))
+               MOVE ORRORL-UNIT-PRICE TO CORORL-UNIT-PRICE
+               MOVE 'Y'               TO CORORL-UNIT-PRICE-SW
+           END-IF.
+           IF ORRORL-UNIT-PRICE  NUMERIC AND
+              ORRORL-UNIT-PRICE  GREATER THAN ZEROES AND
+              TB-IL-AUC-PRICE-COST                   OR
+              (TB-IL-AUC-PRC-COST-BILLONLY           AND
+               ORRORL-BILL-ONLY-LINE)
+               MOVE ORRORL-UNIT-PRICE TO CORORL-AUC-SEL-PRICE
+           END-IF.
+           IF (ORRORL-UNIT-PRICE NUMERIC AND
+               (ORRORL-UNIT-PRICE GREATER THAN OR EQUAL TO ZEROES) AND
+               ORRORL-UNIT-PRICE-SW = 'Y')
+               IF (TB-IL-ZERO-PRICE-REQ  AND
+                   NOT  ORRORL-BILL-ONLY-LINE)
+                  MOVE ORRORL-UNIT-PRICE-SW TO CORORL-UNIT-PRICE-SW
+                  MOVE ORRORL-UNIT-PRICE    TO CORORL-UNIT-PRICE
+               END-IF
+           END-IF.
+           IF ORRORL-UNIT-PRICE  NUMERIC AND
+              ORRORL-UNIT-PRICE  GREATER THAN ZEROES
+              IF TB-IL-SKP-PRICE-OVRD-CHK
+                 NEXT SENTENCE
+              ELSE
+                IF TB-IL-ALW-TERM-TO-OVRD
+                  CONTINUE
+                ELSE
+                  MOVE 'P5'                      TO SND-ERR-CODE
+                  MOVE 'INV TERM TO OVRD PRICE ' TO SND-ERR-TEXT
+                  SET WS-ERROR-FOUND       TO TRUE
+                  GO TO 1200-EXIT
+                END-IF
+              END-IF
+              INITIALIZE SYRPSEC-SECURITY-REQUEST
+              MOVE 'ORSE'          TO SYRPSEC-FUNCTION
+              MOVE CORORL-OPER-ID  TO SYRPSEC-OPID
+              INITIALIZE LNK-BUFFER-AREA
+              MOVE SYRPSEC-SECURITY-REQUEST TO LNK-BUFFER-AREA
+              MOVE LENGTH OF SYRPSEC-SECURITY-REQUEST
+                                            TO WS-TS-REC-LENGTH
+              EXEC CICS LINK
+                   PROGRAM ('WWPSEC')
+                   COMMAREA (LNK-BUFFER-AREA)
+                   LENGTH (WS-TS-REC-LENGTH)
+                   SYNCONRETURN
+                   RESP  (WS-EIBRESP)
+              END-EXEC
+              INITIALIZE SYRPSEC-SECURITY-REQUEST
+              MOVE LNK-BUFFER-AREA       TO SYRPSEC-SECURITY-REQUEST
+              IF SYRPSEC-R-NO-ERROR
+                 IF SYRPSEC-R-AUTHORIZED
+                    MOVE ORRORL-UNIT-PRICE TO CORORL-UNIT-PRICE
+                    MOVE 'Y'               TO CORORL-UNIT-PRICE-SW
+                 ELSE
+                    MOVE 'P4'                      TO SND-ERR-CODE
+                    MOVE 'NOT AUTH TO OVRD PRICE ' TO SND-ERR-TEXT
+                    SET WS-ERROR-FOUND    TO TRUE
+                    GO TO 1200-EXIT
+                 END-IF
+              ELSE
+                 MOVE 'P4'                      TO SND-ERR-CODE
+                 MOVE 'NOT AUTH TO OVRD PRICE ' TO SND-ERR-TEXT
+                 SET WS-ERROR-FOUND       TO TRUE
+                 GO TO 1200-EXIT
+              END-IF
+           ELSE
+              MOVE ZEROS                 TO CORORL-UNIT-PRICE
+           END-IF.
+           IF ORRORL-RESELLER-BASE-PRICE NUMERIC
+              MOVE ORRORL-RESELLER-BASE-PRICE
+                                         TO CORORL-RESELLER-BASE-PRICE
+           ELSE
+              MOVE ZEROS                 TO CORORL-RESELLER-BASE-PRICE
+           END-IF.
+           IF ORRORL-ORIGINAL-PRICE  NUMERIC
+              MOVE ORRORL-ORIGINAL-PRICE TO CORORL-ORIGINAL-PRICE
+           ELSE
+              MOVE ZEROES                TO CORORL-ORIGINAL-PRICE
+           END-IF.
+           MOVE ORRORL-LINE-TYPE         TO CORORL-LINE-TYPE.
+           IF ORRORL-END-USER-ID NUMERIC
+           AND ORRORL-END-USER-ID > ZEROS
+              MOVE ORRORL-END-USER-ID     TO      CORORL-END-USER-ID
+           ELSE
+              MOVE ZEROS                  TO      CORORL-END-USER-ID
+           END-IF.
+           IF ORRORL-ADDR-SEQ-NBR NUMERIC
+           AND ORRORL-ADDR-SEQ-NBR > ZEROS
+              MOVE ORRORL-ADDR-SEQ-NBR      TO   CORORL-ADDR-SEQ-NBR
+           ELSE
+              MOVE ZEROS                    TO   CORORL-ADDR-SEQ-NBR
+           END-IF.
+           IF ORRORL-CTAC-ID  NUMERIC
+           AND ORRORL-CTAC-ID > ZEROS
+              MOVE ORRORL-CTAC-ID          TO   CORORL-CTAC-ID
+           ELSE
+              MOVE ORRORL-CTAC-ID          TO   CORORL-CTAC-ID
+           END-IF.
+           MOVE ORRORL-AUTH-BID-NBR      TO CORORL-AUTH-BID-NBR
+           MOVE ORRORL-CUST-INTERNAL-SALESMAN
+                                   TO CORORL-CUST-INTERNAL-SALESMAN
+           MOVE ORRORL-CUST-INTERNAL-ACCTINFO
+                                   TO CORORL-CUST-INTERNAL-ACCTINFO
+           MOVE ORRORL-GOVT-EU-PO-NBR    TO CORORL-GOVT-EU-PO-NBR
+           MOVE ORRORL-MKT-SEGMENT-TYPE  TO CORORL-MKT-SEGMENT-TYPE
+           MOVE ORRORL-VEND-ACOP-PGM-CD  TO CORORL-GOVT-END-USER-TYPE2
+           MOVE ORRORL-EU-PURCH-DATE     TO CORORL-EU-PURCH-DATE
+           MOVE ORRORL-EU-PRICE          TO CORORL-EU-PRICE
+           MOVE ORRORH-RSLR-CTAC-EMAIL   TO CORORL-RSLR-CTAC-EMAIL
+           MOVE ORRORL-COST-OVERRIDE-IND TO CORORL-COST-OVERRIDE-IND
+           IF ORRORL-GDS-AUTH-TRK-NBR NUMERIC
+              MOVE ORRORL-GDS-AUTH-TRK-NBR
+                                  TO CORORL-GDS-AUTH-TRK-NBR
+           ELSE
+              MOVE ZEROES                TO CORORL-GDS-AUTH-TRK-NBR
+           END-IF
+           IF ORRORL-GDS-TIER-TRK-NBR NUMERIC
+              MOVE ORRORL-GDS-TIER-TRK-NBR
+                                  TO CORORL-GDS-TIER-TRK-NBR
+           ELSE
+              MOVE ZEROES                TO CORORL-GDS-TIER-TRK-NBR
+           END-IF
+           MOVE ORRORL-EU-DATA-AVAIL-SW  TO CORORL-EU-DATA-AVAIL-SW
+           MOVE ORRORL-NEW-BILL-TO-SUFFIX
+                                   TO CORORL-NEW-BILL-TO-SUFFIX.
+           MOVE 'ORP694'              TO CORORL-CALLED-PROGRAM.
+           MOVE ORRORL-PULL-RSV-INV-FLAG
+                                   TO CORORL-PULL-RSV-INV-FLAG.
+           MOVE ORRORL-RSV-SEQUENCE-NBR  TO CORORL-RSV-SEQUENCE-NBR.
+           MOVE ORRORL-RSV-TYPE-CODE     TO CORORL-RSV-TYPE-CODE.
+           MOVE ORRORL-BR-TAX-DISC-SW    TO CORORL-BR-TAX-DISC-SW.
+           MOVE ORRORL-SPEC-BID-LINE-IND TO CORORL-SPECIAL-BID-LINE
+           MOVE ORRORL-SPEC-BID-NBR      TO CORORL-SPEC-BID-NBR
+           MOVE ORRORH-SS-EU-BR          TO CORORL-SS-END-USER-BR
+           MOVE ORRORH-SS-EU-CUST        TO CORORL-SS-END-USER-NBR
+           MOVE ORRORL-OPEN-WAREHOUSE-SEQ-FLAG TO
+                              CORORL-OPEN-WAREHOUSE-SEQ-FLAG
+           MOVE ORRORL-CUST-GIFT-CODE    TO CORORL-CUST-GIFT-CODE.
+           MOVE ORRORL-SPLIT-LINE-FLAG   TO CORORL-SPLIT-LINE-FLAG.
+           MOVE ORRORL-NBO-ACOP-HOLD     TO CORORL-NBO-ACOP-HOLD.
+           MOVE ORRORL-ORDR-HOLD-IND-SW  TO CORORL-ORDR-HOLD-IND-SW.
+           IF ORRORL-AUC-SEL-COST   NUMERIC AND
+              ORRORL-AUC-SEL-COST   GREATER THAN ZEROES
+              MOVE ORRORL-AUC-SEL-COST      TO CORORL-AUC-SEL-COST
+           END-IF
+           MOVE ORRORL-DESC1             TO CORORL-DESC1
+           MOVE ORRORL-DESC2             TO CORORL-DESC2
+           MOVE ORRORL-CNFG-LINE-INFO-SW TO CORORL-CNFG-LINE-INFO-SW
+           MOVE ORRORL-AUTH-ACOP-TRK-NBR TO CORORL-AUTH-ACOP-TRK-NBR
+           MOVE ORRORL-GSA-FLAG          TO CORORL-GSA-FLAG
+           MOVE ORRORL-BRAZIL-CHILD-SKU-IND
+                                         TO CORORL-BRAZIL-CHILD-SKU-IND
+           MOVE ORRORL-OVERRIDE-TAX-AMT  TO CORORL-OVERRIDE-TAX-AMT
+           MOVE ORRORL-OVERRIDE-TAX-AMT-SIGN
+                                         TO
+                                           CORORL-OVERRIDE-TAX-AMT-SIGN
+           MOVE ORRORL-RSLR-TOTAL-TAX    TO CORORL-RSLR-TOTAL-TAX
+           MOVE EIBTIME                  TO CORORL-CURRENT-TIME.
+           MOVE EIBDATE                  TO CORORL-CURRENT-DATE-YYMMDD.
+           MOVE EIBTRMID                 TO CORORL-CUSTOMER-TERM-ID.
+           IF CORORL-COMPANY = 'BR'
+           OR CORORL-COMPANY = 'BP'
+           OR CORORL-COMPANY = 'BL'
+              SET ITS-NOT-A-MASTER-SKU TO TRUE
+              MOVE SPACE    TO  WS-MASTER-SKU-ERROR-SW
+                                WS-END-OF-ASSORTMENT-SW
+                                CORORL-BRAZIL-MASTER-SKU-FLAG
+              IF CORORL-BRAZIL-CHILD-SKU-IND = 'Y'
+                 CONTINUE
+              ELSE
+                 PERFORM 1231-FORMAT-ORDER-LINE-REQ THRU
+                         1231-EXIT
+              END-IF
+           END-IF.
+           MOVE ORRORL-VENDOR-NBR        TO CORORL-VENDOR-NBR.
+           MOVE ORRORL-CONTRACT-START-DT TO CORORL-CONTRACT-START-DT
+           MOVE ORRORL-CONTRACT-END-DT   TO CORORL-CONTRACT-END-DT
+           MOVE ORRORL-PRICE-PROT-DATE   TO CORORL-PRICE-PROT-DATE.
+           MOVE ORRORL-DART-COMMENT      TO CORORL-DART-COMMENT.
+           MOVE ORRORL-TERM-START-DATE   TO CORORL-TERM-START-DATE.
+           MOVE ORRORL-TERM-END-DATE     TO CORORL-TERM-END-DATE.
+           MOVE ORRORL-TERM-DURATION     TO CORORL-TERM-DURATION.
+           MOVE ORRORL-NP-MAGIC-KEY      TO CORORL-NP-MAGIC-KEY.
+           MOVE ORRORL-NP-VEND-LINE-NBR  TO CORORL-NP-VEND-LINE-NBR.
+           IF TB-CPO7-VMF-ENGINE-ENABLED
+                MOVE ORRORL-VND-VMF-LNE-INF-MISS-SW
+                                   TO
+                          CORORL-VND-VMF-LNE-INF-MISS-SW
+                MOVE ORRORL-VND-VMF-LNE-INF-SENT-SW
+                                   TO
+                          CORORL-VND-VMF-LNE-INF-SENT-SW
+           END-IF.
+           IF ITS-NOT-A-MASTER-SKU
+              INITIALIZE LNK-BUFFER-AREA
+              MOVE CORORL-LU62-ORDER-LINE-REQUEST
+                                         TO LNK-BUFFER-AREA
+              MOVE LENGTH OF CORORL-LU62-ORDER-LINE-REQUEST
+                                         TO WS-TS-REC-LENGTH
+           END-IF.
+       1200-EXIT.
+           EXIT.

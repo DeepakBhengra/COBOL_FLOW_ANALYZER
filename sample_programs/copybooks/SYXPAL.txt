@@ -1,0 +1,497 @@
+      ***********************************************************               
+      * COPYBOOK SYXPAL                                                         
+      *   ROUTINES FOR DB2 TABLE SHIP_PAL_WEIGHT TABLE.                         
+      *   1000-OPEN-CURSOR-SYXPAL.                                              
+      *   1100-FETCH-SYXPAL.                                                    
+      *   1200-CLOSE-CURSOR-SYXPAL.                                             
+      *   1300-INSERT-SYXPAL.                                                   
+      *   1400-DELETE-SYXPAL.                                                   
+      *   1500-DELETE-ALL-SYXPAL.                                               
+      *   1600-SELECT-SYXPAL.                                                   
+      *   2000-MAINLINE-SYXPAL.                                                 
+      *   2100-LOOP-SYXPAL.                                                     
+      *   3000-DELETE-ADD-SYXPAL-MAIN.                                          
+      *   3100-SYXPAL-LOOP-INSERTS.                                             
+      *                                                                         
+      * NECESSARY OTHER COPYBOOKS.                                              
+      *   ORTSHPAL - DCLGEN FOR SHIP_PAL_WEIGHT TABLE                           
+      *   SYRDATE  - DATE ROUTINE                                               
+      *   SYWPAL   - WORKING VALUES FOR COPYBOOK                                
+      ***********************************************************               
+      * REVISION INFO                                                           
+      * 10/10/18 KMP ADD SHIP PAL LOGIC FOR JDA PROJECT                 KMP18292
+      * 06/25/16 KMP SET SYWPAL-SUB TO 1.                               KMP16177
+      * 09/11/15 KMP NEW COPYBOOK FOR DIM WEIGHT PROJECT.               KMP15254
+      ***********************************************************               
+                                                                                
+       1000-OPEN-CURSOR-SYXPAL.                                                 
+      **************************************************************            
+      * OPEN CURSOR FOR SHIP_PAL_WEIGHT TABLE                                   
+      **************************************************************            
+                                                                                
+           EXEC SQL                                                             
+               OPEN SYXPAL_WEIGHT_CSR                                           
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               MOVE '1000-OPEN-CURSOR '     TO SYWDB2-EXTRA-MESSAGE-1           
+               MOVE 'OPEN SHIP_PAL_WEIGHT '                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1000'             TO WS-ABCODE                             
+               PERFORM 999-ABEND.                                               
+                                                                                
+       1000-SYXPAL-EXIT.                                                        
+            EXIT.                                                               
+                                                                                
+       1100-FETCH-SYXPAL.                                                       
+      **************************************************************            
+      * GET NEXT ROW FOR SPECIFIC ORDER FROM SHIP_PAL_WEIGHT TABLE              
+      **************************************************************            
+           EXEC SQL                                                             
+               FETCH SYXPAL_WEIGHT_CSR                                          
+               INTO :ORTSHPAL-PKG-SEQ-NBR,                                      
+                    :ORTSHPAL-EST-LENGTH,                                       
+                    :ORTSHPAL-EST-WIDTH,                                        
+                    :ORTSHPAL-EST-HEIGHT,                                       
+                    :ORTSHPAL-EST-VOL,                                          
+                    :ORTSHPAL-DIM-UM,                                           
+                    :ORTSHPAL-EST-WGT,                                          
+                    :ORTSHPAL-WGT-UM,                                           
+                    :ORTSHPAL-HEAVY-SKU-FLG,                                    
+                    :ORTSHPAL-EST-OSZ-GIRTH-FLG,                                
+                    :ORTSHPAL-LAST-CHG-OPER-ID,                                 
+                    :ORTSHPAL-LAST-CHG-PGM-ID,                                  
+                    :ORTSHPAL-LST-CHG-TS,                                       
+                    :ORTSHPAL-CNTNR-TYP-CD,                             KMP18292
+                    :ORTSHPAL-HAZMAT-ID,                                KMP18292
+                    :ORTSHPAL-FRT-CLS                                   KMP18292
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               IF SQLCODE = DB2-NOT-FOUND                                       
+                   GO TO 1100-SYXPAL-EXIT                                       
+                 ELSE                                                           
+                   MOVE '1100-FETCH-SYXPAL '  TO SYWDB2-EXTRA-MESSAGE-1         
+                   MOVE 'FETCH SHIP_PAL_WEIGHT '                                
+                                            TO SYWDB2-EXTRA-MESSAGE-2           
+                   PERFORM 990-SQL-MESSAGE                                      
+                   MOVE '1100'              TO WS-ABCODE                        
+                   PERFORM 999-ABEND.                                           
+                                                                                
+                                                                                
+       1100-SYXPAL-EXIT.                                                        
+           EXIT.                                                                
+                                                                                
+       1200-CLOSE-CURSOR-SYXPAL.                                                
+      **************************************************************            
+      * CLOSE CURSOR FOR SHIP_PAL_WEIGHT TABLE                                  
+      **************************************************************            
+                                                                                
+           EXEC SQL                                                             
+               CLOSE SYXPAL_WEIGHT_CSR                                          
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               MOVE '1200-CLOSE-CURSOR '     TO SYWDB2-EXTRA-MESSAGE-1          
+               MOVE 'CLOSE SHIP_PAL_WEIGHT '                                    
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1200'             TO WS-ABCODE                             
+               PERFORM 999-ABEND.                                               
+                                                                                
+       1200-SYXPAL-EXIT.                                                        
+            EXIT.                                                               
+                                                                                
+       1300-INSERT-SYXPAL.                                                      
+      **************************************************************            
+      * ADD ENTRY INTO SHIP_PAL_WEIGHT TABLE                                    
+      **************************************************************            
+                                                                                
+           EXEC SQL                                                             
+               INSERT INTO SHIP_PAL_WEIGHT                                      
+                 (CO_CD,                                                        
+                  BR_NBR,                                                       
+                  ORDR_NBR,                                                     
+                  DIST_NBR,                                                     
+                  SHIP_NBR,                                                     
+                  ORDR_ENTY_DT,                                                 
+                  PKG_SEQ_NBR,                                                  
+                  EST_LENGTH,                                                   
+                  EST_WIDTH,                                                    
+                  EST_HEIGHT,                                                   
+                  EST_VOL,                                                      
+                  DIM_UM,                                                       
+                  EST_WGT,                                                      
+                  WGT_UM,                                                       
+                  HEAVY_SKU_FLG,                                                
+                  EST_OSZ_GIRTH_FLG,                                            
+                  LAST_CHG_OPER_ID,                                             
+                  LAST_CHG_PGM_ID,                                              
+                  CNTNR_TYP_CD,                                         KMP18292
+                  HAZMAT_ID,                                            KMP18292
+                  FRT_CLS,                                              KMP18292
+                  LST_CHG_TS)                                           KMP18292
+    ***             ADD  FREIGHT CLASS  ----                            KMP18292
+            VALUES (:ORTSHPAL-CO-CD,                                            
+                    :ORTSHPAL-BR-NBR,                                           
+                    :ORTSHPAL-ORDR-NBR,                                         
+                    :ORTSHPAL-DIST-NBR,                                         
+                    :ORTSHPAL-SHIP-NBR,                                         
+                    :ORTSHPAL-ORDR-ENTY-DT,                                     
+                    :ORTSHPAL-PKG-SEQ-NBR,                                      
+                    :ORTSHPAL-EST-LENGTH,                                       
+                    :ORTSHPAL-EST-WIDTH,                                        
+                    :ORTSHPAL-EST-HEIGHT,                                       
+                    :ORTSHPAL-EST-VOL,                                          
+                    :ORTSHPAL-DIM-UM,                                           
+                    :ORTSHPAL-EST-WGT,                                          
+                    :ORTSHPAL-WGT-UM,                                           
+                    :ORTSHPAL-HEAVY-SKU-FLG,                                    
+                    :ORTSHPAL-EST-OSZ-GIRTH-FLG,                                
+                    :ORTSHPAL-LAST-CHG-OPER-ID,                                 
+                    :ORTSHPAL-LAST-CHG-PGM-ID,                                  
+                    :ORTSHPAL-CNTNR-TYP-CD,                             KMP18292
+                    :ORTSHPAL-HAZMAT-ID,                                KMP18292
+                    :ORTSHPAL-FRT-CLS,                                  KMP18292
+                    CURRENT_TIMESTAMP)                                  KMP18292
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               CONTINUE                                                         
+           ELSE                                                                 
+               MOVE '1300-INSERT-PAL-WEIGHT' TO SYWDB2-EXTRA-MESSAGE-1          
+               MOVE 'INSERT SHIP_PAL_WEIGHT '                                   
+                                             TO SYWDB2-EXTRA-MESSAGE-2          
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1300'              TO WS-ABCODE                            
+               PERFORM 999-ABEND                                                
+           END-IF.                                                              
+                                                                                
+       1300-SYXPAL-EXIT.                                                        
+            EXIT.                                                               
+                                                                                
+       1400-DELETE-SYXPAL.                                                      
+      **************************************************************            
+      * DELETE ENTRY IN SHIP_PAL_WEIGHT TABLE                                   
+      **************************************************************            
+                                                                                
+            EXEC SQL                                                            
+                DELETE FROM SHIP_PAL_WEIGHT                                     
+                 WHERE CO_CD        = :ORTSHPAL-CO-CD                           
+                   AND BR_NBR       = :ORTSHPAL-BR-NBR                          
+                   AND ORDR_NBR     = :ORTSHPAL-ORDR-NBR                        
+                   AND DIST_NBR     = :ORTSHPAL-DIST-NBR                        
+                   AND SHIP_NBR     = :ORTSHPAL-SHIP-NBR                        
+                   AND ORDR_ENTY_DT = :ORTSHPAL-ORDR-ENTY-DT                    
+                   AND PKG_SEQ_NBR  = :ORTSHPAL-PKG-SEQ-NBR                     
+            END-EXEC.                                                           
+                                                                                
+           IF  SQLCODE = DB2-NORESP OR SQLCODE = DB2-NOT-FOUND                  
+               CONTINUE                                                         
+           ELSE                                                                 
+               MOVE '1400-DELETE-PAL-WEIGHT' TO SYWDB2-EXTRA-MESSAGE-1          
+               MOVE 'DELETE SHIP_PAL_WEIGHT '                                   
+                                             TO SYWDB2-EXTRA-MESSAGE-2          
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1400'              TO WS-ABCODE                            
+               PERFORM 999-ABEND                                                
+           END-IF.                                                              
+                                                                                
+       1400-SYXPAL-EXIT.                                                        
+            EXIT.                                                               
+                                                                                
+       1500-DELETE-ALL-SYXPAL.                                                  
+      ****************************************************************          
+      * DELETE ALL ENTRIES FOR SPECIFIC ORDER IN SHIP_PAL_WEIGHT TABLE          
+      ****************************************************************          
+                                                                                
+            EXEC SQL                                                            
+                DELETE FROM SHIP_PAL_WEIGHT                                     
+                 WHERE CO_CD        = :ORTSHPAL-CO-CD                           
+                   AND BR_NBR       = :ORTSHPAL-BR-NBR                          
+                   AND ORDR_NBR     = :ORTSHPAL-ORDR-NBR                        
+                   AND DIST_NBR     = :ORTSHPAL-DIST-NBR                        
+                   AND SHIP_NBR     = :ORTSHPAL-SHIP-NBR                        
+                   AND ORDR_ENTY_DT = :ORTSHPAL-ORDR-ENTY-DT                    
+            END-EXEC.                                                           
+                                                                                
+           IF  SQLCODE = DB2-NORESP OR SQLCODE = DB2-NOT-FOUND                  
+               CONTINUE                                                         
+           ELSE                                                                 
+               MOVE '1500-DELETE-ALL PAL-WEIGHT'                                
+                                             TO SYWDB2-EXTRA-MESSAGE-1          
+               MOVE 'DELETE SHIP_PAL_WEIGHT '                                   
+                                             TO SYWDB2-EXTRA-MESSAGE-2          
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1500'              TO WS-ABCODE                            
+               PERFORM 999-ABEND                                                
+           END-IF.                                                              
+                                                                                
+       1500-SYXPAL-EXIT.                                                        
+            EXIT.                                                               
+                                                                                
+       1600-SELECT-SYXPAL.                                                      
+      **************************************************************            
+      * SELECT ENTRY FROM SHIP_PAL_WEIGHT TABLE                                 
+      **************************************************************            
+           EXEC SQL                                                             
+                SELECT  EST_LENGTH,                                             
+                        EST_WIDTH,                                              
+                        EST_HEIGHT,                                             
+                        EST_VOL,                                                
+                        DIM_UM,                                                 
+                        EST_WGT,                                                
+                        WGT_UM,                                                 
+                        HEAVY_SKU_FLG,                                          
+                        EST_OSZ_GIRTH_FLG,                                      
+                        LAST_CHG_OPER_ID,                                       
+                        LAST_CHG_PGM_ID,                                        
+                        LST_CHG_TS,                                             
+                        CNTNR_TYP_CD,                                   KMP18292
+                        HAZMAT_ID,                                      KMP18292
+                        FRT_CLS                                         KMP18292
+                  INTO :ORTSHPAL-EST-LENGTH,                                    
+                       :ORTSHPAL-EST-WIDTH,                                     
+                       :ORTSHPAL-EST-HEIGHT,                                    
+                       :ORTSHPAL-EST-VOL,                                       
+                       :ORTSHPAL-DIM-UM,                                        
+                       :ORTSHPAL-EST-WGT,                                       
+                       :ORTSHPAL-WGT-UM,                                        
+                       :ORTSHPAL-HEAVY-SKU-FLG,                                 
+                       :ORTSHPAL-EST-OSZ-GIRTH-FLG,                             
+                       :ORTSHPAL-LAST-CHG-OPER-ID,                              
+                       :ORTSHPAL-LAST-CHG-PGM-ID,                               
+                       :ORTSHPAL-LST-CHG-TS,                                    
+                       :ORTSHPAL-CNTNR-TYP-CD,                          KMP18292
+                       :ORTSHPAL-HAZMAT-ID,                             KMP18292
+                       :ORTSHPAL-FRT-CLS                                KMP18292
+                  FROM  SHIP_PAL_WEIGHT                                         
+                  WHERE CO_CD        = :ORTSHPAL-CO-CD                          
+                    AND BR_NBR       = :ORTSHPAL-BR-NBR                         
+                    AND ORDR_NBR     = :ORTSHPAL-ORDR-NBR                       
+                    AND DIST_NBR     = :ORTSHPAL-DIST-NBR                       
+                    AND SHIP_NBR     = :ORTSHPAL-SHIP-NBR                       
+                    AND ORDR_ENTY_DT = :ORTSHPAL-ORDR-ENTY-DT                   
+                    AND PKG_SEQ_NBR  = :ORTSHPAL-PKG-SEQ-NBR                    
+           END-EXEC.                                                            
+                                                                                
+           IF  SQLCODE = DB2-NORESP OR SQLCODE = DB2-NOT-FOUND                  
+               CONTINUE                                                         
+           ELSE                                                                 
+               MOVE '1600-SELECT-PAL-WEIGHT' TO SYWDB2-EXTRA-MESSAGE-1          
+               MOVE 'SELECT SHIP_PAL_WEIGHT '                                   
+                                             TO SYWDB2-EXTRA-MESSAGE-2          
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE '1600'              TO WS-ABCODE                            
+               PERFORM 999-ABEND                                                
+           END-IF.                                                              
+                                                                                
+       1600-SYXPAL-EXIT.                                                        
+            EXIT.                                                               
+                                                                                
+       2000-MAINLINE-SYXPAL.                                                    
+      **************************************************************            
+      * GET ROWS FROM SHIP_PAL_WEIGHT TABLE                                     
+      **************************************************************            
+                                                                                
+           MOVE SYWPAL-CO-CD              TO ORTSHPAL-CO-CD                     
+           MOVE SYWPAL-BR-NBR             TO ORTSHPAL-BR-NBR                    
+           MOVE SYWPAL-ORDR-NBR           TO ORTSHPAL-ORDR-NBR.                 
+           MOVE SYWPAL-DIST-NBR           TO ORTSHPAL-DIST-NBR.                 
+           MOVE SYWPAL-SHIP-NBR           TO ORTSHPAL-SHIP-NBR.                 
+           MOVE SYWPAL-ORDR-ENTRY-DT-ISO  TO ORTSHPAL-ORDR-ENTY-DT.             
+                                                                                
+           EXEC SQL                                                             
+               OPEN SYXPAL_WEIGHT_CSR                                           
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               MOVE 'SYXPAL-1000-'     TO SYWDB2-EXTRA-MESSAGE-1                
+               MOVE SQLCODE             TO SYWPAL-SQLCODE-MASK                  
+               MOVE SPACES              TO SYWDB2-EXTRA-MESSAGE-2               
+               STRING 'OPEN   SHIP_PAL_WEIGHT - SQLCODE=',                      
+                   SYWPAL-SQLCODE-MASK  DELIMITED BY ' '                        
+                                      INTO SYWDB2-EXTRA-MESSAGE-2               
+               MOVE '1000'              TO WS-ABCODE                            
+               PERFORM 999-ABEND.                                               
+                                                                                
+           MOVE 1                      TO SYWPAL-SUB                    KMP16177
+           PERFORM 2100-LOOP-SYXPAL                                             
+              THRU 2100-SYXPAL-EXIT                                             
+              UNTIL SYWPAL-SUB GREATER THAN SYWPAL-SUB-MAX                      
+                 OR SYXPAL-STOP-LOOP                                            
+                 OR SQLCODE = DB2-NOT-FOUND.                            KMP16177
+                                                                                
+           EXEC SQL                                                             
+               CLOSE SYXPAL_WEIGHT_CSR                                          
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               MOVE 'SYXPAL-1000-'     TO SYWDB2-EXTRA-MESSAGE-1                
+               MOVE SQLCODE            TO SYWPAL-SQLCODE-MASK                   
+               MOVE SPACES             TO SYWDB2-EXTRA-MESSAGE-2                
+               STRING 'CLOSE  SHIP_PAL_WEIGHT - SQLCODE=',                      
+                   SYWPAL-SQLCODE-MASK DELIMITED BY ' '                         
+                                     INTO SYWDB2-EXTRA-MESSAGE-2                
+               MOVE '1000'             TO WS-ABCODE                             
+               PERFORM 999-ABEND.                                               
+                                                                                
+       2000-SYXPAL-EXIT.                                                        
+           EXIT.                                                                
+                                                                                
+       2100-LOOP-SYXPAL.                                                        
+      **************************************************************            
+      * CALLED FROM 2000-MAINLINE-SYXPAL TO FETCH A ROW FROM                    
+      * SHIP_PAL_WEIGHT TABLE.                                                  
+      **************************************************************            
+                                                                                
+           EXEC SQL                                                             
+               FETCH SYXPAL_WEIGHT_CSR                                          
+               INTO :ORTSHPAL-PKG-SEQ-NBR,                                      
+                    :ORTSHPAL-EST-LENGTH,                                       
+                    :ORTSHPAL-EST-WIDTH,                                        
+                    :ORTSHPAL-EST-HEIGHT,                                       
+                    :ORTSHPAL-EST-VOL,                                          
+                    :ORTSHPAL-DIM-UM,                                           
+                    :ORTSHPAL-EST-WGT,                                          
+                    :ORTSHPAL-WGT-UM,                                           
+                    :ORTSHPAL-HEAVY-SKU-FLG,                                    
+                    :ORTSHPAL-EST-OSZ-GIRTH-FLG,                                
+                    :ORTSHPAL-LAST-CHG-OPER-ID,                         KMP18292
+                    :ORTSHPAL-LAST-CHG-PGM-ID,                          KMP18292
+                    :ORTSHPAL-LST-CHG-TS,                               KMP18292
+                    :ORTSHPAL-CNTNR-TYP-CD,                             KMP18292
+                    :ORTSHPAL-HAZMAT-ID,                                KMP18292
+                    :ORTSHPAL-FRT-CLS                                   KMP18292
+           END-EXEC.                                                            
+                                                                                
+           IF SQLCODE = DB2-NORESP                                              
+              MOVE ORTSHPAL-EST-LENGTH                                          
+                   TO SYWPAL-EST-LENGTH (SYWPAL-SUB)                            
+              MOVE ORTSHPAL-EST-WIDTH                                           
+                   TO SYWPAL-EST-WIDTH (SYWPAL-SUB)                             
+              MOVE ORTSHPAL-EST-HEIGHT                                          
+                   TO SYWPAL-EST-HEIGHT (SYWPAL-SUB)                            
+              MOVE ORTSHPAL-EST-VOL                                             
+                   TO SYWPAL-EST-VOL (SYWPAL-SUB)                               
+              MOVE ORTSHPAL-DIM-UM                                              
+                   TO SYWPAL-DIM-UM (SYWPAL-SUB)                                
+              MOVE ORTSHPAL-EST-WGT                                             
+                   TO SYWPAL-EST-WGT (SYWPAL-SUB)                       KMP16177
+              MOVE ORTSHPAL-WGT-UM                                              
+                   TO SYWPAL-WGT-UM (SYWPAL-SUB)                                
+                                                                                
+              IF NOT PAL-PROCESS-JDA                                    KMP18292
+                 MOVE ORTSHPAL-HEAVY-SKU-FLG                            KMP18292
+                   TO SYWPAL-HEAVY-SKU-FLG (SYWPAL-SUB)                 KMP18292
+              END-IF                                                    KMP18292
+              MOVE ORTSHPAL-EST-OSZ-GIRTH-FLG                                   
+                   TO SYWPAL-EST-OSZ-GIRTH-FLG (SYWPAL-SUB)             KMP16177
+              MOVE ORTSHPAL-CNTNR-TYP-CD                                KMP18292
+                   TO SYWPAL-CONTAINER-TYPE (SYWPAL-SUB)                KMP18292
+              MOVE ORTSHPAL-HAZMAT-ID                                   KMP18292
+                   TO SYWPAL-HAZMAT-ID (SYWPAL-SUB)                     KMP18292
+    ***             ADD  FREIGHT CLASS  ----                            KMP18292
+              ADD 1                       TO SYWPAL-SUB                         
+             ELSE                                                               
+                IF SQLCODE = DB2-NOT-FOUND                                      
+                   MOVE 'Y'            TO SYXPAL-STOP-LOOP-SW                   
+                   GO TO 2100-SYXPAL-EXIT                                       
+                ELSE                                                            
+                   MOVE '2100-SYXPAL-LOOP'  TO SYWDB2-EXTRA-MESSAGE-1           
+                   MOVE SQLCODE             TO SYWPAL-SQLCODE-MASK              
+                   MOVE SPACES              TO SYWDB2-EXTRA-MESSAGE-2           
+                   STRING 'FETCH  SHIP_PAL_WEIGHT - SQLCODE=',                  
+                   SYWPAL-SQLCODE-MASK  DELIMITED BY ' '                        
+                                      INTO SYWDB2-EXTRA-MESSAGE-2               
+                   MOVE '2100'              TO WS-ABCODE                        
+                   PERFORM 999-ABEND.                                           
+                                                                                
+       2100-SYXPAL-EXIT.                                                        
+           EXIT.                                                                
+                                                                                
+       3000-DELETE-ADD-SYXPAL-MAIN.                                             
+      *******************************************************                   
+      * THIS PARA IS TO BE PERFORMED AND IT WILL ENSURE ALL ORTSHPAL            
+      * ENTRIES ARE FIRST DELETED, THEN INSERTED USING THE PALR- DATA           
+      * PROGRAM CALLING THIS PARA, JUST NEEDS TO SETUP THE FIELDS IN            
+      * COPYBOOK SYWPAL, AREA SYWPAL-KEY-FIELDS, THEN PERFORM                   
+      * 3000-DELETE-ADD-SYXPAL-MAIN THRU 3000-SYXPAL-EXIT.                      
+      **********************************************************                
+           MOVE ZEROS                     TO SYWPAL-SUB.                        
+           MOVE SPACES                    TO WS-DATE-PARAMETER-1.               
+           MOVE SYWPAL-ORDR-ENTY-DT-JUL   TO WS-DATE-JULIAN.                    
+           CALL 'SYU015' USING WS-DATE-PARAMETER-1                              
+           MOVE '20'                      TO SYWPAL-ORDR-ENTRY-DT-CC.           
+           MOVE WS-DATE-YY                TO SYWPAL-ORDR-ENTRY-DT-YY.           
+           MOVE WS-DATE-MM                TO SYWPAL-ORDR-ENTRY-DT-MM.           
+           MOVE WS-DATE-DD                TO SYWPAL-ORDR-ENTRY-DT-DD.           
+           MOVE SYWPAL-CO-CD              TO ORTSHPAL-CO-CD                     
+           MOVE SYWPAL-BR-NBR             TO ORTSHPAL-BR-NBR                    
+           MOVE SYWPAL-ORDR-NBR           TO ORTSHPAL-ORDR-NBR.                 
+           MOVE SYWPAL-DIST-NBR           TO ORTSHPAL-DIST-NBR.                 
+           MOVE SYWPAL-SHIP-NBR           TO ORTSHPAL-SHIP-NBR.                 
+           MOVE SYWPAL-ORDR-ENTRY-DT-ISO  TO ORTSHPAL-ORDR-ENTY-DT.             
+                                                                                
+           PERFORM 1500-DELETE-ALL-SYXPAL THRU 1500-SYXPAL-EXIT.                
+                                                                                
+           IF PALR-NO-ERROR                                                     
+               NEXT SENTENCE                                                    
+             ELSE                                                               
+               GO TO 3000-SYXPAL-EXIT.                                          
+           MOVE ZEROS                     TO SYWPAL-SUB.                        
+           PERFORM 3100-SYXPAL-LOOP-INSERTS THRU 3100-SYXPAL-EXIT.              
+       3000-SYXPAL-EXIT.                                                        
+           EXIT.                                                                
+                                                                                
+                                                                                
+       3100-SYXPAL-LOOP-INSERTS.                                                
+      ************************************************************              
+      * THIS PARA WILL LOOP AROUND AND INSERT ALL NECESSARY ENTRIES             
+      * THIS PARA IS PULLING DATA TO BE INSERTED DIRECTLY FROM WHXFRM           
+      * COPYBOOK.                                                               
+      ************************************************************              
+           ADD 1                             TO SYWPAL-SUB.                     
+           IF SYWPAL-SUB GREATER THAN PAL-CRTN-MAX          OR          KMP18292
+              SYWPAL-SUB GREATER THAN PALR-ESTIMATED-CARTONS                    
+               GO TO 3100-SYXPAL-EXIT.                                          
+                                                                                
+           MOVE SYWPAL-SUB                    TO ORTSHPAL-PKG-SEQ-NBR.          
+           MOVE SYWPAL-LAST-CHG-OPER-ID  TO ORTSHPAL-LAST-CHG-OPER-ID.          
+           MOVE SYWPAL-LAST-CHG-PGM-ID   TO ORTSHPAL-LAST-CHG-PGM-ID.           
+           MOVE PALR-PROD-LENGTH (SYWPAL-SUB) TO ORTSHPAL-EST-LENGTH.           
+           MOVE PALR-PROD-WIDTH  (SYWPAL-SUB) TO ORTSHPAL-EST-WIDTH.            
+           MOVE PALR-PROD-HEIGHT (SYWPAL-SUB) TO ORTSHPAL-EST-HEIGHT.           
+           MOVE PALR-PROD-DIM    (SYWPAL-SUB) TO ORTSHPAL-EST-VOL.              
+           MOVE PALR-PROD-DIM-UM (SYWPAL-SUB) TO ORTSHPAL-DIM-UM.               
+           MOVE PALR-PROD-WEIGHT (SYWPAL-SUB) TO ORTSHPAL-EST-WGT.              
+           MOVE PALR-PROD-WGT-UM (SYWPAL-SUB) TO ORTSHPAL-WGT-UM.               
+           IF NOT PAL-PROCESS-JDA                                       KMP18292
+              MOVE PALR-HEAVY-SKU-CARTON-SW (SYWPAL-SUB)                KMP18292
+                                              TO ORTSHPAL-HEAVY-SKU-FLG KMP18292
+           END-IF                                                       KMP18292
+           MOVE PALR-PROD-GIRTH-SW (SYWPAL-SUB)                                 
+                                         TO ORTSHPAL-EST-OSZ-GIRTH-FLG.         
+           MOVE PALR-PROD-CNTNR-TYPE (SYWPAL-SUB)                       KMP18292
+                                         TO ORTSHPAL-CNTNR-TYP-CD.      KMP18292
+           MOVE PALR-PROD-HAZMAT-ID (SYWPAL-SUB)                        KMP18292
+                                         TO ORTSHPAL-HAZMAT-ID.         KMP18292
+    ***             ADD  FREIGHT CLASS  ----                            KMP18292
+                                                                                
+           PERFORM 1300-INSERT-SYXPAL THRU 1300-SYXPAL-EXIT.                    
+                                                                                
+           GO TO 3100-SYXPAL-LOOP-INSERTS.                                      
+       3100-SYXPAL-EXIT.                                                        
+           EXIT.                                                                
+                                                                                

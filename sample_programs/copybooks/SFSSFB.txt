@@ -1,0 +1,88 @@
+      * =========================================================               
+      *  SFSSFB - CALL TO SERVICE FEE PROCESSES.                                
+      * =========================================================               
+      * =========================================================               
+      *  NOTE: IF DLI IS SCHEDULED IT MUST BE TERMINATED BEFORE                 
+      *        THE CICS LINK.                                                   
+      *  ALSO: FOR ERS000-ERROR-LOG-INSERT USE COPYBOOK ERS000.                 
+      * =========================================================               
+      *****************************************************************         
+      *  07-19-17  SAS  CICS UPGRADE PHASE II.                          SAS17200
+      *                 DELETED THE CICS TRANSLATED CODE AND            SAS17200
+      *                 UNCOMMENTED THE EXEC CICS STATEMENTS.           SAS17200
+      *  05-15-03  AXR  1. AFTER CALL TO SFP001, SET SERVICE FEE ERROR  AXR03135
+      *                    CODE BASED ON VALUE OF SFP001'S FEE RESULT   AXR03135
+      *  11-06-00  JAR  NEW COPYBOOK FOR SERVICE FEES.                  JER00300
+      *****************************************************************         
+       8000-PROCESS-SERVICE.                                                    
+           EVALUATE TRUE                                                        
+              WHEN SFX2-FEE-QUERY                                               
+                   PERFORM 8100-CALL-SFP001                                     
+                   PERFORM 8900-CHECK-ERROR-CODE                                
+              WHEN SFX2-ORDER                                                   
+                   PERFORM 8200-CALL-SFP002                                     
+                   PERFORM 8900-CHECK-ERROR-CODE                                
+              WHEN SFX2-SRV-REND                                                
+                   PERFORM 8400-CALL-SFP004                                     
+                   PERFORM 8900-CHECK-ERROR-CODE                                
+              WHEN SFX2-FEE-N-SRV-REND                                          
+                   PERFORM 8100-CALL-SFP001                                     
+                   PERFORM 8900-CHECK-ERROR-CODE                                
+                   IF SFX2-ERROR-CODE = SPACES                                  
+                      PERFORM 8400-CALL-SFP004                                  
+                      PERFORM 8900-CHECK-ERROR-CODE                             
+                   END-IF                                                       
+              WHEN SFX2-FEE-N-ORDER                                             
+                   PERFORM 8100-CALL-SFP001                                     
+                   PERFORM 8900-CHECK-ERROR-CODE                                
+                   IF SFX2-ERROR-CODE = SPACES                                  
+                      PERFORM 8200-CALL-SFP002                                  
+                      PERFORM 8900-CHECK-ERROR-CODE                             
+                   END-IF                                                       
+              WHEN SFX2-FEE-N-ORDER-N-SRV-REND                                  
+                   PERFORM 8100-CALL-SFP001                                     
+                   PERFORM 8900-CHECK-ERROR-CODE                                
+                   IF SFX2-ERROR-CODE = SPACES                                  
+                      PERFORM 8200-CALL-SFP002                                  
+                      PERFORM 8900-CHECK-ERROR-CODE                             
+                   END-IF                                                       
+                   IF SFX2-ERROR-CODE = SPACES                                  
+                      PERFORM 8400-CALL-SFP004                                  
+                      PERFORM 8900-CHECK-ERROR-CODE                             
+                   END-IF                                                       
+           END-EVALUATE.                                                        
+                                                                                
+                                                                                
+       8100-CALL-SFP001.                                                        
+              MOVE LENGTH OF SFXCOM2-COMMAREA TO WS-COMMAREA-LENGTH.            
+              EXEC CICS LINK PROGRAM('SFP001  ')                        SAS17200
+                             COMMAREA(SFXCOM2-COMMAREA)                 SAS17200
+                             LENGTH(WS-COMMAREA-LENGTH)                 SAS17200
+              END-EXEC.                                                 SAS17200
+                                                                                
+      *   (SET SFX2-ERROR-CODE FROM SFP001'S FEE RESULT ERROR CODE)     AXR03135
+           MOVE SFX2-FEE-RESULT-AREA TO SERVICEQ-FEE-RESULTS-AREA.      AXR03135
+           MOVE SRVQ-FR-ERROR-CODE   TO SFX2-ERROR-CODE.                AXR03135
+                                                                                
+       8200-CALL-SFP002.                                                        
+              MOVE LENGTH OF SFXCOM2-COMMAREA TO WS-COMMAREA-LENGTH.            
+              EXEC CICS LINK PROGRAM('SFP002  ')                        SAS17200
+                             COMMAREA(SFXCOM2-COMMAREA)                 SAS17200
+                             LENGTH(WS-COMMAREA-LENGTH)                 SAS17200
+              END-EXEC.                                                 SAS17200
+                                                                                
+       8400-CALL-SFP004.                                                        
+              MOVE LENGTH OF SFXCOM2-COMMAREA TO WS-COMMAREA-LENGTH.            
+              EXEC CICS LINK PROGRAM('SFP004  ')                        SAS17200
+                             COMMAREA(SFXCOM2-COMMAREA)                 SAS17200
+                             LENGTH(WS-COMMAREA-LENGTH)                 SAS17200
+              END-EXEC.                                                 SAS17200
+                                                                                
+                                                                                
+       8900-CHECK-ERROR-CODE.                                                   
+           IF SFX2-ERROR-CODE NOT = SPACES                                      
+              MOVE SFX2-ERROR-CODE      TO     ERTELOG-ERR-CD                   
+              MOVE SFX2-APPLICATION-PGM TO     ERTELOG-PGM-NAM                  
+              MOVE SFX2-SQN-OPERID      TO     ERTELOG-OPER-ID                  
+              PERFORM ERS000-ERROR-LOG-INSERT.                                  
+                                                                                

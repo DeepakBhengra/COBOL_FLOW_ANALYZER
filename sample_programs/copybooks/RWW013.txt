@@ -1,0 +1,145 @@
+      ****************************************************************          
+      *   PROGRAM:                                                   *          
+      *      CICS: RWP013 - LINKED TO                                *          
+      *                                                              *          
+      ****************************************************************          
+      ****************************************************************          
+      *                                                              *          
+      *  COPYBOOK: RWW013                                            *          
+      *                                                              *          
+      *  PROGRAM FUNCTION:                                           *          
+      *                                                              *          
+      *  THE PROGRAM IS DESIGNED TO ACCESS A TABLE OF ZIP CODES      *          
+      *  AND, IN CONJUNCTION WITH ORDER AND CUSTOMER INFORMATION,    *          
+      *  DETERMINE WHETHER INGRAM MICRO OR THE CUSTOMER WILL PAY     *          
+      *  THE FREIGHT CHARGES FOR THE ORDER.                          *          
+      *                                                              *          
+      *  THE FOLLOWING INFORMATION MUST BE PASSED FROM THE CALLING   *          
+      *  PROGRAM TO RWP013.                                          *          
+      *  1. THE COUNTRY/COMPANY CODE (ORH-COMPANY)                   *          
+      *  2. THE SHIP FROM BRANCH (ORSH-BR-NBR-SHIP-FROM)             *          
+      *  3. THE POSTAL CODE                                          *          
+      *     A. FOR DESTINATIONS WITHIN THE UNITED STATES, THE        *          
+      *        9 DIGIT ZIP CODE MUST BE USED (ORH-ZIP-CODE)          *          
+      *        NOTE: THE LAST 4 DIGITS OF THE ZIP CODE ARE CHANGED   *          
+      *              TO ZEROES WITHIN THIS PROGRAM. THIS WILL HAVE   *          
+      *              TO BE ADDRESSED IF WE START DEALING WITH        *          
+      *              SPECIFIC ADDRESSES WITHIN A ZIP CODE.           *          
+      *     B. FOR DESTINATIONS OUTSIDE THE UNITED STATES, THE       *          
+      *        POSTAL CODE MAY BE ALPHA NUMERIC AND 6 CHARACTERS     *          
+      *        IN LENGTH (ORH-POSTAL-CODES)                          *          
+      *  4. THE TOTAL VALUE OF THE ORDER (ORH-ORDER-VALUE-AT-ADD)    *          
+      *  5. THE CURRENT FREIGHT OUT CODE FROM THE SHIPMENT HEADER    *          
+      *     (ORSH-FRT-OUT-CODE)                                      *          
+      *  6. THE FLAG ON THE SHIPMENT HEADER OVERFLOW INDICATING      *          
+      *     THAT THE REP HAS CHANGED THE FREIGHT OUT CODE            *          
+      *     (ORSHOF-FRT-OUT-REP-OVERIDE-FLG)                         *          
+      *  7. THE NON-STANDARD FREIGHT OVERRIDE FLAG FROM THE          *          
+      *     CUSTOMER OVERFLOW SEGMENT (CUOF-NON-STD-FRT-XMPT-FLG)    *          
+      *  8. THE NON-STANDARD FREIGHT LIMIT AMOUNT FROM THE           *          
+      *     CUSTOMER OVERFLOW SEGMENT (CUOF-NON-STD-FRT-LIMIT-AMT)   *          
+      *  9. THE BILL ONLY FLAG FROM THE SHIPMENT HEADER              *          
+      *     (ORSH-BILL-ONLY-SW).                                     *          
+      * 10. THE CARRIER CODE FROM THE SHIPMENT HEADER                *          
+      *     (ORSH-CARRIER-CODE).                                     *          
+      * 11. THE CARRIER CODE CHANGE SWITCH FROM THE SHIPMENT HEADER  *          
+      *     (ORSH-CARRIER-SW).                                       *          
+      *     NOTE: THE CARRIER CODE CHANGE SWITCH SHOULD ONLY BE      *          
+      *           POPULATED IN ECOMMERCE PROGRAMS. TELEMARKETERS     *          
+      *           MAY OVERRIDE THE CARRIER CODE FOR VALID BUSINESS   *          
+      *           REASONS AND THE CUSTOMER SHOULD NOT BE FORCED TO   *          
+      *           PAY THE FREIGHT CHARGES IF THE TELEMARKETER HAS    *          
+      *           CHANGED THE CARRIER.                               *          
+      * 12. THE THIRD PARTY FREIGHT ACCOUNT FROM THE SHIPMENT HEADER *          
+      *     (ORSH-THIRD-PARTY-FRT-ACCOUNT).                          *          
+      * 13. WE PAY, WE PICK CARRIER CHANGE EXEMPT FLAG               *  MJF03035
+      *     (CUOF-CARRIER-CHG-EXEMPT-IND).                           *  MJF03035
+      * 14. CUSTOMER DEFAULT CARRIER CODE (CUA-DEF-CARRIER AND       *  MJF03035
+      *     CUA-ALT-DEF-CAR).                                        *  MJF03035
+      * 15. FUNCTION REQUEST:                                        *  JJU03260
+      *        IF 'ALL'  THEN ALL FIELDS MUST BE PASSED TO PGM       *  JJU03260
+      *            RWP013 FOR VERIFICATION.                          *  JJU03260
+      *        IF 'STNS' THEN ONLY FOLLOWING 3 FIELDS NEED BE PASSED *  JJU03260
+      *            TO PGM RWP013 FOR VERIFICATION:                   *  JJU03260
+      *                  1. RWW013-COMPANY                           *  JJU03260
+      *                  2. RWW013-POSTAL-CODE                       *  JJU03260
+      *                  3. RWW013-BR-NBR-SHIP-FROM                  *  JJU03260
+      *                                                              *          
+      *  THE FOLLOWING INFORMATION MUST BE PASSED FROM RWP013 TO     *          
+      *  THE CALLING PROGRAM.                                        *          
+      *  1. THE CORRECT FREIGHT OUT CODE THAT SHOULD BE USED TO      *          
+      *     REPLACE THE CURRENT FREIGHT OUT CODE ON THE SHIPMENT     *          
+      *     HEADER (ORSH-FRT-OUT-CODE)                               *          
+      *     NOTE: THIS FREIGHT OUT CODE MAY BE THE SAME AS THE ONE   *          
+      *           PASSED TO RWP013.                                  *          
+      *  2. THE CORRECT 'SPLIT' VARIABLE (RWW013-STD-OR-NONSTD)      *  JJU03260
+      *     FOR USE IN THE FREIGHT MODULE.                           *  JJU03260
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                09/17/03  JJU   ADDED NEW INPUT FIELDS FOR    *  JJU03260
+      *                                'WE PICK WE PAY' PROJECT.     *  JJU03260
+      *                02/04/03  MJF   (WPWP)NEW INPUT FIELDS FOR    *  MJF03035
+      *                                WE PAY, WE PICK CARRIER CODE  *  MJF03035
+      *                                CHANGE LOGIC.                 *  MJF03035
+      *                01/23/03  MJF   ORIGINAL...                   *  MJF03023
+      ****************************************************************          
+                                                                                
+       01  RWW013-LINK-DATA.                                                    
+           05  RWW013-AREA-LENGTH         PIC S9(4) COMP VALUE ZERO.            
+           05  RWW013-CNV-PROGRAM         PIC X(08) VALUE 'RWP013  '.           
+                                                                                
+       01  RWW013-PARM-DATA.                                                    
+           05  RWW013-RETURN-CODE         PIC X(03).                            
+               88  RWW013-NORESP                  VALUE '000'.                  
+               88  RWW013-COMPANY-REQD            VALUE '001'.                  
+               88  RWW013-POSTAL-CODE-REQD        VALUE '002'.                  
+               88  RWW013-ORDER-VALUE-REQD        VALUE '003'.                  
+               88  RWW013-FREIGHT-OUT-REQD        VALUE '004'.                  
+               88  RWW013-TBXCORP4-ERROR          VALUE '005'.                  
+               88  RWW013-TBXCORP4-FLAGS-NOT-SET  VALUE '006'.                  
+               88  RWW013-SHIP-FROM-BRANCH-REQD   VALUE '007'.                  
+               88  RWW013-CARRIER-CODE-REQD       VALUE '008'.                  
+               88  RWW013-TBXCARR-ERROR           VALUE '009'.                  
+               88  RWW013-TBXCORP-ERROR           VALUE '010'.                  
+               88  RWW013-BAD-FUNCTION            VALUE '011'.          JJU03260
+               88  RWW013-DB2-NOT-AVAILABLE       VALUE '101'.                  
+               88  RWW013-DB2-COMPANY-ERROR       VALUE '102'.                  
+               88  RWW013-DB2-COMPANY-NOTFND      VALUE '103'.                  
+               88  RWW013-DB2-POSTAL-CODE-ERROR   VALUE '104'.                  
+               88  RWW013-DB2-POSTAL-CODE-NOTFND  VALUE '105'.                  
+               88  RWW013-DB2-NON-STD-FRT-ERROR   VALUE '106'.                  
+               88  RWW013-DB2-NON-STD-FRT-NOTFND  VALUE '107'.                  
+           05  RWW013-ERROR-MESSAGE       PIC X(30).                            
+           05  RWW013-COMPANY             PIC X(02).                            
+           05  RWW013-BR-NBR-SHIP-FROM    PIC X(02).                            
+           05  RWW013-POSTAL-CODE         PIC X(09).                            
+           05  RWW013-ORDER-VALUE-AT-ADD  PIC S9(15)V99.                        
+           05  RWW013-FRT-OUT-CODE        PIC X(01).                            
+           05  RWW013-FRT-OUT-REP-OVERIDE-FLG                                   
+                                          PIC X(01).                            
+           05  RWW013-NON-STD-FRT-XMPT-FLG                                      
+                                          PIC X(01).                            
+           05  RWW013-NON-STD-FRT-LIMIT-AMT                                     
+                                          PIC S9(09).                           
+           05  RWW013-BILL-ONLY-SW        PIC X(01).                            
+           05  RWW013-CARRIER-CODE        PIC X(02).                            
+           05  RWW013-CARRIER-SW          PIC X(01).                            
+           05  RWW013-THIRD-PARTY-FRT-ACCOUNT                                   
+                                          PIC X(12).                            
+           05  RWW013-NEW-FRT-OUT-CODE    PIC X(01).                            
+           05  RWW013-CAR-CHG-EXEMPT-IND  PIC X(01).                    MJF03035
+           05  RWW013-CUA-DEF-CARRIER     PIC X(02).                    MJF03035
+           05  RWW013-CUA-ALT-DEF-CAR     PIC X(02).                    MJF03035
+           05  RWW013-FUNCTION-REQUEST    PIC X(04).                    JJU03260
+               88  RWW013-FUNC-ALL                VALUE 'ALL'.          JJU03260
+               88  RWW013-FUNC-STD-NONSTD         VALUE 'STNS'.         JJU03260
+           05  RWW013-STD-OR-NON-STD      PIC X(01).                    JJU03260
+               88  RWW013-STANDARD                VALUE 'S'.            JJU03260
+               88  RWW013-NON-STANDARD            VALUE 'N'.            JJU03260
+           05  RWW013-FRM-ERR-MSG.                                      JJU03260
+               10  FILLER                 PIC X(04) VALUE 'STD-'.       JJU03260
+               10  RWW013-ERR-RESP        PIC X(03).                    JJU03260
+           05  FILLER                     PIC X(116).                   JJU03260

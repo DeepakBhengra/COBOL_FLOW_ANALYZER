@@ -1,0 +1,194 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT018                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV018 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV018-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV018-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV018-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV018-CO-CD                                  *          
+      *              - EDV018-PARTNER-ID                             *          
+      *              - EDV018-PARTNER-DES                            *          
+      *              - EDV018-PRNT-PARTNER-ID                        *          
+      *              - EDV018-ACTV-DT                                *          
+      *              - EDV018-DEACTV-DT                              *          
+      *              - EDV018-NOTE-TXT                               *          
+      *              - EDV018-LST-CHG-TS                             *          
+      *              - EDV018-LST-CHG-NAM                            *          
+      *              - EDV018-PRCS-OPTN-FLG                          *  MOG02107
+      *              - EDV018-CYCLE-INTVL                            *  TWA04180
+      *              - EDV018-CYCLE-LST-RUN-TS                       *  TWA04180
+      *              - EDV018-CYC-STRT-TM                            *  VMA07052
+      *              - EDV018-CYC-END-TM                             *  VMA07052
+      *              - EDV018-BATCH-SPLIT-CNT                        *  AZS06045
+      *                                                              *          
+      *    OUTPUT: EDV018-OUTPUT-DATA                                *          
+      *          - EDV018-ROW-COUNT                                  *          
+      *          - EDV018-MODULE-RESULT-CD                           *          
+      *          - EDV018-MODULE-MESSAGE                             *          
+      *          - EDV018-DATABASE-RESULT-CODES:                     *          
+      *              - EDV018-SQLCODE                                *          
+      *              - EDV018-SQLSTATE                               *          
+      *              - EDV018-SQL-MESSAGE                            *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV018 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV018-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV018-PARTNER-ID.                *          
+      *     MOVE 'S ' TO EDV018-ACTION-CD.     .                     *          
+      *     MOVE 'IE_PARTNER_SETUP  ' TO EDV018-OBJECT-ID.           *          
+      *                                                              *          
+      *     CALL 'EDV018' USING EDV018-COMMUNICATIONS-AREA.          *          
+      *     IF EDV018-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV018 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT018 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                08/06/16  KZC   ADDED OVRD-APPL-BATCH-ID      *  KZC16219
+      *                02/21/07  VMA   ADD ADDTIONAL CYCLE CONTROL   *  VMA07052
+      *                                FIELDS(CDW PROJECT)           *  VMA07052
+      *                02/14/06  AZS   ADD BATCH SPLIT COUNT FIELD   *  AZS06045
+      *                                (MCAFEE PHASE 2 PROJECT)      *  AZS06045
+      *                06/28/04  TWA   ADD CYCLE CONTROL FIELDS      *  TWA04180
+      *                                (WALMART ODS PROJECT)         *  TWA04180
+      *                02/23/03  JAK   ADDED GET CURSOR FOR OPR PROJ *  JAK03054
+      *                04/17/02  WWZ   ADDED THE PRCS-OPTN-FLG.      *  MOG02107
+      *                04/22/01  KXR   ORIGINAL.                     *          
+      ****************************************************************          
+                                                                                
+       01  EDV018-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV018-ACTION-CD                     PIC  X(002).                
+               88  EDV018-SELECT                    VALUE 'S '.                 
+               88  EDV018-INSERT                    VALUE 'I '.                 
+               88  EDV018-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV018-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV018-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV018-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV018-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV018-COUNT                     VALUE 'C '.                 
+               88  EDV018-MAX                       VALUE 'MX'.                 
+               88  EDV018-MIN                       VALUE 'MN'.                 
+               88  EDV018-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV018-MASS-UPDATE               VALUE 'MU'.                 
+               88  EDV018-MASS-INSERT               VALUE 'MI'.                 
+               88  EDV018-GET                       VALUE 'G '.         JAK03054
+           05  EDV018-USER-ID                       PIC  X(010).                
+           05  EDV018-KEY-AREA.                                                 
+               10  EDV018-KEY-CO-CD                 PIC  X(002).                
+               10  EDV018-KEY-PARTNER-ID            PIC  X(015).                
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV018-INPUT-OUTPUT-AREA.                                        
+               10  EDV018-OBJECT-ID                 PIC  X(030).                
+                   88  EDV018-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV018-PARTNER-SETUP         VALUE                       
+                                  'IE_PARTNER_SETUP              '.             
+               10  EDV018-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV018-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV018-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV018-CO-CD                 PIC  X(002).                
+                   15  EDV018-PARTNER-ID            PIC  X(015).                
+                   15  EDV018-PARTNER-TYPE-CD       PIC  X(002).                
+                   15  EDV018-SRCE-SYS-ID           PIC  X(006).                
+                   15  EDV018-SRCE-SYS-KEY-ID       PIC  X(030).                
+                   15  EDV018-FORMAT-ID             PIC  X(010).                
+                   15  EDV018-DIR-FLG-CD            PIC  X(001).                
+                   15  EDV018-DOC-ID                PIC  X(010).                
+                   15  EDV018-FREQ-ID               PIC  X(001).                
+                   15  EDV018-DATA-STORE-MECH-ID    PIC  X(010).                
+                   15  EDV018-COMMU-ID              PIC  X(010).                
+                   15  EDV018-INTERNET-ADDR-TXT     PIC  X(050).                
+                   15  EDV018-ACTV-DT               PIC  X(010).                
+                   15  EDV018-DEACTV-DT             PIC  X(010).                
+                   15  EDV018-HOLD-CD               PIC  X(002).                
+                   15  EDV018-SETUP-NOTES-TXT       PIC  X(050).                
+                   15  EDV018-SEND-THRU-ID          PIC  X(015).                
+                   15  EDV018-LST-CHG-TS            PIC  X(026).                
+                   15  EDV018-LST-CHG-NAM           PIC  X(015).                
+                   15  EDV018-PRCS-OPTN-FLG         PIC  X(002).        MOG02107
+                   15  EDV018-CYCLE-INTVL           PIC  9(004).        TWA04180
+                   15  EDV018-CYC-STRT-TM           PIC  X(008).        VMA07052
+                   15  EDV018-CYC-END-TM            PIC  X(008).        VMA07052
+                   15  EDV018-CYCLE-LST-RUN-TS      PIC  X(026).        TWA04180
+                   15  EDV018-BATCH-SPLIT-CNT       PIC  9(009).        AZS06045
+                   15  EDV018-OVRD-APPL-BATCH-ID    PIC  X(010).        KZC16219
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV018-OUTPUT-DATA.                                              
+               10  EDV018-ROW-COUNT             PIC  S9(009).                   
+               10  EDV018-MODULE-RESULT-CD      PIC  X(002).                    
+                   88  EDV018-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV018-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV018-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV018-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV018-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV018-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV018-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV018-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV018-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV018-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV018-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV018-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV018-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV018-EXCEPTION-MESSAGE.                                    
+                   15  EDV018-MSG-OBJECT            PIC  X(030).                
+                   15  EDV018-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV018-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV018-SQLCA.                                            
+                       20  EDV018-SQLCAID           PIC  X(008).                
+                       20  EDV018-SQLCABC           PIC  S9(009).               
+                       20  EDV018-SQLCODE           PIC  S9(009).               
+                       20  EDV018-SQLERRM.                                      
+                           25  EDV018-SQLERRML      PIC  S9(004).               
+                           25  EDV018-SQLERRMC      PIC  X(070).                
+                       20  EDV018-SQLERRP           PIC  X(008).                
+                       20  EDV018-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV018-SQLWARN.                                      
+                           25  EDV018-SQLWARN0      PIC  X(001).                
+                           25  EDV018-SQLWARN1      PIC  X(001).                
+                           25  EDV018-SQLWARN2      PIC  X(001).                
+                           25  EDV018-SQLWARN3      PIC  X(001).                
+                           25  EDV018-SQLWARN4      PIC  X(001).                
+                           25  EDV018-SQLWARN5      PIC  X(001).                
+                           25  EDV018-SQLWARN6      PIC  X(001).                
+                           25  EDV018-SQLWARN7      PIC  X(001).                
+                       20  EDV018-SQLEXT.                                       
+                           25  EDV018-SQLWARN8      PIC  X(001).                
+                           25  EDV018-SQLWARN9      PIC  X(001).                
+                           25  EDV018-SQLWARNA      PIC  X(001).                
+                           25  EDV018-SQLSTATE      PIC  X(005).                

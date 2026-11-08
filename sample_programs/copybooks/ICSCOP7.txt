@@ -1,0 +1,868 @@
+000100*****************************************************************         
+000200*  ICSCOP7 - PROCEDURE CPYBOOK TO INVOKE ICPCOP COST RTN        *         
+000300* ------------------------------------------------------------- *         
+000400* REVISIONS:                                                    *         
+      * 05/02/2025 SYJ EVEREST: SKIP ONCOST,CHEM TAX, IA UPLIFT FOR   * SYJ25122
+      *                GDS ENABLED VENDORS AS GDS PASSES THEM.        * SYJ25122
+      * 02/28/2025 SYJ EVEREST: CHANGES TO PASS LINE NBR TO GDS       * SYJ25059
+      * 01/17/2025 SS8 EVEREST: CHANGES TO NOT MODIFY ORDER TYPE FOR  * SS825017
+      *                B2B & REPL TYPE SUB ORDERS                     * SS825017
+      * 01/09/2025 AXL EVEREST- BLOCK CALL TO GPE COSTING FOR CCWR ORD* AXL25009
+      * 09/22/2024 UXK FIX TO INITIALIZE ICWCOP-VNH-DISCOUNT-ENGINE-SW* UXK24266
+      * 01/27/2024 AP3 EVEREST: DO NOT CALCULATE EMEA UPLIFT FOR GDS  * AP324027
+      *                DATA. GPE/GDS WOULD DO IT AND PASS TO IMPULSE. * AP324027
+      * 07/07/2023 AP3 EVEREST: CHANGE TO TRIGGER GDS ENGINE.         * AP323188
+      * 10/07/2022 SYJ EMEA UPLIFT CALCULATION FOR PRICE FILE PROCESS.* SYJ22280
+      *                ENABLED STOCKING FLOW FOR FINISHED GOODS ORDER.* SYJ22280
+      * 07/03/2022 MP4 BRLINK PROJECT- ADDED NEW COMPANY 'BL'.        * MP422184
+      * 03/18/2022 AP3 CNP INDIA - CHANGE TO DERIVE ON-COST VALUE     * AP322077
+      *            SYJ CNP INDIA - REMOVE CHEM TAX AMT FROM ONCOST    * SYJ22077
+      *                COMPUTATION                                    * SYJ22077
+      * 10/08/2021 TGF CNP EMEA TREAT AS STOCK FOR SOME DIRECT ORDERS * TGF21281
+      * 08/06/2021 SYJ CNP - EMEA PHASE - SET MISC-COST CONVERT FLAGS * SYJ21218
+      *            TGF COMMENTS TO SYNC ICSCOP7 AND ORP545            * TGF21218
+      * 07/21/2021 TGF CNP - EMEA PHASE - UPLIFT COST ADDITION        * TGF21197
+000500* 04/17/2021 TGF PASS VNH-NET-PRICING-IND                       * TGF21107
+      *                AND TB-CPO7-NET-PRICNG-PROCESS-IND             * TGF21107
+      *                TO COST ROUTINE                                * TGF21107
+      * 02/17/2020 MXV ADD NET-PRICING AND BRAZILIAN COST TAX INTERFACE.MXV20220
+      * 03/16/2018 EXU MEXICO ACOP PROJECT                            * EXU18075
+000500* 09/03/2008 MXK PASS VNH-ACOP-POCC-IND TO COST ROUTINE         * MXK08247
+000501* 01/10/2008 MXK ACOP PROJECT FOR EU, CA, & TECH PAC:           * MXK08010
+000502* 01/10/2008 MXK ACOP PROJECT FOR EU, CA, & TECH PAC:           * MXK08010
+000503*            GAE ADDITIONAL ICPCOP INTERFACE CHANGES            * GAE08010
+000504* 06/09/2006 MXK ICPCOP INTERFACE CHANGES                       * MXK06160
+000505* 05/17/2005 MXK PASS TB-CPO5-BTL-COST-SW VALUE VIA             * AXG05138
+000506*                ICWCOP-CPO5-BTL-COST-SW                        * AXG05138
+000507* 11/08/2004 MXK FIX CONDITION FOR COP-BTL-OVERRIDE-SW          * MXK04313
+000508* 10/25/2004 MXK CHANGE LOGIC POPULATING COP-BTL-OVERRIDE-SW    * MXK04299
+000510* 03/19/2004 MXK ADD ICWCOP-REBATE-DATES-IN-RANG CONDITION      * MXK04079
+000600* 03/08/2004 KKC INITIALIZE COP-BTL-OVERRIDE-IND                * KKC04068
+000700* 10/06/2003 MXK ADD CONDITION FOR ICPCOP PROCESSING MODE       * MXK03279
+000800* 06/17/2003 KKC NEW COPYBOOK FOR SSEUDB PROJECT                * KKC03168
+000900*****************************************************************         
+001000 C100-CALL-COST-RTN.                                                      
+001100*                                                                         
+001200     INITIALIZE ICWCOP-FIELDS.                                            
+001300     INITIALIZE COP-ICLCOP.                                               
+001400     INITIALIZE ICWCOP-ADDITIONAL-ACOP-FIELDS.                            
+001500     INITIALIZE ICWCOP-SEGMENT-ACOP-FIELDS.                               
+001500     INITIALIZE ICWCOP-VNH-DISCOUNT-ENGINE-SW.                    UXK24266
+001600                                                                          
+001700*---   ***  BEFORE EXECUTING  C100-CALL-COST-RTN ***                      
+001800*--- TELESALES AND CONFIG ORDER ENTRY PROGRAMS:                           
+001900*       SET  ICWCOP-RTN-1ST-PASS    TO TRUE.                              
+002000*       MOVE SPACES                 TO ICWCOP-BID-NBR.                    
+002100*--- TELESALES AND CONFIG ORDER ENTRY PROGRAMS AFTER CONTROL IS           
+002200*--- RETURNED FROM AUTHORIZATION SELECTION SCREEN AND ALL OTHER           
+002300*--- OE PROGRAMS - CAPS, EDI, INSIDE/LINE:                                
+002400*       SET  ICWCOP-RTN-2ND-PASS    TO TRUE.                              
+002500*       MOVE WS-BID-NBR             TO ICWCOP-BID-NBR.                    
+002600                                                                          
+002610     IF  ICWCOP-ICLCOP-REGULAR-PROC                               MXK03279
+002700     AND ICWCOP-CSLMST-REGULAR-PROC                               MXK03279
+002800         MOVE ICWCOP-PROGRAM-TYPE1   TO ICWCOP-IM-MAIN-PGM-CD     MXK03279
+002900         IF ICWCOP-PROGRAM-TYPE2(2:1)  > SPACE                            
+003000            MOVE ICWCOP-PROGRAM-TYPE2                                     
+003100                                 TO ICWCOP-VEND-ACOP-PGM-CD               
+003200         ELSE                                                             
+003300            MOVE SPACE           TO ICWCOP-VEND-ACOP-PGM-CD               
+003400         END-IF                                                   MXK03279
+003500         MOVE WS-MKT-SGMT-TYP-CD TO ICWCOP-EU-MRKT-SGMT-TYP-CD    MXK03279
+003700*---  PERFORM INSTANT REBATE LOGIC PRIOR TO ACOP LOGIC            MXK03279
+003800         IF  ICWCOP-REBATE-DATES-IN-RANG-NO                       MXK04079
+003900             CONTINUE                                             MXK04079
+004000         ELSE                                                     MXK04079
+004100         IF  ICWCOP-LINE-HAS-NO-IR                                MXK03279
+004200             PERFORM 6000-GET-REBATE-INFO.                        MXK04079
+004300                                                                          
+004301     MOVE ORSH-ORDER-TYPE        TO ICWCOP-WRK-ORDER-TYPE         MXK08010
+                                                                        MXV20220
+           IF TB-CPO7-GDS-PROCESS AND                                   SS825017
+              (VNH-GDS-PROCESS OR VNH-GDS-ORD-PROCESS)                  SS825017
+              CONTINUE                                                  SS825017
+           ELSE                                                         SS825017
+              IF ICWCOP-NP-ORDER-BACK-2-BACK                            SS825017
+              OR ICWCOP-NP-ORDER-REPLNISHMNT                            SS825017
+                 SET ICWCOP-WRK-DIRECT-ORDER                            SS825017
+                                          TO TRUE                       SS825017
+              ELSE                                                      SS825017
+      * ICWCOP-NP-TREAT-AS-STOCK WILL OVERRIDE ORSH-ORDER-TYPE          TGF21281
+                 IF ICWCOP-NP-TREAT-AS-STOCK                            SS825017
+                 OR ICWCOP-FG-TREAT-AS-STOCK                            SS825017
+                    SET ICWCOP-WRK-STOCK-ORDER                          SS825017
+                                          TO TRUE                       SS825017
+                 END-IF                                                 SS825017
+              END-IF                                                    SS825017
+           END-IF.                                                      TGF21281
+004302                                                                  MXK08010
+004303     IF ICWCOP-WRK-DIRECT-ORDER                                   MXK08010
+004310        MOVE SPACE               TO ICWCOP-INV-COMPANY            MXK08010
+004311                                    ICWCOP-INV-BR-NBR             MXK08010
+004312     ELSE                                                         MXK08010
+004313        MOVE ORSH-ALT-WAREHOUSE-CO  TO ICWCOP-INV-COMPANY         MXK08010
+004314        MOVE ORSH-BR-NBR-SHIP-FROM  TO ICWCOP-INV-BR-NBR          MXK08010
+004315     END-IF                                                       MXK08010
+004320                                                                  MXK08010
+004400*---  POPULATE ICWCOP-PRICING-FIELDS                                      
+004500     MOVE WS-PRICING-FIELDS      TO ICWCOP-PRICING-FIELDS.                
+004510                                                                          
+004530*---  PASS TB-CPO5-BTL-COST-SW VALUE VIA ICWCOP-CPO5-BTL-COST-SW  AXG05138
+004540     MOVE  TB-CPO5-BTL-COST-SW   TO ICWCOP-CPO5-BTL-COST-SW       AXG05138
+004623*                                                                         
+004624*--  FOR ICLSPF FILE PROCESS TBXACOP SHOULD BE READ OUTSIDE OF    MXK08010
+004626*--  ICSCOP7 WHERE ICWCOP-TB-ACOP-FIRSTTIME-NO &                  MXK08010
+004627*--  TB-ACOP-PROD-GRP-VENDOR CONDITIONS SHOULD BE SET TO TRUE     MXK08010
+004628     IF ICWCOP-TB-ACOP-FIRSTTIME-YES                              MXK06160
+004629        SET ICWCOP-TB-ACOP-FIRSTTIME-NO  TO TRUE                  MXK06160
+004630        MOVE TC-COMPANY          TO TB-ACOP-COMPANY-CODE          MXK06160
+004631        MOVE 'B'                 TO TB-ACOP-TYPE-CODE             MXK06160
+004632        MOVE SPACES              TO TB-ACOP-GENERIC-CODE          MXK06160
+004633        CALL 'SYU510' USING TB-ACOP-PROC-IA                       MXK06160
+004634        IF NOT TB-ACOP-NORESP                                     MXK06160
+004635           MOVE 'N'              TO TB-ACOP-ALLOW-GROUPS-SW       MXK06160
+004636                                    TB-ACOP-USE-INTL-OPTIONS-SW   MXK06160
+004637           MOVE 'C'              TO TB-ACOP-USE-RATE-OE-SW        MXK06160
+004638           MOVE 10               TO TB-ACOP-GL-BRANCH.            MXK06160
+004639*                                                                 GAE08010
+004640*--- GET VENDOR RETAIL PRICE & PASS IT TO THE COST ROUTINE        GAE08010
+004650     IF TB-ACOP-USED-VEND-RETAIL-COST                             GAE08010
+004660        MOVE INI-COMPANY       TO WS-INAL2-CO                     GAE08010
+004670        MOVE INI-INV-PART-NBR  TO WS-INAL2-PART                   GAE08010
+004680        MOVE '0'               TO WS-INSHEDOF-NBR                 GAE08010
+004690        PERFORM 1551-GU-INSHEDOF-VIA-PART                         GAE08010
+004700        IF WS-INSHEDOF-NORESP                                     GAE08010
+004800           MOVE INIOF-INSHEDOF TO INIOF-INSHEDOF-0                GAE08010
+004810           IF INIOF-VENDOR-RETAIL IS NUMERIC                      MXK08010
+004820              MOVE INIOF-VENDOR-RETAIL TO ICWCOP-VENDOR-RETAIL    MXK08010
+004830           ELSE                                                   MXK08010
+004840              MOVE ZERO        TO ICWCOP-VENDOR-RETAIL            MXK08010
+005001           END-IF                                                 MXK08010
+005002        ELSE                                                      MXK08010
+005003           MOVE ZERO           TO ICWCOP-VENDOR-RETAIL            MXK08010
+005004        END-IF                                                    MXK08010
+005005     ELSE                                                         MXK08010
+005006        MOVE ZERO              TO ICWCOP-VENDOR-RETAIL.           MXK08010
+      *                                                                 MXK08247
+           IF TB-ACOP-POCC-ENABLED                                      MXK08247
+           OR TB-ACOP-POCC-PO-EQ-SO                                     MXK08247
+              IF VNH-VENDOR-NBR NOT = INI-VENDOR-NBR                    MXK08247
+                 MOVE INI-COMPANY    TO WS-VNSHED-CO                    MXK08247
+                 MOVE INI-VENDOR-NBR TO WS-VNSHED-VEND                  MXK08247
+                 MOVE 'A'            TO WS-VNSHED-CLASS                 MXK08247
+                 PERFORM 1750-GU-VNSHED                                 MXK08247
+              END-IF                                                    MXK08247
+           END-IF.                                                      MXK08247
+005007                                                                          
+005008     MOVE VNH-ACOP-POCC-IND      TO ICWCOP-VNH-ACOP-POCC-IND      MXK08247
+           MOVE VNH-NET-PRICING-IND    TO ICWCOP-VNH-NET-PRICING-IND    TGF21107
+           MOVE TB-CPO7-NET-PRICNG-PROCESS-IND                          TGF21107
+                                       TO ICWCOP-CPO7-NET-PRICING-SW    TGF21107
+      *                                                                 TGF21107
+           IF INI-COMPANY = 'MX'                                        EXU18075
+              MOVE INI-COMPANY TO TB-CURR-CO                            EXU18075
+              MOVE 'USD'       TO TB-CURR-FROM-CURR-CODE                EXU18075
+              MOVE 'MXP'       TO TB-CURR-TO-CURR-CODE                  EXU18075
+              CALL 'SYU510' USING TB-CURR-TABLE-IA                      EXU18075
+                                                                        EXU18075
+              MOVE TB-CURR-SELL-RATE TO ICWCOP-VEND-CURR-RATE           EXU18075
+              SET ICWCOP-CURR-RATE-FR-TBXCONR TO TRUE                   EXU18075
+                                                                        EXU18075
+              IF VNH-FIXED-RATE                                         EXU18075
+              AND VNH-EXCHG-RATE-CURR IS NUMERIC                        EXU18075
+              AND VNH-EXCHG-RATE-CURR > ZERO                            EXU18075
+                  MOVE VNH-EXCHG-RATE-CURR TO ICWCOP-VEND-CURR-RATE     EXU18075
+                  SET ICWCOP-CURR-RATE-FR-TABLE TO TRUE                 EXU18075
+              ELSE                                                      EXU18075
+                  IF VNH-MAXIMUM-RATE                                   EXU18075
+                  AND VNH-EXCHG-RATE-CURR IS NUMERIC                    EXU18075
+                  AND VNH-EXCHG-RATE-CURR > ZERO                        EXU18075
+                  AND VNH-EXCHG-RATE-CURR IS LESS THAN TB-CURR-SELL-RATEEXU18075
+                      MOVE VNH-EXCHG-RATE-CURR TO                       EXU18075
+                                     ICWCOP-VEND-CURR-RATE              EXU18075
+                      SET ICWCOP-CURR-RATE-FR-TABLE TO TRUE             EXU18075
+                  END-IF                                                EXU18075
+005009        END-IF                                                    EXU18075
+           END-IF                                                       EXU18075
+      *                                                                 MXV20220
+      *--- GET BRAZIL MISC AND IMPORT TAX                               MXV20220
+           MOVE +0                     TO ICWCOP-BR-MISC-RATE           MXV20220
+                                          ICWCOP-BR-IMPORT-TAX          MXV20220
+           IF TB-CPO7-NET-PRICNG-PROCESS  AND                           TGF21197
+              INI-COMPANY = ('BR' OR 'BL' OR 'BP')                      MP422184
+              IF ICWCOP-PGM-BATCH                                       MXV20220
+                 SET INR385-OUT-RETURN-ERROR-BATCH TO TRUE              MXV20220
+                 MOVE 'NO MISC COST FOR BATCH RECOST'                   MXV20220
+                                          TO INR385-OUT-RETURN-MESSAGE  MXV20220
+              ELSE                                                      MXV20220
+                 SET ICWCOP-SUB-PGM-GET-BRAZIL-TAX TO TRUE              MXV20220
+                 MOVE INI-COMPANY              TO INR385-IN-COMPANY     MXV20220
+                 MOVE INI-INV-PART-NBR         TO INR385-IN-PART-NBR    MXV20220
+                 MOVE INI-VENDOR-NBR           TO INR385-IN-VENDOR-NBR  MXV20220
+                 CALL ICWCOP-SUB-PGM    USING OMITTED                   MXV20220
+                                              INR385-INTERFACE-COMMAREA MXV20220
+                 IF INR385-OUT-RETURN-OK                                MXV20220
+                    MOVE INR385-OUT-MISC-RATE  TO ICWCOP-BR-MISC-RATE   MXV20220
+                    MOVE INR385-OUT-IMPORT-TAX TO ICWCOP-BR-IMPORT-TAX  MXV20220
+                 END-IF                                                 MXV20220
+              END-IF                                                    MXV20220
+              MOVE INR385-OUT-RETURN-IND     TO ICWCOP-ERROR-IND        MXV20220
+              MOVE INR385-OUT-RETURN-MESSAGE TO ICWCOP-ERROR-MESSAGE    MXV20220
+           ELSE                                                         TGF21197
+              IF TB-CPO-EUROPEAN-CNTRY         AND                      TGF21197
+                 TB-CPO-ALT-INVENTORY-ALLOWED  AND                      TGF21197
+                 TB-CPO7-NET-PRICNG-PROCESS    AND                      TGF21197
+                 VNH-NET-PRICING                                        TGF21197
+      *FOR GDS VENDOR, UPLIFT WOULD BE CALCULATED BY GPE/GDS AND PASSED AP324027
+      *TO IMPULSE IN RESPONSE. SO, NO NEED TO EXECUTE LOGIC IN THIS     AP324027
+      *PARA EMEA-CNP-UPLIFT FOR GDS DATA.                               AP324027
+               IF TB-CPO7-GDS-PROCESS AND                               AP324027
+                  (VNH-GDS-PROCESS OR VNH-GDS-ORD-PROCESS)              AP324027
+                 CONTINUE                                               AP324027
+               ELSE                                                     AP324027
+                 PERFORM EMEA-CNP-UPLIFT                                TGF21197
+                    THRU EMEA-CNP-UPLIFT-EXIT                           TGF21197
+               END-IF                                                   AP324027
+              END-IF                                                    TGF21197
+           END-IF.                                                      TGF21197
+                                                                        AP323188
+           IF ORH-ENTRY-DATE IS NUMERIC AND                             AP323188
+              ORH-ENTRY-DATE > ZEROES                                   AP323188
+              MOVE ORH-ENTRY-DATE      TO ICWCOP-ORDER-DT               AP323188
+           END-IF.                                                      AP323188
+                                                                        AP323188
+           IF ICWCOP-GDS-ALT-WHSE-CO > SPACES                           AP324027
+              CONTINUE                                                  AP324027
+           ELSE                                                         AP324027
+              IF ORL-ALT-WHSE-CO > SPACES                               AP324027
+                 MOVE ORL-ALT-WHSE-CO  TO ICWCOP-GDS-ALT-WHSE-CO        AP324027
+              END-IF                                                    AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+           IF ICWCOP-GDS-ALT-WHSE-BR > SPACES                           AP324027
+              CONTINUE                                                  AP324027
+           ELSE                                                         AP324027
+              IF ORL-ALT-WHSE-BR > SPACES                               AP324027
+                 MOVE ORL-ALT-WHSE-BR  TO ICWCOP-GDS-ALT-WHSE-BR        AP324027
+              END-IF                                                    AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+           IF ICWCOP-GDS-ALT-WHSE-CURR > SPACES                         AP324027
+              CONTINUE                                                  AP324027
+           ELSE                                                         AP324027
+              IF ORL-ALT-WHSE-CURRENCY > SPACES                         AP324027
+                 MOVE ORL-ALT-WHSE-CURRENCY                             AP324027
+                                       TO ICWCOP-GDS-ALT-WHSE-CURR      AP324027
+              END-IF                                                    AP324027
+           END-IF.                                                      AP324027
+                                                                        AP324027
+           IF ICWCOP-ORDR-LINE-NBR > ZEROS                              SYJ25059
+              CONTINUE                                                  SYJ25059
+           ELSE                                                         SYJ25059
+             IF ORL-LINE-NBR > ZEROS                                    SYJ25059
+                IF ORL-COMPONENT-ITEM                                   SYJ25059
+                   MOVE ZEROS          TO ICWCOP-ORDR-LINE-NBR          SYJ25059
+                ELSE                                                    SYJ25059
+                   MOVE ORL-LINE-NBR   TO ICWCOP-ORDR-LINE-NBR          SYJ25059
+                END-IF                                                  SYJ25059
+             ELSE                                                       SYJ25059
+                MOVE ZEROS             TO ICWCOP-ORDR-LINE-NBR          SYJ25059
+             END-IF                                                     SYJ25059
+           END-IF.                                                      SYJ25059
+                                                                        SYJ25059
+      *CALL COST ROUTINE                                                AP323188
+           IF TB-CPO7-GDS-PROCESS AND                                   AP323188
+              (VNH-GDS-PROCESS OR VNH-GDS-ORD-PROCESS)                  AP323188
+              SET ICWCOP-VNH-GDS-DISCOUNT                               AP324027
+                                       TO TRUE                          AP324027
+              IF (ICWCOP-CALLED-PGM-ID = 'ICP451IM' OR 'INP421'    OR   AP323188
+                                         'INP424'   OR 'ICP451WM') OR   AP323188
+                 ICWCOP-PGM-BATCH OR                                    AXL25009
+                 ORHOF-CISCO-CCWR                                       AXL25009
+                 CONTINUE                                               AP323188
+              ELSE                                                      AP323188
+                 SET ICWCOP-CALL-ICP362-PGM                             AP323188
+                                       TO TRUE                          AP323188
+              END-IF                                                    AP323188
+                                                                        AP323188
+              EVALUATE TRUE                                             AP323188
+      *THIS CONDITION IS FOR ORP955 AND SHOULD ONLY EXECUTE FOR 955     AP323188
+                  WHEN ICWCOP-PGM-BATCH      AND                        AP323188
+                       IC-GDS-ORIGIN = '955'                            AP323188
+                       PERFORM ICSCOP7-CALL-ICP378                      AP323188
+                          THRU ICSCOP7-CALL-ICP378-EXIT                 AP323188
+                                                                        AP323188
+      *THIS CONDITION FOR ALL PROGRAM WHICH WILL CALL ICP362            AP323188
+      *EXECPT ICP451IM                                                  AP323188
+                  WHEN ICWCOP-CALL-ICP362-PGM                           AP323188
+                       PERFORM ICSCOP7-CALL-ICP362                      AP323188
+                          THRU ICSCOP7-CALL-ICP362-EXIT                 AP323188
+              END-EVALUATE                                              AP323188
+           ELSE                                                         AP323188
+      *IF NON GDS COMPANY AND NON GDS VENDOR, SHOULD CALL ICPCOP        AP323188
+              PERFORM ICSCOP7-CALL-DEFAULT-ICPCOP                       AP323188
+                 THRU ICSCOP7-CALL-DEFAULT-EXIT                         AP323188
+           END-IF.                                                      AP323188
+                                                                        AP323188
+      *--- RESET INSTANT REBATE INFO FOR PRICING RTN                    AP323188
+           MOVE ICWCOP-PRICING-FIELDS  TO  WS-PRICING-FIELDS.           AP323188
+007300                                                                  MXK08010
+007310*--- MOVE ICWCOP-ACOP-BTL-OVERRIDE-IND  TO  COP-BTL-OVERRIDE-IND. MXK04299
+007400     PERFORM VARYING ICWCOP-IDX  FROM    1  BY  1                 MXK04299
+007500     UNTIL   ICWCOP-IDX          >   ICWCOP-ACOP-COMB-COUNT       MXK08010
+007600     OR COP-BTL-OVERRIDE                                          MXK04313
+007700       IF  ICWCOP-ACOP-BTL-OVERRIDE(ICWCOP-IDX)                   MXK04299
+007800           SET COP-BTL-OVERRIDE  TO  TRUE                         MXK04299
+007900       END-IF                                                     MXK04299
+008000     END-PERFORM.                                                 MXK04299
+                                                                        TGF21197
+           IF INI-COMPANY = 'IA'         AND                            AP322077
+              ICWCOP-CPO7-NET-PRICING    AND                            AP322077
+              ICWCOP-VNH-NET-PRICING                                    AP322077
+              IF TB-CPO7-GDS-PROCESS AND                                SYJ25122
+                 (VNH-GDS-PROCESS OR VNH-GDS-ORD-PROCESS)               SYJ25122
+                 NEXT SENTENCE                                          SYJ25122
+              END-IF                                                    SYJ25122
+              IF ICWCOP-NP-DIRECT-ORDER      OR                         AP322077
+                 ICWCOP-NP-ORDER-BACK-2-BACK OR                         AP322077
+                 ((ICWCOP-WRK-INV-INQUIRY) AND                          SYJ22077
+                  (NOT ICWCOP-BATCH-RECOST))                            SYJ22077
+                 MOVE ICWCOP-NEW-COST     TO WS-OC-NEW-COST             AP322077
+      * SKIP ON-COST IF WS-OC-SKIP-LINE IS ENABLED                      SYJ22077
+                 IF WS-OC-SKIP-LINE                                     SYJ22077
+                    CONTINUE                                            SYJ22077
+                 ELSE                                                   SYJ22077
+      * REMOVE CHEM TAX FOR ONCOST COMPUTATION                          SYJ22077
+                    IF ICWCOP-CHEMICAL-TAX                              SYJ22077
+                       IF ICWCOP-CHEM-TAX-CALC-AMT NUMERIC              SYJ22077
+                          COMPUTE WS-OC-NEW-COST =                      SYJ22077
+                                  WS-OC-NEW-COST +                      SYJ22077
+                                  ICWCOP-CHEM-TAX-CALC-AMT              SYJ22077
+                       END-IF                                           SYJ22077
+                    END-IF                                              SYJ22077
+      * AT THIS POINT WS-OC-NEW-COST = SO COST + FRT + DUTY             SYJ22077
+                    PERFORM ICSCOP7-INDIA-ON-COST-AMOUNT                AP322077
+                       THRU ICSCOP7-INDIA-OC-AMOUNT-EXIT                AP322077
+      * AT THIS POINT WS-OC-NEW-COST = SO COST + FRT + DUTY + ON-COST   SYJ22077
+                    IF ICWCOP-CHEMICAL-TAX                              SYJ22077
+      * ADD BACK THE CHEM TAX AMOUNT                                    SYJ22077
+                       IF ICWCOP-CHEM-TAX-CALC-AMT NUMERIC              SYJ22077
+                          COMPUTE WS-OC-NEW-COST =                      SYJ22077
+                                  WS-OC-NEW-COST -                      SYJ22077
+                                 ICWCOP-CHEM-TAX-CALC-AMT               SYJ22077
+                       END-IF                                           SYJ22077
+                    END-IF                                              SYJ22077
+      * AT THIS POINT WS-OC-NEW-COST = SO COST + FRT + DUTY + ON-COST   SYJ22077
+      *                                + CHEM TAX(IF APPLICABLE)        SYJ22077
+                    MOVE WS-OC-NEW-COST   TO ICWCOP-NEW-COST            SYJ22077
+                    PERFORM ICSCOP-BUILD-COSTS                          AP322077
+                       THRU ICSCOP-BUILD-COSTS-EXIT                     AP322077
+                 END-IF                                                 SYJ22077
+              END-IF                                                    SYJ22077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+       EMEA-CNP-UPLIFT.                                                 TGF21197
+                                                                        TGF21197
+      * CHANGES MADED HERE MIGHT ALSO NEED TO BE MADE TO ORP545         TGF21218
+           IF ICWCOP-PGM-BATCH                                          TGF21197
+              IF ICWCOP-BATCH-PRICE-FILE                                SYJ22280
+                 SET ICWCOP-SUB-PGM-GET-EMEA-MISC-B                     SYJ22280
+                                       TO TRUE                          SYJ22280
+                 SET INR387-IN-MODE-GET                                 SYJ22280
+                                       TO TRUE                          SYJ22280
+                 CALL ICWCOP-SUB-PGM                                    SYJ22280
+                                    USING INR387-INTERFACE-COMMAREA     SYJ22280
+                                          TB-CPO7-PROC-IA               SYJ22280
+                 IF INR387-OUT-RETURN-OK                                SYJ22280
+                    PERFORM EMEA-CNP-UPLIFT-OUT-FMT                     SYJ22280
+                       THRU EMEA-CNP-UPLIFT-OUT-FMT-EXIT                SYJ22280
+                 ELSE                                                   SYJ22280
+                    MOVE INR387-OUT-RETURN-IND                          SYJ22280
+                                       TO ICWCOP-ERROR-IND              SYJ22280
+                    MOVE INR387-OUT-RETURN-MESSAGE                      SYJ22280
+                                       TO ICWCOP-ERROR-MESSAGE          SYJ22280
+                 END-IF                                                 SYJ22280
+              ELSE                                                      SYJ22280
+                 SET INR387-OUT-RETURN-ERROR-BATCH                      SYJ22280
+                                       TO TRUE                          SYJ22280
+                 MOVE 'NO MISC COST FOR BATCH RECOST'                   SYJ22280
+                                       TO INR387-OUT-RETURN-MESSAGE     TGF21197
+              END-IF                                                    SYJ22280
+           ELSE                                                         TGF21197
+              IF ICWCOP-CALLED-PGM-ID = 'INP284  '                      TGF21197
+                 NEXT SENTENCE                                          TGF21197
+              ELSE                                                      TGF21197
+                 PERFORM ICSCOP7-CLEAR-CNP-MISC-COST                    TGF21197
+                    THRU ICSCOP7-CLEAR-MISC-COST-EXIT                   TGF21197
+                 IF WS-DLI-SCHEDULED                                    TGF21197
+                    PERFORM 990-TERMINATE-DLI                           TGF21197
+                 END-IF                                                 TGF21197
+                 SET ICWCOP-SUB-PGM-GET-EMEA-MISC                       TGF21197
+                                       TO TRUE                          TGF21197
+                 SET INR387-IN-MODE-GET                                 TGF21197
+                                       TO TRUE                          TGF21197
+                 MOVE INI-COMPANY      TO INR387-IN-SELLING-COMPANY     TGF21197
+                 MOVE INI-INV-PART-NBR TO INR387-IN-PART-NBR            TGF21197
+                 MOVE INI-COMPONENT-BUSINESS-SW                         TGF21197
+                                       TO INR387-COMPONENT-BUSINESS-SW  TGF21197
+                 MOVE INI-VENDOR-NBR   TO INR387-IN-VENDOR-NBR          TGF21197
+                 CALL ICWCOP-SUB-PGM USING OMITTED                      TGF21197
+                                        INR387-INTERFACE-COMMAREA       TGF21197
+                 IF INR387-OUT-RETURN-OK                                TGF21197
+                    PERFORM EMEA-CNP-UPLIFT-OUT-FMT                     SYJ22280
+                       THRU EMEA-CNP-UPLIFT-OUT-FMT-EXIT                SYJ22280
+                 ELSE                                                   TGF21197
+                    MOVE INR387-OUT-RETURN-IND                          TGF21197
+                                       TO ICWCOP-ERROR-IND              TGF21197
+                    MOVE INR387-OUT-RETURN-MESSAGE                      TGF21197
+                                       TO ICWCOP-ERROR-MESSAGE          TGF21197
+                 END-IF                                                 TGF21197
+              END-IF                                                    TGF21197
+           END-IF.                                                      TGF21197
+                                                                        TGF21197
+           MOVE INR387-OUT-RETURN-IND  TO ICWCOP-ERROR-IND.             TGF21197
+           MOVE INR387-OUT-RETURN-MESSAGE                               TGF21197
+                                       TO ICWCOP-ERROR-MESSAGE.         TGF21197
+                                                                        TGF21197
+           IF NOT WS-DLI-SCHEDULED                                      TGF21197
+              PERFORM 980-SCHEDULE-DLI                                  TGF21197
+           END-IF.                                                      TGF21197
+                                                                        TGF21197
+       EMEA-CNP-UPLIFT-EXIT.                                            TGF21197
+           EXIT.                                                        TGF21197
+                                                                        TGF21197
+       ICSCOP7-CLEAR-CNP-MISC-COST.                                     TGF21197
+                                                                        TGF21197
+           MOVE SPACES                 TO ICWCOP-BR-MISC-COST-APLY-SW   TGF21197
+                                          ICWCOP-OWNING-TAX-CODE        TGF21197
+                                          ICWCOP-OWNING-DUTY-CODE       TGF21197
+                                          ICWCOP-OWNING-VNDR-FRT-CODE   TGF21197
+                                          ICWCOP-DUAL-TAX-CODE          TGF21197
+                                          ICWCOP-DUAL-DUTY-CODE         TGF21197
+                                          ICWCOP-SELLING-TAX-CODE       TGF21197
+                                          ICWCOP-SELLING-DUTY-CODE.     TGF21197
+                                                                        TGF21197
+           MOVE ZEROES                 TO ICWCOP-BR-MISC-COST           TGF21197
+                                          ICWCOP-OWNING-MISC-COST       TGF21197
+                                          ICWCOP-OWNING-VNDR-FRT-RATE   TGF21197
+                                          ICWCOP-OWNING-NP-VNDR-FRT-AMT TGF21197
+                                          ICWCOP-DUAL-MISC-COST         TGF21197
+                                          ICWCOP-SELLING-MISC-COST.     TGF21197
+                                                                        TGF21197
+       ICSCOP7-CLEAR-MISC-COST-EXIT.                                    TGF21197
+           EXIT.                                                        TGF21197
+      *                                                                 SYJ22280
+      *PASS THE UPLIFT SOURCE FIELDS TO COST ROUTINE FOR UPLIFT         SYJ22280
+      *COMPUTATION                                                      SYJ22280
+       EMEA-CNP-UPLIFT-OUT-FMT.                                         SYJ22280
+                                                                        SYJ22280
+      * EMEA OWNING(CP) REGION                                          SYJ22280
+           MOVE INR387-OWNING-TAX-CODE                                  SYJ22280
+                                       TO ICWCOP-OWNING-TAX-CODE        SYJ22280
+           IF INR387-OWNING-TAX-RATE NUMERIC                            SYJ22280
+              MOVE INR387-OWNING-TAX-RATE                               SYJ22280
+                                       TO ICWCOP-OWNING-TAX-RATE        SYJ22280
+           END-IF                                                       SYJ22280
+           MOVE INR387-OWNING-DUTY-CODE                                 SYJ22280
+                                       TO ICWCOP-OWNING-DUTY-CODE       SYJ22280
+           IF INR387-OWNING-DUTY-RATE NUMERIC                           SYJ22280
+              MOVE INR387-OWNING-DUTY-RATE                              SYJ22280
+                                       TO ICWCOP-OWNING-DUTY-RATE       SYJ22280
+           END-IF                                                       SYJ22280
+           MOVE INR387-OWNING-VNDR-FRT-CODE                             SYJ22280
+                                       TO ICWCOP-OWNING-VNDR-FRT-CODE   SYJ22280
+           IF INR387-OWNING-VNDR-FRT-RATE NUMERIC                       SYJ22280
+              MOVE INR387-OWNING-VNDR-FRT-RATE                          SYJ22280
+                                       TO ICWCOP-OWNING-VNDR-FRT-RATE   SYJ22280
+           END-IF                                                       SYJ22280
+           IF INR387-OWNING-BASE-COST NUMERIC                           SYJ22280
+              MOVE INR387-OWNING-BASE-COST                              SYJ22280
+                                       TO ICWCOP-OWNING-BASE-COST       SYJ22280
+           END-IF                                                       SYJ22280
+      * THIS IS IN USD. CP'S LOCAL CURRENCY AND SO NO CURR CONVERSION   SYJ22280
+           IF INR387-OWNING-MISC-COST NUMERIC                           SYJ22280
+              MOVE INR387-OWNING-MISC-COST                              SYJ22280
+                                       TO ICWCOP-OWNING-MISC-COST       SYJ22280
+           END-IF                                                       SYJ22280
+      * EMEA DUAL OWNING REGION DATA                                    SYJ22280
+           IF INR387-UPLIFT-DUAL-MIRROR                                 SYJ22280
+              MOVE INR387-UPLIFT-DUAL-MIRR-SW                           SYJ22280
+                                       TO ICWCOP-EMEA-DUAL-MIRROR-SW    SYJ22280
+              IF INR387-DUAL-BASE-COST NUMERIC                          SYJ22280
+                 MOVE INR387-DUAL-BASE-COST                             SYJ22280
+                                       TO ICWCOP-DUAL-BASE-COST         SYJ22280
+              END-IF                                                    SYJ22280
+              MOVE INR387-DUAL-TAX-CODE                                 SYJ22280
+                                       TO ICWCOP-DUAL-TAX-CODE          SYJ22280
+              IF INR387-DUAL-TAX-RATE NUMERIC                           SYJ22280
+                 MOVE INR387-DUAL-TAX-RATE                              SYJ22280
+                                       TO ICWCOP-DUAL-TAX-RATE          SYJ22280
+              END-IF                                                    SYJ22280
+              MOVE INR387-DUAL-DUTY-CODE                                SYJ22280
+                                       TO ICWCOP-DUAL-DUTY-CODE         SYJ22280
+              IF INR387-DUAL-DUTY-RATE NUMERIC                          SYJ22280
+                 MOVE INR387-DUAL-DUTY-RATE                             SYJ22280
+                                       TO ICWCOP-DUAL-DUTY-RATE         SYJ22280
+              END-IF                                                    SYJ22280
+      *THIS IS IN USD. CONVERTED IN INP387 BEFORE FED TO COST ROUTINE   SYJ22280
+              IF INR387-DUAL-MISC-COST NUMERIC                          SYJ22280
+                 MOVE INR387-DUAL-MISC-COST                             SYJ22280
+                                       TO ICWCOP-DUAL-MISC-COST         SYJ22280
+                 SET ICWCOP-DUAL-MISC-COST-CONVT                        SYJ22280
+                                       TO TRUE                          SYJ22280
+              END-IF                                                    SYJ22280
+           ELSE                                                         SYJ22280
+              MOVE SPACES              TO INR387-DUAL-TAX-CODE          SYJ22280
+                                          INR387-DUAL-DUTY-CODE         SYJ22280
+              MOVE ZEROES              TO INR387-DUAL-TAX-RATE          SYJ22280
+                                          INR387-DUAL-DUTY-RATE         SYJ22280
+                                          INR387-DUAL-BASE-COST         SYJ22280
+                                          INR387-DUAL-MISC-COST         SYJ22280
+           END-IF                                                       SYJ22280
+      * EMEA SELLING REGION DATA                                        SYJ22280
+           MOVE INR387-SELLING-TAX-CODE                                 SYJ22280
+                                       TO ICWCOP-SELLING-TAX-CODE       SYJ22280
+           IF INR387-SELLING-TAX-RATE NUMERIC                           SYJ22280
+              MOVE INR387-SELLING-TAX-RATE                              SYJ22280
+                                       TO ICWCOP-SELLING-TAX-RATE       SYJ22280
+           END-IF                                                       SYJ22280
+           MOVE INR387-SELLING-DUTY-CODE                                SYJ22280
+                                       TO ICWCOP-SELLING-DUTY-CODE      SYJ22280
+           IF INR387-SELLING-DUTY-RATE NUMERIC                          SYJ22280
+              MOVE INR387-SELLING-DUTY-RATE                             SYJ22280
+                                       TO ICWCOP-SELLING-DUTY-RATE      SYJ22280
+           END-IF                                                       SYJ22280
+      *FIELD INR387-SELL-MISC-CONV DETERMINES IF SELLING IS CONVERTED   SYJ22280
+      *BEFORE FEEDING THE DATA TO COST ROUTINE.                         SYJ22280
+           IF INR387-SELLING-MISC-COST NUMERIC                          SYJ22280
+              MOVE INR387-SELLING-MISC-COST                             SYJ22280
+                                       TO ICWCOP-SELLING-MISC-COST      SYJ22280
+              IF INR387-SELL-MISC-CONV                                  SYJ22280
+                 SET ICWCOP-SELL-MISC-COST-CONVT                        SYJ22280
+                                       TO TRUE                          SYJ22280
+              END-IF                                                    SYJ22280
+           END-IF.                                                      SYJ22280
+                                                                        SYJ22280
+       EMEA-CNP-UPLIFT-OUT-FMT-EXIT.                                    SYJ22280
+                               EXIT.                                    SYJ22280
+      *                                                                 SYJ22280
+      ***************************************************************** AP322077
+      *LOGIC COPIED FROM ICP023                                       * AP322077
+      ***************************************************************** AP322077
+       ICSCOP7-INDIA-ON-COST-AMOUNT.                                    AP322077
+                                                                        AP322077
+           MOVE ZEROES                 TO ICWCOP-IA-TOT-ONCST-AMT       AP322077
+                                          WS-OC-CPY-TOT-OC-CST.         AP322077
+                                                                        AP322077
+           MOVE SPACES                 TO WS-TP-ONCOST-TYPE             AP322077
+                                          WS-OC-REQUEST-CODE            AP322077
+                                          WS-OC-BR-NBR                  AP322077
+                                          WS-OC-PO-NBR                  AP322077
+                                          WS-OC-RCPT-NBR                AP322077
+                                          WS-OC-LINE-NBR.               AP322077
+           MOVE INI-COMPANY            TO WS-TP-CO-CD.                  AP322077
+           MOVE INI-INV-PART-NBR       TO WS-OC-SKU.                    AP322077
+           MOVE INI-VENDOR-NBR         TO WS-OC-VENDOR.                 AP322077
+           MOVE TB-CPO-CURRENCY-CODE   TO WS-OC-CURR-CODE.              AP322077
+           MOVE 1                      TO WS-OC-CPY-QUANTITY.           AP322077
+      *ICWCOP-NEW-COST IS NP-SO-COST + FRT + DTY                        AP322077
+           MOVE WS-OC-NEW-COST         TO WS-OC-CPY-VEND-PRICE.         AP322077
+                                                                        AP322077
+           COMPUTE WS-OC-CPY-CONV-COST = WS-OC-CPY-VEND-PRICE * 1.      AP322077
+                                                                        AP322077
+           IF ICWCOP-PGM-BATCH                                          AP322077
+              CALL WS-ICV511-PGM    USING WS-OC-AREA                    AP322077
+           ELSE                                                         AP322077
+              CALL WS-ICV510-PGM    USING DFHEIBLK                      AP322077
+                                          WS-OC-AREA                    AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF NOT WS-OC-NORESP                                          AP322077
+              MOVE ZEROES              TO ICWCOP-IA-TOT-ONCST-AMT       AP322077
+              GO TO ICSCOP7-INDIA-OC-AMOUNT-EXIT                        AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           MOVE 'N'                    TO WS-OC-CPY-END-INDX1-SW.       AP322077
+                                                                        AP322077
+           PERFORM ICSCOP7-270-MOVE-OC-TBL                              AP322077
+              THRU ICSCOP7-270-MOVE-OC-TBL-EXIT                         AP322077
+              VARYING WS-OC-CPY-INDX FROM 1 BY 1                        AP322077
+                UNTIL WS-OC-CPY-INDX GREATER THAN WS-OC-CPY-INDEX-USED  AP322077
+                   OR WS-OC-CPY-END-INDX1.                              AP322077
+                                                                        AP322077
+           MOVE WS-OC-CPY-TOT-OC-CST   TO ICWCOP-IA-TOT-ONCST-AMT.      AP322077
+                                                                        AP322077
+           COMPUTE WS-OC-NEW-COST      = WS-OC-NEW-COST                 AP322077
+                                       + ICWCOP-IA-TOT-ONCST-AMT.       AP322077
+                                                                        AP322077
+       ICSCOP7-INDIA-OC-AMOUNT-EXIT.                                    AP322077
+           EXIT.                                                        AP322077
+                                                                        AP322077
+      ***************************************************************** AP322077
+      *LOGIC COPIED FROM ICP023                                       * AP322077
+      ***************************************************************** AP322077
+       ICSCOP7-270-MOVE-OC-TBL.                                         AP322077
+                                                                        AP322077
+           IF WS-OC-CPY-CODE (WS-OC-CPY-INDX) EQUAL TO HIGH-VALUES      AP322077
+              MOVE 'Y'                 TO WS-OC-CPY-END-INDX1-SW        AP322077
+              GO TO ICSCOP7-270-MOVE-OC-TBL-EXIT                        AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           MOVE ZERO                   TO WS-OC-CPY-CALC-OC-CST.        AP322077
+                                                                        AP322077
+           IF WS-OC-CPY-CONV-COST NUMERIC                               AP322077
+              MOVE WS-OC-CPY-CONV-COST TO WS-OC-CPY-WORK-COST           AP322077
+           ELSE                                                         AP322077
+              MOVE ZEROES              TO WS-OC-CPY-WORK-COST           AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF WS-OC-CPY-INS NOT NUMERIC                                 SYJ22077
+              MOVE ZEROES TO WS-OC-CPY-INS                              SYJ22077
+           END-IF.                                                      SYJ22077
+                                                                        SYJ22077
+           IF WS-OC-CPY-FRT NOT NUMERIC                                 SYJ22077
+              MOVE ZEROES TO WS-OC-CPY-FRT                              SYJ22077
+           END-IF.                                                      SYJ22077
+                                                                        SYJ22077
+           IF WS-OC-CPY-DTY NOT NUMERIC                                 SYJ22077
+              MOVE ZEROES TO WS-OC-CPY-DTY                              SYJ22077
+           END-IF.                                                      SYJ22077
+                                                                        AP322077
+           IF  WS-OC-CPY-CODE (WS-OC-CPY-INDX) EQUAL TO 'DTY'           AP322077
+               ADD WS-OC-CPY-INS       TO WS-OC-CPY-WORK-COST           AP322077
+               ADD WS-OC-CPY-FRT       TO WS-OC-CPY-WORK-COST           AP322077
+               COMPUTE WS-OC-CPY-CIF-COST = WS-OC-CPY-WORK-COST / 100   AP322077
+               ADD WS-OC-CPY-CIF-COST  TO WS-OC-CPY-WORK-COST           AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF  WS-OC-CPY-CODE (WS-OC-CPY-INDX) EQUAL TO 'OCT'           AP322077
+               ADD WS-OC-CPY-INS       TO WS-OC-CPY-WORK-COST           AP322077
+               ADD WS-OC-CPY-FRT       TO WS-OC-CPY-WORK-COST           AP322077
+               ADD WS-OC-CPY-DTY       TO WS-OC-CPY-WORK-COST           AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF WS-OC-CPY-PCTAGE (WS-OC-CPY-INDX) NOT NUMERIC             SYJ22077
+              MOVE ZEROES              TO WS-OC-CPY-PCTAGE              SYJ22077
+                                          (WS-OC-CPY-INDX)              SYJ22077
+           END-IF.                                                      SYJ22077
+                                                                        SYJ22077
+           IF WS-OC-CPY-PCTAGE (WS-OC-CPY-INDX) NOT = 0                 AP322077
+               COMPUTE WS-OC-CPY-CALC-OC-CST =                          AP322077
+                 ( WS-OC-CPY-PCTAGE (WS-OC-CPY-INDX) *                  AP322077
+                   WS-OC-CPY-WORK-COST ) / 100                          AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF WS-OC-CPY-FIXD-VALUE (WS-OC-CPY-INDX) NOT NUMERIC         SYJ22077
+              MOVE ZEROES              TO WS-OC-CPY-FIXD-VALUE          SYJ22077
+                                          (WS-OC-CPY-INDX)              SYJ22077
+           END-IF.                                                      SYJ22077
+                                                                        SYJ22077
+           IF WS-OC-CPY-QUANTITY NOT NUMERIC                            SYJ22077
+              MOVE ZEROES              TO WS-OC-CPY-QUANTITY            SYJ22077
+           END-IF.                                                      SYJ22077
+                                                                        SYJ22077
+           IF WS-OC-CPY-FIXD-VALUE (WS-OC-CPY-INDX) NOT = 0             AP322077
+                                                                        AP322077
+              IF WS-OC-CPY-OC-CCY-CD(WS-OC-CPY-INDX) NOT =              MP422184
+                                        TB-CPO-CURRENCY-CODE            AP322077
+               MOVE TC-COMPANY         TO TB-CURR-CO                    AP322077
+               MOVE WS-OC-CPY-OC-CCY-CD (WS-OC-CPY-INDX)                AP322077
+                                       TO TB-CURR-FROM-CURR-CODE        AP322077
+               MOVE TB-CPO-CURRENCY-CODE                                AP322077
+                                       TO TB-CURR-TO-CURR-CODE          AP322077
+               CALL 'SYU510'        USING TB-CURR-TABLE-IA              AP322077
+                  IF NOT TB-CURR-NORESP                                 AP322077
+                      GO TO ICSCOP7-270-MOVE-OC-TBL-EXIT                AP322077
+                  ELSE CONTINUE                                         AP322077
+               COMPUTE WS-OC-CPY-CALC-OC-CST =                          AP322077
+                       WS-OC-CPY-FIXD-VALUE (WS-OC-CPY-INDX) *          AP322077
+                       WS-OC-CPY-QUANTITY * TB-CURR-RATE                AP322077
+               END-IF                                                   AP322077
+           ELSE                                                         AP322077
+               COMPUTE WS-OC-CPY-CALC-OC-CST =                          AP322077
+                  WS-OC-CPY-FIXD-VALUE (WS-OC-CPY-INDX) *               AP322077
+                  WS-OC-CPY-QUANTITY                                    AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF WS-OC-CPY-CALC-OC-CST NOT NUMERIC                         SYJ22077
+              MOVE ZEROES              TO WS-OC-CPY-CALC-OC-CST         SYJ22077
+           END-IF.                                                      SYJ22077
+                                                                        SYJ22077
+           IF WS-OC-CPY-TOT-OC-CST  NOT NUMERIC                         SYJ22077
+              MOVE ZEROES              TO WS-OC-CPY-TOT-OC-CST          SYJ22077
+           END-IF.                                                      SYJ22077
+                                                                        SYJ22077
+           IF  WS-OC-CPY-CODE (WS-OC-CPY-INDX) EQUAL TO 'FRT'           AP322077
+               MOVE WS-OC-CPY-CALC-OC-CST                               AP322077
+                                       TO WS-OC-CPY-FRT                 AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF  WS-OC-CPY-CODE (WS-OC-CPY-INDX) EQUAL TO 'INS'           AP322077
+               MOVE WS-OC-CPY-CALC-OC-CST                               AP322077
+                                       TO WS-OC-CPY-INS                 AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           IF  WS-OC-CPY-CODE (WS-OC-CPY-INDX) EQUAL TO 'DTY'           AP322077
+               MOVE WS-OC-CPY-CALC-OC-CST                               AP322077
+                                       TO WS-OC-CPY-DTY                 AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+           ADD WS-OC-CPY-CALC-OC-CST   TO WS-OC-CPY-TOT-OC-CST.         AP322077
+                                                                        AP322077
+           IF WS-OC-CPY-INDX GREATER THAN 32                            AP322077
+               GO TO ICSCOP7-270-MOVE-OC-TBL-EXIT                       AP322077
+           END-IF.                                                      AP322077
+                                                                        AP322077
+       ICSCOP7-270-MOVE-OC-TBL-EXIT.                                    AP322077
+           EXIT.                                                        AP322077
+                                                                        AP322077
+      ******************************************************************AP323188
+      *CALL ICP378 PROGRAM.                                            *AP323188
+      ******************************************************************AP323188
+       ICSCOP7-CALL-ICP378.                                             AP323188
+                                                                        AP323188
+           MOVE 'GDS'                  TO IC-GDS-ORIGIN                 AP323188
+           CALL ICWCOP-GDS-ICP378   USING DFHEIBLK                      AP323188
+                                          IC-GDS-INTERFACE-REC          AP323188
+                                          ICWCOP-FIELDS                 AP323188
+                                          ICWCOP-ADDITIONAL-ACOP-FIELDS AP323188
+                                          ICWCOP-SEGMENT-ACOP-FIELDS    AP323188
+                                          ICWCOP-OTHER-AREA             AP323188
+                                          ICWCOP-COP-PRICE-EFF-DATE     AP323188
+                                          ICWCOP-COP-PRICE-EXP-DATE     AP323188
+                                          ICWCOP-COP-PRICE-EXP-DATE-Y2K AP323188
+                                          ICWCOP-COP-PRICE-EFF-DATE-Y2K AP323188
+                                          ICWCOP-COP-EXP-DATE-Y2K       AP323188
+                                          ICWCOP-COP-EFF-DATE-Y2K       AP323188
+                                          ICWCOP-THIS-YEAR-Y2K          AP323188
+                                          ICWCOP-DECIMAL5-TYPE          AP323188
+                                          ICWCOP-DEFAULT-WINDOW-SPEC    AP323188
+                                          ICWCOP-GSA-FIELDS             AP323188
+                                          TB-PRG-TABLE-IA               AP323188
+                                          TB-ACOP-PROC-IA               AP323188
+                                          ICWCOP-SSEUDB-FIELDS          AP323188
+                                          ICWCOP-ICPCOP-ADDITIONAL-DATA AP323188
+                                          ICWCOP-SSEUDB-ICLCOP-AREA     AP323188
+                                          INRGNP-COMMAREA               AP323188
+                                          INR385-INTERFACE-COMMAREA     AP323188
+                                          INR387-INTERFACE-COMMAREA     AP323188
+                                          WS-OC-AREA                    AP323188
+                                          INB-INSBRN                    AP323188
+                                          INI-INSHED                    AP323188
+                                          INIOF-INSHEDOF-0              AP323188
+                                          INS-INSSTD                    AP323188
+                                          TB-CORP-PROC-IA               AP323188
+                                          TB-CPO2-PROC-IA               AP323188
+                                          TB-CPO4-PROC-IA               AP323188
+                                          TB-CPO5-PROC-IA               AP323188
+                                          TB-CPO7-PROC-IA               AP323188
+                                          TB-CURR-TABLE-IA              AP323188
+                                          TB-DATE-TABLE-IA              AP323188
+                                          VNH-VNSHED                    AP323188
+                                          WS-DLI-SCHEDULED-SW           AP323188
+                                          WS-MKT-SGMT-TYP-CD            AP323188
+                                          WS-PRICING-FIELDS             AP323188
+                                          ORH-ORSHED.                   AP323188
+                                                                        AP323188
+       ICSCOP7-CALL-ICP378-EXIT.                                        AP323188
+           EXIT.                                                        AP323188
+                                                                        AP323188
+      ******************************************************************AP323188
+      *CALL ICP362 PROGRAM.                                            *AP323188
+      ******************************************************************AP323188
+       ICSCOP7-CALL-ICP362.                                             AP323188
+                                                                        AP323188
+           CALL ICWCOP-GDS-ICP362   USING DFHEIBLK                      AP323188
+                                          TC-SYXCOM                     AP323188
+                                          ICWCOP-FIELDS                 AP323188
+                                          ICWCOP-ADDITIONAL-ACOP-FIELDS AP323188
+                                          ICWCOP-SEGMENT-ACOP-FIELDS    AP323188
+                                          ICWCOP-OTHER-AREA             AP323188
+                                          ICWCOP-COP-PRICE-EFF-DATE     AP323188
+                                          ICWCOP-COP-PRICE-EXP-DATE     AP323188
+                                          ICWCOP-COP-PRICE-EXP-DATE-Y2K AP323188
+                                          ICWCOP-COP-PRICE-EFF-DATE-Y2K AP323188
+                                          ICWCOP-COP-EXP-DATE-Y2K       AP323188
+                                          ICWCOP-COP-EFF-DATE-Y2K       AP323188
+                                          ICWCOP-THIS-YEAR-Y2K          AP323188
+                                          ICWCOP-DECIMAL5-TYPE          AP323188
+                                          ICWCOP-DEFAULT-WINDOW-SPEC    AP323188
+                                          ICWCOP-GSA-FIELDS             AP323188
+                                          TB-PRG-TABLE-IA               AP323188
+                                          TB-ACOP-PROC-IA               AP323188
+                                          ICWCOP-SSEUDB-FIELDS          AP323188
+                                          ICWCOP-ICPCOP-ADDITIONAL-DATA AP323188
+                                          ICWCOP-SSEUDB-ICLCOP-AREA     AP323188
+                                          INRGNP-COMMAREA               AP323188
+                                          INR385-INTERFACE-COMMAREA     AP323188
+                                          INR387-INTERFACE-COMMAREA     AP323188
+                                          WS-OC-AREA                    AP323188
+                                          COP-ICLCOP-1000-RECORD        AP323188
+                                          COP-ICLCOP                    AP323188
+                                          COP-DUMMY-350-RECORD          AP323188
+                                          INB-INSBRN                    AP323188
+                                          INI-INSHED                    AP323188
+                                          INIOF-INSHEDOF-0              AP323188
+                                          INS-INSSTD                    AP323188
+                                          TB-CORP-PROC-IA               AP323188
+                                          TB-CPO2-PROC-IA               AP323188
+                                          TB-CPO4-PROC-IA               AP323188
+                                          TB-CPO5-PROC-IA               AP323188
+                                          TB-CPO7-PROC-IA               AP323188
+                                          TB-CURR-TABLE-IA              AP323188
+                                          TB-DATE-TABLE-IA              AP323188
+                                          VNH-VNSHED                    AP323188
+                                          WS-DLI-SCHEDULED-SW           AP323188
+                                          WS-MKT-SGMT-TYP-CD            AP323188
+                                          WS-PRICING-FIELDS             AP323188
+                                          ORH-ORSHED                    AXL23188
+                                          IC-GDS-INTERFACE-REC.         AXL23188
+                                                                        AP323188
+       ICSCOP7-CALL-ICP362-EXIT.                                        AP323188
+           EXIT.                                                        AP323188
+                                                                        AP323188
+      ******************************************************************AP323188
+      *CALL ICPCOP PROGRAM.                                            *AP323188
+      ******************************************************************AP323188
+       ICSCOP7-CALL-DEFAULT-ICPCOP.                                     AP323188
+                                                                        AP323188
+           CALL ICWCOP-ICPCOP      USING DFHEIBLK                       AP323188
+                                         TC-SYXCOM                      AP323188
+                                         ICWCOP-FIELDS                  AP323188
+                                         ICWCOP-ADDITIONAL-ACOP-FIELDS  AP323188
+                                         ICWCOP-SEGMENT-ACOP-FIELDS     AP323188
+                                         ICWCOP-OTHER-AREA              AP323188
+                                         ICWCOP-COP-PRICE-EFF-DATE      AP323188
+                                         ICWCOP-COP-PRICE-EXP-DATE      AP323188
+                                         ICWCOP-COP-PRICE-EXP-DATE-Y2K  AP323188
+                                         ICWCOP-COP-PRICE-EFF-DATE-Y2K  AP323188
+                                         ICWCOP-COP-EXP-DATE-Y2K        AP323188
+                                         ICWCOP-COP-EFF-DATE-Y2K        AP323188
+                                         ICWCOP-THIS-YEAR-Y2K           AP323188
+                                         ICWCOP-DECIMAL5-TYPE           AP323188
+                                         ICWCOP-DEFAULT-WINDOW-SPEC     AP323188
+                                         ICWCOP-GSA-FIELDS              AP323188
+                                         TB-PRG-TABLE-IA                AP323188
+                                         TB-ACOP-PROC-IA                AP323188
+                                         ICWCOP-SSEUDB-FIELDS           AP323188
+                                         ICWCOP-ICPCOP-ADDITIONAL-DATA  AP323188
+                                         ICWCOP-SSEUDB-ICLCOP-AREA      AP323188
+                                         INRGNP-COMMAREA                AP323188
+                                         INR385-INTERFACE-COMMAREA      AP323188
+                                         INR387-INTERFACE-COMMAREA      AP323188
+                                         WS-OC-AREA                     AP323188
+                                         INB-INSBRN                     AP323188
+                                         INI-INSHED                     AP323188
+                                         INIOF-INSHEDOF-0               AP323188
+                                         INS-INSSTD                     AP323188
+                                         TB-CORP-PROC-IA                AP323188
+                                         TB-CPO2-PROC-IA                AP323188
+                                         TB-CPO4-PROC-IA                AP323188
+                                         TB-CPO5-PROC-IA                AP323188
+                                         TB-CPO7-PROC-IA                AP323188
+                                         TB-CURR-TABLE-IA               AP323188
+                                         TB-DATE-TABLE-IA.              AP323188
+                                                                        AP323188
+       ICSCOP7-CALL-DEFAULT-EXIT.                                       AP323188
+           EXIT.                                                        AP323188
+      *                                                                 AP323188

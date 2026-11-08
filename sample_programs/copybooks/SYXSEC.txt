@@ -1,0 +1,159 @@
+﻿*  03/26/91 - ADD MAIL SW., EMPLOYEE STATUS, & LANGUAGE TO ACTUAL USER  MCV91085
+*             SECURITY RECORD.                                          MCV91085
+*     *    * PC 60137      JWC1               11/24/86   11/24/86               
+*  REMOVE REFERENCES TO GENERIC USER CONTROL RECORD                             
+*     *    * PC 60129      JWC1               10/20/86                          
+*     *    * PC 60064      JWC1               07/28/86   10/16/86               
+         MACRO                                                                  
+         SYXSEC &TYPE,&AREA=,&OFFS=72,&DSECT=YES,&KEYS=512                      
+         AIF   ('&TYPE' NE 'MAP').TYPE02                                        
+         AIF   ('&AREA' NE 'TCTUA').AREA02                                      
+TCTUA    DSECT                                                                  
+         DS    CL&OFFS                                                          
+TCTSEC   DS    0C                      START OF SECURITY AREA                   
+TCTOPID  DS    CL4                     OPERATOR ID                              
+TCTSAME  DS    CL4                     'SAME AS' OPERATOR ID                    
+*                                                                               
+TCTSW    DS    X                       SWITCH                                   
+TCTABR   EQU   X'80'                   ALL BRANCHES                             
+TCTAFUN  EQU   X'40'                   ALL FUNCTIONS                            
+TCTACO   EQU   X'20'                   ALL COMPANIES                            
+TCTDCST  EQU   X'10'                   DISPLAY COST                             
+TCTDGP   EQU   X'08'                   DISPLAY GROSS PROFIT                     
+TCTDPR   EQU   X'04'                   DISPLAY PRICE                            
+*                                                                               
+         DS    X                                                                
+TCTCO    DS    CL2                     COMPANY CODE                             
+TCTBR    DS    CL2                     BRANCH CODE                              
+TCTPBR   DS    CL2                     PRIMARY BRANCH CODE                      
+TCTMAIL  DS    CL1                     MAIL SWITCH                      MCV91085
+TCTEMP   DS    CL1                     EMPLOYEE STATUS                  MCV91085
+TCTLANG  DS    CL1                     LANGUAGE CODE                    MCV91085
+         DS    CL1                                                      MCV91085
+TCTAUTH  DS    CL20                    AUTHORIZATION KEYS                       
+TCTLGH   EQU   *-TCTSEC                                                         
+         MEXIT                                                                  
+.AREA02  ANOP                                                                   
+         AIF   ('&AREA' NE 'SYRSEC').AREA03                                     
+* ------------------------------------------------------------------- *         
+*                                                                     *         
+*    AREA=SYRSEC                                                      *         
+*                                                                     *         
+*      THIS DSECT MAPS THE SYRSEC RECORDS.  THE FIRST 9 POSITIONS     *         
+*    OF THE RECORD MAKE UP THE KEY.  THE FIRST POSITION IS A RECORD   *         
+*    CODE.  THE NEXT 8 POSITIONS ARE DEPENDENT ON THE CODE AS         *         
+*    FOLLOWS:                                                         *         
+*                                                                     *         
+*        |  KEY  |                                                    *         
+*        AUUUUUUUU - UUUUUUUU = ACTUAL USER ID                        *         
+*        GUUUUUUUU - UUUUUUUU = GENERIC USER ID                       *         
+*        OIIIIBB00 - IIII = ACTUAL OPERATOR ID, BB = BRANCH           *         
+*        SDDDD0000 - DDDD = GENERIC OPERATOR ID                       *         
+*                                                                     *         
+* ------------------------------------------------------------------- *         
+         AIF   ('&DSECT' EQ 'NO').SK010                                         
+SYRSEC   DSECT                                                                  
+         AGO   .SK020                                                           
+.SK010   ANOP                                                                   
+SYRSEC   DS    0D                                                               
+.SK020   ANOP                                                                   
+SYRKEY   DS    0CL9                                                             
+SYRKCODE DS    C                       RECORD CODE                              
+SYRKUSR  DS    CL8                     USER ID                                  
+         ORG   SYRKEY+1                                                         
+SYRKOPID DS    CL4                     OPERATOR ID                              
+SYRKBR   DS    CL2                     BRANCH CODE                              
+         ORG   ,                                                                
+*                                                                               
+SYRREC   DS    0D                                                               
+SYRCODE  DS    C                       RECORD CODE                              
+SYRACT   EQU   C'A'                    ACTUAL USER RECORD                       
+SYRGEN   EQU   C'G'                    GENERIC USER                             
+SYROPA   EQU   C'O'                    ACTUAL USER AUTHORIZATIONS               
+SYRSAME  EQU   C'S'                    GENERIC AUTHORIZATIONS                   
+*                                                                               
+SYRVAR   EQU   *                                                                
+*                                 ------------------------------------*         
+*                                 ACTUAL USER RECORD                  *         
+*                                 ----------                          *         
+SYRAUSR  DS    CL8                     ACTUAL USER ID                 *         
+SYRAPSWD DS    CL8                     PASSWORD                       *         
+SYRAOPID DS    CL4                     OPERATOR ID                    *         
+*                                                                     *         
+SYRASW   DS    X                       SWITCH BYTE                    *         
+SYRAABR  EQU   X'80'                   ALL BRANCHES                   *         
+SYRAAFUN EQU   X'40'                   ALL FUNCTIONS                  *         
+SYRAACO  EQU   X'20'                   ALL COMPANIES                  *         
+SYRADCST EQU   X'10'                   DISPLAY COST                   *         
+SYRADGP  EQU   X'08'                   DISPLAY GROSS PROFIT           *         
+SYRADPR  EQU   X'04'                   DISPLAY PRICE                  *         
+*                                                                     *         
+SYRACO   DS    CL2                     COMPANY CODE                   *         
+SYRAPBR  DS    CL2                     PRIMARY BRANCH                 *         
+SYRMAIL  DS    CL1                     MAIL SWITCH                    * MCV91085
+SYREMP   DS    CL1                     EMPLOYEE STATUS                * MCV91085
+SYRLANG  DS    CL1                     LANGUAGE CODE                  * MCV91085
+         DS    CL1                                                    * MCV91085
+*                                                                     *         
+SYRFLGH  EQU   *-SYRREC                LENGTH OF FIXED PORTION        *         
+*                                 ------------------------------------*         
+         ORG   SYRVAR                                                           
+*                                 ------------------------------------*         
+*                                 GENERIC USER RECORD                 *         
+*                                 ----------                          *         
+SYRGUSR  DS    CL8                     GENERIC USER ID                *         
+SYRGOPID DS    CL4                     GENERIC OPERATOR ID            *         
+         DS    CL17                                                   *         
+*                                 ------------------------------------*         
+         ORG   SYRVAR                                                           
+*                                 ------------------------------------*         
+*                                 OPERATOR AUTHORIZATION RECORD       *         
+*                                 ----------                          *         
+SYROOPID DS    CL4                     ACTUAL OPERATOR ID             *         
+SYROBR   DS    CL2                     BRANCH CODE                    *         
+         DS    CL2                     = 3X'00'                       *         
+SYROUSR  DS    CL8                     ACTUAL USER ID                 *         
+SYROSAME DS    CL4                     'SAME AS' OPERATOR ID          *         
+         DS    CL7                                                    *         
+SYROAUCT DS    XL2                     AUTHORIZATION COUNT            *         
+*       FIXED = 30 POSITIONS                                          *         
+* -------------------------------- *                                  *         
+SYROAUTH DS    (&KEYS*2)X              AUTHORIZATION KEYS             *         
+*                                 ------------------------------------*         
+         ORG   SYRVAR                                                           
+*                                 ------------------------------------*         
+*                                 GENERIC AUTHORIZATION RECORD        *         
+*                                 ----------                          *         
+SYRSOPID DS    CL4                     GENERIC OPERATOR ID            *         
+         DS    CL4                     = 5X'00'                       *         
+SYRSUSR  DS    CL8                     GENERIC USER ID                *         
+         DS    CL11                                                   *         
+SYRSAUCT DS    XL2                     AUTHORIZATION COUNT            *         
+*       FIXED = 30 POSITIONS                                          *         
+* -------------------------------- *                                  *         
+SYRSAUTH DS    (&KEYS*2)X              AUTHORIZATION KEYS             *         
+*                                 ------------------------------------*         
+         ORG   ,                                                                
+SYRLGH   EQU   *-SYRREC                RECORD LENGTH                            
+         MEXIT                                                                  
+.AREA03  ANOP                                                                   
+         AIF   ('&AREA' NE 'SECUSER').AREA04                                    
+         AIF   ('&DSECT' EQ 'NO').SK050                                         
+SECUSER  DSECT                                                                  
+         AGO   .SK060                                                           
+.SK050   ANOP                                                                   
+SECUSER  DS    0D                                                               
+.SK060   ANOP                                                                   
+SECOPID  DS    CL4                     OPERATOR ID                              
+SECTERM  DS    CL4                     TERMINAL ID                              
+SECELGH  EQU   *-SECUSER                                                        
+         ORG   SECUSER                                                          
+SECREC   DS    CL(256*SECELGH)                                                  
+         MEXIT                                                                  
+.AREA04  ANOP                                                                   
+         MNOTE *,'&AREA = INVALID AREA PARM'                                    
+         MEXIT                                                                  
+.TYPE02  ANOP                                                                   
+         MNOTE *,'&TYPE = INVALID TYPE PARM'                                    
+         MEXIT                                                                  
+         MEND                                                                   

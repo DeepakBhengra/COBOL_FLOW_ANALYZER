@@ -1,0 +1,292 @@
+      *----------------------------------------------------------------*        
+      * PROCEDURE COPYBOOK:                                            *        
+      * CHECK WHETHER ENDLESS AISLE VENDOR                             *        
+      * THIS COPYBOOK IS THE CLONE OF "SYSBRBEA" EXCEPT TBXCORP5 CALL  *        
+      * SO ANY CHANGE TO THIS COPYBOOK ALSO NEEDS THE CHANGE           *        
+      * "SYSBRBEA".                                                    *        
+      ******************************************************************        
+      * 07/28/17 MAK PRODUCT CATLAOG CHANGES                           *MAK17209
+      * 10/21/16 BXD NEW COPYBOOK FOR BRANCH SEQUENCING LOGIC FOR      *BXD16295
+      *              ENDLESS AISLE PROJECT                             *BXD16295
+      ******************************************************************        
+      *----------------------------------------------------------------*        
+       99051-SET-EA-VNDR-SWITCH.                                                
+      *----------------------------------------------------------------*        
+      *                                                                         
+                                                                                
+             SET  SYWBRSEA-NOT-FATAL-ERROR               TO TRUE.               
+                                                                                
+             IF VNH-VIRTUAL-BRANCH AND                                          
+                VNH-NON-IMTS-VENDOR-SW = 'Y'                                    
+                IF SYWBRSEA-ORDER-FULFILLMENT OR                        MAK17209
+                   SYWBRSEA-INVENTORY-INQUIRY                           MAK17209
+                   MOVE TB-CPO5-PROC-IA                  TO                     
+                                                SYWBRSEA-TBICORP5-BACKUP        
+                   IF SYWBRSEA-ONLINE-PROGRAM                                   
+                      PERFORM 99051A-CALL-CORP5                                 
+                         THRU 99051A-CALL-CORP5-EXIT                            
+                   ELSE                                                         
+                      IF SYWBRSEA-BATCH-PROGRAM                                 
+                         PERFORM 99051B-CALL-CORP5                              
+                            THRU 99051B-CALL-CORP5-EXIT                         
+                      END-IF                                                    
+                   END-IF                                                       
+                   IF TB-CPO5-NON-IMTS                                          
+                      SET SYWBRSEA-CHK-NON-IMTS TO TRUE                         
+                   ELSE                                                         
+                      SET SYWBRSEA-CHK-IMTS     TO TRUE                         
+                   END-IF                                                       
+                   IF NOT SYWBRSEA-FATAL-ERROR                                  
+                         MOVE SYWBRSEA-TBICORP5-BACKUP                          
+                                                TO  TB-CPO5-PROC-IA             
+                   END-IF                                                       
+                   IF SYWBRSEA-BATCH-PROGRAM                                    
+                         MOVE 'C'               TO TB-CPO5-REQUEST-CODE         
+                         CALL 'SYU500'     USING TB-CPO5-PROC-IA                
+                   END-IF                                                       
+                END-IF                                                          
+             ELSE                                                               
+                 SET SYWBRSEA-CHK-IMTS                   TO TRUE                
+             END-IF.                                                            
+       99051-SET-EA-VNDR-SWITCH-EXIT.                                           
+             EXIT.                                                              
+                                                                                
+      *----------------------------------------------------------------*        
+      * CALL FOR TBXCORP5 TO SELECT COUNTRY FOR CICS                   *        
+      *----------------------------------------------------------------*        
+       99051A-CALL-CORP5.                                                       
+                                                                                
+           MOVE  VNH-COMPANY              TO TB-CPO5-COMPANY-CODE.              
+           CALL 'SYU510'                  USING TB-CPO5-PROC-IA.                
+                                                                                
+           IF TB-CPO5-NORESP                                                    
+              CONTINUE                                                          
+           ELSE                                                                 
+              SET  SYWBRSEA-FATAL-ERROR  TO TRUE                                
+              MOVE 'CP05'                TO SYWBRSEA-ABEND-CODE-EA              
+              MOVE 'OPEN CORP5 ERROR'                                           
+                                         TO SYWBRSEA-DISP-MSG-EA1               
+           END-IF.                                                              
+       99051A-CALL-CORP5-EXIT.                                                  
+            EXIT.                                                               
+                                                                                
+      *----------------------------------------------------------------*        
+      * CALL FOR TBXCORP5 TO SELECT COUNTRY FOR BATCH                  *        
+      *----------------------------------------------------------------*        
+       99051B-CALL-CORP5.                                                       
+                                                                                
+           MOVE  VNH-COMPANY              TO TB-CPO5-COMPANY-CODE.              
+           CALL 'SYU500'                  USING TB-CPO5-PROC-IA.                
+                                                                                
+           IF TB-CPO5-NORESP                                                    
+              CONTINUE                                                          
+           ELSE                                                                 
+              SET  SYWBRSEA-FATAL-ERROR  TO TRUE                                
+              MOVE 'CP05'                TO SYWBRSEA-ABEND-CODE-EA              
+              MOVE 'OPEN CORP5 ERROR'                                           
+                                         TO SYWBRSEA-DISP-MSG-EA1               
+           END-IF.                                                              
+       99051B-CALL-CORP5-EXIT.                                                  
+            EXIT.                                                               
+      *----------------------------------------------------------------*        
+      * BRANCH SEQUENCE ROUTINE FOR ENDLESS AISLE SKU'S                *        
+      *----------------------------------------------------------------*        
+       99052-NS-BRANCH-SEQ.                                                     
+      *----------------------------------------------------------------*        
+      *                                                                         
+           SET  SYWBRSEA-NOT-END-OF-EA-BR-CSR   TO TRUE.                        
+           SET  SYWBRSEA-NO-BRANCH-LIMIT-ERR    TO TRUE.                        
+           SET  SYWBRSEA-EA-BRSEQ-NOT-FOUND     TO TRUE.                        
+           SET  SYWBRSEA-NOT-FATAL-ERROR        TO TRUE.                        
+                                                                                
+           MOVE SYWBRSEQ-COMPANY-CODE           TO ORTEABSQ-CO-CD.              
+           MOVE SYWBRSEQ-VENDOR-CODE            TO ORTEABSQ-VEND-NBR.           
+           MOVE SYWBRSEQ-COMPANY-CODE           TO TB-BS-COMPANY-CODE.          
+           MOVE SYWBRSEQ-BR-NBR-INV             TO TB-BS-BR.                    
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SYWBRSEA-ORDER-FULFILLMENT                                  
+                    MOVE SYWBRSEQ-ZIPCODE       TO  ORTEABSQ-FROM-ZIP           
+                                                    ORTEABSQ-TO-ZIP             
+                                                                                
+               WHEN SYWBRSEA-INVENTORY-INQUIRY                                  
+                    MOVE SYWBRSEA-DFLT-ZIP-CODE TO  ORTEABSQ-FROM-ZIP           
+                                                    ORTEABSQ-TO-ZIP             
+                                                                                
+               WHEN OTHER                                                       
+                    SET  SYWBRSEA-FATAL-ERROR                                   
+                                            TO TRUE                             
+                    MOVE 'BRSQ'             TO SYWBRSEA-ABEND-CODE-EA           
+                    MOVE 'INVALID CALLING METHOD '                              
+                                            TO SYWBRSEA-DISP-MSG-EA1            
+           END-EVALUATE.                                                        
+                                                                                
+           IF SYWBRSEA-NOT-FATAL-ERROR                                          
+                                                                                
+              PERFORM 9905D-INIT-WS-BR-SEQ-TBL                                  
+                 THRU 9905D-INIT-WS-BR-SEQ-TBL-EXIT                             
+              VARYING WS-SEQ-IDX FROM 1 BY 1                                    
+                UNTIL WS-SEQ-IDX > WS-ENTRY-TOT                                 
+              PERFORM 9905A-GET-BRANCH-SEQ                                      
+                 THRU 9905A-GET-BRANCH-SEQ-EXIT                                 
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       99052-NS-BRANCH-SEQ-EXIT.                                                
+             EXIT.                                                              
+      *----------------------------------------------------------------*        
+      * PROCEDURE COPYBOOK:                                                     
+      * GET BRANCH SEQUENCE FROM DB2 DATABASE                          *        
+      *----------------------------------------------------------------*        
+       9905A-GET-BRANCH-SEQ.                                                    
+      *----------------------------------------------------------------*        
+      *                                                                         
+                                                                                
+           PERFORM 9905B-OPEN-SW-BR-CURSOR                                      
+              THRU 9905B-OPEN-SW-BR-CURSOR-EXIT                                 
+           IF SYWBRSEA-NOT-FATAL-ERROR                                          
+              SET SYWBRSEA-NOT-END-OF-EA-BR-CSR  TO TRUE                        
+              SET SYWBRSEA-EA-BRSEQ-NOT-FOUND    TO TRUE                        
+              SET SYWBRSEA-NO-BRANCH-LIMIT-ERR   TO TRUE                        
+              MOVE ZEROES                        TO SYWBRSEA-EA-BR-CNT          
+              MOVE 1                             TO WS-SEQ-IDX                  
+                                                                                
+              PERFORM 9905C-FETCH-SW-BR-NBR                                     
+                 THRU 9905C-FETCH-SW-BR-NBR-EXIT                                
+                UNTIL SYWBRSEA-END-OF-EA-BR-CSR                                 
+                                                                                
+           END-IF.                                                              
+           IF SYWBRSEA-NOT-FATAL-ERROR                                          
+              PERFORM 9905D-CLOSE-SW-BR-CURSOR                                  
+                 THRU 9905D-CLOSE-SW-BR-CURSOR-EXIT                             
+           END-IF.                                                              
+      *                                                                         
+           IF  SYWBRSEA-NOT-FATAL-ERROR  AND                                    
+               SYWBRSEA-NO-BRANCH-LIMIT-ERR                                     
+               IF SYWBRSEA-EA-BR-CNT <= ZEROS                                   
+                   SET  TB-BS-ENTRY-NOTFND    TO TRUE                           
+               ELSE                                                             
+      * SET TB-BS-EOT OR TB-BS-NORESP BASED ON TB-BS-BR(KEY PASSED)             
+      * AS EOT WILL BE VALIDATED IF THE KEY IS LOW-VALUES OR SPACES             
+      * AND NORESP WILL BE VALIDATED IF EXACT KEY IS PASSED                     
+                   IF SYWBRSEA-END-OF-EA-BR-CSR AND                             
+                      (SYWBRSEQ-BR-NBR-INV = LOW-VALUES OR SPACES)              
+                       SET TB-BS-EOT          TO TRUE                           
+                   ELSE                                                         
+                       SET  TB-BS-NORESP      TO TRUE                           
+                   END-IF                                                       
+               END-IF                                                           
+           END-IF.                                                              
+      *                                                                         
+           IF  SYWBRSEA-NOT-FATAL-ERROR AND                                     
+               SYWBRSEA-BRANCH-LIMIT-ERR                                        
+               MOVE 'BRSQ'                TO SYWBRSEA-ABEND-CODE-EA             
+               MOVE 'MORE BRANCHES IN BRSEQ '                                   
+                                          TO SYWBRSEA-DISP-MSG-EA1              
+           END-IF.                                                              
+      *                                                                         
+                                                                                
+       9905A-GET-BRANCH-SEQ-EXIT.                                               
+             EXIT.                                                              
+      *----------------------------------------------------------------*        
+       9905B-OPEN-SW-BR-CURSOR.                                                 
+      *----------------------------------------------------------------*        
+                                                                                
+           EXEC SQL                                                             
+                OPEN SW_BR_CURSOR                                               
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                        TO SQLCODE-STATUS.               
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                     CONTINUE                                                   
+               WHEN SQLCODE-NOT-FOUND                                           
+                    MOVE ZEROES               TO SYWBRSEA-EA-BR-CNT             
+               WHEN OTHER                                                       
+                    SET  SYWBRSEA-FATAL-ERROR  TO TRUE                          
+                    MOVE 'BRSQ'                TO SYWBRSEA-ABEND-CODE-EA        
+                    MOVE '9905B-OPEN-SW-BR-CURSOR'                              
+                                               TO SYWBRSEA-DISP-MSG-EA1         
+                    MOVE 'OPEN  SW_BR_NBR_CURSOR '                              
+                                               TO SYWBRSEA-DISP-MSG-EA2         
+           END-EVALUATE.                                                        
+       9905B-OPEN-SW-BR-CURSOR-EXIT.                                            
+             EXIT.                                                              
+      *                                                                         
+      *----------------------------------------------------------------*        
+       9905D-CLOSE-SW-BR-CURSOR.                                                
+      *----------------------------------------------------------------*        
+                                                                                
+           EXEC SQL                                                             
+                CLOSE SW_BR_CURSOR                                              
+           END-EXEC.                                                            
+      *                                                                         
+           MOVE SQLCODE                        TO SQLCODE-STATUS.               
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                     CONTINUE                                                   
+               WHEN SQLCODE-NOT-FOUND                                           
+                    MOVE ZEROES               TO SYWBRSEA-EA-BR-CNT             
+               WHEN OTHER                                                       
+                    SET  SYWBRSEA-FATAL-ERROR  TO TRUE                          
+                    MOVE 'BRSQ'                TO SYWBRSEA-ABEND-CODE-EA        
+                    MOVE '9905D-CLOSE-SW-BR-CURSOR'                             
+                                               TO SYWBRSEA-DISP-MSG-EA1         
+                    MOVE 'CLOSE SW_BR_NBR_CURSOR'                               
+                                               TO SYWBRSEA-DISP-MSG-EA2         
+           END-EVALUATE.                                                        
+                                                                                
+       9905D-CLOSE-SW-BR-CURSOR-EXIT.                                           
+             EXIT.                                                              
+      *                                                                         
+      *----------------------------------------------------------------*        
+       9905C-FETCH-SW-BR-NBR.                                                   
+      *----------------------------------------------------------------*        
+      *                                                                         
+           EXEC SQL                                                             
+                FETCH  SW_BR_CURSOR                                             
+                 INTO :ORTEABSQ-VIRT-BR-NBR                                     
+           END-EXEC.                                                            
+      *                                                                         
+           MOVE SQLCODE                       TO SQLCODE-STATUS.                
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                    ADD +1                    TO SYWBRSEA-EA-BR-CNT             
+                    IF SYWBRSEA-EA-BR-CNT >= SYWBRSEA-EA-BR-LIMIT               
+                        SET SYWBRSEA-BRANCH-LIMIT-ERR                           
+                                              TO TRUE                           
+                        SET SYWBRSEA-END-OF-EA-BR-CSR                           
+                                              TO TRUE                           
+                    ELSE                                                        
+                        MOVE ORTEABSQ-VIRT-BR-NBR                               
+                                TO WS-BRANCH-SEQ-NBR (WS-SEQ-IDX)               
+                                    TB-BS-BR-NBR (WS-SEQ-IDX)                   
+                        SET SYWBRSEA-EA-BRSEQ-FOUND                             
+                                              TO TRUE                           
+                    END-IF                                                      
+                                                                                
+                    ADD +1                    TO WS-SEQ-IDX                     
+               WHEN SQLCODE-NOT-FOUND                                           
+                    SET SYWBRSEA-END-OF-EA-BR-CSR                               
+                                              TO TRUE                           
+               WHEN OTHER                                                       
+                    SET  SYWBRSEA-FATAL-ERROR TO TRUE                           
+                    MOVE 'BRSQ'               TO SYWBRSEA-ABEND-CODE-EA         
+                    MOVE '9905C-FETCH-SW-BR-NBR'                                
+                                               TO SYWBRSEA-DISP-MSG-EA1         
+                    MOVE 'FETCH  SW_BR_NBR_CURSOR'                              
+                                               TO SYWBRSEA-DISP-MSG-EA2         
+           END-EVALUATE.                                                        
+      *                                                                         
+       9905C-FETCH-SW-BR-NBR-EXIT.                                              
+             EXIT.                                                              
+      *                                                                         
+       9905D-INIT-WS-BR-SEQ-TBL.                                                
+           INITIALIZE  WS-BRANCH-SEQ-NBR (WS-SEQ-IDX).                          
+           INITIALIZE  WS-BRANCH-AGCY-IND (WS-SEQ-IDX).                         
+      *                                                                         
+       9905D-INIT-WS-BR-SEQ-TBL-EXIT.                                           
+           EXIT.                                                                

@@ -1,0 +1,115 @@
+      *****************************************************************         
+      * FREIGHT MARKUP - GET MRKUP PCT AND FLAT FEE                             
+      * ------ -------- ---- -----------------------------------------*         
+      * THIS "COPYBOOK" MUST BE INCLUDED AND NOT COPIED INTO THE PROGRAM.       
+      * HOST NAMES ARE DEFINED IN WHRMKUP AND MUST BE INCLUDED IN THE           
+      * DB2 AREA OF THE WORKING STORAGE.                                        
+      * THE FOLLOWING FIELDS MUST BE POPULATED PRIOR TO PERFORMING              
+      * THIS MARKUP ROUTINE: (IF APPLICABLE)                                    
+      *     WS-FRT-MKUP-CARR-DEFLT-PCT                                          
+      *     WS-FRT-MKUP-CO-CD                                                   
+      *     WS-FRT-MKUP-MRKUP-ID                                                
+      *     WS-FRT-MKUP-CARR-SRV                                                
+      *     WS-FRT-MKUP-R-C-CD                                                  
+      *     WS-FRT-MKUP-CARR-ZONE                                               
+      *     WS-FRT-MKUP-CWT-FLG                                                 
+      *     WS-FRT-MKUP-ORDR-DT                                                 
+      *     WS-FRT-MKUP-CTN-OR-TOT-WGT                                          
+      *                                                                         
+      * A TBXCARR CALL SHOULD BE MADE BEFORE PERFORMING THIS ROUTINE            
+      * WS-FRT-MKUP-CARR-DEFLT-PCT SHOULD BE POPULATED WITH                     
+      * TB-CARR-PACKAGE-CONSTANT AND WILL BE USED AS THE LAST DEFAULT           
+      * SHOULD THE SQL STATEMENTS FAIL WITH NO RECORD FOUND.                    
+      * ------ -------- ---- -----------------------------------------*         
+      * 41019  09/20/05 JRA  NEW                                        JRA05263
+      *****************************************************************         
+       MK000-GET-FREIGHT-MARKUP.                                                
+                                                                                
+           MOVE SPACE   TO WS-FRT-MKUP-STRGY-CD.                                
+           MOVE ZEROS   TO WS-FRT-MKUP-ORD-FLAT-FEE                             
+                           WS-FRT-MKUP-MRKUP-PCT-DEC                            
+                           WS-FRT-MKUP-MRKUP-PCT.                               
+           IF WS-FRT-MKUP-CARR-DEFLT-PCT NOT NUMERIC                            
+              MOVE ZEROS  TO WS-FRT-MKUP-CARR-DEFLT-PCT.                        
+                                                                                
+           IF WS-FRT-MKUP-R-C-CD = 'Y'                                          
+              MOVE 'R'  TO WS-FRT-MKUP-R-C-CD                                   
+           ELSE                                                                 
+           IF WS-FRT-MKUP-R-C-CD NOT = 'F' AND 'R'                              
+              MOVE 'F'  TO WS-FRT-MKUP-R-C-CD.                                  
+                                                                                
+           IF WS-FRT-MKUP-MRKUP-ID = SPACE                                      
+              PERFORM MK100-IM01-MKUP THRU MK100-EXIT                           
+              IF WS-NO-MKUP-FOUND                                               
+                 MOVE WS-FRT-MKUP-CARR-DEFLT-PCT                                
+                                           TO  WS-FRT-MKUP-MRKUP-PCT            
+              END-IF                                                            
+           ELSE                                                                 
+              PERFORM MK200-ZONAL-MKUP THRU MK200-EXIT                          
+              IF WS-NO-MKUP-FOUND                                               
+                 PERFORM MK100-IM01-MKUP  THRU MK100-EXIT                       
+                 IF WS-NO-MKUP-FOUND                                            
+                     MOVE WS-FRT-MKUP-CARR-DEFLT-PCT                            
+                                          TO  WS-FRT-MKUP-MRKUP-PCT.            
+                                                                                
+           IF WS-NO-MKUP-FOUND                                                  
+              MOVE 'I'            TO WS-FRT-MKUP-STRGY-CD.                      
+                                                                                
+           COMPUTE WS-FRT-MKUP-MRKUP-PCT-DEC =                                  
+                   WS-FRT-MKUP-MRKUP-PCT / 100.                                 
+       MK000-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+                                                                                
+       MK100-IM01-MKUP.                                                         
+           MOVE 'IM01'            TO WS-FRT-MKUP-MRKUP-ID.                      
+           PERFORM MK999-MKUP-SELECT-SQL.                                       
+       MK100-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+                                                                                
+       MK200-ZONAL-MKUP.                                                        
+           PERFORM MK999-MKUP-SELECT-SQL.                                       
+       MK200-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+                                                                                
+       MK999-MKUP-SELECT-SQL.                                                   
+           EXEC SQL                                                             
+               SELECT A.FRT_PRC_STGY_CD,                                        
+                      A.ORDR_FLAT_FEE_AMT,                                      
+                      B.MRKUP_PCT                                               
+                 INTO :WS-FRT-MKUP-STRGY-CD,                                    
+                      :WS-FRT-MKUP-ORD-FLAT-FEE,                                
+                      :WS-FRT-MKUP-MRKUP-PCT                                    
+                 FROM FRT_MRKUP_ZONE A, FRT_ZONE_WGT B                          
+                WHERE CO_CD            = :WS-FRT-MKUP-CO-CD                     
+                  AND FRT_MRKUP_ID     = :WS-FRT-MKUP-MRKUP-ID                  
+                  AND CARR_SRV_LVL_CD  = :WS-FRT-MKUP-CARR-SRV                  
+                  AND RSDNT_CMCL_CD    = :WS-FRT-MKUP-R-C-CD                    
+                  AND CARR_ZONE_NBR    = :WS-FRT-MKUP-CARR-ZONE                 
+                  AND FRT_CWT_FLG      = :WS-FRT-MKUP-CWT-FLG                   
+                  AND MRKUP_START_DT  <= :WS-FRT-MKUP-ORDR-DT                   
+                  AND MRKUP_END_DT    >= :WS-FRT-MKUP-ORDR-DT                   
+                  AND A.MRKUP_ZONE_SEQ_NBR = B.MRKUP_ZONE_SEQ_NBR               
+                  AND ((LWR_WGT_LMT_NBR <= :WS-FRT-MKUP-CTN-OR-TOT-WGT          
+                                        AND                                     
+                       UPR_WGT_LMT_NBR  >= :WS-FRT-MKUP-CTN-OR-TOT-WGT)         
+                                        OR                                      
+                       LWR_WGT_LMT_NBR  = 9999999 )                             
+               FETCH FIRST 1 ROW ONLY                                           
+           END-EXEC.                                                            
+                                                                                
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    MOVE 'Y'   TO WS-MKUP-FOUND-SW                              
+               WHEN DB2-NOT-FOUND                                               
+                    MOVE 'N'   TO WS-MKUP-FOUND-SW                              
+               WHEN OTHER                                                       
+                    MOVE '999' TO WS-ABCODE                                     
+                    MOVE 'MK999-MKUP-SELECT-SQL'                                
+                      TO SYWDB2-EXTRA-MESSAGE-1                                 
+                    PERFORM 990-SQL-MESSAGE                                     
+           END-EVALUATE.                                                        
+                                                                                
+      ************************************************************              

@@ -1,0 +1,160 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT011                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV011 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV011-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV011-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV011-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV011-CO-CD                                  *          
+      *              - EDV011-PARTNER-ID                             *          
+      *              - EDV011-PROCS-OPTN-FLG                         *  CDA02202
+      *              - EDV011-LIST-TYPE-TXT                          *  CDA02202
+      *              - EDV011-MAIL-ADDR-TXT                          *  CDA02202
+      *              - EDV011-LST-CHG-TS                             *          
+      *              - EDV011-LST-CHG-NAM                            *          
+      *                                                              *          
+      *    OUTPUT: EDV011-OUTPUT-DATA                                *          
+      *          - EDV011-ROW-COUNT                                  *          
+      *          - EDV011-MODULE-RESULT-CD                           *          
+      *          - EDV011-MODULE-MESSAGE                             *          
+      *          - EDV011-DATABASE-RESULT-CODES:                     *          
+      *              - EDV011-SQLCA VALUES                           *          
+      *              - EDV011-SQLCODE                                *          
+      *              - EDV011-SQLSTATE                               *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV011 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV011-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-PARTNER-ID TO EDV011-PARTNER-ID.                *          
+      *     MOVE 'S ' TO EDV011-ACTION-CD.     .                     *          
+      *     MOVE 'IE_MAILING_LIST' TO EDV011-OBJECT-ID.              *          
+      *                                                              *          
+      *     CALL 'EDV011' USING EDV011-COMMUNICATIONS-AREA.          *          
+      *     IF EDV011-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV011 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT001 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                05/24/02  CDA   ADD PROCS-OPTN-FLG, FIXED     *  CDA02202
+      *                                COMMENTS                      *  CDA02202
+      *                11/20/01  KXR   ORIGINAL.                     *  KXR01324
+      ****************************************************************          
+                                                                                
+       01  EDV011-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV011-ACTION-CD                     PIC  X(002).                
+               88  EDV011-SELECT                    VALUE 'S '.                 
+               88  EDV011-INSERT                    VALUE 'I '.                 
+               88  EDV011-SINGLETON-UPDATE          VALUE 'U '.                 
+               88  EDV011-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV011-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV011-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV011-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV011-COUNT                     VALUE 'C '.                 
+               88  EDV011-MAX                       VALUE 'MX'.                 
+               88  EDV011-MIN                       VALUE 'MN'.                 
+               88  EDV011-MASS-DELETE               VALUE 'MD'.                 
+               88  EDV011-MASS-UPDATE               VALUE 'MU'.                 
+               88  EDV011-MASS-INSERT               VALUE 'MI'.                 
+           05  EDV011-USER-ID                       PIC  X(010).                
+           05  EDV011-KEY-AREA.                                                 
+               10  EDV011-KEY-CO-CD                 PIC  X(002).                
+               10  EDV011-KEY-PARTNER-ID            PIC  X(015).                
+               10  EDV011-KEY-PROCS-OPTN-FLG        PIC  X(002).        CDA02202
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV011-INPUT-OUTPUT-AREA.                                        
+               10  EDV011-OBJECT-ID                 PIC  X(030).                
+                   88  EDV011-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV011-IE-MAILING-LIST       VALUE                       
+                                  'IE_MAILING_LIST               '.             
+               10  EDV011-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV011-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV011-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV011-CO-CD                 PIC  X(002).                
+                   15  EDV011-PARTNER-ID            PIC  X(015).                
+                   15  EDV011-PROCS-OPTN-FLG        PIC  X(002).        CDA02202
+                   15  EDV011-LIST-TYPE-TXT         PIC  X(005).                
+                   15  EDV011-MAIL-ADDR-TXT         PIC  X(030).                
+                   15  EDV011-LST-CHG-TS            PIC  X(026).                
+                   15  EDV011-LST-CHG-NAM           PIC  X(015).                
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV011-OUTPUT-DATA.                                              
+               10  EDV011-ROW-COUNT                 PIC  S9(009).               
+               10  EDV011-MODULE-RESULT-CD          PIC  X(002).                
+                   88  EDV011-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV011-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV011-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV011-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV011-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV011-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV011-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV011-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV011-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV011-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV011-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV011-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV011-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV011-EXCEPTION-MESSAGE.                                    
+                   15  EDV011-MSG-OBJECT            PIC  X(030).                
+                   15  EDV011-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV011-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV011-SQLCA.                                            
+                       20  EDV011-SQLCAID           PIC  X(008).                
+                       20  EDV011-SQLCABC           PIC  S9(009).               
+                       20  EDV011-SQLCODE           PIC  S9(009).               
+                       20  EDV011-SQLERRM.                                      
+                           25  EDV011-SQLERRML      PIC  S9(004).               
+                           25  EDV011-SQLERRMC      PIC  X(070).                
+                       20  EDV011-SQLERRP           PIC  X(008).                
+                       20  EDV011-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV011-SQLWARN.                                      
+                           25  EDV011-SQLWARN0      PIC  X(001).                
+                           25  EDV011-SQLWARN1      PIC  X(001).                
+                           25  EDV011-SQLWARN2      PIC  X(001).                
+                           25  EDV011-SQLWARN3      PIC  X(001).                
+                           25  EDV011-SQLWARN4      PIC  X(001).                
+                           25  EDV011-SQLWARN5      PIC  X(001).                
+                           25  EDV011-SQLWARN6      PIC  X(001).                
+                           25  EDV011-SQLWARN7      PIC  X(001).                
+                       20  EDV011-SQLEXT.                                       
+                           25  EDV011-SQLWARN8      PIC  X(001).                
+                           25  EDV011-SQLWARN9      PIC  X(001).                
+                           25  EDV011-SQLWARNA      PIC  X(001).                
+                           25  EDV011-SQLSTATE      PIC  X(005).                

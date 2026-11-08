@@ -1,0 +1,40 @@
+﻿      *****************************************************************         
+      *  SPSOLM - PROCEDURE COPYBOOK TO INVOKE SPP400 OLM DISC RTN    *         
+      *  NOTE: THIS COPYBOOK IS ONLY FOR CICS PROGRAMS                *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 10/17/2025 JZW BIG ROCKS - NEW COPYBOOK FOR SP40 TRIGGER      * JZW25290
+      *****************************************************************         
+      *                                                                         
+      *-----------------------------------------------------------------        
+      *  START THE SPP400 TRANSACTION                                           
+      *-----------------------------------------------------------------        
+       SPSOLM-START-SPP400-TXN.                                                 
+      *                                                                         
+           MOVE ORH-COMPANY               TO TB-OLM-CO-CODE.                    
+           CALL 'SYU510'               USING TB-OLM-PROC-IA.                    
+      *                                                                         
+           IF TB-OLM-NORESP                                                     
+              MOVE ORH-COMPANY            TO SF-CALC-COMPANY-CODE               
+              MOVE ORH-BR-NBR             TO SF-CALC-BR-NBR                     
+              MOVE ORH-ORDER-NBR          TO SF-CALC-ORD-NBR                    
+              MOVE ORSH-DIST-NBR          TO SF-CALC-ORD-DIST-NBR               
+              MOVE ORSH-SHIP-NBR          TO SF-CALC-ORD-SHIP-NBR               
+              MOVE SPACES                 TO SF-CALC-UPDATES-APPLIED-SW         
+              MOVE WS-SP40-FR-EVENT       TO SF-CALC-FROM-EVENT                 
+              MOVE WS-SP40-FR-PROGRAM     TO SF-CALC-FROM-PROGRAM               
+              MOVE TC-OPER-ID             TO SF-CALC-OPID                       
+                                                                                
+              EXEC CICS START                                                   
+                   TRANSID ('SP40')                                             
+                   FROM    (SF-CALC-COMMAREA)                                   
+                   LENGTH  (SF-CALC-TRIG-LENGTH)                                
+                   RESP    (WS-EIBRESP)                                         
+                   PROTECT                                                      
+              END-EXEC                                                          
+                                                                                
+           END-IF.                                                              
+      *                                                                         
+       SPSOLM-START-SPP400-TXN-EXIT.                                            
+                               EXIT.                                            
+      *                                                                         

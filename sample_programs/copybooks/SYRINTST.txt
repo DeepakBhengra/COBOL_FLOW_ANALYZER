@@ -1,0 +1,70 @@
+      ******************************************************************        
+      *** YEAR 2000 REMEDIATED                                         *PWLY8310
+      ******************************************************************        
+      *INGRAM MICRO CHANGES:                                                    
+      * 06/22/04  TGF  ADDED BRAZIL NEW COMPANY CODE (BP).              TGF04174
+      * 06/05/00  TGF  FOR CERTAIN VENDORS AND CUSTOMERS DO NOT CHARGE  TGF00157
+      *                INTEREST.                                        TGF00157
+      * 11/06/98  KLM  NEW PROC COPYBOOK TO ADD INTEREST TO PRICE       KLM98310
+      ******************************************************************        
+      ******************************************************************        
+                                                                                
+       INT100-CALC-INTEREST.                                                    
+                                                                        TGF00157
+           IF TC-BRAZIL OR                                              TGF04174
+              TC-BRAZIL-SOLUTION                                        TGF04174
+              MOVE TC-COMPANY       TO WS-CUSHED-CO                     TGF00157
+                                       WS-VNSHED-CO                     TGF00157
+              MOVE TC-CUST-BR       TO WS-CUSHED-BR                     TGF00157
+              IF WS-CUSHED-CUST NOT > SPACES AND                        TGF00157
+                 TC-CUST-NBR > SPACES                                   TGF00157
+                 MOVE TC-CUST-NBR   TO WS-CUSHED-CUST                   TGF00157
+              END-IF                                                    TGF00157
+              PERFORM 1000-GU-CUSHED                                    TGF00157
+              MOVE 'A'              TO WS-VNSHED-CLASS                  TGF00157
+              IF WS-VNSHED-VEND NOT > SPACES AND                        TGF00157
+                 TC-VENDOR-NBR > SPACES                                 TGF00157
+                 MOVE TC-VENDOR-NBR      TO WS-VNSHED-VEND              TGF00157
+              END-IF                                                    TGF00157
+              PERFORM 1750-GU-VNSHED                                    TGF00157
+              IF CU-NO-INTEREST AND                                     TGF00157
+                 VNH-NO-INTEREST                                        TGF00157
+                 GO TO INT100-EXIT.                                     TGF00157
+                                                                                
+           IF  WS-NEW-INTEREST-TERMS  >  SPACE                                  
+                                                                                
+               MOVE  TC-COMPANY          TO  TB-TERMS-CO                        
+                                              TB-TERM2-CO                       
+                                                                                
+               MOVE  WS-NEW-INTEREST-TERMS   TO  TB-TERMS-CODE                  
+                                              TB-TERM2-CODE                     
+                                                                                
+               CALL  'SYU510'  USING  TB-TERMS-TABLE-AI                         
+                                                                                
+               IF  TB-TERMS-NORESP                                              
+                   IF  TB-TERMS-INT-VARIABLE-DAYS  OR                           
+                        TB-TERMS-INTEREST-OR-PREPAID                            
+                                                                                
+                       CALL  'SYU510'  USING  TB-TERM2-TABLE-AI                 
+                                                                                
+                       IF  TB-TERM2-NORESP                                      
+                           IF  TB-TERM2-INTEREST-RATE  >  +0                    
+                              IF WS-PRC-EU-USE-END-USER                         
+                               COMPUTE WS-TERMS-INTEREST-AMT =                  
+                               (WS-UNIT-PRICE-END-USER                          
+                                  *  TB-TERM2-INTEREST-RATE)                    
+                               COMPUTE  WS-UNIT-PRICE-END-USER =                
+                                 WS-UNIT-PRICE-END-USER +                       
+                                 (WS-UNIT-PRICE-END-USER                        
+                                 *  TB-TERM2-INTEREST-RATE)                     
+                              ELSE                                              
+                               COMPUTE WS-TERMS-INTEREST-AMT =                  
+                          (WS-UNIT-PRICE  *  TB-TERM2-INTEREST-RATE)            
+                               COMPUTE  WS-UNIT-PRICE  =                        
+                               WS-UNIT-PRICE  +                                 
+                          (WS-UNIT-PRICE  *  TB-TERM2-INTEREST-RATE).           
+                                                                                
+                                                                                
+       INT100-EXIT.                                                             
+           EXIT.                                                                
+                                                                                

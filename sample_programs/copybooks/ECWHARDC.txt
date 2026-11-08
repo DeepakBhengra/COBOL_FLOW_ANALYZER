@@ -1,0 +1,64 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+       8888-SPECIAL-DLI-SETUP.                                                  
+                                                                                
+      * THIS ROUTINE USES THE TYPE-REGION-POSITION-OF-PCB  FORMAT OF            
+      *  TBIPSBTY FOR A SPECIAL PSB THAT HAS ONLY THE PCB'S NEEDED FOR          
+      *  1 FREQUENTLY USED PROGRAM. THESE PSB'S DO NOT HAVE THE SAME            
+      *  NUMBER OF PCB'S FOR ALL PCB TYPES IN THE PSB. EX : 1 PCB               
+      *  TYPE MAY BE REQUIRED FOR ALL REGIONS, WHILE THE OTHER PCB TYPES        
+      *  ARE ONLY NEEDED FOR THE LOCAL REGION.                                  
+      *  IN THIS CASE THE USUAL SUPERPSB POINTER CALCULATION ROUTINE            
+      *  WILL NOT WORK. THE PCB POSITIONS FOR EACH TYPE-REGION                  
+      *  COMBINATION ARE STORED IN TBIPSBTY.                                    
+      *  IF TB-PSB-TY-NUM-OF-TYPES  = 00   THEN THE PROGRAM KNOWS IT    MSC90219
+      *  SHOULD USE THIS METHOD.                                        MSC90219
+      *                                                                         
+                                                                                
+                                                                                
+      *  TYPE-REGION-POSITION  METHOD :                                         
+      *                                                                         
+      * FIND POSITION OF PCB FOR THE REQUIRED TYPE AND REGION                   
+      *                                                                         
+           MOVE 'N' TO WS-PCB-FOUND-SW.                                 MSC90219
+           MOVE 'N' TO WS-PCB-BLANK-ENTRY-FOUND-SW.                     MSC90219
+      *                                                                         
+      *********                                                                 
+      *                                                                         
+           PERFORM  VARYING WS-PCB-SUB                                  MSC90219
+                    FROM 1 BY 1                                         MSC90219
+                    UNTIL (WS-PCB-SUB > WS-PCB-TYPE-REG-POS-LIMIT)      MSC90219
+                       OR (WS-PCB-FOUND-SW  = 'Y')                      MSC90219
+                       OR (WS-PCB-BLANK-ENTRY-FOUND-SW = 'Y')           MSC90219
+      *                                                                         
+               IF TB-PSB-TY-TRP-TYPE ( WS-PCB-SUB ) = SPACES      OR    00000230
+                  TB-PSB-TY-TRP-TYPE ( WS-PCB-SUB ) = LOW-VALUES        00000230
+      *            THEN THE END OF THE ENTRIES WAS FOUND                        
+                   MOVE 'Y' TO WS-PCB-BLANK-ENTRY-FOUND-SW              MSC90219
+               ELSE                                                     00000230
+      *            SEE IF TYPE + REGION IN TABLE MATCH THE REQUEST              
+                   IF WS-PCB-TYPE   = TB-PSB-TY-TRP-TYPE ( WS-PCB-SUB ) 00000230
+                         AND                                            00000230
+                      WS-PCB-REGION = TB-PSB-TY-TRP-REG  ( WS-PCB-SUB ) 00000230
+                    MOVE TB-PSB-TY-TRP-POS ( WS-PCB-SUB ) TO WS-PCB-POS MSC90219
+                    MOVE 'Y' TO WS-PCB-FOUND-SW                         MSC90219
+                   END-IF                                               MSC90219
+               END-IF                                                   MSC90219
+                                                                                
+           END-PERFORM.                                                 MSC90219
+      *                                                                         
+      *********                                                                 
+      *                                                                         
+      *                                                                         
+           IF WS-PCB-NOT-FOUND                                          MSC90219
+               MOVE 'SETS' TO  WS-ABCODE                                        
+               PERFORM 999-ABEND                                        MSC90219
+           ELSE                                                                 
+               MOVE WS-PCB-POS TO WS-PCB-SUB                                    
+           END-IF.                                                              
+                                                                                
+                                                                                
+                                                                                
+       8888-SPECIAL-DLI-SETUP-EXIT.                                             
+           EXIT.                                                                

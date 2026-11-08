@@ -1,0 +1,150 @@
+                                                                                
+      *****************************************************************         
+      *         WORKING STORAGE FOR STRATEGIC PRICING - PARAMETERS    *         
+      *                                                               *         
+      *  PURPOSE:  THE SP PARAMETERS COMMUNICATION AREA IS USED       *         
+      *            PASS CONTROL INFORMATION TO THE SYPCTR ENGINE      *         
+      *            CONNECTOR UTILITY, BUT THESE PARAMETERS ARE        *         
+      *            NOT PASSED ON TO THE PRICING ENGINE. IT INCLUDES   *         
+      *            A DATA LAYOUT CODE, SOURCE PROGRAM/OPERATOR, ETC.  *         
+      *            THESE PARAMETER FIELDS ARE PREFIXED WITH SYWSPP-   *         
+      *                                                               *         
+      *            THE SP VARIABLES CAN BE USED BY PRICING            *         
+      *            APPLICATIONS TO HELP PERFORM PRICING FUNCTIONS.    *         
+      *            IT INCLUDES HELPER VARIABLES INCLUDING A           *         
+      *            STANDARD FLAG TO INDICATE WHETHER STRATEGIC        *         
+      *            PRICING IS ON/OFF (SET BY PARAGRAPH SP100),        *         
+      *            THE REQUEST & RESPONSE SUBSCRIPTS, VARIOUS         *         
+      *            DYNAMIC PROGRAM IDS, DATE FIELDS, ETC.             *         
+      *            THESE VARIABLE FIELDS ARE PREFIXED WITH SYWSPV-    *         
+      *                                                               *         
+      *  USAGE:    COPY INTO YOUR PRICING APPLICATION TO BE USED      *         
+      *            IN CONJUNCTION WITH SEVERAL PRICING UTILITY        *         
+      *            COPYBOOKS AND APPLICATION SPECIFIC CODE.           *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 11/02/04 AXR       *** STRATEGIC PRICING - FULL SOLUTION ***  * AXR04307
+      *               1. CREATED COPYBOOK.                            * AXR04307
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+      *****************************************************************         
+      *    WORKING STORAGE - STRATEGIC PRICING PARAMETER AREA                   
+      *                      PASSED TO ENGINE CONNECTOR UTILITY BUT             
+      *                      IS NOT PASSED ON TO TARGET PRICING ENGINE          
+      *****************************************************************         
+                                                                                
+         01  SYWSPP-SP-PARAMETERS.                                              
+      *         (THE ENGINE CONNECTOR CAN CHECK THAT THE PARAMETER              
+      *          VERSION IS CONSISTENT WITH WHAT IT EXPECTS/SUPPORTS)           
+             05  SYWSPP-VERSION-ID                PIC X(03) VALUE '001'.        
+                                                                                
+      *         (INDICATES REQUEST FOR SKU PRICING OR END ORDER CALC)           
+             05  SYWSPP-TARGET-ENGINE-CD          PIC X(01).                    
+                 88  SYWSPP-TARGET-PRICING-ENGINE VALUE 'P'.                    
+                 88  SYWSPP-TARGET-END-ORD-ENGINE VALUE 'E'.                    
+                                                                                
+      *         (DESCRIBES LAYOUT OF THE PRICING REQUEST AND RESPONSE)          
+             05  SYWSPP-DATA-LAYOUT-CD            PIC X(02).                    
+      *             (1 SKU, NO OTHER DATA:)                                     
+                 88  SYWSPP-LAYOUT-PRICING-SNGL   VALUE 'PS'.                   
+      *             (1 SKU, 4 QUANTITY BREAK RESPONSES)                         
+                 88  SYWSPP-LAYOUT-PRICING-QTYBR  VALUE 'PQ'.                   
+      *             (1 SKU, 1 PARTIAL EXPLAIN ID RESPONSE)                      
+                 88  SYWSPP-LAYOUT-PRICING-EXPLN  VALUE 'PE'.                   
+      *             (1 SKU, 1 FULL EXPLAIN PLAN RESPONSE)                       
+                 88  SYWSPP-LAYOUT-PRICING-FEXPN  VALUE 'PF'.                   
+      *             (MULTIPLE SKU, 1 PARTIAL EXPLAIN PLAN RESPONSE)             
+                 88  SYWSPP-LAYOUT-PRICING-MXPLN  VALUE 'PX'.                   
+      *             (MULTIPLE SKU, NO OTHER DATA)                               
+                 88  SYWSPP-LAYOUT-PRICING-MULT   VALUE 'PM'.                   
+      *             (END-ORDER REQUEST FOR MULTIPLE DISTRIBUTIONS)              
+                 88  SYWSPP-LAYOUT-END-ORDER      VALUE 'EO'.                   
+                                                                                
+      *         (THE APPLICATION PROGRAM THAT IS INVOKING THE ENGINE)           
+             05  SYWSPP-SOURCE-PROGRAM-ID         PIC X(08).                    
+      *         (THE PERSON/OPERATOR USING THE PRICING APPLICATION)             
+             05  SYWSPP-SOURCE-OPER-ID            PIC X(08).                    
+                                                                                
+      *         (THE START & END TIMES OF THE ENGINE CONNECTOR)                 
+             05  SYWSPP-TIME-SENT-HHMMSSHU        PIC X(08).                    
+             05  SYWSPP-TIME-RECVD-HHMMSSHU       PIC X(08).                    
+                                                                                
+      *         (IN DEBUG MODE, THE TIMINGS FOR SIGNIFICANT ENGINE              
+      *          CONNECTOR STAGES TO ESTABLISH/SEND/RECEIVE DATA)               
+             05  SYWSPP-DEBUG-TIMINGS.                                          
+                 10  SYWSPP-DEBUG-TIMING          OCCURS 9 TIMES.               
+                     15 SYWSPP-CTR-MESG-LINE      PIC X(80).                    
+             05  FILLER                           PIC X(50).                    
+                                                                                
+                                                                                
+      *****************************************************************         
+      *    WORKING STORAGE - AREA OF STRATEGIC PRICING HELPER VARIABLES         
+      *                      USED BY VARIOUS STRATEGIC PRICING                  
+      *                      UTILITIES AND ROUTINES. THESE VARIABLES            
+      *                      ARE NOT PASSED TO THE ENGINE CONNECTOR OR          
+      *                      PRICING ENGINE, AND THIS AREA CAN BE               
+      *                      ALTERED WITHOUT REQUIRING ALL APPLICATIONS         
+      *                      USING THIS COPYBOOK TO BE RECOMPILED.              
+      *                      APPLICATIONS USING THE ADDED / PILED, ONLY         
+      *****************************************************************         
+                                                                                
+         01  SYWSPV-SP-VARIABLES.                                               
+                                                                                
+      *         (A CONSOLIDATED FLAG TO SIMPLIFY USAGE IN APPLICATIONS)         
+             05  SYWSPV-STRATEGIC-PRICING-FLAG    PIC X(01) VALUE 'N'.          
+                 88  SYWSPV-STRATEGIC-PRICING-ON  VALUE 'Y'.                    
+                 88  SYWSPV-STRATEGIC-PRICING-OFF VALUE 'N'.                    
+                                                                                
+      *         (THE DYNAMIC NAME OF THE ENGINE CONNECTOR PROGRAM)              
+             05  SYWSPV-CONNECTOR-PGM             PIC X(08)                     
+                                                  VALUE 'SYPCTR  '.             
+                                                                                
+      *         (THE DYNAMIC NAME OF THE EXPLAIN WRITER PROGRAM)                
+             05  SYWSPV-EXPLN-WRTR-PGM            PIC X(08)                     
+                                                  VALUE 'ORP697  '.             
+                                                                                
+      *         (THE TRANSACTION NAME OF THE EXPLAIN WRITER PROGRAM)            
+             05  SYWSPV-EXPLN-WRTR-TRAN           PIC X(04)                     
+                                                  VALUE 'O697'.                 
+                                                                                
+      *        (INDICATOR OF WHETHER ENGINE CONNECTOR/EXPLAIN WRITER            
+      *         COULD BE SUCCESSFULLY INVOKED)                                  
+             05 SYWSPV-INVOCATION-STATUS          PIC X(01) VALUE SPACE.        
+                88 SYWSPV-INVOCATION-OKAY         VALUE SPACE.                  
+                88 SYWSPV-INVOCATION-ERROR        VALUE 'E'.                    
+                                                                                
+                                                                                
+      *        (CODE TO CONTROL HOW THE EXPLAIN WRITER IS INVOKED)              
+             05 SYWSPV-EW-INVOCATION-CD           PIC X(01).                    
+                88 SYWSPV-EW-VIA-START            VALUE 'S'.                    
+                88 SYWSPV-EW-VIA-LINK             VALUE 'L'.                    
+                                                                                
+      *        (DESIGNATES TARGET 24X7 REGION FOR EXCI FUNCTIONS)               
+             05 SYWSPV-CICS-APPLID-TEST           PIC X(08)                     
+                                                  VALUE 'TCPTCICS'.             
+             05 SYWSPV-CICS-APPLID-PROD           PIC X(08)                     
+                                                  VALUE 'TCP1CICS'.             
+                                                                                
+      *         (SOME GENERAL USE DATE VARIABLES)                               
+             05  SYWSPV-JULIAN-DT-YYDDD           PIC 9(05) VALUE ZERO.         
+             05  SYWSPV-ISO-DT-CCYYMMDD           PIC 9(08) VALUE ZERO.         
+                                                                                
+      *         (A SIGNED FIELD TO HOLD THE NEW ENGINE FLOOR PRICE)             
+             05  SYWSPV-FLOOR-PRICE               PIC S9(15)V99                 
+                                                  VALUE ZERO.                   
+                                                                                
+      *         (SUBSCRIPTS TO LOOP THROUGH REQUEST & RESPONSE ARRAYS)          
+             05  SYWSPSRQ-IDX                     PIC 9(02) VALUE 1.            
+             05  SYWSPSRS-IDX                     PIC 9(02) VALUE 1.            
+                                                                                
+      *         (VARIABLES TO HELP FORMAT THE ENGINE CONNECTOR                  
+      *          COMMUNICATION AREA)                                            
+             05  SYWSPV-PARM-LEN         PIC 9(04) VALUE ZERO.                  
+             05  SYWSPV-DATA-LEN         PIC 9(04) VALUE ZERO.                  
+             05  SYWSPV-DATA-START       PIC 9(04) VALUE ZERO.                  
+             05  SYWSPV-COMMAREA-LEN     PIC S9(04) COMP VALUE ZERO.            
+             05  SYWSPV-COMMAREA         PIC X(32000).                          
+                                                                                

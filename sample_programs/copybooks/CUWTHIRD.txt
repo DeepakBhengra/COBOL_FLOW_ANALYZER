@@ -1,0 +1,130 @@
+000100                                                                          
+000200******************************************************************        
+000300*         NAME: CUWTHIRD                                                  
+000400*=================================================================        
+000500*                                                                *        
+000900*08/08/05 WXY ADDED DHL ACCOUNT.                                 *WXY05220
+000900*07/07/04 JJU SOMETIMES ALLOW 3RD-PARTY ACCT# FOR OT CARRIER     *JJU04201
+000600*07/23/03 TMH ADD PUROLATOR                                      *TMH04026
+000601*10/01/97 MAM CHANGED CODE TO ALLOW UPS 3RD PARTY CARRIERS.      *MAM97274
+000610*08/08/97 TSR INITIAL VERSION                                    *TSR97220
+000700*                                                                *        
+000800*=================================================================        
+000900*  THE PURPOSE OF THIS CPYLIB MEMBER IS TO CALCULATE THE CHECK   *        
+001000*    DIGIT FOR THIRD PARTY FREIGHT BILLING.                      *        
+001100*                                                                *        
+001200*  COPYBOOKS CUSTHIRD AND CUWTHIRD ARE USED TOGETHER TO DO THE   *        
+001300*    CHECK DIGIT VALIDATION. CUSTHIRD IS THE PROCEDURE DIVISION  *        
+001400*    MEMBER AND CUWTHIRD IS THE WORKING-STORAGE MEMBER.          *        
+001500*                                                                *        
+001600*  THE THIRD PARTY ACCOUNT NUMBER NEEDS TO BE MOVED TO           *        
+001700*    "CUWTHIRD-ACCOUNT-NBR" AND THE PROGRAM PERFORM PARAGRAPH    *        
+001800*    "CUSTHIRD-CALCULATE-CHECK-DIGIT"                            *        
+001900*                                                                *        
+002000*  WHEN YOU RETURN FROM THE PERFORM CHECK FOR A VALID ACCOUNT    *        
+002100*    NUMBER. FIELD "CUWTHIRD-ERROR-REASON" SHOULD BE SPACES.     *        
+002200*    IF IT IS NOT; THEN, IT WILL CONTAIN THE REASON FOR REJECTION*        
+002300*    OF THE NUMBER.                                              *        
+002400*                                                                *        
+002500*  INITIALIZE THE FOLLOWING FIELDS.                              *        
+002600*     THIRD PARTY ACCOUNT NUMBER........ CUWTHIRD-ACCOUNT-NBR    *        
+002700*                                                                *        
+002800*================================================================*        
+002900*  EXAMPLE:                                                      *        
+003000*================================================================*        
+003100*                                                                *        
+003200*  WORKING-STORAGE SECTION                                       *        
+003300*      .                                                         *        
+003400*      .                                                         *        
+003500*      COPY CUWTHIRD SUPPRESS.                                   *        
+003600*      COPY NCARRWS  SUPPRESS.    *** IF NOT ALLREADY BEING USED.*        
+003700*      .                                                         *        
+003800*      .                                                         *        
+003900*  PROCEDURE DIVIDION.                                           *        
+004000*      .                                                         *        
+004100*      .                                                         *        
+004200*      MOVE MOVE WS-ACCOUNT       TO  CUWTHIRD-ACCOUNT-NBR.      *        
+004300*      PERFORM CUSTHIRD-CALCULATE-CHECK-DIGIT.                   *        
+004400*      IF CUWTHIRD-VALID                                         *        
+004500*         MOVE CUWTHIRD-ACCOUNT-NBR TO ** YOUR DATA NAME **      *        
+004600*      ELSE                                                      *        
+004700*         **  YOUR ERROR PROCESSING  **                          *        
+004800*      .                                                         *        
+004900*      .                                                         *        
+005000*      COPY CUSTHIRD SUPPRESS.                                   *        
+005100******************************************************************        
+005200                                                                          
+005300 01  CUWTHIRD-PROGRAM-SWITCHES.                                   MAM97274
+005303     05  WAS-SPACE-FOUND-BEFORE-NUM                               MAM97274
+005304                                          PIC X(01)  VALUE 'N'.   MAM97274
+005305         88  SPACE-WAS-FOUND-BEFORE-NUM              VALUE 'Y'.   MAM97274
+005306         88  SPACE-WAS-NOT-FOUND-BEFORE-NUM          VALUE 'N'.   MAM97274
+005307                                                                  MAM97274
+005310 01  CUWTHIRD-WORKING-STORAGE.                                            
+005400     05  CUWTHIRD-ACCOUNT-NBR-01-18.                              MAM97274
+005700         10  CUWTHIRD-ACCOUNT-NBR-01-12.                          MAM97274
+005702             15  CUWTHIRD-ACCOUNT-NBR     PIC  X(12).             MAM97274
+005710         10  CUWTHIRD-ACCOUNT-NBR-13-18   PIC  X(06).             MAM97274
+005711     05  FILLER                         REDEFINES                 MAM97274
+005712         CUWTHIRD-ACCOUNT-NBR-01-18.                              MAM97274
+005713         10  CUWTHIRD-ACCOUNT-NBR-01-06   PIC  X(06).             MAM97274
+005714         10  CUWTHIRD-ACCOUNT-NBR-07-18   PIC  X(12).             MAM97274
+005900     05  CUWTHIRD-ACCOUNT-WRK.                                    MAM97274
+005910         10  CUWTHIRD-ACCOUNT-WRK-9       PIC  9(12).             MAM97274
+006000     05  FILLER                         REDEFINES                 MAM97274
+006010         CUWTHIRD-ACCOUNT-WRK.                                    MAM97274
+006020         10  CUWTHIRD-ACCT-WRK-6-BYTES    PIC  X(06).             MAM97274
+006200         10  FILLER                       PIC  X(06).             MAM97274
+006210     05  CUWTHIRD-AIRBORNE-NBR          REDEFINES                 MAM97274
+006220         CUWTHIRD-ACCOUNT-WRK.                                    MAM97274
+006230         10  CUWTHIRD-AX                  PIC  9(01)              MAM97274
+006240                                        OCCURS 9 TIMES.           MAM97274
+006250         10  FILLER                       PIC  X(03).             MAM97274
+006300     05  CUWTHIRD-FEDEX-NBR             REDEFINES                 MAM97274
+006310         CUWTHIRD-ACCOUNT-WRK.                                    MAM97274
+006400         10  FILLER                       PIC  X(03).             MAM97274
+006500         10  CUWTHIRD-FX                  PIC  9(01)              MAM97274
+006510                                        OCCURS 9 TIMES.           MAM97274
+006600     05  CUWTHIRD-EAGLE-NBR             REDEFINES                 MAM97274
+006610         CUWTHIRD-ACCOUNT-WRK.                                    MAM97274
+006700         10  CUWTHIRD-EAG-NM              PIC  X(04).             MAM97274
+006800         10  CUWTHIRD-EAG                 PIC  9(01)              MAM97274
+006810                                        OCCURS 5 TIMES.           MAM97274
+006900         10  FILLER                       PIC  X(03).             MAM97274
+006910     05  CUWTHIRD-PURO-NBR              REDEFINES                 TMH04026
+006920         CUWTHIRD-ACCOUNT-WRK.                                    TMH04026
+006940         10  CUWTHIRD-PUR                 PIC  9(01)              TMH04026
+006941                                        OCCURS 9 TIMES.           TMH04026
+006942         10  CUWTHIRD-PUR-FILLER          PIC  X(03).             TMH04026
+006980     05  CUWTHIRD-PURO-NBR-CHK.                                   TMH04026
+006991         10  CUWTHIRD-PURO-NUMBER         PIC  9(02)              TMH04026
+006993                                        OCCURS 9 TIMES.           TMH04026
+006995     05  CUWTHIRD-PURO-NBR-DIGITS         PIC  9(02).             TMH04026
+006996     05  FILLER REDEFINES CUWTHIRD-PURO-NBR-DIGITS.               TMH04026
+006997         10  CUWTHIRD-PURO-DIGIT-01       PIC  9(01).             TMH04026
+006998         10  CUWTHIRD-PURO-DIGIT-02       PIC  9(01).             TMH04026
+006999                                                                  TMH04026
+007000     05  CUWTHIRD-ERROR-REASON            PIC  X(60).             MAM97274
+007100         88  CUWTHIRD-VALID                          VALUE SPACES.MAM97274
+007200     05  CUWTHIRD-CHECK-DIGIT             PIC  9(02).             MAM97274
+007300     05  CUWTHIRD-W00                     PIC  9(03) COMP-3.      MAM97274
+007300     05  CUWTHIRD-W01                     PIC  9(03) VALUE 0.     WXY05220
+007300     05  CUWTHIRD-W01R REDEFINES CUWTHIRD-W01.                    WXY05220
+007300         10  CUWTHIRD-W01R-1DIGIT         PIC 9(01).              WXY05220
+007300         10  CUWTHIRD-W01R-2DIGIT         PIC 9(01).              WXY05220
+007300         10  CUWTHIRD-W01R-3DIGIT         PIC 9(01).              WXY05220
+007300     05  CUWTHIRD-W02                     PIC  9(03) COMP-3.      WXY05220
+007300     05  CUWTHIRD-W03                     PIC  9(03) COMP-3.      WXY05220
+007400     05  CUWTHIRD-W99                     PIC  9(03) COMP-3.      MAM97274
+007500     05  CUWTHIRD-WX                    OCCURS 8 TIMES            MAM97274
+007600                                          PIC  9(02) COMP-3.      WXY05220
+007500     05  CUWTHIRD-WY                    OCCURS 9 TIMES            WXY05220
+007600                                          PIC  9(02) COMP-3.      WXY05220
+007700     05  CUWTHIRD-SUB                     PIC  9(02) COMP.        MAM97274
+007710     05  CUWTHIRD-SUB1                    PIC  9(02) COMP.        MAM97274
+007720     05  CUWTHIRD-ACCT-6-BYTES.                                   MAM97274
+007721         10  CUWTHIRD-ACCT-1-BYTE         PIC  9(01)              MAM97274
+007722                                        OCCURS 6 TIMES.           MAM97274
+007710     05  CUWTHIRD-CC-ELIG-FOR-3RD-SW      PIC  X(01).             JJU04201
+007100         88  CUWTHIRD-CC-ELIG-FOR-3RD                VALUE 'Y'.   JJU04201
+007723                                                                          

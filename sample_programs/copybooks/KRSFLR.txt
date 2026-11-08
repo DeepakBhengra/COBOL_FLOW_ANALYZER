@@ -1,0 +1,750 @@
+000100******************************************************************TLKY8337
+000200*** YEAR 2000 READY                                              *TLKY8337
+000300******************************************************************TLKY8337
+000400* ------------------------------------------------------------ *          
+000500* BUILD ORSSTO VECTOR FOR FLOORING AND ORDER HOLDS             *          
+000600* -  RESHED DATABASE PROCESSING                                *          
+000700* ------------------------------------------------------------ *          
+      * 08/06/21 TXV UPDATE VENDOR NUMBER DURING WARR/API HOLDS OF      TXV21218
+      *              ORDERS INTO RESHED TO ENABLE FILTERS IN HOLD       TXV21218
+      *              REVIEW SCREEN.                                     TXV21218
+      * 06/05/15 BXA INCLUDED ORIGINAL SHIP-NBR TO MOVE AND FETCH       BXA15156
+      *              CORRESPONDING BACKORDERS FROM RESHED.              BXA15156
+      * 07/11/06 MEP REREAD ORDER DATABASE JUST BEFORE UPDATE OF RESHED MEP06192
+      * 05/19/06 JXO TECHPAC CRD5  RESHED : UPDATE MORE FIELDS          JXO06139
+      *  THIS ROUTINE NOW REQUIRES 2 NEW FIELDS IN WORKING-STORAGE:     JXO06139
+      *      WS-ORSHEDOF-CST-FLAG           PIC X(01)                   JXO06139
+      *      WS-ORHOF-SHIP-TO-CHANGE-FLAG   PIC X(01)                   JXO06139
+      * 07/17/04 TGF BRAZIL NEW COMPANY - NEED TO READ TBIFLAU2.     *  TGF04196
+      * 12/08/99 CIC INCLUDE ONLY TRUE FLOORING SUFFIX.                 CIC99342
+      * 10/28/99 CIC ADD EAST/WEST DIRECT SHIP CR MGR CODE           *  CIC99301
+      * 09/03/99 CIC LEASING SUFFIX RESTRUCTURE RELEASE              *  CIC99246
+000800* 08/17/99 TSR ADD CODE FOR RESHED RES-SLA-CODE.               *  TSR99229
+000800* 04/13/99 LMH ADDED EDIT FOR ORDER SHIP COMPLETE              *  LMH99183
+000900* 09/01/98 BXT ADDED FOREIGN FIELD AMOUNT TO POPULATE          *  BXT98244
+001000* 02/26/98 WKP ADDED ADDITIONAL PENDING CODES                  *  WKP98057
+001100* 09/12/97 TRR CORRECTED CREDIT MANAGER CODE FOR LEASING       * TRR97255 
+001200* 08/18/97 TRR COMMON AUTOMATED FLOORING AND RESHED DB LOGIC   * TRR97230 
+001300* ------------------------------------------------------------ *          
+001400*                                                                         
+001500 3840-FLOORING-UPDATE.                                                    
+001600*                                                                         
+001700*    DO WE WANT TO STORE ENTRIES WITH ZERO DOLLARS ?                      
+001800*                                                                         
+001900     SET ORSA-FLOORING-AUTH        TO TRUE                                
+002000     MOVE ORSA-SEGMENT-TYPE        TO WS-ORSSTO-TYPE                      
+002100     MOVE ORSH-KEY-ORSSHH          TO WS-ORSSTO-FL-ALPHA-KEY              
+002200     MOVE WS-ORSSTO-FL-NUMERIC-KEY TO WS-ORSSTO-FL-HEX-KEY                
+002300     MOVE WS-ORSSTO-FL-BINARY-KEY  TO WS-ORSSTO-SHIP                      
+002400     MOVE 'ORSSTO'                 TO WS-UNQUAL-SSA                       
+002500                                                                          
+002600     PERFORM 1215-GHU-ORSSTO                                              
+002700                                                                          
+002800*    OVERLAY FLOORING ENTRIES WITH ALREADY PROCESSED ENTRIES              
+002900*                                                                         
+003000     IF  WS-ORSSTO-NORESP                                                 
+003100         PERFORM 3860-SAVE-FLOORING.                                      
+003200                                                                          
+003300     INITIALIZE                       ORSA-FLOORING-DATA.                 
+003400     MOVE WS-ORSSTO-KEY-VALUE      TO ORSA-SEGMENT-CODE                   
+003500     MOVE ZERO                     TO FVX                                 
+003600     MOVE WS-FV-CNT (FVD)          TO FV-MAX                              
+003700                                                                          
+003800     PERFORM                                                              
+003900     VARYING FVY   FROM   +1  BY   +1                                     
+004000       UNTIL FVY  >  FV-MAX                                               
+004100        ADD +1                   TO FVX                                   
+004200        MOVE WS-FV-BILL-TO       (FVD  FVX)                               
+004300                                 TO ORSA-FLOORING-NBR                     
+004400                                      (FVX)                               
+004500        MOVE WS-FV-AUTH-NBR      (FVD  FVX)                               
+004600                                 TO ORSA-FLOORING-AUTH-NBR                
+004700                                      (FVX)                               
+004800        MOVE WS-FV-PROVIDER      (FVD  FVX)                               
+004900                                 TO ORSA-FLOORING-COMPANY                 
+005000                                      (FVX)                               
+005100        MOVE WS-FV-ACTION-CODE   (FVD  FVX)                               
+005200                                 TO ORSA-FLOORING-AUTH-ACTION             
+005300                                      (FVX)                               
+005400        MOVE WS-FV-CONSOLIDATION (FVD  FVX)                               
+005500                                 TO ORSA-FLOORING-CONSOLIDATION           
+005600                                      (FVX)                               
+005700        IF  ORSA-FLOORING-AUTH-ACTION (FVX) > SPACES                      
+005800            MOVE WS-FV-TRAN-AMOUNT (FVD  FVX)                             
+005900                                 TO ORSA-FLOORING-AMOUNT (FVX)            
+006000        ELSE                                                              
+006100            IF  ORSA-FLOOR-SUF   (FVX)                            CIC99246
+006200                MOVE WS-FV-SHIPPED-AMOUNT (FVD  FVX)                      
+006300                                 TO ORSA-FLOORING-AMOUNT (FVX)            
+006400            ELSE                                                          
+006500                MOVE WS-FV-ORDERED-AMOUNT (FVD  FVX)                      
+006600                                 TO ORSA-FLOORING-AMOUNT (FVX)            
+006700            END-IF                                                        
+006800        END-IF                                                            
+006900     END-PERFORM.                                                         
+007000                                                                          
+007100     IF  WS-ORSSTO-NORESP                                                 
+007200         PERFORM 1328-REPL-ORSSTO                                         
+007300     ELSE                                                                 
+007400         PERFORM 1348-ISRT-ORSSTO.                                        
+007500                                                                          
+007600 3860-SAVE-FLOORING.                                                      
+007700                                                                          
+007800*    SAVE ANY APPROVED, PENDING, OR SENT ENTRIES                          
+007900*                                                                         
+008000     PERFORM                                                              
+008100     VARYING FVX  FROM  +1  BY  +1                                        
+008200       UNTIL FVX  >  WS-ORSSTO-FL-MAX-OCCURS                              
+008300         IF  ORSA-FLOORING-AUTH-NBR    (FVX) > SPACES                     
+008400         OR  (ORSA-FLOORING-AUTH-ACTION (FVX) =                           
+008500             '000' OR '180' OR '182' OR '185' OR '204' OR 'SNT')  WKP98057
+008600                                                                          
+008700          MOVE WS-FV-CNT (FVD)   TO FV-MAX                                
+008800          PERFORM                                                         
+008900          VARYING FVN  FROM  +1  BY  +1                                   
+009000            UNTIL FVN  >  FV-MAX                                          
+009100            IF ORSA-FLOORING-NBR (FVX) = WS-FV-BILL-TO (FVD  FVN)         
+009200               MOVE ORSA-FLOORING-COMPANY       (FVX)                     
+009300                                 TO WS-FV-PROVIDER      (FVD  FVN)        
+009400               MOVE ORSA-FLOORING-AUTH-ACTION   (FVX)                     
+009500                                 TO WS-FV-ACTION-CODE   (FVD  FVN)        
+009600               MOVE ORSA-FLOORING-AUTH-NBR      (FVX)                     
+009700                                 TO WS-FV-AUTH-NBR      (FVD  FVN)        
+009800               MOVE ORSA-FLOORING-AMOUNT        (FVX)                     
+009900                                 TO WS-FV-TRAN-AMOUNT   (FVD  FVN)        
+010000               MOVE ORSA-FLOORING-CONSOLIDATION (FVX)                     
+010100                                 TO WS-FV-CONSOLIDATION (FVD  FVN)        
+010200               MOVE +99          TO FVN                                   
+010300            END-IF                                                        
+010400          END-PERFORM                                                     
+010500       END-IF                                                             
+010600     END-PERFORM.                                                         
+010700*                                                                         
+010800 7000-RESHED-PROCESSING.                                                  
+010900*                                                                         
+011000*     DELETE OLD HOLD-RECORD IF KNOWN                                     
+011100*                                                                         
+011200      MOVE FVD                   TO FVS                                   
+011300                                                                          
+011400      IF  WS-FV-STATUS-CODE     (FVS) > SPACES                            
+011500      AND WS-FV-STATUS-SHIP-NBR (FVS) > SPACES                            
+011600          PERFORM 7530-DELETION-SELECTION.                                
+011700                                                                          
+011800     PERFORM 7800-RESHED-TEST                                             
+011900                                                                          
+012000     IF  WS-FV-RESHED-NOT-REQUIRED                                        
+012100         GO TO 7000-EXIT.                                                 
+012200                                                                          
+012300     MOVE WS-FV-CNT (FVD)        TO FV-MAX                                
+012400                                                                          
+012500     PERFORM 7100-INITIALIZE-RESHED                                       
+012600                                                                          
+012700*    CREATE FLOORING RECORDS WITH APPROPRIATE BILL-TO SUFFIX,             
+012800*    SHIPPED AMOUNT,  AND CREDIT MANAGER CODE                             
+012900                                                                          
+013000     IF  ORH-FLOOR-SUF                                                    
+013100     AND ORSH-CREDIT-HOLD-STATUS                                          
+013200         PERFORM                                                          
+013300         VARYING FVX FROM  +1  BY  +1                                     
+013400           UNTIL FVX  >  FV-MAX                                           
+013500             MOVE WS-FV-BILL-TO       (FVD FVX) TO REH-CUST-SUF           
+013600             MOVE WS-FV-SHIPPED-AMOUNT(FVD FVX) TO REH-TOTAL-SALES        
+013700             MOVE WS-FV-CR-MGR-CODE   (FVD FVX) TO REH-M-MGR-CODE         
+013800                                                   REH-CR-MGR-CODE        
+013900             PERFORM 7200-INSERT-RESHED THRU 7200-EXIT                    
+014000         END-PERFORM                                                      
+014100     ELSE                                                                 
+014200         PERFORM 7200-INSERT-RESHED THRU 7200-EXIT.                       
+014300                                                                          
+014400 7000-EXIT. EXIT.                                                         
+014500                                                                          
+014600 7100-INITIALIZE-RESHED.                                                  
+014700                                                                          
+014800     INITIALIZE                     REH-RESHED                            
+014900     MOVE ORH-COMPANY            TO REH-M-COMPANY                         
+015000     MOVE ORH-IS-SALESMAN        TO REH-INSIDE-SALESMAN                   
+015100     MOVE ORH-BR-NBR             TO REH-M-BR-NBR                          
+015200     MOVE ORH-ORDER-NBR          TO REH-M-ORDER-NBR                       
+015300     MOVE ORSH-DIST-NBR          TO REH-M-DIST-NBR                        
+015400     MOVE ORSH-SHIP-NBR          TO REH-M-SHIP-NBR                        
+015500     MOVE ORSH-SLS-MGR-CODE      TO REH-SLS-MGR-CODE                      
+           IF ORSH-SLA = SPACES OR LOW-VALUES                           TSR99229
+              MOVE SPACES   TO REH-SLA-CODE                             TSR99229
+           ELSE                                                         TSR99229
+              MOVE ORSH-SLA TO REH-SLA-CODE                             TSR99229
+           END-IF.                                                      TSR99229
+015600     MOVE ORSH-HOLD-REASON       TO REH-REASON                            
+015700     MOVE EIBDATE                TO REH-ENTRY-DATE                        
+015800     MOVE EIBTIME                TO REH-ENTRY-TIME                        
+015900     MOVE WS-FV-CUST-PARENT      TO REH-PARENT-NBR                        
+016000     MOVE '000'                  TO REH-PARENT-CUST-SUF                   
+016100     MOVE ORH-BILL-TO-BR-NBR     TO REH-CUST-BR-NBR                       
+016200     MOVE ORH-BILL-TO-CUST-NBR   TO REH-CUST-NBR                          
+016300     MOVE ORH-BILL-TO-SUFFIX     TO REH-CUST-SUF                          
+016400     MOVE ORSH-BR-NBR-SHIP-FROM  TO REH-SHIP-FROM-BR-NBR                  
+016500     MOVE ORSH-SHIP-VIA          TO REH-SHIP-VIA                          
+016600     MOVE ORH-CURRENCY-CODE      TO REH-CURRENCY-CODE                     
+016700     MOVE ORH-CAPS-BUYER         TO REH-CAPS-BUYER                        
+016800     MOVE ORH-CUST-ORDER-NBR     TO REH-OUTSIDE-BID                       
+016900     MOVE WS-FV-DEFAULT-CR-MGR   TO REH-CR-MGR-CODE.                      
+017000                                                                          
+017100*    SET THE CREDIT-MANAGER CODE (DATA PORTION - NOT THE KEY)             
+017200*    WHEN FOR A FLOORING ORDER NOT ON CREDIT-HOLD TO THE                  
+017300*    FLOORING CREDIT-MANAGER.                                             
+017400*       THIS MAY BE DEFAULT CREDIT-MANAGER FOR A SALES-HOLD               
+017500*    SHIPMENT WITHOUT ANY ORDER LINES, BUT WHO CARES ?                    
+017600*    THIS IS ALSO MEANINGLESS FOR SPLIT-BILL SHIPMENTS                    
+017700*    SINCE THERE MAY BE SEVERAL CREDIT MANAGERS, BUT ONLY                 
+017800*    ONE SALES-HOLD RECORD CREATED.                                       
+017900                                                                          
+018000     IF  ORH-FLOOR-SUF                                                    
+018100     AND NOT ORSH-CREDIT-HOLD-STATUS                                      
+018200     AND FV-MAX > ZERO                                                    
+018300         MOVE WS-FV-CR-MGR-CODE (FVD  001)                                
+018400                                   TO REH-CR-MGR-CODE                     
+018500     ELSE                                                                 
+018600         MOVE WS-FV-DEFAULT-CR-MGR TO REH-CR-MGR-CODE.                    
+018700                                                                          
+018800     IF  ORSH-SALES-HOLD-STATUS                                           
+018900         IF  ORH-COMPANY = 'MD'                                           
+019000             IF  REH-BR-EASTCOAST                                         
+019100                 MOVE '2'          TO REH-M-PRIORTY                       
+019200             ELSE                                                         
+019300                 IF  REH-BR-MIDWEST                                       
+019400                     MOVE '4'      TO REH-M-PRIORTY                       
+019500                 ELSE                                                     
+019600                     IF  REH-BR-WESTCOAST                                 
+019700                         MOVE '6'  TO REH-M-PRIORTY.                      
+019800                                                                          
+019900     PERFORM 7150-RESHED-TYPE                                             
+020000                                                                          
+020100     MOVE ORSH-TOTAL-SALES       TO REH-TOTAL-SALES.                      
+020200     MOVE ORSH-FOREIGN-TOTAL-SALES  TO  REH-FOREIGN-TOTAL-SALES.  BXT98244
+020300                                                                          
+020400     IF  ORSH-SALES-HOLD-STATUS                                           
+020500         MOVE ORSH-CONFIG-FLAG   TO REH-CONFIG-FLAG                       
+020600         IF  REH-CONFIG-ORDER                                             
+020700         AND ORSH-CONFIG-STATUS = SPACES                                  
+020800             MOVE 'Y'            TO REH-TECH-RELEASE-FLAG.                
+                                                                        JXO06139
+           PERFORM 7400-SETUP-BULK-RELEASE-RESHED.                      JXO06139
+                                                                        JXO06139
+                                                                        JXO06139
+021000 7150-RESHED-TYPE.                                                        
+021100                                                                          
+021200     IF  ORSH-CREDIT-HOLD-STATUS                                          
+021300         MOVE 'C '               TO REH-M-CODE                            
+021400         MOVE REH-CR-MGR-CODE    TO REH-M-MGR-CODE                        
+021500     ELSE                                                                 
+021600     IF  ORSH-CAPS-HOLD                                                   
+021700         MOVE 'D '               TO REH-M-CODE                            
+021800         MOVE ORSH-SLS-MGR-CODE  TO REH-M-MGR-CODE                        
+021900     ELSE                                                                 
+022000         MOVE 'S '               TO REH-M-CODE                            
+022100         MOVE ORSH-SLS-MGR-CODE  TO REH-M-MGR-CODE.                       
+022200                                                                          
+022300 7200-INSERT-RESHED.                                                      
+022400                                                                          
+022500     MOVE SPACES                 TO WS-RESHED-QUAL                        
+022600     PERFORM 1100-ISRT-RESHED                                             
+022700     MOVE '('                    TO WS-RESHED-QUAL                        
+022800     IF  WS-RESHED-DUPREC                                                 
+022900         MOVE REH-M-KEY-RESMST   TO WS-RESHED-KEY-VALUE                   
+023000         PERFORM 1200-GHU-RESHED                                          
+023100         IF  WS-RESHED-NORESP                                             
+                   PERFORM 7400-SETUP-BULK-RELEASE-RESHED               JXO06139
+023200             PERFORM 1300-REPL-RESHED.                                    
+023300                                                                          
+023400 7200-EXIT. EXIT.                                                         
+                                                                        JXO06139
+       7400-SETUP-BULK-RELEASE-RESHED.                                  JXO06139
+      *                                                                 JXO06139
+           PERFORM 2202-GU-ORSSHH.                                      MEP06192
+           MOVE WS-FV-CUST-PARENT      TO REH-PARENT-NBR                JXO06139
+           MOVE '000'                  TO REH-PARENT-CUST-SUF           JXO06139
+           MOVE ORH-SHIP-TO-SUFFIX       TO REH-ORH-SHIP-TO-SUFFIX.     JXO06139
+           MOVE WS-ORHOF-SHIP-TO-CHANGE-FLAG                            JXO06139
+             TO REH-SHIP-TO-SUFFIX-CHANGED.                             JXO06139
+           MOVE ORH-ENTRY-DATE           TO REH-ORH-ENTRY-DATE.         JXO06139
+           MOVE ORH-ENTRY-TIME           TO REH-ORH-ENTRY-TIME.         JXO06139
+           MOVE ORH-TERMS                TO REH-ORH-TERMS.              JXO06139
+           IF ORH-DIR-ORD-VEND-NBR > SPACES                             TXV21218
+              MOVE ORH-DIR-ORD-VEND-NBR                                 TXV21218
+                                         TO REH-VEND-NBR                TXV21218
+           END-IF.                                                      TXV21218
+           MOVE WS-ORSHEDOF-CST-FLAG     TO REH-ORHOF-CST-FLAG.         JXO06139
+           MOVE ORSH-PROMISE-DATE        TO REH-ORSH-PROMISE-DATE.      JXO06139
+           MOVE ORSH-TOTAL-TAX           TO REH-ORSH-TOTAL-TAX.         JXO06139
+           MOVE ORSH-FOREIGN-TOTAL-TAX   TO REH-ORSH-FOREIGN-TOTAL-TAX. JXO06139
+           MOVE ORSH-CARRIER-CODE        TO REH-ORSH-CARRIER-CODE.      JXO06139
+           IF WS-FV-FROM-CREDIT-RELEASE                                 JXO06139
+               CONTINUE                                                 JXO06139
+           ELSE                                                         JXO06139
+               MOVE SPACES  TO REH-RELEASE-STATUS-FLAG.                 JXO06139
+023500                                                                          
+023600 7500-DELETE-RESHED-REQUEST.                                              
+023700                                                                          
+023800*    SHIPMENT STATUS AND SHIPMENT KEY MUST BE PASSED.                     
+023900*    BILL-TO SUFFIX IS OPTIONAL.                                          
+024000                                                                          
+024100     IF  WS-FV-PREVIOUS-SHIP-STATUS > SPACES                              
+024200         PERFORM                                                          
+024300         VARYING FVS  FROM  +1  BY  +1                                    
+024400           UNTIL FVS > +9                                                 
+024500             IF  WS-FV-STATUS-CODE     (FVS) > SPACES                     
+024600             AND WS-FV-STATUS-SHIP-NBR (FVS) > SPACES                     
+024700                 PERFORM 7530-DELETION-SELECTION                          
+024800             END-IF                                                       
+024900         END-PERFORM.                                                     
+025000*                                                                         
+025100 7530-DELETION-SELECTION.                                                 
+025200*                                                                         
+025300*    THE SPLIT-BILL SHIPMENT MAY HAVE SEVERAL BILL-TO SUFFIXES            
+025400*    WHEN THE SHIPMENT IS ON CREDIT-HOLD.  IF A SPECIFIC BILL-TO          
+025500*    WAS NOT REQUESTED THEN DELETE ALL CREDIT-HOLD ENTRIES.               
+025600*                                                                         
+025700*    ALL OTHER HOLDS AND NON-SPLIT CREDIT-HOLDS WILL ONLY HAVE            
+025800*    THE ONE ENTRY.                                                       
+025900                                                                          
+026000     MOVE ORH-COMPANY            TO WS-REAL2F-CO                          
+026100                                                                          
+026200*    I/S SALESMAN CHANGE ?                                                
+026300                                                                          
+026400     IF  WS-FV-OLD-IS-SALESMAN >= SPACES                                  
+026500         MOVE WS-FV-OLD-IS-SALESMAN TO WS-REAL2F-SALESMAN                 
+026600     ELSE                                                                 
+026700         MOVE ORH-IS-SALESMAN    TO WS-REAL2F-SALESMAN.                   
+026800                                                                          
+026900     MOVE ORH-BR-NBR             TO WS-REAL2F-ORDER-BR                    
+027000     MOVE ORH-ORDER-NBR          TO WS-REAL2F-ORDER-NBR                   
+027100     MOVE FVS                    TO FV-DIGIT                              
+027200     MOVE FV-DIGIT               TO WS-REAL2F-DIST.               BXA15156
+027200     IF WS-FV-COMPANY = 'DE'                                      BXA15156
+027200        IF ORSH-SHIP-NBR GREATER THAN 1                           BXA15156
+027200            IF WS-FV-PREVIOUS-SHIP-STATUS(1:2) = 'S1'             BXA15156
+027200              MOVE ORSH-SHIP-NBR TO WS-FV-STATUS-SHIP-NBR(FVS)    BXA15156
+027200            END-IF                                                BXA15156
+027200        END-IF                                                    BXA15156
+027200     END-IF.                                                      BXA15156
+027300     MOVE WS-FV-STATUS-SHIP-NBR (FVS)                                     
+027400                                 TO WS-REAL2F-SHIP                        
+027500     MOVE ORH-BILL-TO-BR-NBR     TO WS-REAL2F-CUST-BR                     
+027600     MOVE ORH-BILL-TO-CUST-NBR   TO WS-REAL2F-CUST-NBR                    
+027700                                                                          
+027800*    SPLIT-BILL-REQ CREDIT-HOLDS MAY DELETE A SPECIFIC SUFFIX.            
+027900*    SPLIT-BILL-REQ DON'T ALLOW BILL-TO SUFFIX CHANGES.                   
+028000                                                                          
+028100     IF  ORH-SPLIT-BILL-REQ                                               
+028200         IF  WS-FV-STATUS-CODE (FVS) = 'C'                                
+028300             MOVE WS-FV-STATUS-SUFFIX (FVS)                               
+028400                                 TO WS-REAL2F-CUST-SUFFIX                 
+028500             IF  WS-REAL2F-CUST-SUFFIX >= ZEROES                          
+028600                 PERFORM 7570-DELETE-RESHED-RECORD                        
+028700             ELSE                                                         
+028800                 PERFORM 7550-DELETE-ALL-SPLIT-BILL                       
+028900             END-IF                                                       
+029000         ELSE                                                             
+029100             MOVE ORH-BILL-TO-SUFFIX TO WS-REAL2F-CUST-SUFFIX             
+029200             PERFORM 7570-DELETE-RESHED-RECORD                            
+029300         END-IF                                                           
+029400     ELSE                                                                 
+029500         IF  WS-FV-OLD-BILL-TO-SUFFIX >= '000'                            
+029600             MOVE WS-FV-OLD-BILL-TO-SUFFIX                                
+029700                                 TO WS-REAL2F-CUST-SUFFIX                 
+029800         ELSE                                                             
+029900             MOVE ORH-BILL-TO-SUFFIX TO WS-REAL2F-CUST-SUFFIX             
+030000         END-IF                                                           
+030100         PERFORM 7570-DELETE-RESHED-RECORD                                
+030200     END-IF.                                                              
+030300                                                                          
+030400 7550-DELETE-ALL-SPLIT-BILL.                                              
+030500                                                                          
+030600     MOVE ZEROES                 TO WS-REAL2F-CUST-SUFFIX                 
+030700     MOVE '>='                   TO WS-REAL2F-SEARCH-CUST-SUFFIX          
+030800     SET WS-RESHED-NORESP        TO TRUE                                  
+030900                                                                          
+031000     PERFORM 7570-DELETE-RESHED-RECORD                                    
+031100       UNTIL NOT WS-RESHED-NORESP.                                        
+031200                                                                          
+031300     MOVE '='                    TO WS-REAL2F-SEARCH-CUST-SUFFIX.         
+031400                                                                          
+031500 7570-DELETE-RESHED-RECORD.                                               
+031600                                                                          
+031700     IF  WS-FV-STATUS-CODE (FVS) = 'C'                                    
+031800         MOVE 'C'                TO WS-REAL2F-CC-CODE                     
+031900     ELSE                                                                 
+032000         IF  WS-FV-STATUS-CODE (FVS) = 'S'                                
+032100            MOVE 'S'             TO WS-REAL2F-CC-CODE                     
+032200         ELSE                                                             
+032300            MOVE 'D'             TO WS-REAL2F-CC-CODE.                    
+032400                                                                          
+032500     PERFORM 1022-GU-RESHED-SALESMAN                                      
+032600                                                                          
+032700     IF  WS-RESHED-NORESP                                                 
+032800         MOVE REH-M-KEY-RESMST   TO WS-RESHED-KEY                         
+032900         PERFORM 1200-GHU-RESHED                                          
+033000         IF  WS-RESHED-NORESP                                             
+033100             PERFORM 1400-DLET-RESHED.                                    
+033200                                                                          
+033300 7800-RESHED-TEST.                                                        
+033400                                                                          
+033500*    CHECK EACH LINE OR JUST THE SHIPMENT TOTALS ?                        
+033600                                                                          
+033700     IF  ORH-SPLIT-BILL-REQ                                               
+033800     OR (ORH-SPLIT-DIST-LEVEL                                             
+033900     AND WS-FV-FROM-CREDIT-RELEASE                                        
+034000     AND NOT ORH-FLOOR-SUF )                                              
+034100         SET WS-FV-REQUIRE-LINES    TO TRUE                               
+034200     ELSE                                                                 
+034300         SET WS-FV-REQUIRE-SHIPMENT TO TRUE.                              
+034400                                                                          
+034500     IF  ORSH-CREDIT-HOLD-STATUS                                          
+034600     OR  ORSH-HOLD-ORDER-STATUS                                           
+034700         SET WS-FV-RESHED-REQUIRED  TO TRUE                               
+034800     ELSE                                                                 
+034900         SET WS-FV-RESHED-NOT-REQUIRED TO TRUE.                           
+035000*                                                                         
+035100*    NEVER PROCESS: VOID, TRANSFERRED, OR INVOICED SHIPMENTS              
+035200*                                                                         
+035300     IF  ORH-WILL-BE-DELETED                                              
+035400     OR  ORSH-VOIDED                                                      
+035500     OR  ORSH-WILL-BE-DELETED                                             
+035600     OR  ORSH-SHIPPED-STATUS                                              
+035700     OR  ORSH-TRANSFERRED                                                 
+035800         SET WS-FV-RESHED-NOT-REQUIRED TO TRUE.                           
+035900                                                                          
+036000     IF  WS-FV-FROM-BATCH                                                 
+036100     AND NOT (ORH-BID OR ORH-QUOTE OR ORH-CONFIGURATION-BID)              
+036200         IF  ( ORSH-SHIP-COMPLETE                                         
+036300         AND NOT ORSH-SHIP-COMPLETE-ORD-FILLED )                          
+036400         OR                                                               
+036500            ( ORH-ORDER-SHIP-COMPLETE  AND NOT                    LMH99183
+036600              ORH-ORDER-COMPLETE-FILLED )                         LMH99183
+036700         OR                                                       LMH99183
+036800            ( NOT ORSH-SALES-HOLD-STATUS   AND                            
+036900              (  ORSH-TOTAL-SALES = ZERO   AND                            
+037000                 ORH-ORDER-VALUE-AT-ADD > ZERO ) )                        
+037100          SET WS-FV-RESHED-NOT-REQUIRED TO TRUE.                          
+037200                                                                          
+037300 8000-INITIALIZE.                                                         
+037400                                                                          
+037500     INITIALIZE                  WS-SPLIT-INVOICING-INITIALIZED           
+037600                                                                          
+037700     MOVE ORH-COMPANY            TO WS-CUSHED-CO                          
+037800     MOVE ORH-BILL-TO-BR-NBR     TO WS-CUSHED-BR                          
+037900     MOVE ORH-BILL-TO-CUST-NBR   TO WS-CUSHED-CUST                        
+038000     MOVE HIGH-VALUES            TO WS-CUSADR-SUFFIX                      
+038100                                                                          
+038200*    MANY DISTRIBUTIONS OR ORDERS MAY BE FOR THE SAME CUSTOMER            
+038300                                                                          
+038400     IF  WS-CUSHED-KEY-VALUE NOT = WS-FV-CUST-KEY                         
+038500         INITIALIZE                   WS-FV-CUST-VECTOR                   
+038600         MOVE WS-CUSHED-KEY-VALUE  TO WS-FV-CUST-KEY                      
+038700         MOVE WS-CUSHED-BR-CUST    TO WS-FV-CUST-PARENT                   
+038800         MOVE '??'                 TO WS-CUSBRN-BR.                       
+038900                                                                          
+039000 8200-CUSTOMER.                                                           
+039100                                                                          
+039200*    CUSTOMER BRANCH REQUIRED ?                                           
+039300                                                                          
+039400     PERFORM 8930-CUSTOMER-DATA                                           
+039500                                                                          
+039600*    FIND FLOORING CUSTOMER AND CORRESPONDING FLOORING COMPANY            
+039700*    ASSIGNED TO EACH BILL-TO SUFFIX.                                     
+039800                                                                          
+039900     MOVE WS-FV-CNT (FVD)        TO FV-MAX                                
+040000                                                                          
+040100     PERFORM 8700-CUSTOMER-SUFFIX-DATA                                    
+040200     VARYING FVX FROM  +1  BY  +1                                         
+040300       UNTIL FVX  >  FV-MAX.                                              
+040400                                                                          
+040500*    ORSSTO UPDATED DURING THE SEND PROCESS WILL INCLUDE                  
+040600*    DISTRIBUTED CHARGES (FREIGHT, IN-BOUND FREIGHT).                     
+040700*    ORSSTO OTHERWISE WILL HOLD THE SHIPPABLE AMOUNT FOR                  
+040800*    FLOORING SUFFIXES AND ORDERED AMOUNT FOR TERMS SUFFIXES.             
+040900*                                                                         
+041000*    UPDATE ORSSTO NOW IF THE TRANSMISSION ISN'T TO BE SENT.              
+041100                                                                          
+041200     IF  WS-FV-SEND-FLOORING                                              
+041300         PERFORM 600-COMMON-FLOORING                                      
+041400     ELSE                                                                 
+041500         IF  WS-FV-CREATE-ORSSTO                                          
+041600         OR  ( ORSH-CREDIT-HOLD-STATUS                                    
+041700         AND ( ORH-SPLIT-BILL-REQ OR ORH-SPLIT-DIST-LEVEL ))              
+041800             PERFORM 3840-FLOORING-UPDATE.                                
+041900                                                                          
+042000 8400-SHIPMENT-LEVEL-BUILD.                                               
+042100                                                                          
+042200     MOVE ORH-BILL-TO-SUFFIX     TO WS-CUSADR-SUFFIX                      
+042300     MOVE ORSH-TOTAL-SALES       TO FV-TEMP                               
+042400                                                                          
+042500     PERFORM 8540-SHIPMENT-VECTOR-ENTRY                                   
+042600                                                                          
+042700*    THERE IS NO SHIPMENT HEADER ORDER TOTAL LIKE THE SHIPMENT            
+042800*    TOTAL.  JUST POPULATE IT WITH SHIP-TOTALS FOR NOW                    
+042900                                                                          
+043000     COMPUTE WS-FV-ORDERED-AMOUNT (FVD  FVX) =                            
+043100             WS-FV-ORDERED-AMOUNT (FVD  FVX)                              
+043200           + ORSH-TOTAL-SALES.                                            
+043300     COMPUTE WS-FV-SHIPPED-AMOUNT (FVD  FVX) =                            
+043400             WS-FV-SHIPPED-AMOUNT (FVD  FVX)                              
+043500           + ORSH-TOTAL-SALES.                                            
+043600                                                                          
+043700 8530-LINE-TOTALS.                                                        
+043800                                                                          
+043900     IF  ORH-SPLIT-BILL-REQ                                               
+044000         MOVE ORL-SPLIT-BILL-TO-SUFF TO WS-CUSADR-SUFFIX                  
+044100     ELSE                                                                 
+044200         MOVE ORH-BILL-TO-SUFFIX     TO WS-CUSADR-SUFFIX.                 
+044300                                                                          
+044400     IF  WS-CUSADR-FLOOR-SUF                                      CIC99246
+044500         COMPUTE FV-TEMP = FV-LINE-SHIP-AMOUNT                            
+044600     ELSE                                                                 
+044700         COMPUTE FV-TEMP = FV-LINE-ORDER-AMOUNT.                          
+044800                                                                          
+044900     PERFORM 8540-SHIPMENT-VECTOR-ENTRY                                   
+045000                                                                          
+045100     COMPUTE WS-FV-ORDERED-AMOUNT (FVD  FVX) =                            
+045200             WS-FV-ORDERED-AMOUNT (FVD  FVX)                              
+045300           + FV-LINE-ORDER-AMOUNT                                         
+045400     COMPUTE WS-FV-SHIPPED-AMOUNT (FVD  FVX) =                            
+045500             WS-FV-SHIPPED-AMOUNT (FVD  FVX)                              
+045600           + FV-LINE-SHIP-AMOUNT.                                         
+045700                                                                          
+045800 8540-SHIPMENT-VECTOR-ENTRY.                                              
+045900                                                                          
+046000     MOVE ZERO                   TO FVX                                   
+046100                                                                          
+046200*    FIND BILL-TO ENTRY                                                   
+046300                                                                          
+046400     IF  WS-FV-CNT (FVD) > ZERO                                           
+046500         MOVE WS-FV-CNT (FVD)    TO FV-MAX                                
+046600         PERFORM                                                          
+046700         VARYING FVZ FROM  +1 BY  +1                                      
+046800           UNTIL FVZ  >  FV-MAX                                           
+046900             IF  WS-CUSADR-SUFFIX = WS-FV-BILL-TO (FVD  FVZ)              
+047000                 MOVE FVZ        TO FVX                                   
+047100                 MOVE +99        TO FVZ                                   
+047200             END-IF                                                       
+047300        END-PERFORM.                                                      
+047400                                                                          
+047500*    NEW ENTRY ?                                                          
+047600                                                                          
+047700     IF  FVX = ZERO                                                       
+047800         IF  WS-FV-FULL (FVD)                                             
+047900             MOVE 'FV++'           TO WS-ABCODE                           
+048000             PERFORM 999-ABEND                                            
+048100         ELSE                                                             
+048200             ADD +1                TO WS-FV-CNT (FVD)                     
+048300             MOVE WS-FV-CNT (FVD)  TO FVX                                 
+048400             MOVE WS-CUSADR-SUFFIX TO WS-FV-BILL-TO (FVD FVX).            
+048500                                                                          
+048600     COMPUTE WS-FV-TRAN-AMOUNT    (FVD  FVX) =                            
+048700             WS-FV-TRAN-AMOUNT    (FVD  FVX)                              
+048800           + FV-TEMP.                                                     
+048900                                                                          
+049000 8700-CUSTOMER-SUFFIX-DATA.                                               
+049100                                                                          
+049200*    WHAT TO DO IF PROBLEMS ???                                           
+049300*                                                                         
+049400*    FIND FLOORING COMPANY (PROVIDER) FROM FLOORING ACCOUNT               
+049500                                                                          
+049600     IF  WS-FV-FLOOR-SUF (FVD  FVX)                               CIC99246
+049700         MOVE WS-FV-BILL-TO (FVD  FVX)                                    
+049800                                 TO WS-CUSADR-SUFFIX                      
+049900         PERFORM 8800-CREDIT-MANAGER                                      
+050000         MOVE WS-FV-CUST-CR-MGR      (FVP)                                
+050100                                 TO WS-FV-CR-MGR-CODE (FVD  FVX)          
+050200         MOVE WS-FV-CUST-PROVIDER    (FVP)                                
+050300                                 TO WS-FV-PROVIDER    (FVD  FVX)          
+050400         MOVE WS-FV-CUST-LAYOUT-TYPE (FVP)                                
+050500                                 TO WS-FV-LAYOUT-TYPE (FVD  FVX)          
+050600         MOVE WS-FV-CUST-ACRONYM     (FVP)                                
+050700                                 TO WS-FV-ACRONYM     (FVD  FVX)          
+050800         MOVE WS-FV-CUST-CORP-ACRONYM (FVP)                               
+050900                                 TO WS-FV-CORP-ACRONYM(FVD  FVX)          
+051000     ELSE                                                                 
+051100         MOVE WS-FV-DEFAULT-CR-MGR                                        
+051200                                 TO WS-FV-CR-MGR-CODE (FVD  FVX)          
+051300     END-IF.                                                              
+051400                                                                          
+051500 8800-CREDIT-MANAGER.                                                     
+051600                                                                          
+051700     MOVE ZERO                   TO FVP                                   
+051800     PERFORM                                                              
+051900     VARYING FVN  FROM  +1  BY  +1                                        
+052000       UNTIL FVN > WS-FV-CUST-CNT                                         
+052100         IF  WS-CUSADR-SUFFIX = WS-FV-CUST-SUFFIX (FVN)                   
+052200             MOVE FVN            TO FVP                                   
+052300             MOVE +99            TO FVN                                   
+052400         END-IF                                                           
+052500     END-PERFORM                                                          
+052600*                                                                         
+052700     IF  FVP = ZERO                                                       
+052800         IF  WS-FV-CUST-FULL                                              
+052900             MOVE 'V800'         TO WS-ABCODE                             
+053000             PERFORM 999-ABEND                                            
+053100         ELSE                                                             
+053200             ADD +1                TO WS-FV-CUST-CNT                      
+053300             MOVE WS-FV-CUST-CNT   TO FVP                                 
+053400             MOVE WS-CUSADR-SUFFIX TO WS-FV-CUST-SUFFIX   (FVP)           
+053500             IF  WS-CUSADR-FLOOR-SUF                              CIC99246
+053600                 PERFORM 8900-FLOORING-CUST                               
+053700             ELSE                                                         
+053800                 MOVE WS-FV-DEFAULT-CR-MGR                                
+053900                                   TO WS-FV-CUST-CR-MGR   (FVP).          
+054000                                                                          
+054100 8900-FLOORING-CUST.                                                      
+054200                                                                          
+054300     PERFORM 1002-GU-CUSADR                                               
+054400                                                                          
+054500     IF WS-CUSADR-NORESP                                                  
+054600        PERFORM 8920-FLOOR-AUTH-TABLE                                     
+054700        IF TB-FLAUT-NORESP                                                
+054800           MOVE TB-FLAUT-FLOOR-COMPANY                                    
+054900                                 TO WS-FV-CUST-PROVIDER    (FVP)          
+055000           PERFORM 8910-CREDIT-MANAGER-TABLE                      TRR97255
+055100           IF TB-CRMGR-NORESP                                     TRR97255
+055200              IF TB-CRMGR-EAST                                    TRR97255
+                       IF ORSH-DIRECT-ORDER                             CIC99301
+                          IF CUA-FLOORING-SUF                           CIC99342
+                             MOVE TB-FLAUT-EAST-DIR-CR-MGR              CIC99342
+                                       TO WS-FV-CUST-CR-MGR      (FVP)  CIC99342
+                          ELSE                                          CIC99342
+                             MOVE TB-FLAUT-EAST-CR-MGR                  CIC99342
+                                       TO WS-FV-CUST-CR-MGR      (FVP)  CIC99342
+                          END-IF                                        CIC99342
+                       ELSE                                             CIC99301
+055300                    MOVE TB-FLAUT-EAST-CR-MGR                     CIC99301
+055400                                 TO WS-FV-CUST-CR-MGR      (FVP)  TRR97255
+                       END-IF                                           CIC99301
+055500              ELSE                                                TRR97255
+                       IF ORSH-DIRECT-ORDER                             CIC99301
+                          IF CUA-FLOORING-SUF                           CIC99342
+                             MOVE TB-FLAUT-WEST-DIR-CR-MGR              CIC99342
+                                       TO WS-FV-CUST-CR-MGR      (FVP)  CIC99342
+                          ELSE                                          CIC99342
+                             MOVE TB-FLAUT-WEST-CR-MGR                  CIC99342
+                                       TO WS-FV-CUST-CR-MGR      (FVP)  CIC99342
+                          END-IF                                        CIC99342
+                       ELSE                                             CIC99301
+                          MOVE TB-FLAUT-WEST-CR-MGR                     CIC99301
+055700                                 TO WS-FV-CUST-CR-MGR      (FVP)  TRR97255
+                       END-IF                                           CIC99301
+055800              END-IF                                              TRR97255
+055900           ELSE                                                   TRR97255
+056000              MOVE 'D '          TO WS-FV-CUST-CR-MGR      (FVP)  TRR97255
+056100           END-IF                                                 TRR97255
+056200           PERFORM 8925-FLOOR-TABLE                                       
+056300           IF TB-FLOOR-NORESP                                             
+056400              MOVE TB-FLOOR-LAYOUT-TYPE                                   
+056500                                 TO WS-FV-CUST-LAYOUT-TYPE (FVP)          
+056600              MOVE TB-FLOOR-OPPOSITE                                      
+056700                                 TO WS-FV-CUST-ACRONYM     (FVP)          
+056800              MOVE TB-FLOOR-CORP-ACRONYM                                  
+056900                                 TO WS-FV-CUST-CORP-ACRONYM(FVP)          
+057000           ELSE                                                           
+057100              SET WS-FV-ERROR (FVD  FVX) TO TRUE                          
+057200              MOVE 'A'           TO WS-FV-CUST-LAYOUT-TYPE (FVP)          
+057300              MOVE '???'         TO WS-FV-CUST-ACRONYM     (FVP)          
+057400              MOVE '???'         TO WS-FV-CUST-CORP-ACRONYM(FVP)          
+057500              MOVE '???'         TO WS-FV-ACTION-CODE (FVD  FVX)          
+057600           END-IF                                                         
+057700        ELSE                                                              
+057800           SET WS-FV-ERROR (FVD  FVX) TO TRUE                             
+057900           MOVE 'N'              TO WS-FV-CUST-PROVIDER    (FVP)          
+058000           MOVE 'D '             TO WS-FV-CUST-CR-MGR      (FVP)          
+058100           MOVE 'A'              TO WS-FV-CUST-LAYOUT-TYPE (FVP)          
+058200           MOVE '???'            TO WS-FV-CUST-ACRONYM     (FVP)          
+058300           MOVE '???'            TO WS-FV-CUST-CORP-ACRONYM(FVP)          
+058400           MOVE '???'            TO WS-FV-ACTION-CODE (FVD  FVX)          
+058500     ELSE                                                                 
+058600        SET WS-FV-ERROR (FVD  FVX) TO TRUE                                
+058700        MOVE 'N'                 TO WS-FV-CUST-PROVIDER    (FVP)          
+058800        MOVE 'D '                TO WS-FV-CUST-CR-MGR      (FVP)          
+058900        MOVE 'A'                 TO WS-FV-CUST-LAYOUT-TYPE (FVP)          
+059000        MOVE '???'               TO WS-FV-CUST-ACRONYM     (FVP)          
+059100        MOVE '???'               TO WS-FV-CUST-CORP-ACRONYM(FVP)          
+059200        MOVE '???'               TO WS-FV-ACTION-CODE (FVD  FVX).         
+059300                                                                          
+059400 8910-CREDIT-MANAGER-TABLE.                                               
+059500                                                                          
+059600     IF  ORH-COMPANY          = TB-CRMGR-CO                               
+059700     AND WS-FV-DEFAULT-CR-MGR = TB-CRMGR-CODE                             
+059800         CONTINUE                                                         
+059900     ELSE                                                                 
+060000         MOVE ORH-COMPANY          TO TB-CRMGR-CO                         
+060100         MOVE WS-FV-DEFAULT-CR-MGR TO TB-CRMGR-CODE                       
+060200         MOVE 'C'                  TO TB-CRMGR-TYPE                       
+060300         CALL 'SYU510'          USING TB-CRMGR-TABLE-IA.                  
+060400                                                                          
+060500 8920-FLOOR-AUTH-TABLE.                                                   
+060600                                                                          
+           IF ORH-COMPANY = 'BP'                                        TGF04196
+              IF  ORH-COMPANY         =  TB-FLAU2-COMPANY               TGF04196
+              AND CUA-FLOOR-BR-NBR    =  TB-FLAU2-FLOOR-BR-NBR          TGF04196
+              AND CUA-FLOOR-CUST-NBR  =  TB-FLAU2-FLOOR-CUST-NBR        TGF04196
+                  CONTINUE                                              TGF04196
+              ELSE                                                      TGF04196
+                 MOVE ORH-COMPANY      TO TB-FLAU2-COMPANY              TGF04196
+                 MOVE CUA-FLOOR-BR-NBR TO TB-FLAU2-FLOOR-BR-NBR         TGF04196
+                 MOVE CUA-FLOOR-CUST-NBR                                TGF04196
+                                       TO TB-FLAU2-FLOOR-CUST-NBR       TGF04196
+                 CALL 'SYU510'        USING TB-FLAU2-TABLE-IA           TGF04196
+                 MOVE TB-FLAU2-RETURN-CODE                              TGF04196
+                                       TO TB-FLAUT-RETURN-CODE          TGF04196
+                 MOVE TB-FLAU2-ENTRIES TO TB-FLAUT-ENTRIES              TGF04196
+              END-IF                                                    TGF04196
+           ELSE                                                         TGF04196
+060700        IF  ORH-COMPANY         =  TB-FLAUT-COMPANY                       
+060800        AND CUA-FLOOR-BR-NBR    =  TB-FLAUT-FLOOR-BR-NBR                  
+060900        AND CUA-FLOOR-CUST-NBR  =  TB-FLAUT-FLOOR-CUST-NBR                
+061000            CONTINUE                                                      
+061100        ELSE                                                              
+061200           MOVE ORH-COMPANY      TO TB-FLAUT-COMPANY                      
+061300           MOVE CUA-FLOOR-BR-NBR TO TB-FLAUT-FLOOR-BR-NBR                 
+061400           MOVE CUA-FLOOR-CUST-NBR                                TGF04196
+                                       TO TB-FLAUT-FLOOR-CUST-NBR       TGF04196
+061500           CALL 'SYU510'      USING TB-FLAUT-TABLE-IA.                    
+061600                                                                          
+061700 8925-FLOOR-TABLE.                                                        
+061800                                                                          
+061900     IF  ORH-COMPANY         =  TB-FLOOR-COMPANY                          
+062000     AND WS-CUSADR-SUFFIX    =  TB-FLOOR-TABLE-KEY                        
+062100         CONTINUE                                                         
+062200     ELSE                                                                 
+062300         MOVE ORH-COMPANY        TO TB-FLOOR-COMPANY                      
+062400         MOVE WS-CUSADR-SUFFIX   TO TB-FLOOR-TABLE-KEY                    
+062500         CALL 'SYU510'        USING TB-FLOOR-TABLE-IA.                    
+062600                                                                          
+062700 8930-CUSTOMER-DATA.                                                      
+062800                                                                          
+062900*    READ CUSTOMER BRANCH FOR CREDIT MANAGER                              
+063000                                                                          
+063100     IF CU-KEY-CUSMST NOT = WS-FV-CUST-KEY                                
+063200        MOVE WS-FV-CUST-KEY        TO WS-CUSHED-KEY-VALUE                 
+063300        MOVE WS-FV-CUST-BR         TO WS-CUSBRN-BR                        
+063400        MOVE '*D'                  TO WS-CUSHED-COMMAND-CODE              
+063500        PERFORM 1202-GU-CUSHED-CUSBRN-PATH                                
+063600        MOVE '*-'                  TO WS-CUSHED-COMMAND-CODE              
+063700        MOVE 'D '                  TO WS-FV-DEFAULT-CR-MGR                
+063800        IF WS-CUSHED-NORESP                                               
+063900           IF  CU-PARENT-NBR     > ZEROES                                 
+064000           AND CU-PARENT-NBR NOT = WS-CUSHED-BR-CUST                      
+064100               MOVE CU-PARENT-NBR  TO WS-FV-CUST-PARENT                   
+                 ELSE                                                   JXO06139
+                     MOVE CU-BR-NBR   TO  WS-FV-PARENT-BR               JXO06139
+                     MOVE CU-CUST-NBR TO  WS-FV-PARENT-NBR              JXO06139
+064200           END-IF                                                         
+064300           IF WS-CUSBRN-NORESP                                            
+064400              MOVE CUB-CR-MGR-CODE TO WS-FV-DEFAULT-CR-MGR                
+064500           END-IF                                                         
+064600        END-IF                                                            
+064700     ELSE                                                                 
+064800        IF CU-BR-NBR NOT = WS-CUSBRN-BR                                   
+064900           MOVE CU-BR-NBR          TO WS-CUSBRN-BR                        
+065000           PERFORM 1004-GU-CUSBRN                                         
+065100           IF WS-CUSBRN-NORESP                                            
+065200              MOVE CUB-CR-MGR-CODE TO WS-FV-DEFAULT-CR-MGR                
+065300           ELSE                                                           
+065400              MOVE 'D '            TO WS-FV-DEFAULT-CR-MGR.               

@@ -1,0 +1,172 @@
+      ********************************************************                  
+      * 01/31/11  TND ADD SHIP CONDITION-FF                  *          TND11048
+      * 01/19/11  TND ADD SHIP CONDITION                     *          TND11014
+      * 01/15/09  TND REDEFINE TB-CARR-SHIP-LANE-CODE AS     *          ETJ09015
+      *               TB-APPLICATION-ID                      *          ETJ09015
+      * 05/30/07  TFM REPLACED VENDOR NBR WITH DAS FLAG.     *          TFM07150
+      * 10/14/01  TYS ADD THIRD PARTY BILL TYPE 'R'          *          TYS01290
+      * 07/24/01  TFM CHANGE THIRD PARTY TO BILL TYPE 'T'    *          TFM01205
+      * 07/18/01  TFM ADD 88 THIRD PARTY TO BILL TYPE.       *          TFM01199
+      * 01/03/01  LIB REPLACE TB-CARR-VALID-ODI-SW WITH      *          LIB01003
+      *               TB-UPGRADE-SERVICE-SW.                 *          LIB01003
+      * 08/31/00  JBP REPLACE TB-CARR-FRT-CLASS-SW BY        *          JBP00244
+      *               TB-CARR-EXPORT-CAREGORY                *          JBP00244
+      * 05/16/00  NPH REDEFINE TB-CARR-BILL-TYPE TO ASSIGN   *          NPH00137
+      *               NEW TB-PALLETS-BILL-SW FOR TRUCK SCAN. *          NPH00137
+      * 06/09/99  SGB ADD 88 LEVEL TO TB-CARR-USED-BY-CO-OR-BR          SGB99160
+      * 08/03/98  ETJ ADD LOW-VALUES TO TB-CARR-MODE 88 LEVEL*          ETJ98215
+      * 04/24/98  TLC ADD 88 LEVEL FOR EXPORT                *          TLC98134
+      * 02/02/98  TLC ADD 'TE' TO 88 LEVEL TB-CARR-USE-2-SEQ *          TLC98033
+      * 08/14/96  TFM ADD 88 LEVELS TO TB-CARR-MODE          *          TFM96226
+      * 06/10/96  TAD ADD CHARGE FREIGHT ON BACKORDER.       *          TAD96162
+      * 06/18/96  TFM REDEFINE HANDLING CHG AS COD.          *          TFM96170
+      * 05/23/96  TFM CHANGED HANDLING FEE TO CARRIER COD.   *          TFM96144
+      * 02/28/96  BAB ADDED FRT-BY-BOTH 88, ADD FREIGTH FRD SW          BAB96059
+      * 12/28/95  JXM ADD MH10 PROCESSING SWITCHES           *          JXM95362
+      * 06/08/95  MPB ADDED BASERATE FIELDS                  *          MPB95158
+      * 05/04/95  TMH ADD ALT WHSE CARRIER FLAG (FOR EUROPE) *          TFM95067
+      * 03/09/95  TFM ADDED CARRIER MODE.                    *          TFM95067
+      * 05/27/94  RDM ADD FIELDS FOR UK                      *          RDM94147
+      * 10/20/93  JJD MAKE THE CORRECTION TO SEQ-2 88 LEVEL  *          JJD93293
+      * 06/02/92  MJW  ITALY CONVERSION PROJECT              *          MJW92###
+      ********************************************************                  
+      *  NAME= TBICARR                                       *                  
+      *  COPY BOOK USED TO GET CARRIER NAMES AND CODES FROM  *                  
+      *  THE 'V.PR50.TBLMST' FILE                            *                  
+      ********************************************************                  
+      *                                                                         
+      ********************************************************                  
+      * REVISION INFO:                                       *                  
+      * CTL (PAR)     PROGRAMMER           START   COMPLETE  *                  
+      * FEB. 93       DMR (93051)         02/20/93 02/20/93  *          DMR93051
+      * 1. CHANGE SHIPPING LANE TO A TWO CHARACTER FIELD     *          DMR93051
+      * 2. ADD AN INDICATOR FOR MULIPLE BR SHIPPING LANES    *          DMR93051
+      * 8996          KMB (92310)         11/05/92 11/05/92  *          KMB92310
+      * 6417          JJD (92272)         09/28/92 09/28/92  *                  
+      * 6417          DMR (92140)         05/19/92 05/19/92  *                  
+      * 1. ADD CARRIER SHIPPING LANE INDICATOR FOR WAREHOUSE *                  
+      *     ROUTING.                                         *                  
+      * 2. REDEFINES TB-CARR-DEST                            *          JJD92272
+      * 3. ADD 88 LEVEL TO TB-CARR-CODE                      *          JJD92323
+      ********************************************************                  
+      *                                                                         
+       01  TB-CARRIER-TABLE-IA.                                                 
+           05  TB-CARR-REQUEST-CODE    PIC X(1)       VALUE 'K'.                
+               88  TB-CARR-ALL                        VALUE 'A'.                
+               88  TB-CARR-KEY                        VALUE 'K'.                
+               88  TB-CARR-NEXT                       VALUE 'N'.                
+               88  TB-CARR-CLOSE                      VALUE 'C'.                
+           05  TB-CARR-RETURN-CODE     PIC X(1)       VALUE SPACES.             
+               88  TB-CARR-NORESP                     VALUE 'Y'.                
+               88  TB-CARR-TABLE-NOTFND               VALUE 'T'.                
+               88  TB-CARR-ENTRY-NOTFND               VALUE 'N'.                
+               88  TB-CARR-EOT                        VALUE 'E'.                
+               88  TB-CARR-NO-ROOM                    VALUE 'R'.                
+           05  TB-CARR-COMPANY         PIC X(2)       VALUE '$$'.               
+           05  TB-CARR-TB-NAME         PIC X(8)       VALUE 'TBXCARR'.          
+           05  TB-DO-NOT-USE-AREA      PIC X(20)      VALUE LOW-VALUES.         
+           05  TB-CARR-ENTRY.                                                   
+               10  TB-CARR-CO               PIC X(02)     VALUE SPACES.         
+               10  TB-CARR-CODE             PIC X(02)     VALUE SPACES.         
+                   88 TB-CARR-USE-2-SEQ                                 JJD92323
+                      VALUE 'VP' 'LP' 'TE'.                             TLC98033
+               10  TB-CARR-NAME             PIC X(20)     VALUE SPACES.         
+               10  TB-CARR-USE-ZONE-SW      PIC X(01)     VALUE SPACES.         
+                   88  TB-CARR-USE-ZONE                   VALUE 'Y'.            
+               10  TB-CARR-EXPORT-CATEGORY  PIC X(01)     VALUE SPACES. JBP00244
+               10  TB-CARR-FRT-CHARGE-SW    PIC X(01)     VALUE SPACES.         
+                   88  TB-CARR-CHARGE-FRT-BY-SHIPMENT     VALUE 'S'.            
+                   88  TB-CARR-CHARGE-FRT-BY-CARTON       VALUE 'C' 'P'.TFM96226
+                   88  TB-CARR-CHARGE-FRT-BY-BOTH         VALUE 'B'.    BAB96059
+               10  TB-CARR-COD-CHARGE-SW    PIC X(01)     VALUE SPACES.         
+                   88  TB-CARR-CHARGE-COD-BY-SHIPMENT     VALUE 'S'.            
+                   88  TB-CARR-CHARGE-COD-BY-CARTON       VALUE 'C' 'P'.TFM96226
+                   88  TB-CARR-NO-COD-FOR-CARRIER         VALUE ' ' 'N'.TFM96226
+               10  TB-CARR-COD-FEE          PIC S9(11)V99 VALUE +0      MJW92###
+                                                          COMP-3.       MJW92###
+               10  TB-CARR-PRINTER-DEST     PIC X(04)     VALUE SPACES.         
+               10  TB-CARRIER REDEFINES                                 JJD92272
+                   TB-CARR-PRINTER-DEST      PIC X(4).                  JJD92272
+               10  TB-CARR-PACKAGE-CONSTANT PIC S9(09)V9(4) VALUE +0    MJW92###
+                                                            COMP-3.     MJW92###
+               10  TB-CARR-HANDLING-CHG        PIC S9(11)V99 VALUE +0   TFM96170
+                                                          COMP-3.       MJW92###
+               10  TB-CARR-CARRIER-COD-CHARGE REDEFINES                 TFM96170
+                   TB-CARR-HANDLING-CHG        PIC S9(11)V99 COMP-3.    TFM96170
+               10  TB-CARR-BR-MULTI-LANE-SW PIC X(01)     VALUE SPACES. DMR93051
+                   88  TB-CARR-BR-MULTI-LANE              VALUE 'Y'.    DMR93051
+               10  TB-CARR-SCAC-CODE        PIC X(04)     VALUE SPACES. KMB92310
+               10  TB-CARR-SHIP-LANE-CODE   PIC X(02)     VALUE SPACES. DMR93051
+               10  TB-APPLICATION-ID  REDEFINES TB-CARR-SHIP-LANE-CODE  ETJ09015
+                                            PIC X(02).                  ETJ09015
+               10  TB-UPGRADE-SERVICE-SW    PIC X(01)    VALUE SPACES.  LIB01003
+                   88  TB-UPGRADE-SERVICE-YES            VALUE 'Y'.     LIB01003
+                   88  TB-UPGRADE-SERVICE-NO             VALUE 'N'.     LIB01003
+               10  TB-CARR-VALID-CAPS-SW     PIC X(01)   VALUE SPACES.  DMR93051
+                   88  TB-CARR-VALID-CAPS                VALUE 'Y'.     DMR93051
+                   88  TB-CARR-NOT-VALID-CAPS            VALUE 'N'.     DMR93051
+               10  TB-CARR-USED-BY-CO-OR-BR  PIC X(01)   VALUE SPACES.  DMR93051
+                   88  TB-CARR-USED-BY-BR                VALUE 'B'.     JJD93270
+                   88  TB-CARR-NO-LONGER-AVAILABLE       VALUE 'N'.     SGB99160
+               10  TB-CARR-SERVICE-NAME     PIC X(20)    VALUE SPACES.  RDM94147
+               10  TB-CARR-SERVICE-ID       PIC X(2)     VALUE SPACES.  RDM94147
+               10  TB-CARR-SERVICE-ALPHA-CODE PIC X(4)   VALUE SPACES.  RDM94147
+               10  TB-CARR-MODE             PIC X(04)    VALUE SPACES.  TFM95067
+                   88  TB-CARR-SMALL-PACKAGE             VALUE 'SML '   TFM96226
+                                                               ' SML'.  TFM96226
+                   88  TB-CARR-AIR-REGULAR               VALUE 'AIR1'   TFM96226
+                                                               'AIR2'   TFM96226
+                                                               'AIRO'.  TFM96226
+                   88  TB-CARR-AIR-HEAVYWEIGHT           VALUE 'AIRH'.  TFM96226
+                   88  TB-CARR-AIR-ALL                   VALUE 'AIR1'   TFM96226
+                                                               'AIR2'   TFM96226
+                                                               'AIRO'   TFM96226
+                                                               'AIRH'.  TFM96226
+                   88  TB-CARR-LTL                       VALUE 'LTL '   TFM96226
+                                                               ' LTL'.  TFM96226
+                   88  TB-CARR-UNKNOWN                   VALUE 'OTH '   TFM96226
+                                                               ' OTH'   TFM96226
+                                                               '    '   ETJ98215
+                                                           LOW-VALUES.  ETJ98215
+               10  TB-CARR-AW-CARRIER-SW    PIC X(01)    VALUE SPACES.  TMH95124
+                   88  TB-CARR-VALID-FOR-AW              VALUE 'S' 'B'. TLC98134
+                   88  TB-CARR-NOT-VALID-FOR-AW          VALUE 'N' 'E'. TLC98134
+                   88  TB-CARR-VALID-FOR-EXPORT          VALUE 'E' 'B'. TLC98134
+               10  TB-CARR-BILL-TYPE        PIC X(01)    VALUE SPACES.  MPB95158
+                   88  TB-CARR-SHIPMENT-PRICING          VALUE ' ' 'S'. MPB95158
+                   88  TB-CARR-PKG-PRICING               VALUE 'P'.     MPB95158
+                   88  TB-CARR-ORDER-PRICING             VALUE 'O'.     TFM96226
+                   88  TB-CARR-THIRD-PARTY-ONLY          VALUE 'T'.     TFM01205
+                   88  TB-CARR-THIRD-PARTY-SML           VALUE 'R'.     TYS01290
+                   88  TB-CARR-FRT-COLLECT-ONLY          VALUE 'C'.     TYS01290
+               10  TB-PALLETS-BILL-SW REDEFINES TB-CARR-BILL-TYPE       NPH00137
+                                            PIC X(01).                  NPH00137
+               10  TB-CARR-DAS-AREA.                                    TFM07150
+                   15 TB-CARR-DAS-SW        PIC X.                      TFM07150
+                       88 TB-CARR-DAS-BY-CARTON          VALUE 'C'.     TFM07150
+                       88 TB-CARR-DAS-BY-ORDER           VALUE 'O'.     TFM07150
+                   15 TB-SHIP-CONDITION     PIC X(02).                  TND11014
+                   15 TB-SHIP-CONDITION-FF  PIC X(2).                   TND11048
+               10  TB-CARR-WHERE-USED       PIC X(01)    VALUE SPACES.  MPB95158
+                   88  TB-CARR-INBOUND-ONLY              VALUE 'I'.     MPB95158
+                   88  TB-CARR-OUTBOUND-ONLY             VALUE 'O'.     MPB95158
+                   88  TB-CARR-USED-BOTH                 VALUE 'B' ' '. MPB95158
+                   88  TB-CARR-DISABLED                  VALUE 'N'.     MPB95158
+                   88  TB-CARR-USE-RESIDENTIAL           VALUE 'R'.     TYS01290
+               10  TB-CARR-BASERATE-SW      PIC X(01)    VALUE SPACES.  MPB95158
+                   88  TB-CARR-USE-BASERATE              VALUE 'Y'.     MPB95158
+                   88  TB-CARR-NOT-USE-BASERATE          VALUE 'N' ' '. MPB95158
+               10  TB-CARR-CHG-BKO-FRT-SW REDEFINES TB-CARR-BASERATE-SW TAD96162
+                                            PIC X(01).                  TAD96162
+               10  TB-CARR-MH10-TYPE-LABEL-SW     PIC X(01) VALUE ' '.  JXM95362
+                   88  TB-CARR-MH10-LABEL           VALUE 'S'.          JXM95362
+               10  TB-CARR-FREIGHT-FWD-SW   PIC X(01)    VALUE SPACES.  BAB96059
+                   88  TB-CARR-FFRD-Y               VALUE 'Y'.          BAB96059
+                   88  TB-CARR-FFRD-N               VALUE 'N'.          BAB96059
+                   88  TB-CARR-FFRD-PROMPT          VALUE 'P'.          BAB96059
+               10  TB-CARR-MAX-DOLLAR-SGD PIC 9(04) VALUE  0            KLM96073
+                                                        COMP.           KLM96073
+               10  TB-CARR-FLAT-FRT-USD   PIC S9(03) VALUE +0           KLM96073
+                                                       COMP-3.          KLM96073
+               10  TB-CARR-FLAT-FRT-SGD   PIC S9(03) VALUE +0           KLM96073
+                                                        COMP-3.         KLM96073

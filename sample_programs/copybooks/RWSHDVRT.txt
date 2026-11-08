@@ -1,0 +1,275 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8302
+      ******************************************************************        
+      *****************************************************************         
+      *  PROCESS HARD DIVERT - PROCEDURE DIVISION COPYBOOK            *         
+      *                                                               *         
+      *  PURPOSE:  IMPULSE ROUTING PROJECT -                          *         
+      *            DIVERT PRINTED ORDERS TO ANOTHER DC (IF CONFIRMED) *         
+      * NOTE 1:    PROGRAMS USING THIS COPYBOOK MUST HAVE ACCESS TO   *         
+      *            CUDMST, ORDMST, INDMST DATABASES, USE THESE COPIES:*         
+      *            CUSHED, CUSBRN, CUKHEAD, CUKBRN, CUCXP0, CUIO1004, *         
+      *            ORSHED, ORSSHH, RWKHDS,  RWRHDS, RWWCKHD, TBICARR, *         
+      *            ORKHEAD, ORKAL4, INKAL2, INKBRN, INSHED, INSBRN,   *         
+      *            ORCXP0, ORCXS4, INCXS2,                            *         
+      *            ORIO1102, ORIO1104, ORIO1108, ORIO1120, ORIO1258,  *         
+      *            ORIO2258, INIO1550, INIO1604.                      *         
+      *****************************************************************         
+      * ============================================================= *         
+      *  RWSHDVRT - PROCESS HARD DIVERT                               * PLB99336
+      *  09/25/00  PLB  TERMINATE LOOP IN 7141-CHECK-INVENTORY-BRANCH * PLB00269
+      *                 WHEN WE HIT END OF VALID DIVERT SEQUENCE DCS. * PLB00269
+      *  07/19/00  PLB  ADD CSW PROGRAM WHP817 TO LIST OF PROGRAMS    * PLB99336
+      *                 THAT PROCESS SINGLE SHIPMENTS (NOT BATCHES).  * PLB99336
+      *  02/12/99  PLB  SET WS-RWRNTDQ-WRITTEN-ALL-SW (ORP261 ONLY)   * PLB99008
+      *  10/29/98  PLB  CREATION OF COPYBOOK                          * PLBY8302
+      * ============================================================= *         
+       7100-PROCESS-HARD-DIVERT.                                                
+           MOVE RWWHDVRT-COMPANY       TO RWWCKHD-COMPANY.                      
+           IF RWWHDVRT-INVOKED-BY = 'ORP270'                                    
+           OR RWWHDVRT-INVOKED-BY = 'ORP610'                                    
+           OR RWWHDVRT-INVOKED-BY = 'ORP611'                                    
+           OR RWWHDVRT-INVOKED-BY = 'WHP817'                            PLB99336
+               PERFORM 7110-PROCESS-SHIPMENT THRU 7110-EXIT                     
+           ELSE                                                                 
+           IF RWWHDVRT-INVOKED-BY = 'ORP261'                                    
+               MOVE RWWHDVRT-SF-BRANCH TO RWWCKHD-SF-BRANCH                     
+               PERFORM 7120-PROCESS-BATCH    THRU 7120-EXIT.                    
+      *                                                                         
+       7100-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       7110-PROCESS-SHIPMENT.                                                   
+           MOVE SPACE                  TO WS-END-OF-ORDER-SW.                   
+           MOVE ORSH-DIST-NBR          TO RWWHDVRT-DIST-NBR.                    
+           MOVE ORSH-SHIP-NBR          TO RWWHDVRT-SHIP-NBR.                    
+           MOVE ORSH-BR-NBR-SHIP-FROM  TO RWWCKHD-SF-BRANCH                     
+                                          RWWHDVRT-SF-BRANCH.                   
+           MOVE ORSH-BATCH-NBR         TO RWWHDVRT-BATCH-NBR.                   
+           MOVE ORSH-BATCH-SEQ         TO RWWHDVRT-BATCH-SEQ.                   
+           MOVE ORSH-ORDER-TYPE        TO RWWHDVRT-ORDER-TYPE.                  
+           MOVE ORSH-CREDIT-MEMO-CODE  TO RWWHDVRT-CREDIT-MEMO-CODE.            
+           MOVE ORSH-REL-CUST-BR       TO RWWCKHD-CUST-BRANCH                   
+                                          RWWHDVRT-CUST-BRANCH.                 
+           MOVE ORSH-REL-CUST-NBR      TO RWWCKHD-CUST-NBR                      
+                                          RWWHDVRT-CUST-NBR.                    
+           MOVE ORSH-CARRIER-CODE      TO RWWCKHD-CARRIER.                      
+           PERFORM 7121-PROCESS-ORDERS-IN-BATCH THRU 7121-EXIT                  
+               UNTIL WS-END-OF-ORDER.                                           
+      *                                                                         
+       7110-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       7120-PROCESS-BATCH.                                                      
+           MOVE RWWHDVRT-COMPANY       TO WS-ORAL4-CO.                          
+           MOVE RWWHDVRT-SF-BRANCH     TO WS-ORAL4-SF-BR.                       
+           MOVE RWWHDVRT-BATCH-NBR     TO WS-ORAL4-BATCH-NBR.                   
+           MOVE RWWHDVRT-BATCH-SEQ     TO WS-ORAL4-BATCH-SEQ.                   
+           MOVE LOW-VALUES             TO WS-ORAL4-REL                          
+                                          WS-ORAL4-CU-BR                        
+                                          WS-ORAL4-CUST                         
+                                          WS-ORAL4-SUFF.                        
+           MOVE '('                    TO WS-ORAL4-QUAL                         
+           MOVE '>='                   TO WS-ORAL4-SEARCH.                      
+      *                                                                         
+           PERFORM 1102-GU-ORSSHH-VIA-SHIP.                                     
+      *                                                                         
+           IF WS-ORSSHH-NORESP                                                  
+      *?       PERFORM XXXX-CHECK-REMOTE-ORDER THRU XXXX-EXIT                   
+               IF ORSH-REL-CO           = RWWHDVRT-COMPANY   AND                
+                  ORSH-BR-NBR-SHIP-FROM = RWWHDVRT-SF-BRANCH AND                
+                  ORSH-BATCH-NBR        = RWWHDVRT-BATCH-NBR AND                
+                  ORSH-BATCH-SEQ        = RWWHDVRT-BATCH-SEQ                    
+                   MOVE SPACE          TO WS-END-OF-ORDER-SW                    
+                   MOVE ORSH-DIST-NBR  TO RWWHDVRT-DIST-NBR                     
+                   MOVE ORSH-SHIP-NBR  TO RWWHDVRT-SHIP-NBR                     
+                   MOVE ORSH-ORDER-TYPE                                         
+                                       TO RWWHDVRT-ORDER-TYPE                   
+                   MOVE ORSH-CREDIT-MEMO-CODE                                   
+                                       TO RWWHDVRT-CREDIT-MEMO-CODE             
+                   MOVE ORSH-REL-CUST-BR                                        
+                                       TO RWWCKHD-CUST-BRANCH                   
+                                          RWWHDVRT-CUST-BRANCH                  
+                   MOVE ORSH-REL-CUST-NBR                                       
+                                       TO RWWCKHD-CUST-NBR                      
+                                          RWWHDVRT-CUST-NBR                     
+                   MOVE ORSH-CARRIER-CODE                                       
+                                       TO RWWCKHD-CARRIER                       
+                   PERFORM 7121-PROCESS-ORDERS-IN-BATCH THRU 7121-EXIT          
+                      UNTIL WS-END-OF-ORDER.                                    
+      *                                                                         
+       7120-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       7121-PROCESS-ORDERS-IN-BATCH.                                            
+      *                                                                         
+           MOVE SPACE                  TO WS-PROCESS-SHIPMENT-SW.               
+           PERFORM 7122-CHECK-ORSSHH    THRU 7122-EXIT.                         
+           IF WS-PROCESS-SHIPMENT                                               
+             IF RWWHDVRT-INVOKED-BY = 'ORP261'                                  
+               MOVE '('                TO WS-ORAL4-QUAL                         
+               MOVE ORPCB-SHIP-KEY-1   TO WS-ORAL4-KEY-VALUE                    
+               MOVE ' ='               TO WS-ORAL4-SEARCH                       
+               MOVE SPACE              TO WS-ORSHED-QUAL                        
+               MOVE 'N'                TO WS-RWRNTDQ-WRITTEN-SW                 
+               PERFORM 1120-GNP-ORSHED-VIA-SHIP                                 
+             END-IF                                                             
+               IF WS-ORSHED-NORESP                                              
+                   MOVE ORH-BR-NBR     TO RWWHDVRT-ORDER-BRANCH                 
+                   MOVE ORH-ORDER-NBR  TO RWWHDVRT-ORDER-NBR                    
+                   PERFORM 7000-CHECK-FOR-HARD-DIVERT THRU 7000-EXIT            
+                   IF RWWCKHD-HARD-DIVERT-SW = 'N'                              
+                       GO TO 7121-CONTINUE                                      
+                   END-IF                                                       
+                   MOVE RWWCKHD-CARRIER                                         
+                                       TO RWWHDVRT-CARRIER                      
+                   MOVE RWWCKHD-CARRIER-TYPE                                    
+                                       TO RWWHDVRT-CARRIER-TYPE                 
+                   MOVE RWWCKHD-SHIP-FROM-SEQUENCE                              
+                                       TO RWWHDVRT-SHIP-FROM-SEQUENCE           
+                   MOVE ORH-KEY-ORSMST TO WS-ORSHED-KEY-VALUE                   
+                   MOVE SPACE          TO WS-NO-MORE-ORDER-LINES-SW             
+                   PERFORM 7123-PROCESS-ORDER-LINES                             
+                       UNTIL WS-NO-MORE-ORDER-LINES                             
+                   IF RWWHDVRT-INVOKED-BY = 'ORP261'                            
+                      IF WS-RWRNTDQ-WRITTEN                                     
+      * END OF LINES MODE                                                       
+                         MOVE 'E'      TO RWWHDVRT-MODE                         
+                         PERFORM 7165-WRITE-LINE-CHANGE-TDQ                     
+                         MOVE 'Y'      TO WS-RWRNTDQ-WRITTEN-ALL-SW     PLB99008
+                      END-IF                                                    
+                   END-IF                                                       
+               END-IF                                                           
+           END-IF.                                                              
+       7121-CONTINUE.                                                           
+      *                                                                         
+           IF RWWHDVRT-INVOKED-BY = 'ORP270'                                    
+           OR RWWHDVRT-INVOKED-BY = 'ORP610'                                    
+           OR RWWHDVRT-INVOKED-BY = 'ORP611'                                    
+           OR RWWHDVRT-INVOKED-BY = 'WHP817'                            PLB99336
+               MOVE 'Y'                TO WS-END-OF-ORDER-SW                    
+               GO TO 7121-EXIT.                                                 
+           MOVE SPACE                  TO WS-ORAL4-QUAL.                        
+           PERFORM 1104-GN-ORSSHH-VIA-SHIP.                                     
+           IF NOT WS-ORSSHH-NORESP                                              
+               MOVE 'Y'                TO WS-END-OF-ORDER-SW                    
+           ELSE                                                                 
+               IF ORSH-REL-CO           = RWWHDVRT-COMPANY   AND                
+                  ORSH-BR-NBR-SHIP-FROM = RWWHDVRT-SF-BRANCH AND                
+                  ORSH-BATCH-NBR        = RWWHDVRT-BATCH-NBR AND                
+                  ORSH-BATCH-SEQ        = RWWHDVRT-BATCH-SEQ                    
+                   MOVE ORSH-DIST-NBR  TO RWWHDVRT-DIST-NBR                     
+                   MOVE ORSH-SHIP-NBR  TO RWWHDVRT-SHIP-NBR                     
+                   MOVE ORSH-ORDER-TYPE                                         
+                                       TO RWWHDVRT-ORDER-TYPE                   
+                   MOVE ORSH-CREDIT-MEMO-CODE                                   
+                                       TO RWWHDVRT-CREDIT-MEMO-CODE             
+                   MOVE ORSH-REL-CUST-BR                                        
+                                       TO RWWCKHD-CUST-BRANCH                   
+                                          RWWHDVRT-CUST-BRANCH                  
+                   MOVE ORSH-REL-CUST-NBR                                       
+                                       TO RWWCKHD-CUST-NBR                      
+                                          RWWHDVRT-CUST-NBR                     
+               ELSE                                                             
+                   MOVE 'Y'            TO WS-END-OF-ORDER-SW.                   
+      *                                                                         
+       7121-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       7122-CHECK-ORSSHH.                                                       
+      *                                                                         
+           IF ORSH-OPEN-STATUS                                                  
+               MOVE 'Y'                TO WS-PROCESS-SHIPMENT-SW.               
+      *                                                                         
+       7122-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       7123-PROCESS-ORDER-LINES.                                                
+      *                                                                         
+           MOVE '('                    TO WS-ORSHED-QUAL.                       
+           MOVE ' ='                   TO WS-ORSHED-SEARCH.                     
+           MOVE SPACE                  TO WS-ORSLNE-QUAL.                       
+           IF RWWHDVRT-INVOKED-BY = 'ORP261'                                    
+               PERFORM 1108-GNP-ORSLNE-VIA-SHIP                                 
+           ELSE                                                                 
+      * SSA VALUES FOR ORSHED AND ORSSHH WERE PRELOADED BY INVOKER              
+               IF RWWHDVRT-INVOKED-BY = 'ORP610'                                
+               OR RWWHDVRT-INVOKED-BY = 'ORP611'                                
+                   PERFORM 2258-GNP-ORSLNE                                      
+               ELSE                                                             
+                   PERFORM 1258-GNP-ORSLNE                                      
+               END-IF                                                           
+           END-IF                                                               
+           IF NOT WS-ORSLNE-NORESP                                              
+               MOVE 'Y'                TO WS-NO-MORE-ORDER-LINES-SW             
+           ELSE                                                                 
+               PERFORM 7130-ORDER-LINE-PROCESS.                                 
+      *                                                                         
+       7130-ORDER-LINE-PROCESS.                                                 
+      *                                                                         
+           MOVE ' '                    TO WS-SHIPPABLE-LINE-SW.                 
+           IF ORL-OPEN-LINE           AND                                       
+              ORL-INV-STOCK           AND                                       
+              ORL-QTY-SHIPPED > ZERO                                            
+               MOVE 'Y'                TO WS-SHIPPABLE-LINE-SW                  
+               MOVE ORL-LINE-NBR       TO RWWHDVRT-LINE-NBR                     
+               MOVE ORL-PART-NBR       TO RWWHDVRT-PART-NBR                     
+               MOVE ORL-QTY-SHIPPED    TO RWWHDVRT-QTY-SHIPPED                  
+               PERFORM 7140-CHECK-INVENTORY.                                    
+      *                                                                         
+       7140-CHECK-INVENTORY.                                                    
+      *                                                                         
+           MOVE ORL-KEY-CO             TO WS-INAL2-CO.                          
+           MOVE ORL-PART-NBR           TO WS-INAL2-PART.                        
+           PERFORM 1550-GU-INSHED-VIA-PART.                                     
+           IF WS-INSHED-NORESP                                                  
+               MOVE ' '                TO WS-END-OF-SF-SEQ-SW                   
+               PERFORM 7141-CHECK-INVENTORY-BRANCH                              
+                  THRU 7141-EXIT                                                
+                   VARYING RWWHDVRT-SF-IDX FROM 1 BY 1                          
+                   UNTIL   RWWHDVRT-SF-IDX > 20                                 
+                   OR      WS-END-OF-SF-SEQ.                                    
+      *                                                                         
+       7141-CHECK-INVENTORY-BRANCH.                                             
+      *                                                                         
+           MOVE RWWHDVRT-SF-SEQ-ENTRY (RWWHDVRT-SF-IDX)                         
+                                       TO WS-INSBRN-NBR.                PLB00269
+      * DIVERT BRANCH MUST NOT BE SAME AS ORIGINAL, TRY ANOTHER ...             
+           IF RWWHDVRT-SF-BRANCH = WS-INSBRN-NBR                                
+               GO TO 7141-EXIT.                                                 
+      * WHEN FIRST UNUSED DIVERT BRANCH IS ENCOUNTERED, TERMINATE LOOP  PLB00269
+           IF WS-INSBRN-NBR = LOW-VALUES OR SPACES                      PLB00269
+               MOVE 'Y'                TO WS-END-OF-SF-SEQ-SW           PLB00269
+               GO TO 7141-EXIT.                                         PLB00269
+           MOVE ' '                    TO WS-INSBRN-IO-SW.                      
+           PERFORM 1604-GNP-INSBRN-VIA-PART.                                    
+           IF NOT WS-INSBRN-NORESP                                              
+               GO TO 7141-EXIT.                                                 
+       COPY SYHAVAIL.                                                           
+           MOVE WS-AVAIL-QTY           TO RWWHDVRT-AVAIL-QTY.                   
+           IF RWWHDVRT-AVAIL-QTY NOT < RWWHDVRT-QTY-SHIPPED                     
+      * INDICATE THAT THIS DIVERT BRANCH HAS THE GOODS AND STOP LOOKING         
+               MOVE 'Y'                TO WS-END-OF-SF-SEQ-SW                   
+               PERFORM 7154-LINE-CHANGE-COMMAREA                                
+      * LINE CHANGE MODE                                                        
+               MOVE 'L'                TO RWWHDVRT-MODE                         
+               PERFORM 7165-WRITE-LINE-CHANGE-TDQ.                              
+      *                                                                         
+       7141-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       7154-LINE-CHANGE-COMMAREA.                                               
+      *                                                                         
+           MOVE RWWHDVRT-ORDER-BRANCH  TO TC-ORDER-BR-NBR.                      
+           MOVE RWWHDVRT-SF-BRANCH     TO TC-BR-NBR.                            
+           MOVE RWWHDVRT-ORDER-NBR     TO TC-ORDER-NBR.                         
+           MOVE RWWHDVRT-ORDER-TYPE    TO TC-ORC-ORDER-TYPE.                    
+           MOVE RWWHDVRT-CREDIT-MEMO-CODE                                       
+                                       TO TC-ORC-CREDIT-MEMO-CODE.              
+           MOVE RWWHDVRT-DIST-NBR      TO TC-DIST-NBR.                          
+           MOVE RWWHDVRT-SHIP-NBR      TO TC-SHIP-NBR.                          
+           MOVE RWWHDVRT-LINE-NBR      TO TC-LINE-NBR.                          
+           MOVE RWWHDVRT-PART-NBR      TO TC-PART-NBR.                          
+           MOVE RWWHDVRT-SF-SEQ-ENTRY (RWWHDVRT-SF-IDX)                         
+                                       TO TC-ORC-CHG-SHIP-FROM.                 
+                                                                                

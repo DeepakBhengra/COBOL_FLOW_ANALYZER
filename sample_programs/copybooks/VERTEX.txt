@@ -1,0 +1,1267 @@
+                                                                                
+      *--------------------------------------------------------------*          
+      *   VERTEX - TAXING MODULE  LOGIC                                         
+      *--------------------------------------------------------------*          
+      * 05/01/24 WTL ADD TAXING FOR PUERTO RICO                         WTL24122
+      * 03/11/22 WTL ADD TAXING FOR CHICAGO LEASE TAX                   WTL22070
+      * 11/13/20 WTL DON'T CHECK HAWAII WHEN ONLY CHECKING GEO CODE     WTL20318
+      * 01/11/19 JJS SE8389 - INCLUDE PROMARK HAWAII TAXATION           JJS18313
+      * 07/16/18 WTL DON'T CHECK HAWAII WHEN ONLY CHECKING GEO CODE     WTL18197
+      *              OR TAX ESTIMATE                                    WTL18197
+      * 04/25/18 WTL CHANGES FOR HAWAII WHOLESALE FEDERAL EXEMPT        WTL18115
+      * 04/05/18 WTL ADD TAXING FOR HI WHOLESALE CUSTOMERS              WTL18095
+      * 10/18/17 WTL BLOCK PROMARK CUSTOMERS FROM HAWAII TAXING         WTL17291
+      *              AS HAWAII BECOMES A NEXUS STATE                    WTL17291
+      * 10/03/14 JYH PASS INIOF-TAX-CATEGORY TO VERTEX INSTEAD OF       JYH14265
+      *              INS-NEW-MEDIA SO NON-TAXABLE PRODUCT WILL NOT      JYH14265
+      *              BE TAXED.                                          JYH14265
+      * 08/11/14 JYH CHANGE NLK-LINE-AREA BACK TO NLK-LINK-AREA         JYH14223
+      * 10/10/13 WTL PROMARK CHANGES                                    WTL13283
+      * 02/14/13 RAL CHANGE NLK-LINK-AREA BACK TO NLK-LINE-AREA         RAL13052
+      * 11/04/05 MCV ZERO PRICE OF ITEM ON BATCH GEO CODE SEARCH.       MCV05308
+      *              VERTEX KEEPS A RUNNING TAX TOTAL AND NON-ZERO PRICEMCV05308
+      *              MAY AFFECT TAXES IN REGIONS WITH A MAXIMUM TAX.    MCV05308
+      * 05/09/05 MCV SEARCH FOR CITY IF FULL ADDRESS FAILS.             MCV05129
+      *              VENDOR RENAMED FIELD NLK-LINE-AREA TO NLK-LINK-AREAMCV05129
+      * 03/15/05 MCV ADD SINGLE-LINE MANUAL TAXING                      MCV05074
+      * 02/17/04 MCV NEXUS CHECKS FOR SINGLE-SOURCE                     MCV04048
+      * 08/19/03 MCV PASS INVENTORY MEDIA CODE TO TAX ROUTINE;          MCV03231
+      *              USE 'MCC-XXX' FORMAT FOR MISC. CHARGES.            MCV03231
+      * 03/01/03 MCV EXECUTE NEW VERTEX LOGIC                         * MCV03060
+      * 01/06/03 MCV NEW                                                MCV03006
+      *--------------------------------------------------------------*          
+                                                                                
+      *--------------------------------------------------------------*          
+       VERTEX-TAX-PROCESSING.                                                   
+      *--------------------------------------------------------------*          
+                                                                                
+      *--------------------------------------------------------------*          
+      *    INITIALIZATION                                                       
+      *--------------------------------------------------------------*          
+                                                                                
+           INITIALIZE                         WS-INITIALIZED-STORAGE            
+                                                                                
+      *--------------------------------------------------------------*          
+      *    PROCESSING SELECTION:                                                
+      *      -  AUTOMATICALLY - ALL TAXING LOGIC AND DATABASE ACCESS            
+      *      -  MANUALLY INIT - PROCESS SHIPMENT HEADER & ADDRESS               
+      *      -  MANUALLY FRT  - PROCESS SHIPMENT HEADER - NO ADDRESS            
+      *      -  MANUALLY      - PROCESS SHIPMENT LINES INDIVIDUALLY             
+      *      -  GEO CODE      - RETURN GEO CODE                                 
+      *--------------------------------------------------------------*          
+                                                                                
+           EVALUATE TRUE                                                        
+              WHEN TX6-ACCESS-AUTOMATICALLY                                     
+              WHEN TX6-ACCESS-MANUALLY-INIT                                     
+              WHEN TX6-ACCESS-MANUALLY                                          
+                   PERFORM 100-VERTEX-TAXING                                    
+                                                                                
+              WHEN TX6-ACCESS-GEO-CODE                                          
+                   PERFORM 8000-VERTEX-GEO-CODE                                 
+                                                                                
+              WHEN TX6-ACCESS-TAX-ESTIMATES                                     
+                   PERFORM 8200-VERTEX-TAX-ESTIMATES                            
+           END-EVALUATE.                                                        
+                                                                                
+      *--------------------------------------------------------------*          
+       100-VERTEX-TAXING.                                                       
+      *--------------------------------------------------------------*          
+                                                                                
+           EVALUATE TRUE                                                        
+              WHEN TX6-ACCESS-AUTOMATICALLY                                     
+              WHEN TX6-ACCESS-MANUALLY-INIT                                     
+                   INITIALIZE                   TX6-TAX-TOTALS                  
+                                                TX6-INTERNAL-WORK-AREA          
+                                                                                
+              WHEN TX6-ACCESS-MANUALLY-FRT                                      
+              WHEN TX6-ACCESS-MANUALLY-LINE                             MCV05074
+                   INITIALIZE                   TX6-TAX-TOTALS                  
+                                                TX6-TAX-WORK                    
+           END-EVALUATE                                                         
+                                                                                
+           PERFORM 100-VERTEX-POINTERS                                          
+                                                                                
+           PERFORM 600-ORSHED-SETUP.                                            
+                                                                                
+           PERFORM 200-FORMAT-TOTALS.                                           
+                                                                                
+      *--------------------------------------------------------------*          
+       200-FORMAT-TOTALS.                                                       
+      *--------------------------------------------------------------*          
+                                                                                
+           IF ORSH-RMA OR ORSH-CREDIT-MEMO                                      
+              MOVE -1                     TO  NDX                               
+           ELSE                                                                 
+              MOVE +1                     TO  NDX.                              
+                                                                                
+           COMPUTE TX6-FRT-TAX-AMT   ROUNDED = NDX * TX6-WORK-FRT-TAX           
+           COMPUTE TX6-ST-TAX-AMT    ROUNDED = NDX * TX6-WORK-ST-TAX            
+           COMPUTE TX6-CO-TAX-AMT    ROUNDED = NDX * TX6-WORK-CO-TAX            
+           COMPUTE TX6-CI-TAX-AMT    ROUNDED = NDX * TX6-WORK-CI-TAX            
+           COMPUTE TX6-DI-TAX-AMT    ROUNDED = NDX * TX6-WORK-DI-TAX            
+           COMPUTE TX6-CHI-LS-TAX-AMT ROUNDED =                         WTL22070
+                                     NDX * TX6-WORK-CHI-LS-TAX          WTL22070
+           COMPUTE TX6-TOTAL-TAX-AMT ROUNDED = NDX * (TX6-WORK-ST-TAX           
+                                                   +  TX6-WORK-CO-TAX           
+                                                   +  TX6-WORK-CI-TAX           
+                                                   +  TX6-WORK-DI-TAX)          
+                                                                                
+      *    ADJUST STATE TAX TO ACCOUNT FOR ROUNDING ERRORS                      
+                                                                                
+           COMPUTE TX6-ST-TAX-AMT            = TX6-TOTAL-TAX-AMT                
+                                             - TX6-CO-TAX-AMT                   
+                                             - TX6-CI-TAX-AMT                   
+                                             - TX6-DI-TAX-AMT.                  
+                                                                                
+      *--------------------------------------------------------------*          
+       600-ORSHED-SETUP.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM 600-VERTEX-ORSHED                                            
+                                                                                
+           MOVE ORH-KEY-ORSMST             TO  WS-ORSHED-KEY-VALUE              
+                                                                                
+           IF WS-ORSHED-NORESP                                                  
+              PERFORM 700-ORSSHH-SETUP.                                         
+                                                                                
+      *--------------------------------------------------------------*          
+       700-ORSSHH-SETUP.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM 700-VERTEX-ORSSHH                                            
+                                                                                
+           MOVE ORSH-KEY-ORSSHH            TO  WS-ORSSHH-KEY-VALUE              
+                                                                                
+           IF WS-HAWAII-ORDER-NOT-TESTED                                WTL18095
+              PERFORM 750-DETERMINE-HI-GET                              WTL18095
+                 THRU 750-EXIT.                                         WTL18095
+                                                                        WTL18095
+           EVALUATE TRUE                                                WTL22070
+              WHEN TX6-ACCESS-AUTOMATICALLY                             WTL22070
+              WHEN TX6-ACCESS-MANUALLY-INIT                             WTL22070
+                   PERFORM 7000-TAXING-ADDRESS                          WTL22070
+           END-EVALUATE                                                 WTL22070
+      *                                                                 WTL22070
+           IF WS-CHICAGO-ORDER-NOT-TESTED                               WTL22070
+              PERFORM 760-DETERMINE-CHICAGO-TAX                         WTL22070
+                 THRU 760-EXIT.                                         WTL22070
+      *                                                                 WTL22070
+           IF WS-PR-ORDER-NOT-TESTED                                    WTL24122
+              PERFORM 770-DETERMINE-PR-TAX                              WTL24122
+                 THRU 770-EXIT.                                         WTL24122
+      *                                                                 WTL24122
+           EVALUATE TRUE                                                        
+              WHEN WS-ORSSHH-NOTFND                                             
+                   CONTINUE                                                     
+                                                                                
+              WHEN ORH-ORDER-TAXABLE                                            
+              WHEN WS-HAWAII-ORDER                                      WTL18095
+              WHEN WS-CHICAGO-ORDER                                     WTL22070
+              WHEN WS-PR-TAXABLE                                        WTL24122
+              WHEN ORSH-RMA                                                     
+              WHEN ORSH-CREDIT-MEMO                                             
+                   IF ORSH-VOIDED                                               
+                      IF ORSH-DIRECT-ORDER                                      
+                         PERFORM 800-ORSLNE-SETUP                               
+                      END-IF                                                    
+                   ELSE                                                         
+                      PERFORM 800-ORSLNE-SETUP                                  
+                   END-IF                                                       
+           END-EVALUATE.                                                        
+                                                                                
+      *--------------------------------------------------------------*  WTL18095
+       750-DETERMINE-HI-GET.                                            WTL18095
+      *--------------------------------------------------------------*  WTL18095
+           MOVE SPACE                  TO WS-HAWAII-ORDER-SW.           WTL18095
+           MOVE CUPCB-COMPANY          TO TB-EXMP-COMPANY-CODE.         WTL18115
+           MOVE CUPCB-BR-NBR           TO TB-EXMP-BRANCH.               WTL18115
+           MOVE CUPCB-CUST-NBR         TO TB-EXMP-CUSTOMER.             WTL18115
+           CALL WS-IMPULSE-TABLE    USING TB-EXMP-PROC-IA.              WTL18115
+           IF TB-EXMP-NORESP                                            WTL18115
+              GO TO 750-EXIT.                                           WTL18115
+                                                                        WTL18095
+           MOVE '14'                   TO WS-ORSSTO-KEY-VALUE           WTL18095
+                                          WS-ORSSTO-KEY-VALUE2.         WTL18095
+           PERFORM 1207-GU-ORSSTO.                                      WTL18095
+           IF WS-ORSSTO-NORESP                                          WTL18095
+            IF ORSA-STATE = 'HI'                                        WTL18095
+              MOVE 'Y'                 TO WS-HAWAII-ORDER-SW            WTL18095
+            ELSE                                                        WTL18095
+              GO TO 750-EXIT.                                           WTL18095
+                                                                        WTL18095
+       750-CUSADR.                                                      WTL18095
+           IF ORH-SHIP-TO-SUFFIX > ZEROES                               WTL18095
+              MOVE ORH-SHIP-TO-SUFFIX  TO WS-CUSADR-SUFFIX              WTL18095
+           ELSE                                                         WTL18095
+              MOVE ORH-BILL-TO-SUFFIX  TO WS-CUSADR-SUFFIX              WTL18095
+           END-IF.                                                      WTL18095
+                                                                        WTL18095
+           MOVE CUPCB-COMPANY          TO WS-CUSHED-CO.                 WTL18095
+           MOVE CUPCB-BR-NBR           TO WS-CUSHED-BR.                 WTL18095
+           MOVE CUPCB-CUST-NBR         TO WS-CUSHED-CUST.               WTL18095
+           PERFORM 1002-GU-CUSADR.                                      WTL18095
+           IF NOT WS-CUSADR-NORESP                                      WTL18095
+              MOVE 'N'                 TO WS-HAWAII-ORDER-SW            WTL18095
+              GO TO 750-EXIT.                                           WTL18095
+                                                                        WTL18095
+      * CUSTOMER WILL BE CHARGED REGULAR HAWAII TAX, NOT 1/2% GET       WTL18095
+           IF CUA-TAX              AND                                  WTL18095
+              CUA-STATE-CODE = 'HI'                                     WTL18095
+              MOVE 'N'                 TO WS-HAWAII-ORDER-SW            WTL18095
+              GO TO 750-EXIT.                                           WTL18095
+                                                                        WTL18095
+      * MAY ALREADY BE HAWAII ORDER BASED ON ORSSTO ADDRESS             WTL18095
+           IF NOT WS-HAWAII-ORDER                                       WTL18095
+             IF CUA-ST-L = 'HI'                                         WTL18095
+              MOVE 'Y'                 TO WS-HAWAII-ORDER-SW            WTL18095
+             ELSE                                                       WTL18095
+              GO TO 750-EXIT.                                           WTL18095
+                                                                        WTL18095
+           MOVE 'XHI R           '     TO WS-CUSMSC-KEY-VALUE.          WTL18095
+      *                                                                 WTL18095
+      *  WE ONLY WANT TO ASSESS TAXES IF THERE IS A VALID CERT. ON FILE WTL18095
+      *                                                                 WTL18095
+           PERFORM 1010-GU-CUSMSC.                                      WTL18095
+           IF NOT WS-CUSMSC-NORESP                                      WTL18095
+              MOVE 'N'                 TO WS-HAWAII-ORDER-SW            WTL18095
+              GO TO 750-EXIT                                            WTL18095
+           END-IF.                                                      WTL18095
+                                                                        WTL18095
+           MOVE ORH-COMPANY            TO TB-DATE-COMPANY.              WTL18095
+           CALL WS-IMPULSE-TABLE    USING TB-DATE-TABLE-IA.             WTL18095
+                                                                        WTL18095
+           IF (TB-DATE-AS-OF-JULIAN NOT < CUM-TAX-EXEMPT-DATE) AND      WTL18095
+              (TB-DATE-AS-OF-JULIAN NOT > CUM-RENEWAL-DATE)             WTL18095
+              CONTINUE                                                  WTL18095
+           ELSE                                                         WTL18095
+              MOVE SPACE              TO WS-HAWAII-ORDER-SW             WTL18095
+           END-IF.                                                      WTL18095
+                                                                        WTL18095
+       750-EXIT.                                                        WTL18095
+           EXIT.                                                        WTL18095
+                                                                        WTL18095
+       760-DETERMINE-CHICAGO-TAX.                                       WTL22070
+           MOVE TX6-ZIP                TO WS-CHICAGO-ZIP-SW.            WTL22070
+           IF NOT WS-CHICAGO-ZIP                                        WTL22070
+              MOVE 'N'                 TO WS-CHICAGO-ORDER-SW           WTL22070
+              GO TO 760-EXIT.                                           WTL22070
+      *                                                                 WTL22070
+           MOVE 'Y'                    TO WS-CHICAGO-FND-SW.            WTL22070
+      *                                                                 WTL22070
+           MOVE ORH-COMPANY            TO WS-CUSHED-CO                  WTL22070
+           MOVE ORH-BILL-TO-BR-NBR     TO WS-CUSHED-BR                  WTL22070
+           MOVE ORH-BILL-TO-CUST-NBR   TO WS-CUSHED-CUST                WTL22070
+           MOVE 'XC1 R           '     TO WS-CUSMSC-KEY-VALUE.          WTL22070
+      *                                                                 WTL22070
+      *  IF CHICAGO EXEMPTION CERTIFICATE ON FILE AND VALID,            WTL22070
+      *  THEN NO TAX ASSESSED ON CLOUD GOODS. IF NOT ON FILE            WTL22070
+      *  AND THE ORDER IS TAXABLE, THEN NEED TO CHECK FOR REGULAR       WTL22070
+      *  IL TAX AND THE LEASE TAX (CLOUD GOODS). IT ORDER IS NOT        WTL22070
+      *  TAXABLE, THEN ONLY CLOUD TAXATION IS RELEVANT.                 WTL22070
+      *                                                                 WTL22070
+           PERFORM 1010-GU-CUSMSC.                                      WTL22070
+           IF NOT WS-CUSMSC-NORESP                                      WTL22070
+              IF ORH-ORDER-TAXABLE                                      WTL22070
+                 MOVE 'Y'              TO WS-CHICAGO-ORDER-SW           WTL22070
+              ELSE                                                      WTL22070
+                 MOVE 'C'              TO WS-CHICAGO-ORDER-SW           WTL22070
+              END-IF                                                    WTL22070
+              GO TO 760-EXIT.                                           WTL22070
+      *                                                                 WTL22070
+           MOVE ORH-COMPANY            TO TB-DATE-COMPANY.              WTL22070
+           CALL WS-IMPULSE-TABLE    USING TB-DATE-TABLE-IA.             WTL22070
+           IF (TB-DATE-AS-OF-JULIAN NOT < CUM-TAX-EXEMPT-DATE) AND      WTL22070
+              (TB-DATE-AS-OF-JULIAN NOT > CUM-RENEWAL-DATE)             WTL22070
+              MOVE 'N'                 TO WS-CHICAGO-ORDER-SW           WTL22070
+           ELSE                                                         WTL22070
+           IF ORH-ORDER-TAXABLE                                         WTL22070
+              MOVE 'Y'                 TO WS-CHICAGO-ORDER-SW           WTL22070
+           ELSE                                                         WTL22070
+              MOVE 'C'                 TO WS-CHICAGO-ORDER-SW           WTL22070
+           END-IF.                                                      WTL22070
+                                                                        WTL22070
+       760-EXIT.                                                        WTL22070
+           EXIT.                                                        WTL22070
+                                                                        WTL22070
+      *--------------------------------------------------------------*  WTL24122
+       770-DETERMINE-PR-TAX.                                            WTL24122
+      *--------------------------------------------------------------*  WTL24122
+           MOVE SPACE                  TO WS-PR-TAX-SW.                 WTL24122
+                                                                        WTL24122
+           MOVE '14'                   TO WS-ORSSTO-KEY-VALUE           WTL24122
+                                          WS-ORSSTO-KEY-VALUE2.         WTL24122
+           PERFORM 1207-GU-ORSSTO.                                      WTL24122
+           IF WS-ORSSTO-NORESP                                          WTL24122
+            IF ORSA-STATE = 'PR'                                        WTL24122
+              MOVE 'Y'                 TO WS-PR-TAX-SW                  WTL24122
+              GO TO 770-EXIT                                            WTL24122
+            ELSE                                                        WTL24122
+              GO TO 770-EXIT.                                           WTL24122
+                                                                        WTL24122
+       770-CUSADR.                                                      WTL24122
+           IF ORH-SHIP-TO-SUFFIX > ZEROES                               WTL24122
+              MOVE ORH-SHIP-TO-SUFFIX  TO WS-CUSADR-SUFFIX              WTL24122
+           ELSE                                                         WTL24122
+              MOVE ORH-BILL-TO-SUFFIX  TO WS-CUSADR-SUFFIX              WTL24122
+           END-IF.                                                      WTL24122
+                                                                        WTL24122
+           MOVE CUPCB-COMPANY          TO WS-CUSHED-CO.                 WTL24122
+           MOVE CUPCB-BR-NBR           TO WS-CUSHED-BR.                 WTL24122
+           MOVE CUPCB-CUST-NBR         TO WS-CUSHED-CUST.               WTL24122
+           PERFORM 1002-GU-CUSADR.                                      WTL24122
+           IF NOT WS-CUSADR-NORESP                                      WTL24122
+              MOVE 'N'                 TO WS-PR-TAX-SW                  WTL24122
+              GO TO 770-EXIT.                                           WTL24122
+                                                                        WTL24122
+           IF CUA-ST-L = 'PR'                                           WTL24122
+              MOVE 'Y'                 TO WS-PR-TAX-SW.                 WTL24122
+                                                                        WTL24122
+       770-EXIT.                                                        WTL24122
+           EXIT.                                                        WTL24122
+      *                                                                 WTL24122
+      *--------------------------------------------------------------*          
+       800-ORSLNE-SETUP.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM 800-VERTEX-ORSLNE                                            
+                                                                                
+           PERFORM 900-TAXING-LOGIC                                     WTL22070
+              THRU 900-EXIT.                                            WTL22070
+                                                                                
+      *--------------------------------------------------------------*          
+       900-TAXING-LOGIC.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+           EVALUATE TRUE                                                        
+              WHEN ORSH-RMA                                                     
+************  WHEN ORSH-CREDIT-MEMO                                     MCV05129
+              WHEN TX6-ACCESS-MANUALLY                                          
+                   MOVE +1                TO  VTX-LIMIT                         
+                                                                                
+              WHEN OTHER                                                        
+                   MOVE +10               TO  VTX-LIMIT                 MCV03060
+           END-EVALUATE                                                         
+                                                                                
+      ****  LOGIC TO EXECUTE 7000-TAXING-ADDRESS MOVED TO               WTL22070
+      ****  700-ORSSHH-SETUP FOR LEASE TAX TESTING                      WTL22070
+                                                                                
+      *    CHICAGO STUFF                                                WTL22070
+           IF WS-CHICAGO-ORDER-NOT-TESTED                               WTL22070
+              PERFORM 760-DETERMINE-CHICAGO-TAX                         WTL22070
+                 THRU 760-EXIT.                                         WTL22070
+      *                                                                 WTL22070
+           EVALUATE TRUE                                                        
+              WHEN TX6-ACCESS-AUTOMATICALLY                                     
+                   PERFORM 1000-TAX-ENTIRE-SHIPMENT                             
+                                                                                
+              WHEN TX6-ACCESS-MANUALLY-INIT                                     
+              WHEN TX6-ACCESS-MANUALLY-FRT                                      
+                   PERFORM 4000-TAX-FRT-IN-N-OUT                                
+                                                                                
+              WHEN TX6-ACCESS-MANUALLY                                          
+                   PERFORM 1500-PROCESS-ORSLNE                                  
+           END-EVALUATE.                                                        
+                                                                        WTL22070
+       900-EXIT.                                                        WTL22070
+           EXIT.                                                        WTL22070
+                                                                        WTL22070
+      *--------------------------------------------------------------*          
+       1000-TAX-ENTIRE-SHIPMENT.                                                
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM 4000-TAX-FRT-IN-N-OUT                                        
+                                                                                
+           MOVE SPACES                    TO  WS-ORSLNE-QUAL                    
+           MOVE '*P'                      TO  WS-ORSHED-COMMAND-CODE            
+                                              WS-ORSSHH-COMMAND-CODE            
+           MOVE '*D'                      TO  WS-ORSLNE-COMMAND-CODE            
+           MOVE ZEROES                    TO  WS-ORSLNEOF-NBR                   
+                                                                                
+           PERFORM 1703-GU-ORSLNE-ORSLNEOF                                      
+                                                                                
+           PERFORM UNTIL NOT WS-ORSLNE-NORESP                                   
+              PERFORM 1500-PROCESS-ORSLNE                                       
+              PERFORM 1743-GNP-ORSLNE-ORSLNEOF                                  
+           END-PERFORM                                                          
+                                                                                
+           MOVE '*-'                      TO  WS-ORSHED-COMMAND-CODE            
+                                              WS-ORSSHH-COMMAND-CODE            
+                                              WS-ORSLNE-COMMAND-CODE            
+                                                                                
+           IF VTX > ZERO                                                        
+              PERFORM 3100-VERTEX-CALL.                                         
+                                                                                
+      *--------------------------------------------------------------*          
+       1500-PROCESS-ORSLNE.                                                     
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM 9000-ORSLNE-GARBAGE                                  MCV03060
+                                                                                
+      *    NICE IF RMA'S WOULD SET THE LINE TAX CODE CORRECTLY!                 
+                                                                                
+           IF ORL-OPEN-LINE              AND                                    
+              ORL-UNIT-PRICE > ZERO      AND                                    
+              NOT ORL-COMPONENT-ITEM                                            
+                IF ORSH-RMA OR ORSH-CREDIT-MEMO                                 
+                   EVALUATE TRUE                                                
+                      WHEN ORL-STATE-TAX                                        
+                      WHEN ORL-COUNTY-TAX                                       
+                      WHEN ORL-CITY-TAX                                         
+                      WHEN ORL-TAX                                              
+                           PERFORM 1520-PROCESS-ORSLNE-TAX              MCV04048
+                                                                                
+                      WHEN OTHER                                                
+                           CONTINUE                                             
+                   END-EVALUATE                                                 
+                ELSE                                                            
+                   PERFORM 1520-PROCESS-ORSLNE-TAX.                     MCV04048
+                                                                                
+      *--------------------------------------------------------------*          
+       1520-PROCESS-ORSLNE-TAX.                                                 
+      *--------------------------------------------------------------*          
+                                                                                
+           EVALUATE TRUE                                                MCV04048
+              WHEN ORL-COMMENT-TYPE           AND                       WTL22070
+                   (NOT WS-CHICAGO-CLOUD-ORDER)                         WTL22070
+                   PERFORM 1300-MISC-CHARGE-TAXING                      MCV04048
+                                                                        MCV04048
+              WHEN ORL-QTY-SHIPPED <= ZERO                              MCV04048
+                   CONTINUE                                             MCV04048
+                                                                        MCV04048
+              WHEN ORL-MERCHANDISE-LINE                                 MCV04048
+                   PERFORM 6100-NEXUS-CHECK                             MCV04048
+                   IF NEXUS-TAXABLE-ORDER     OR                        WTL22070
+                      WS-CHICAGO-CLOUD-ORDER                            WTL22070
+                      PERFORM 1200-MERCHANDISE-TAXING                   MCV04048
+                         THRU 1200-EXIT                                 WTL22070
+                   ELSE                                                 MCV04048
+                      PERFORM 840-UNTAXED-LINE-AUDIT                    MCV04048
+                   END-IF                                               MCV04048
+                                                                        MCV04048
+              WHEN OTHER                                                MCV04048
+                   PERFORM 1200-MERCHANDISE-TAXING                      MCV04048
+                      THRU 1200-EXIT                                    WTL22070
+           END-EVALUATE.                                                MCV04048
+                                                                                
+      *--------------------------------------------------------------*          
+       1200-MERCHANDISE-TAXING.                                                 
+      *--------------------------------------------------------------*          
+                                                                                
+           COMPUTE WS-EXT-SALES ROUNDED =                                       
+                   ORL-UNIT-PRICE * ORL-QTY-SHIPPED                             
+                                                                                
+           IF ORL-UP-ACTUALLY-ENT         OR                                    
+              ORL-SPECIAL-PRICE                                                 
+                 NEXT SENTENCE                                                  
+           ELSE                                                                 
+              COMPUTE WS-EXT-SALES ROUNDED =                                    
+                      WS-EXT-SALES * (1 - ORSH-MD-DISC-PERCENT).                
+                                                                                
+           ADD +1                         TO  VTX                               
+           INITIALIZE                         WS-PROD-DATA     (VTX)    MCV04048
+           MOVE ORL-QTY-SHIPPED           TO  WS-PROD-QTY      (VTX)            
+           MOVE WS-EXT-SALES              TO  WS-PROD-EXTD-AMT (VTX)            
+           MOVE ORL-LINE-NBR              TO  WS-L-LINE-NBR    (VTX)    MCV04048
+           MOVE ORL-PART-NBR              TO  WS-L-PART-NBR    (VTX)    MCV04048
+           MOVE ORL-ACOP-END-USER-IND     TO  WS-L-ACOP-END-USER-IND    MCV04048
+                                                               (VTX)    MCV04048
+           MOVE ORLOF-EU-MRKT-SGMT-TYP-CD TO WS-LOF-EU-MRKT-SGMT-TYP-CD MCV04048
+                                                               (VTX)    MCV04048
+           MOVE ORLOF-INSTT-TYP-CD        TO  WS-LOF-INSTT-TYP-CD       MCV04048
+                                                               (VTX)    MCV04048
+                                                                                
+           MOVE ORH-COMPANY               TO  WS-INAL2-CO               MCV03077
+           MOVE ORL-PART-NBR              TO  WS-INAL2-PART             MCV03077
+           MOVE '0'                       TO  WS-INSHEDOF-NBR           JYH14265
+                                                                        MCV03077
+           PERFORM 1551-GU-INSHEDOF-VIA-PART                            JYH14265
+                                                                        MCV03077
+           IF WS-INSHEDOF-NORESP                                        JYH14265
+              MOVE INIOF-INSHEDOF TO INIOF-INSHEDOF-0                   JYH14265
+              IF INIOF-TAX-CATEGORY > SPACES                            JYH14265
+                 MOVE INIOF-TAX-CATEGORY  TO  WS-PROD-CD (VTX)          JYH14265
+              ELSE                                                      JYH14265
+                 MOVE SPACES              TO  WS-PROD-CD (VTX)          JYH14265
+           ELSE                                                         MCV03077
+              MOVE SPACES                 TO  WS-PROD-CD (VTX).         MCV03231
+                                                                                
+           IF WS-HAWAII-ORDER                                           WTL18095
+              MOVE 'WHSL'                 TO  WS-PROD-CD (VTX).         WTL18095
+                                                                        WTL18095
+           IF WS-CHICAGO-ORDER                                          WTL22070
+      *       IF INIOF-TAX-CATEGORY = '2003' OR '2011'                  WTL22070
+              MOVE INIOF-TAX-CATEGORY     TO  WS-CHICAGO-TAX-CATEGORY   WTL22070
+              IF WS-CHICAGO-LEASE-CATEGORY                              WTL22070
+                 MOVE SPACES              TO  WS-NEXUS-STATUS-SW        WTL22070
+                 MOVE 'CHLT'              TO  WS-PROD-CD (VTX).         WTL22070
+                                                                        WTL22070
+      *                                                                 WTL22070
+      *  NON-TAXABLE ORDERS NOT SUBJECT TO LEASE TAX TO EXIT            WTL22070
+      *  TAXING ROUTINE. ORH-CITY-TAX WILL BE POPULATED IN THE          WTL22070
+      *  TXP601 PROCESS, AND ONLY FOR CHICAGO ZIP ORDERS TO GET         WTL22070
+      *  THE ORDER REVIEWED IN THIS PROCESS. CHICAGO ORDER SWITCH       WTL22070
+      *  WILL CONTAIN A 'C' IF ONLY SUBJECT TO LEASE TAX, OR A          WTL22070
+      *  'Y' IT SUBJECT TO REGULAR STATE TAX AND LEASE TAX. OTHERWISE   WTL22070
+      *  IT WILL CONTAIN AN 'N'.                                        WTL22070
+      *  LAST CHECK IS TO SEE IF A CHICAGO ORDER, BUT THE ORDER IS      WTL22070
+      *  TAX EXEMPT                                                     WTL22070
+      *                                                                 WTL22070
+           IF WS-CHICAGO-FND                                            WTL22070
+              IF WS-PROD-CD (VTX) = 'CHLT'                              WTL22070
+                 CONTINUE                                               WTL22070
+              ELSE                                                      WTL22070
+              IF (ORH-ORDER-TAXABLE           AND                       WTL22070
+                 (NOT ORH-CITY-TAX))          AND                       WTL22070
+                 NEXUS-TAXABLE-ORDER                                    WTL22070
+                 CONTINUE                                               WTL22070
+              ELSE                                                      WTL22070
+                 MOVE '9999'           TO WS-PROD-CD (VTX).             WTL22070
+      *          GO TO 1200-EXIT.                                       WTL22070
+                                                                        WTL22070
+           PERFORM 2000-CHECK-VECTOR.                                   WTL22070
+      *                                                                 WTL22070
+       1200-EXIT.                                                       WTL22070
+           EXIT.                                                        WTL22070
+      *                                                                 WTL22070
+      *--------------------------------------------------------------*          
+       1300-MISC-CHARGE-TAXING.                                                 
+      *--------------------------------------------------------------*          
+                                                                                
+           IF WS-HAWAII-ORDER-NOT-TESTED                                WTL18095
+              PERFORM 750-DETERMINE-HI-GET                              WTL18095
+                 THRU 750-EXIT.                                         WTL18095
+                                                                        WTL18095
+           MOVE TX6-COMPANY               TO  TB-MCHG-CO-CODE                   
+           MOVE ORL-COMMOD-CODE           TO  TB-MCHG-CODE                      
+                                                                                
+           CALL WS-IMPULSE-TABLE       USING  TB-MISC-CHARGE-IA         MCV04048
+                                                                                
+           EVALUATE TRUE                                                MCV03029
+              WHEN TB-MCHG-NORESP                                       MCV03029
+                   ADD +1                   TO  VTX                     MCV03029
+                   INITIALIZE                   WS-PROD-DATA (VTX)      MCV04048
+                   IF WS-HAWAII-ORDER                                   WTL18095
+                      MOVE 'WHSL   '        TO  WS-PROD-CD (VTX)        WTL18095
+                   ELSE                                                 WTL18095
+                      MOVE 'MCC-'           TO  WS-PROD-CD (VTX)        WTL18095
+                      MOVE ORL-COMMOD-CODE  TO  WS-PROD-CD (VTX) (5 : ) WTL18095
+                   END-IF                                               WTL18095
+                   COMPUTE WS-PROD-QTY (VTX) =                          MCV03029
+                           FUNCTION MAX (+1 , ORL-QTY-SHIPPED)          MCV03029
+                   COMPUTE WS-EXT-SALES ROUNDED =                       MCV03029
+                           ORL-UNIT-PRICE * WS-PROD-QTY (VTX)           MCV03029
+                   MOVE WS-EXT-SALES        TO  WS-PROD-EXTD-AMT (VTX)  MCV03029
+                   MOVE ORL-LINE-NBR        TO  WS-L-LINE-NBR    (VTX)  MCV04048
+                   MOVE 'MISC CHARGE'       TO  WS-L-PART-NBR    (VTX)  MCV04048
+                   PERFORM 2000-CHECK-VECTOR                            MCV03029
+                                                                                
+              WHEN OTHER                                                MCV03029
+                   CONTINUE                                             MCV03029
+           END-EVALUATE.                                                MCV03029
+                                                                                
+      *--------------------------------------------------------------*          
+       2000-CHECK-VECTOR.                                                       
+      *--------------------------------------------------------------*          
+                                                                                
+           IF VTX >= VTX-LIMIT                                                  
+              PERFORM 3100-VERTEX-CALL                                          
+              PERFORM 3000-INIT-VERTEX-SETUP.                                   
+                                                                                
+      *--------------------------------------------------------------*          
+       3000-INIT-VERTEX-SETUP.                                                  
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE ZERO                      TO  VTX.                              
+                                                                                
+      *--------------------------------------------------------------*          
+       3100-VERTEX-CALL.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+      *    RMA'S SHOULD HAVE LINE-LEVEL TAXING DATA                             
+                                                                                
+           SET WS-VERTEX-ERROR            TO  TRUE                              
+           SET WS-UPDATE-LATER            TO  TRUE                      MCV05129
+           MOVE ORL-LINE-TAX-GEO-DATA     TO  WS-GEO-CODE-X                     
+                                                                                
+           IF ( ORSH-RMA OR ORSH-CREDIT-MEMO )       AND                        
+              ORL-LINE-TAX-GEO-DATA NOT = TX6-GEO                               
+              IF WS-GEO-CODE NUMERIC AND WS-GEO-VALID                           
+                 PERFORM 3200-VERTEX-PROCESSING                                 
+              ELSE                                                              
+                 IF WS-GEO-CO-CITY-CODE NUMERIC AND WS-GEO-CO-CITY-VALID        
+                    SEARCH ALL VT-STATE-TABLE                                   
+                       WHEN VT-STATE-CODE (VT-IX) = WS-GEO-STATE-CODE-X         
+                            MOVE VT-STATE-NBR (VT-IX)                           
+                                          TO  WS-GEO-STATE-CODE                 
+                            PERFORM 3200-VERTEX-PROCESSING                      
+                    END-SEARCH.                                                 
+                                                                                
+           IF WS-VERTEX-NORESP                                                  
+              MOVE NLK-SHIP-TO-GEO (01)   TO  TX6-GEO                   MCV03060
+           ELSE                                                                 
+              PERFORM 3120-TRY-ADDRESS.                                         
+                                                                                
+      *--------------------------------------------------------------*  MCV05129
+      *    VERTEX UPDATES THE TAX REGISTER WHETHER THE SHIP-TO ADDRESS  MCV05129
+      *    IS FOUND OR NOT.  WE MUST WAIT UNTIL THE BEST ADDRESS FIT    MCV05129
+      *    HAS BEEN TRIED UNTIL WE CALL AGAIN TO UPDATE.                MCV05129
+      *--------------------------------------------------------------*  MCV05129
+                                                                        MCV05129
+           SET WS-UPDATE-NOW              TO  TRUE                      MCV05129
+                                                                        MCV05129
+           PERFORM 3200-VERTEX-PROCESSING.                              MCV05129
+                                                                                
+           PERFORM 3140-TAX-CALCULATIONS                                        
+                   VARYING VTX FROM +1 BY +1                                    
+                   UNTIL VTX > NLK-NUM-LINE-ITEMS (01).                 MCV03060
+                                                                                
+      *--------------------------------------------------------------*          
+       3120-TRY-ADDRESS.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE TX6-GEO                   TO  WS-GEO-CODE-X                     
+                                                                                
+           PERFORM 3200-VERTEX-PROCESSING                                       
+                                                                                
+           IF NOT WS-VERTEX-NORESP                                              
+              IF WS-GEO-VALID                                                   
+                 SET WS-GEO-INVALID       TO  TRUE                              
+                 PERFORM 3200-VERTEX-PROCESSING                                 
+              END-IF                                                            
+              IF NOT WS-VERTEX-NORESP                                   MCV05129
+                 MOVE 'Y'                 TO  WS-CITY-SEARCH            MCV05129
+                 SET WS-GEO-INVALID       TO  TRUE                      MCV05129
+                 PERFORM 3200-VERTEX-PROCESSING                         MCV05129
+                 MOVE 'N'                 TO  WS-CITY-SEARCH.           MCV05129
+                                                                                
+           IF WS-VERTEX-NORESP                                                  
+              MOVE NLK-SHIP-TO-GEO (01)   TO  TX6-GEO                   MCV05129
+                                              WS-GEO-CODE-X.            MCV05129
+                                                                                
+      *--------------------------------------------------------------*          
+       3140-TAX-CALCULATIONS.                                                   
+      *--------------------------------------------------------------*          
+                                                                                
+           IF WS-PROD-CD (VTX) = 'CHLT'                                 WTL22070
+              MOVE NLK-ST-DATA (VTX)   TO NLK-CI-DATA (VTX)             WTL22070
+              MOVE 'Z'                 TO NLK-ST-TAX-TYPE (VTX)         WTL22070
+              MOVE 0                   TO NLK-ST-RATE (VTX)             WTL22070
+                                          NLK-ST-TAX (VTX)              WTL22070
+              MOVE '0'                 TO NLK-PROD-ST-TAXB-FLAG (VTX).  WTL22070
+      *                                                                 WTL22070
+           COMPUTE WS-ST-TAX =                                                  
+                   NLK-ST-RATE (VTX) * NLK-ST-TAXED-AMT (VTX)           MCV03060
+           COMPUTE WS-CO-TAX =                                                  
+                   NLK-CO-RATE (VTX) * NLK-CO-TAXED-AMT (VTX)           MCV03060
+                 + NLK-CO-RATE2(VTX) * NLK-CO-TAXED-AMT2(VTX)           MCV03060
+           COMPUTE WS-CI-TAX =                                                  
+                   NLK-CI-RATE (VTX) * NLK-CI-TAXED-AMT (VTX)           MCV03060
+                 + NLK-CI-RATE2(VTX) * NLK-CI-TAXED-AMT2(VTX)           MCV03060
+           COMPUTE WS-DI-TAX =                                                  
+                   NLK-DI-RATE (VTX) * NLK-DI-TAXED-AMT (VTX)           MCV03060
+                 + NLK-DI-RATE2(VTX) * NLK-DI-TAXED-AMT2(VTX)           MCV03060
+                                                                                
+           ADD WS-ST-TAX                  TO  TX6-WORK-ST-TAX                   
+           ADD WS-CO-TAX                  TO  TX6-WORK-CO-TAX                   
+           ADD WS-CI-TAX                  TO  TX6-WORK-CI-TAX                   
+           ADD WS-DI-TAX                  TO  TX6-WORK-DI-TAX                   
+           IF WS-PROD-CD (VTX) = 'CHLT'                                 WTL22070
+              ADD WS-CI-TAX               TO  TX6-WORK-CHI-LS-TAX       WTL22070
+              MOVE 'C1'                   TO  TX6-CHI-SYLTAX-CODE.      WTL22070
+                                                                                
+      *    PERFORM 820-TAX-LINE-AUDIT                                   WTL22070
+                                                                                
+           IF WS-ST-TAX NOT = ZERO                                              
+              COMPUTE TX6-ST-TAX-RATE =                                         
+                 FUNCTION MAX (TX6-ST-TAX-RATE, NLK-ST-RATE (VTX)).     MCV03060
+                                                                                
+           IF WS-CO-TAX NOT = ZERO                                              
+              COMPUTE TX6-CO-TAX-RATE =                                         
+                 FUNCTION MAX (TX6-CO-TAX-RATE, NLK-CO-RATE (VTX)       MCV03060
+                                              + NLK-CO-RATE2(VTX)).     MCV03060
+                                                                                
+           IF WS-CI-TAX NOT = ZERO                                              
+              COMPUTE TX6-CI-TAX-RATE =                                         
+                 FUNCTION MAX (TX6-CI-TAX-RATE, NLK-CI-RATE (VTX)       MCV03060
+                                              + NLK-CI-RATE2(VTX)).     MCV03060
+                                                                                
+           IF WS-DI-TAX NOT = ZERO                                              
+              COMPUTE TX6-DI-TAX-RATE =                                         
+                 FUNCTION MAX (TX6-DI-TAX-RATE, NLK-DI-RATE (VTX)       MCV03060
+                                              + NLK-DI-RATE2(VTX)).     MCV03060
+                                                                                
+           COMPUTE TX6-TOTAL-TAX-RATE =                                         
+                   FUNCTION MAX ( TX6-TOTAL-TAX-RATE , TX6-ST-TAX-RATE          
+                                                     + TX6-CO-TAX-RATE          
+                                                     + TX6-CI-TAX-RATE          
+                                                     + TX6-DI-TAX-RATE )        
+                                                                                
+           EVALUATE NLK-PROD-CD (VTX)                                   MCV03060
+              WHEN '895'                                                MCV04048
+                   ADD WS-ST-TAX                                                
+                       WS-CO-TAX                                                
+                       WS-CI-TAX                                                
+                       WS-DI-TAX          TO  TX6-WORK-FRT-TAX                  
+           END-EVALUATE.                                                        
+                                                                                
+           PERFORM 820-TAX-LINE-AUDIT.                                  WTL22070
+                                                                        WTL22070
+      *--------------------------------------------------------------*          
+       3200-VERTEX-PROCESSING.                                                  
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM V1000-INIT-LINK-AREA THRU V1000-EXIT                         
+                                                                                
+           EVALUATE TRUE                                                MCV05308
+              WHEN WS-UPDATE-LATER                                      MCV05308
+                   MOVE ZERO              TO  NDX                       MCV05308
+              WHEN ORSH-CREDIT-MEMO                                     MCV05308
+              WHEN ORSH-RMA                                             MCV05308
+                   MOVE -1                TO  NDX                       MCV05308
+              WHEN OTHER                                                MCV05308
+                   MOVE +1                TO  NDX                       MCV05308
+           END-EVALUATE                                                 MCV05308
+                                                                                
+           PERFORM 3350-SET-HEADER                                              
+                                                                                
+           MOVE VTX                       TO  WS-LINK-LENGTH                    
+           MOVE +1                        TO  VTX                               
+                                                                                
+           PERFORM 3400-SET-LINE                                        MCV03060
+                                                                        MCV03060
+           PERFORM 3300-SET-LINKAGE                                     MCV03060
+                   VARYING VTX FROM +2 BY +1                            MCV03060
+                   UNTIL VTX > WS-LINK-LENGTH                           MCV03060
+                                                                                
+           MOVE WS-LINK-LENGTH            TO  VTX                               
+                                                                                
+           MOVE LENGTH                    OF  VERTEX-LINK-AREA                  
+                                          TO  WS-LINK-LENGTH                    
+                                                                                
+           PERFORM 9000-TXP600-VERTEX-CALL                                      
+                                                                                
+           IF (NLK-RETURN-CD (01)         = '  ' OR '00') AND           MCV03060
+              (NLK-SHIP-TO-RETURN-CD (01) = '  ' OR '00')               MCV03060
+                 SET WS-VERTEX-NORESP     TO  TRUE                              
+           ELSE                                                                 
+                 SET WS-VERTEX-ERROR      TO  TRUE.                             
+                                                                                
+      *--------------------------------------------------------------*          
+       3300-SET-LINKAGE.                                                MCV03060
+      *--------------------------------------------------------------*  MCV03060
+                                                                        MCV03060
+           MOVE NLK-LINK-AREA (01)        TO  NLK-LINK-AREA (VTX)       JYH14223
+                                                                        MCV03060
+           PERFORM 3400-SET-LINE.                                       MCV03060
+                                                                                
+      *--------------------------------------------------------------*          
+       3350-SET-HEADER.                                                         
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE TX6-COMPANY               TO  NLK-COMP-CD          (01) MCV03060
+                                              NLK-CUST-CD          (01) MCV03060
+           MOVE ORH-KEY-ORSMST            TO  NLK-INVOICE-NO       (01) MCV03060
+           MOVE ORSH-KEY-ORSSHH           TO  NLK-INVOICE-NO       (01) MCV03060
+                                                                (10 : )         
+           MOVE ORH-BILL-TO-NBR (01 : 08) TO  NLK-CUST-CD          (01) MCV03060
+                                                                (03 : )         
+           MOVE FUNCTION CURRENT-DATE     TO  NLK-INVOICE-CCYYMMDD (01) MCV03060
+           MOVE '0'                       TO  NLK-REG-FILE-IND     (01) MCV03060
+           MOVE VTX                       TO  NLK-NUM-LINE-ITEMS   (01) MCV03060
+                                                                                
+           IF WS-GEO-CODE NUMERIC          AND                                  
+              WS-GEO-VALID                 AND                                  
+              TX6-SHIP-FROM-GEO-N NUMERIC  AND                                  
+              TX6-SHIP-FROM-GEO-N > ZEROES                                      
+                 MOVE '10'              TO  NLK-ACTION-CD          (01) MCV03060
+                 MOVE WS-GEO-CODE-X     TO  NLK-SHIP-TO-GEO        (01) MCV03060
+                 MOVE TX6-SHIP-FROM-GEO TO  NLK-SHIP-FROM-GEO      (01) MCV03060
+                 MOVE SPACES            TO  NLK-INV-SHIP-TO-JURIS  (01) MCV03060
+                                            NLK-INV-SHIP-FROM-JURIS(01) MCV03060
+           ELSE                                                                 
+              IF WS-CITY-SEARCH = 'Y'                                   MCV05129
+                 MOVE SPACES            TO  NLK-SHIP-TO-ALPHA-CO   (01) MCV05129
+              ELSE                                                      MCV05129
+                 MOVE TX6-COUNTY        TO  NLK-SHIP-TO-ALPHA-CO   (01) MCV05129
+              END-IF                                                    MCV05129
+              MOVE '35'                 TO  NLK-ACTION-CD          (01) MCV05129
+              MOVE TX6-CITY             TO  NLK-SHIP-TO-ALPHA-CI   (01) MCV05129
+              MOVE TX6-STATE            TO  NLK-SHIP-TO-ALPHA-ST   (01) MCV03060
+              MOVE TX6-ZIP              TO  NLK-SHIP-TO-ALPHA-ZIP  (01) MCV03060
+              MOVE TX6-SHIP-FROM-CITY   TO  NLK-SHIP-FROM-ALPHA-CI (01) MCV03060
+              MOVE TX6-SHIP-FROM-COUNTY TO  NLK-SHIP-FROM-ALPHA-CO (01) MCV03060
+              MOVE TX6-SHIP-FROM-STATE  TO  NLK-SHIP-FROM-ALPHA-ST (01) MCV03060
+              MOVE TX6-SHIP-FROM-ZIP    TO  NLK-SHIP-FROM-ALPHA-ZIP(01) MCV03060
+              MOVE SPACES               TO  NLK-SHIP-TO-GEO        (01) MCV03060
+                                            NLK-SHIP-FROM-GEO      (01).MCV03060
+                                                                                
+           MOVE SPACES                  TO  NLK-RETURN-CD          (01) MCV03060
+                                            NLK-SHIP-TO-RETURN-CD  (01).MCV03060
+                                                                                
+      *--------------------------------------------------------------*          
+       3400-SET-LINE.                                                           
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE WS-PROD-CD  (VTX)         TO  NLK-PROD-CD  (VTX)        MCV03060
+           MOVE WS-PROD-QTY (VTX)         TO  NLK-PROD-QTY (VTX)        MCV03060
+                                                                                
+      *--------------------------------------------------------------*          
+      *    NDX IS EITHER +1 FOR SALES ORDER OR -1 FOR CREDITS.                  
+      *    NDX IS ZERO WHEN WE'RE TRYING TO FIND A VALID GEO CODE.              
+      *    VTS111 ACCUMULATES TOTAL TAX AND WILL CALCULATE INCORRECTLY          
+      *    WHEN TAXES ARE LIMITED TO A MAXIMUM AMOUNT.                          
+      *--------------------------------------------------------------*          
+                                                                                
+           COMPUTE NLK-PROD-EXTD-AMT (VTX) =                               MCV03
+                   WS-PROD-EXTD-AMT  (VTX) * NDX.                               
+                                                                                
+      *--------------------------------------------------------------*          
+       4000-TAX-FRT-IN-N-OUT.                                                   
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM 3000-INIT-VERTEX-SETUP                                       
+                                                                                
+           IF WS-HAWAII-ORDER-NOT-TESTED                                WTL18095
+              PERFORM 750-DETERMINE-HI-GET                              WTL18095
+                 THRU 750-EXIT.                                         WTL18095
+                                                                        WTL18095
+           IF (ORH-ORDER-TAXABLE         OR                             WTL18095
+               WS-HAWAII-ORDER)          AND                            WTL18095
+              NOT ORSH-IN-NO-BILL        AND                                    
+              ORSH-FRT-IN-AMT > ZERO                                            
+                ADD +1                    TO  VTX                               
+                INITIALIZE                    WS-PROD-DATA     (VTX)    MCV04048
+                MOVE +1                   TO  WS-PROD-QTY      (VTX)            
+                IF WS-HAWAII-ORDER                                      WTL18095
+                   MOVE 'WHSL   '         TO  WS-PROD-CD       (VTX)    WTL18095
+                ELSE                                                    WTL18095
+                   MOVE 'PROD-01'         TO  WS-PROD-CD       (VTX)    WTL18095
+                END-IF                                                  WTL18095
+                MOVE '999'                TO  WS-L-LINE-NBR    (VTX)    MCV04048
+                MOVE 'FREIGHT-IN'         TO  WS-L-PART-NBR    (VTX)    MCV04048
+                MOVE ORSH-FRT-IN-AMT      TO  WS-PROD-EXTD-AMT (VTX).           
+                                                                                
+           IF (ORH-ORDER-TAXABLE         OR                             WTL18095
+               WS-HAWAII-ORDER)          AND                            WTL18095
+              ORSH-OUT-BILL              AND                                    
+              ORSH-FRT-OUT-AMT > ZERO                                           
+                 ADD +1                   TO  VTX                               
+                 INITIALIZE                   WS-PROD-DATA     (VTX)    MCV04048
+                 MOVE +1                  TO  WS-PROD-QTY      (VTX)            
+                 IF WS-HAWAII-ORDER                                     WTL18095
+                   MOVE 'WHSL   '         TO  WS-PROD-CD       (VTX)    WTL18095
+                 ELSE                                                   WTL18095
+                   MOVE 'FRT-03'          TO  WS-PROD-CD       (VTX)    WTL18095
+                 END-IF                                                 WTL18095
+                 MOVE '999'               TO  WS-L-LINE-NBR    (VTX)    MCV04048
+                 MOVE 'FREIGHT-OUT'       TO  WS-L-PART-NBR    (VTX)    MCV04048
+                 MOVE ORSH-FRT-OUT-AMT    TO  WS-PROD-EXTD-AMT (VTX).           
+                                                                                
+           IF VTX > ZERO                                                        
+              PERFORM 2000-CHECK-VECTOR.                                        
+                                                                                
+      *--------------------------------------------------------------*  MCV04048
+       6000-NEXUS-SETUP.                                                MCV04048
+      *--------------------------------------------------------------*  MCV04048
+                                                                        MCV04048
+           SET TB-NEXUS-ENTRY-NOTFND      TO  TRUE                      MCV04048
+           MOVE SPACES                    TO  TB-NEXUS-STATE-CODE       MCV04048
+                                                                        MCV04048
+      *--------------------------------------------------------------*  WTL13283
+      *   CHANGE TO THE NEXUS TABLE READ IS THAT ONLY PROMARK        *  WTL13283
+      *   HAS A PRESENCE IN MARYLAND (BR 43 CUSTOMERS), SO THE       *  WTL13283
+      *   NEXUS VALUES ONLY PERTAIN TO THEM                          *  WTL13283
+      *--------------------------------------------------------------*  WTL13283
+           EVALUATE TRUE                                                MCV04048
+              WHEN ORSH-RMA                                             MCV04048
+              WHEN ORSH-CREDIT-MEMO                                     MCV04048
+                   CONTINUE                                             MCV04048
+                                                                        MCV04048
+              WHEN OTHER                                                MCV04048
+                   MOVE '14'              TO  WS-ORSSTO-KEY-VALUE       MCV05129
+                                              WS-ORSSTO-KEY-VALUE2      MCV05129
+                   PERFORM 1207-GU-ORSSTO                               MCV04048
+                   MOVE '1'               TO  WS-ORSSTO-SHIP            MCV05129
+                   IF WS-ORSSTO-NORESP                                  MCV04048
+                      MOVE TX6-COMPANY    TO  TB-NEXUS-COMPANY-CODE     MCV04048
+                      MOVE ORSA-STATE     TO  TB-NEXUS-STATE-CODE       MCV04048
+                      CALL WS-IMPULSE-TABLE                             MCV04048
+                                       USING  TB-NEXUS-TABLE-IA         MCV04048
+                      IF ORSA-STATE = 'MD' AND                          WTL13283
+                        (ORH-BILL-TO-BR-NBR NOT = 43)                   WTL13283
+                          MOVE LOW-VALUES TO TB-NEXUS-ENTRY             WTL13283
+                          SET TB-NEXUS-ENTRY-NOTFND TO TRUE             WTL13283
+                      END-IF                                            WTL13283
+                   END-IF                                               MCV04048
+           END-EVALUATE.                                                MCV04048
+                                                                        MCV04048
+      *--------------------------------------------------------------*  MCV04048
+       6100-NEXUS-CHECK.                                                MCV04048
+      *--------------------------------------------------------------*  MCV04048
+                                                                        MCV04048
+      *    ORDER HEADER CHECK IS A RELIC FROM ORIGINAL END-USER SYSTEM. MCV04048
+      *    NEW SYSTEM ONLY SETS LINE-LEVEL CONDITIONS.                  MCV04048
+                                                                        MCV04048
+      *    FOR HAWAII, THE SGMT-TYPE-CD IS IGNORED WHEN = 'F'           WTL20318
+      *    NO EXEMPTION UNDER THE END USER CONDITION                    WTL20318
+           IF TX6-STATE = 'HI'       AND ORLOF-EU-MRKT-SGMT-FEDERAL     WTL20318
+              MOVE SPACES                 TO ORLOF-EU-MRKT-SGMT-TYP-CD  WTL20318
+           END-IF.                                                      WTL20318
+      *                                                                 WTL22070
+           IF ORH-GOVERNMENT-ORDER                                      MCV04048
+              MOVE ORH-GOV-END-USER-TYPE  TO                            MCV04048
+                                          WS-NEXUS-GOVT-END-USER-TYPE-SWMCV04048
+              MOVE ORH-GOVT-PUBLIC-PRIVATE-SW                           MCV04048
+                                          TO  WS-NEXUS-GOVT-PUB-PRIV-SW MCV04048
+                                                                        MCV04048
+           ELSE                                                         MCV04048
+              MOVE ORLOF-EU-MRKT-SGMT-TYP-CD TO                         MCV04048
+                                          WS-NEXUS-GOVT-END-USER-TYPE-SWMCV04048
+              MOVE ORLOF-INSTT-TYP-CD     TO  WS-NEXUS-GOVT-PUB-PRIV-SW.MCV04048
+                                                                        MCV04048
+           EVALUATE TRUE                                                MCV04048
+              WHEN ORSH-RMA                                             MCV04048
+              WHEN ORSH-CREDIT-MEMO                                     MCV04048
+              WHEN ORH-EU-SELECT-SOURCE-END-USER                        MCV05308
+                   SET NEXUS-TAXABLE-ORDER   TO  TRUE                   MCV04048
+              WHEN NEXUS-GOVT-FEDERAL                                   MCV04048
+                   SET NEXUS-NOT-NEXUS-ORDER TO  TRUE                   MCV04048
+                                                                        MCV04048
+              WHEN TB-NEXUS-ENTRY-NOTFND                                MCV04048
+                   SET NEXUS-TAXABLE-ORDER   TO  TRUE                   MCV04048
+                                                                        MCV04048
+              WHEN NEXUS-GOVT-STATE                                     MCV04048
+              WHEN NEXUS-GOVT-K-12                                      MCV04048
+              WHEN NEXUS-GOVT-HIGHER                                    MCV04048
+              WHEN NEXUS-GOVT-E-RATE                                    MCV04048
+                   PERFORM 6120-NEXUS-TYPE                              MCV04048
+                                                                        MCV04048
+              WHEN OTHER                                                MCV04048
+                   SET NEXUS-TAXABLE-ORDER   TO  TRUE                   MCV04048
+           END-EVALUATE.                                                MCV04048
+                                                                        MCV04048
+      *--------------------------------------------------------------*  MCV04048
+       6120-NEXUS-TYPE.                                                 MCV04048
+      *--------------------------------------------------------------*  MCV04048
+                                                                        MCV04048
+           SET NEXUS-NOT-NEXUS-ORDER      TO  TRUE                      MCV04048
+                                                                        MCV04048
+           PERFORM VARYING WS-NEXUS-SUB FROM +1 BY +1                   MCV04048
+                   UNTIL WS-NEXUS-SUB > 30                              MCV04048
+              IF TB-NEXUS-GOVT-TYPE (WS-NEXUS-SUB) =                    MCV04048
+                 WS-NEXUS-GOVT-END-USER-TYPE-SW                         MCV04048
+                    EVALUATE TRUE                                       MCV04048
+                       WHEN NEXUS-GOVT-PRIVATE                          MCV04048
+                            MOVE TB-NEXUS-PRIVATE-TAX-SW (WS-NEXUS-SUB) MCV04048
+                                          TO  WS-NEXUS-STATUS-SW        MCV04048
+                                                                        MCV04048
+                       WHEN OTHER                                       MCV04048
+                            MOVE TB-NEXUS-PUBLIC-TAX-SW (WS-NEXUS-SUB)  MCV04048
+                                          TO  WS-NEXUS-STATUS-SW        MCV04048
+                    END-EVALUATE                                        MCV04048
+                    MOVE +30              TO  WS-NEXUS-SUB              MCV04048
+              END-IF                                                    MCV04048
+           END-PERFORM.                                                 MCV04048
+                                                                                
+      *--------------------------------------------------------------*          
+       7000-TAXING-ADDRESS.                                                     
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM 6000-NEXUS-SETUP                                     MCV04048
+                                                                                
+           MOVE SPACES                      TO  WS-TAXING-ADDRESS               
+                                                                                
+           IF ORH-EU-SELECT-SOURCE-END-USER                                     
+              EVALUATE TRUE                                                     
+                 WHEN ORH-END-USER-OTHER-TAX                                    
+                      MOVE 'T'              TO  WS-ORSSTO-TYPE                  
+                      PERFORM 7300-ORSSTO-ADDRESS                               
+                                                                                
+                 WHEN ORH-END-USER-SHIP-TAX                                     
+                      MOVE '1'              TO  WS-ORSSTO-TYPE                  
+                      PERFORM 7300-ORSSTO-ADDRESS                               
+                                                                                
+                 WHEN ORH-END-USER-BILL-TAX                                     
+                      MOVE ORH-BILL-TO-SUFFIX                                   
+                                            TO  WS-CUSADR-SUFFIX                
+                      PERFORM 7500-CUSADR-ADDRESS                               
+              END-EVALUATE.                                                     
+                                                                                
+           IF WS-TAXING-ADDRESS = SPACES                                        
+              PERFORM 7400-SHIPPING-ADDRESS.                                    
+                                                                                
+      *--------------------------------------------------------------*          
+      *    GROUP 1                                                              
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE TX6-ADDR1                   TO  CUW-GRP1-ADDR1.                 
+           MOVE TX6-ADDR2                   TO  CUW-GRP1-ADDR2.                 
+           MOVE TX6-ADDR3                   TO  CUW-GRP1-ADDR3.                 
+           MOVE SPACES                      TO  CUW-GRP1-ADDR4.                 
+           MOVE TX6-CITY                    TO  CUW-GRP1-CITY.                  
+           MOVE TX6-STATE                   TO  CUW-GRP1-STATE.                 
+           MOVE TX6-ZIP                     TO  CUW-GRP1-ZIP.                   
+                                                                                
+      *--------------------------------------------------------------*          
+           COPY CUSGRP1.                                                        
+      *--------------------------------------------------------------*          
+                                                                                
+           PERFORM 9000-TXP600-GROUP1-CALL.                                     
+                                                                                
+           MOVE CUW-P9OUT                   TO  P9OUT.                          
+                                                                                
+      *--------------------------------------------------------------*          
+           COPY CUSG1ERR.                                                       
+      *--------------------------------------------------------------*          
+                                                                                
+      *    MOVE CUWG1ERR-MSG-RETURNED       TO  CUMERRO.                        
+                                                                                
+           EVALUATE TRUE                                                        
+              WHEN CUWG1ERR-GOOD                                                
+                   MOVE CUWG1ERR-CITY       TO  TX6-CITY                        
+                   MOVE P9OCOUNTY           TO  TX6-COUNTY                      
+                   MOVE CUWG1ERR-STATE      TO  TX6-STATE                       
+                   MOVE CUWG1ERR-ZIP        TO  TX6-ZIP                         
+                                                                                
+              WHEN OTHER                                                        
+                   MOVE SPACES              TO  TX6-COUNTY                      
+           END-EVALUATE                                                         
+                                                                                
+           IF BP-SHIP-TO-REC                       AND                          
+              ORH-COMPANY           = BP-COMPANY   AND                          
+              ORSH-BR-NBR-SHIP-FROM = BP-BR-NBR                                 
+                 NEXT SENTENCE                                                  
+           ELSE                                                                 
+              SET BP-SHIP-TO-REC            TO  TRUE                            
+              MOVE ORH-COMPANY              TO  BP-COMPANY                      
+              MOVE ORSH-BR-NBR-SHIP-FROM    TO  BP-BR-NBR                       
+              PERFORM 9000-TXP600-BPLMST.                                       
+                                                                                
+           IF WS-BP-NORESP                                                      
+              MOVE BP-SHIP-TO-NAME          TO  TX6-SHIP-FROM-ADDR1             
+              MOVE BP-SHIP-TO-ADDR-1        TO  TX6-SHIP-FROM-ADDR2             
+              MOVE BP-SHIP-TO-ADDR-2        TO  TX6-SHIP-FROM-ADDR3             
+              MOVE BP-SHIP-TO-CITY          TO  TX6-SHIP-FROM-CITY              
+              MOVE SPACES                   TO  TX6-SHIP-FROM-COUNTY            
+              MOVE BP-SHIP-TO-STATE         TO  TX6-SHIP-FROM-STATE             
+              MOVE BP-SHIP-TO-ZIP           TO  TX6-SHIP-FROM-ZIP               
+              IF BP-SHIP-TO-GEO NUMERIC                                         
+                 MOVE BP-SHIP-TO-GEO        TO  TX6-SHIP-FROM-GEO-N             
+              ELSE                                                              
+                 MOVE SPACES                TO  TX6-SHIP-FROM-GEO               
+           ELSE                                                                 
+              MOVE SPACES                   TO  TX6-SHIP-FROM-ADDRESS.          
+                                                                                
+      *--------------------------------------------------------------*          
+       7300-ORSSTO-ADDRESS.                                                     
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE WS-ORSSTO-TYPE              TO  WS-ORSSTO-TYPE2.                
+                                                                                
+           PERFORM 1207-GU-ORSSTO                                               
+                                                                                
+           PERFORM UNTIL NOT WS-ORSSTO-NORESP                                   
+              MOVE WS-ORSSTO-TYPE           TO  WS-TAXING-ADDRESS               
+              EVALUATE ORSA-LINE-OF-ADDR                                        
+                 WHEN '1'                                                       
+                     MOVE WS-ORSSTO-TYPE    TO  WS-TAXING-ADDRESS               
+                     MOVE ORSA-ADDRESS      TO  TX6-ADDR1                       
+                                                                                
+                 WHEN '2'                                                       
+                     MOVE WS-ORSSTO-TYPE    TO  WS-TAXING-ADDRESS               
+                     MOVE ORSA-ADDRESS      TO  TX6-ADDR2                       
+                                                                                
+                 WHEN '3'                                                       
+                     MOVE WS-ORSSTO-TYPE    TO  WS-TAXING-ADDRESS               
+                     MOVE ORSA-ADDRESS      TO  TX6-ADDR3                       
+                                                                                
+                 WHEN '4'                                                       
+                     MOVE WS-ORSSTO-TYPE    TO  WS-TAXING-ADDRESS               
+                     MOVE ORSA-CITY         TO  TX6-CITY                        
+                     MOVE ORSA-STATE        TO  TX6-STATE                       
+                     MOVE ORSA-ZIP          TO  TX6-ZIP                         
+              END-EVALUATE                                                      
+              PERFORM 1386-GN-ORSSTO                                            
+           END-PERFORM.                                                         
+                                                                                
+      *--------------------------------------------------------------*          
+       7400-SHIPPING-ADDRESS.                                                   
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE ORH-COMPANY              TO  WS-CUSHED-CO                       
+           MOVE ORH-BILL-TO-BR-NBR       TO  WS-CUSHED-BR                       
+           MOVE ORH-BILL-TO-CUST-NBR     TO  WS-CUSHED-CUST                     
+           MOVE '1'                      TO  WS-ORSSTO-TYPE                     
+                                                                                
+           PERFORM 7300-ORSSTO-ADDRESS                                          
+                                                                                
+           IF WS-TAXING-ADDRESS = SPACES                                        
+              IF ORH-SHIP-TO-SUFFIX > ZEROES                                    
+                 MOVE ORH-SHIP-TO-SUFFIX    TO  WS-CUSADR-SUFFIX                
+              ELSE                                                              
+                 MOVE ORH-BILL-TO-SUFFIX    TO  WS-CUSADR-SUFFIX                
+              END-IF                                                            
+              PERFORM 7500-CUSADR-ADDRESS.                                      
+                                                                                
+      *--------------------------------------------------------------*          
+       7500-CUSADR-ADDRESS.                                                     
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE ORH-COMPANY            TO  WS-CUSHED-CO                         
+           MOVE ORH-BILL-TO-NBR        TO  WS-CUSHED-BR-CUST                    
+                                                                                
+           PERFORM 1002-GU-CUSADR                                               
+                                                                                
+           IF WS-CUSADR-NORESP                                                  
+              MOVE CUA-ADD1                    TO  TX6-ADDR1                    
+              MOVE CUA-ADD2                    TO  TX6-ADDR2                    
+              MOVE CUA-ADD3                    TO  TX6-ADDR3                    
+              MOVE CUA-CITY-L                  TO  TX6-CITY                     
+              MOVE CUA-ST-L                    TO  TX6-STATE                    
+              MOVE CUA-ZIP-L                   TO  TX6-ZIP                      
+              IF CUA-BILL-TO-SUF                                                
+                 SET WS-TAXING-BILL-TO-ADDRESS TO  TRUE                         
+              ELSE                                                              
+                 SET WS-TAXING-SHIP-TO-ADDRESS TO  TRUE.                        
+                                                                                
+      *--------------------------------------------------------------*          
+       8000-VERTEX-GEO-CODE.                                                    
+      *--------------------------------------------------------------*          
+                                                                                
+      *    USER HAS POPULATED THE TX6 ADDRESS DATA - RETURN GEO CODE            
+                                                                                
+           IF WS-HAWAII-ORDER-NOT-TESTED  AND                           WTL18197
+              (NOT TX6-ACCESS-GEO-CODE)                                 WTL18197
+              PERFORM 750-DETERMINE-HI-GET                              WTL18095
+                 THRU 750-EXIT.                                         WTL18095
+                                                                        WTL18095
+           IF WS-HAWAII-ORDER                                           WTL18095
+              MOVE 'WHSL   '              TO  WS-PROD-CD       (001)    WTL18095
+           ELSE                                                         WTL18095
+              MOVE 'PROD-01'              TO  WS-PROD-CD       (001)    WTL18095
+           END-IF                                                       WTL18095
+                                                                                
+           MOVE +1                        TO  WS-PROD-QTY      (001)            
+                                              WS-PROD-EXTD-AMT (001)            
+                                              VTX                               
+           MOVE SPACES                    TO  TX6-GEO                           
+                                              TX6-SHIP-FROM-GEO                 
+                                                                                
+           SET WS-VERTEX-ERROR            TO  TRUE                              
+                                                                                
+           PERFORM 3120-TRY-ADDRESS.                                            
+                                                                                
+      *--------------------------------------------------------------*          
+       8200-VERTEX-TAX-ESTIMATES.                                               
+      *--------------------------------------------------------------*          
+                                                                                
+      *    USER HAS POPULATED THE TX6 ADDRESS, SALES & FREIGHT AMOUNTS          
+                                                                                
+           IF WS-HAWAII-ORDER-NOT-TESTED  AND                           WTL18197
+              (NOT TX6-ACCESS-TAX-ESTIMATES)                            WTL18197
+              PERFORM 750-DETERMINE-HI-GET                              WTL18095
+                 THRU 750-EXIT.                                         WTL18095
+                                                                        WTL18095
+           MOVE ZERO                      TO  VTX                               
+           INITIALIZE                         TX6-TAX-WORK                      
+                                              TX6-TAX-TOTALS                    
+                                                                                
+           IF TX6-EST-FREIGHT > ZERO                                            
+              ADD +1                      TO  VTX                               
+              IF WS-HAWAII-ORDER                                        WTL18095
+                 MOVE 'WHSL   '           TO  WS-PROD-CD       (VTX)    WTL18095
+              ELSE                                                      WTL18095
+                 MOVE 'FRT-03'            TO  WS-PROD-CD       (VTX)    WTL18095
+              END-IF                                                    WTL18095
+              MOVE +1                     TO  WS-PROD-QTY      (VTX)            
+              MOVE TX6-EST-FREIGHT        TO  WS-PROD-EXTD-AMT (VTX).           
+                                                                                
+           IF TX6-EST-SALES > ZERO                                              
+              ADD +1                      TO  VTX                               
+              IF WS-HAWAII-ORDER                                        WTL18095
+                 MOVE 'WHSL   '           TO  WS-PROD-CD       (VTX)    WTL18095
+              ELSE                                                      WTL18095
+                 MOVE 'PROD-01'           TO  WS-PROD-CD       (VTX)    WTL18095
+              END-IF                                                    WTL18095
+              MOVE +1                     TO  WS-PROD-QTY      (VTX)            
+              MOVE TX6-EST-SALES          TO  WS-PROD-EXTD-AMT (VTX).           
+                                                                                
+           SET WS-VERTEX-ERROR            TO  TRUE                              
+           MOVE SPACES                    TO  ORSH-RMA-CODE                     
+                                              ORSH-CREDIT-MEMO-CODE             
+                                                                                
+           IF VTX > ZERO                                                        
+              PERFORM 3120-TRY-ADDRESS                                          
+              PERFORM 3140-TAX-CALCULATIONS                                     
+                      VARYING NDX FROM +1 BY +1 UNTIL NDX > VTX.                
+                                                                                
+           PERFORM 200-FORMAT-TOTALS.                                           
+                                                                                
+      *--------------------------------------------------------------*          
+      *    VERTEX INITIALIZATION                                                
+      *--------------------------------------------------------------*          
+                                                                                
+       COPY VSINLK.                                                     MCV03060
+                                                                                
+      *--------------------------------------------------------------*  MCV03056
+       9000-ORSSHH-GARBAGE.                                             MCV03060
+      *--------------------------------------------------------------*  MCV03056
+                                                                        MCV03056
+           IF ORSH-FRT-IN-AMT             NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-FRT-IN-AMT.          MCV03056
+                                                                        MCV03056
+           IF ORSH-FRT-OUT-AMT            NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-FRT-OUT-AMT.         MCV03056
+                                                                        MCV03056
+           IF ORSH-FRT-TAX                NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-FRT-TAX.             MCV03056
+                                                                        MCV03056
+           IF ORSH-MD-DISC-PERCENT        NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-MD-DISC-PERCENT.     MCV03056
+                                                                        MCV03056
+           IF ORSH-TAX-PCT                NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-TAX-PCT.             MCV03056
+                                                                        MCV03056
+           IF ORSH-TOTAL-CITY-TAX-AMT     NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-TOTAL-CITY-TAX-AMT.  MCV03056
+                                                                        MCV03056
+           IF ORSH-TOTAL-COUNTY-TAX-AMT   NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-TOTAL-COUNTY-TAX-AMT.MCV03056
+                                                                        MCV03056
+           IF ORSH-TOTAL-SALES            NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-TOTAL-SALES.         MCV03056
+                                                                        MCV03056
+           IF ORSH-TOTAL-STATE-TAX-AMT    NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-TOTAL-STATE-TAX-AMT. MCV03056
+                                                                        MCV03056
+           IF ORSH-TOTAL-TAX              NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORSH-TOTAL-TAX.           MCV03056
+                                                                        MCV03056
+      *--------------------------------------------------------------*  MCV03056
+       9000-ORSLNE-GARBAGE.                                             MCV03060
+      *--------------------------------------------------------------*  MCV03056
+                                                                        MCV03056
+           MOVE PATH-ORSLNE-AREA          TO  ORL-ORSLNE                MCV03056
+           MOVE PATH-ORSLNEOF-AREA        TO  ORLOF-ORSLNEOF-0          MCV03056
+                                                                        MCV03056
+           IF ORL-UNIT-PRICE              NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORL-UNIT-PRICE.           MCV03056
+                                                                        MCV03056
+           IF ORL-QTY-SHIPPED             NOT NUMERIC                   MCV03056
+              MOVE ZERO                   TO  ORL-QTY-SHIPPED.          MCV03056
+                                                                                
+                                                                                
+      *--------------------------------------------------------------*          
+      *    COMMON I/O MODULES                                                   
+      *--------------------------------------------------------------*          
+                                                                                
+       1002-GU-CUSADR.                  COPY CUIO1002.                          
+       1010-GU-CUSMSC.                  COPY CUIO1010.                  WTL18095
+       1207-GU-ORSSTO.                  COPY ORIO1207.                          
+       1386-GN-ORSSTO.                  COPY ORIO1386.                          
+       1551-GU-INSHEDOF-VIA-PART.       COPY INIO1551.                  JYH14265
+       1703-GU-ORSLNE-ORSLNEOF.         COPY ORIO1703.                          
+       1743-GNP-ORSLNE-ORSLNEOF.        COPY ORIO1743.                          
+       1700-GU-ORSHED-ORSSHH.           COPY ORIO1700.                          
+                                                                                
+           PERFORM 9000-ORSSHH-GARBAGE.                                 MCV03060

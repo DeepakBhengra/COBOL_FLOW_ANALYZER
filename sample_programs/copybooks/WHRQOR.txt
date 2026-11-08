@@ -1,0 +1,334 @@
+000100******************************************************************        
+000200*JDA ORDER ENTRY COMMAREA                                        *        
+000210*FOR ORDER ENTRY AND BILLING FOR < 120 CARTONS                   *        
+000300******************************************************************        
+000400******************************************************************        
+000500* REVISIONS:                                                     *        
+000600* 05/10/24  KMP  INCREASE THE TOTAL-SALES FIELD TO 9(15).99      *KMP24131
+000600* 10/06/23  KMP  ADD FIELDS FOR TMS CALL                         *KMP23279
+000600* 08/13/19  TND  JDA CHANGE FOR DIRECT SHIP                      *TND19252
+000600* 05/18/18  TND  JDA ORDER ENTRY COMMAREA                        *        
+000700******************************************************************        
+000800 01  WHRQOR-WORKING-STORAGE-FIELDS.                                       
+000900     05  WHRQOR-COMMAREA-LENGTH     PIC S9(04) COMP   VALUE +0.           
+000901     05  WHRQOR-PROGRAM-NAME-WHP970 PIC X(08) VALUE 'WHP970  '.           
+000902                                                                          
+000903 01  WHRQOR-PASSED-AREA                  PIC X(20000).                    
+000904                                                                          
+000905 01  WHRQOR-COMMAREA.                                                     
+000906     03  WHRQOR-COMMON-AREA.                                              
+000907         05  WHRQOR-PROCESS-IND          PIC X(01).                       
+000908             88 WHRQOR-PROCESS-JDA       VALUE 'J'.                       
+002400         05  WHRQOR-ORDER-TERM-ID        PIC X(04) VALUE SPACES.          
+002500         05  WHRQOR-CALLING-PROGRAM      PIC X(06) VALUE SPACES.          
+002600         05  WHRQOR-CALLING-MODULE-IND   PIC X(01) VALUE SPACE.           
+002700             88  WHRQOR-CS-FRT-FOC-CALL VALUE ' '.                        
+002800             88  WHRQOR-CS-CALL          VALUE '1'.                       
+002900             88  WHRQOR-CS-FRT-CALL      VALUE '2'.                       
+003000             88  WHRQOR-FRT-CALL         VALUE '3'.                       
+003100             88  WHRQOR-FOC-CALL         VALUE '4'.                       
+003200             88  WHRQOR-FRT-FOC          VALUE '5'.                       
+003300* COMMON INPUT                                                            
+003301     03  WHRQOR-INPUT-COMMAREA.                                           
+003302* COMMON FIELDS THAT ARE REQUIRED FOR ALL ROUTINES                        
+003303         05  WHRQOR-COMPANY-CODE         PIC X(02) VALUE SPACES.          
+003304             88  WHRQOR-US-MODEL-COMPANY VALUE 'MD' 'CA'.                 
+003305* when true, it's both AP and AR. When false, then 'AR' only              
+003306         05  WHRQOR-CUST-NBR.                                             
+003307             10  WHRQOR-CUST-BR          PIC X(02) VALUE SPACES.          
+003308             10  WHRQOR-CUST-NUMBER      PIC X(06) VALUE SPACES.          
+003309             10  WHRQOR-CUST-SHIP-TO-SUF PIC X(03) VALUE SPACES.          
+003310         05  WHRQOR-SALES-ORDER-NBR.                                      
+003311             10  WHRQOR-SO-BR            PIC X(02) VALUE SPACES.          
+003312             10  WHRQOR-SO-NBR           PIC X(05) VALUE SPACES.          
+003313             10  WHRQOR-SO-DIST-SHIP     PIC X(02) VALUE SPACES.          
+003314         05  WHRQOR-ORDER-TYPE           PIC X(01) VALUE SPACES.          
+003400             88  WHRQOR-DIRECT-ORDER     VALUE 'D'.                       
+003500         05  WHRQOR-THIRD-PARTY-FRT-ACCT PIC X(12) VALUE SPACES.          
+003600         05  WHRQOR-FOC                  PIC X(01) VALUE SPACES.          
+003700             88  WHRQOR-LTL-3RD-PARTY    VALUE 'T'.                       
+003800             88  WHRQOR-LTL-COLLECT      VALUE 'C'.                       
+003900             88  WHRQOR-DEBIT-GROUND     VALUE 'G'.                       
+004000         05  WHRQOR-FULFILLMENT-SW       PIC X(01) VALUE SPACES.          
+004100             88  WHRQOR-FULFILLMENT      VALUE 'C' , 'Y', 'E'.            
+004200* CARRIER FLAG IS NOT REQUIRED WHEN CALL 'CS' ROUTINE                     
+004300         05  WHRQOR-CARRIER-FLAG         PIC X(01) VALUE SPACES.          
+004400             88  WHRQOR-IM-CHOICE        VALUE 'I'.                       
+004500             88  WHRQOR-CUST-CHOICE      VALUE 'C'.                       
+004600             88  WHRQOR-SPLIT            VALUE 'S'.                       
+004700             88  WHRQOR-EXPEDITED-MODE   VALUE 'E'.                       
+004800             88  WHRQOR-TRANSIT-DAYS     VALUE 'T'.                       
+004900             88  WHRQOR-SPLIT-AIR        VALUE 'A'.                       
+005000             88  WHRQOR-TRANSIT-EDD      VALUE 'D'.                       
+005100* CARRIER SWITCH INPUT                                                    
+005200         05  WHRQOR-CUST-REQ-CARR-CODE   PIC X(04) VALUE SPACE.           
+005300         05  WHRQOR-CUST-REQ-TRANSIT-DAYS PIC 9(03) VALUE ZEROES.         
+005400         05  WHRQOR-CUST-REQ-MODE        PIC X(04) VALUE SPACES.          
+005500         05  WHRQOR-CUST-DEFAULT-CARR-CODE PIC X(04)                      
+005510                                            VALUE SPACES.                 
+005600* UPS MI CUSTOMER ELIGIBILITY                                             
+005700         05  WHRQOR-SML-CARR-SW          PIC X(01) VALUE SPACE.           
+005800             88  WHRQOR-SML-CARR-USED    VALUE 'Y' , SPACES.              
+005900             88  WHRQOR-SML-CARR-NOT-USED VALUE 'N'.                      
+006000* UPS MI SKU CATEGORY ELIGIBILITY                                         
+006100         05  WHRQOR-SML-CARR-EXCL-SW     PIC X(01) VALUE SPACE.           
+006200             88  WHRQOR-SML-CARR-ELIGIBLE VALUE 'N'.                      
+006300             88  WHRQOR-SML-CARR-INELIGIBLE VALUE 'Y'.                    
+006400         05  WHRQOR-CUST-SPLIT-CODE      PIC X(02) VALUE SPACES.          
+006500             88  WHRQOR-GRD-ONLY-SPLIT-S VALUE 'GO'.                      
+006600             88  WHRQOR-AIR-ONLY-SPLIT-S VALUE 'AO'.                      
+006700             88  WHRQOR-GRD-OR-AIR-SPLIT-S VALUE 'GA'.                    
+006800             88  WHRQOR-AIR-GRD-SPLIT-S VALUE 'AG'.                       
+006900             88  WHRQOR-ALL-SPLIT-S      VALUE 'AL'.                      
+007000             88  WHRQOR-NO-SPLIT-S       VALUE 'NO'.                      
+007100         05  WHRQOR-CUST-ALW-CHOOSE-CARR-CD PIC X(02)                     
+007110                                         VALUE SPACES.                    
+007200             88  WHRQOR-GRD-ONLY-CHOICE VALUE 'GO'.                       
+007300             88  WHRQOR-AIR-ONLY-CHOICE VALUE 'AO'.                       
+007400             88  WHRQOR-GRD-AIR-CHOICE   VALUE 'GA'.                      
+007500             88  WHRQOR-NO-CC-CHOICE     VALUE 'NO'.                      
+007600             88  WHRQOR-AIR-DIRECT-SHIP VALUE 'AR'.                       
+007700             88  WHRQOR-GRD-DIRECT-SHIP VALUE 'GR'.                       
+007800         05  WHRQOR-CUST-ALW-TRNSIT-DAYS-SW PIC X(01)                     
+007810                                          VALUE SPACES.                   
+007900             88  WHRQOR-ALW-TRANSIT-DAYS VALUE 'Y'.                       
+008000             88  WHRQOR-ALW-EDD          VALUE 'D', 'B'.                  
+008100             88  WHRQOR-ALW-EDD-3RD      VALUE 'B'.                       
+008200             88  WHRQOR-ALW-3RD          VALUE 'T', 'B'.                  
+008300             88  WHRQOR-ALW-3RD-ONLY     VALUE 'T'.                       
+008400* FREIGHT INPUT                                                           
+008500         05  WHRQOR-REQUEST-TYPE         PIC X(01) VALUE SPACES.          
+008600             88  WHRQOR-RETURN-ONE       VALUE '1'.                       
+008700             88  WHRQOR-RETURN-LIST      VALUE 'L'.                       
+008800             88  WHRQOR-TELEMARKETING    VALUE 'T'.                       
+008900             88  WHRQOR-CARRIER-AND-LIST VALUE 'B'.                       
+009000         05  WHRQOR-RESIDENTIAL-SW       PIC X(01).                       
+009100         05  WHRQOR-CUST-GENR-ROUTE-CODE PIC X(05) VALUE SPACES.          
+009200         05  WHRQOR-CUST-RATING-GROUP-CODE PIC X(01)                      
+009210                                               VALUE SPACES.              
+009300         05  WHRQOR-POSTAL-CODE.                                          
+009400             10  WHRQOR-ZIP-CODE         PIC S9(9) COMP-3.                
+009500             10  FILLER                  PIC X(01).                       
+009600         05  WHRQOR-TERMS                PIC X(03) VALUE SPACES.          
+009700             88  WHRQOR-COD       VALUE '000' '004' '900' '996'.          
+009800         05  WHRQOR-FREIGHT-FORWARDER    PIC X(03) VALUE SPACES.          
+009900         05  WHRQOR-BR-NBR-SHIP-FROM     PIC X(02) VALUE SPACES.          
+010000         05  WHRQOR-EXPORT-ORD-IND       PIC X(01) VALUE SPACES.          
+010100         05  WHRQOR-OVERSIZE-METHOD-SW   PIC X(01) VALUE SPACES.          
+010200         05  WHRQOR-BACKORDER-STATUS     PIC X(01) VALUE SPACES.          
+010300         05  WHRQOR-AOD-SW               PIC X(01) VALUE SPACES.          
+010400         05  WHRQOR-DEBIT-TYPE           PIC X(01) VALUE SPACE.           
+010500             88  WHRQOR-DEBIT-STOCK-BAL VALUE 'S'.                        
+010600             88  WHRQOR-DEBIT-DEFECTIVE VALUE 'D'.                        
+010700         05  WHRQOR-VENDOR-SW            PIC X(01) VALUE SPACE.           
+010800             88  WHRQOR-VEND-PAY      VALUE 'V'.                          
+010900             88  WHRQOR-VEND-PAY-THRESHOLD VALUE 'G'.                     
+011000         05  WHRQOR-VEND-FREIGHT-LIMIT   PIC S9(05)V99 COMP-3             
+011100                                              VALUE ZERO.                 
+011200         05  WHRQOR-FRT-ECOM-PO-3PARTY   PIC X(01) VALUE SPACE.           
+011300             88  WHRQOR-VEND-NO-3PARTY VALUE 'N'.                         
+011400         05  WHRQOR-VENDOR-NBR           PIC X(04) VALUE SPACE.           
+011500                                                                          
+011600         05  WHRQOR-TOTAL-WEIGHT-OZ      PIC S9(11)V99 COMP-3             
+011700                                                         VALUE 0.         
+011800         05  WHRQOR-TOTAL-ORD-WEIGHT     PIC S9(9)V99 COMP-3              
+011900                                                          VALUE 0.        
+012000         05  WHRQOR-ESTIMATED-CARTONS    PIC 9(03) COMP-3                 
+012100                                                          VALUE 0.        
+012200                                                                          
+012300         05  WHRQOR-DIRECT-TABLE.                                         
+012400             10  WHRQOR-DIRECT-TOT-LIC-QTY PIC 9(6).                      
+012500             10  WHRQOR-DIRECT-TOTAL-WEIGHT PIC 9(9)V99.                  
+012600             10  WHRQOR-DIRECT-TOTAL-PRICE PIC 9(15)V99.                  
+012700* FREIGHT OUT CODE INPUT                                                  
+012800         05  WHRQOR-NON-STANDARD-ORDER-SW PIC X(01) VALUE SPACES.         
+012900             88  WHRQOR-NON-STANDARD-ORDER VALUE 'Y'.                     
+013000         05  WHRQOR-CUST-PRESET-FOC      PIC X(01) VALUE SPACES.          
+013100         05  WHRQOR-VEND-PRESET-FOC                                       
+013200              REDEFINES WHRQOR-CUST-PRESET-FOC PIC X(01).                 
+013300             88  WHRQOR-VEND-PRESET-FOC-VND-PAY VALUE 'V'.                
+013400             88  WHRQOR-VEND-PRESET-FOC-IM-PAY  VALUE 'I' 'P'.            
+013500             88  WHRQOR-VEND-DEBIT-GROUND        VALUE 'G'.               
+013600         05  WHRQOR-ORDER-VALUE-AT-ADD   PIC S9(15)V99 COMP-3             
+013700                                                       VALUE 0.           
+013800         05  WHRQOR-CUST-FREIGHT-LIMIT   PIC S9(05)V99 COMP-3             
+013900                                                       VALUE 0.           
+014000         05  WHRQOR-CORP-FREIGHT-LIMIT   PIC S9(05)V99 COMP-3             
+014100                                                       VALUE 0.           
+014200* ADDITIONAL FOC INPUT REQUIRED WHEN ONLY CALL THE FOC ROUTINE            
+014300         05  WHRQOR-IM-CHOICE-CARR-CODE PIC X(02).                        
+014400         05  WHRQOR-ORDER-CARR-CODE      PIC X(02).                       
+014500         05  WHRQOR-IM-FRT-AMT           PIC S9(15)V99 VALUE 0.           
+014600         05  WHRQOR-ORDER-FRT-OUT-AMT    PIC S9(15)V99 VALUE 0.           
+014700         05  WHRQOR-CUST-FRT-OVERRIDE-FLAG PIC X(01) VALUE SPACE.         
+014800         05  WHRQOR-ORDER-ENTRY-METHOD   PIC X(01) VALUE SPACES.          
+014900         05  WHRQOR-ORDER-TOTAL-SALES    PIC S9(15)V99 COMP-3             
+015000                                                       VALUE 0.           
+015100* BYPASS AUTOMATED DIRECT SHIP FREIGHT RECOVERY LOGIC                     
+015200         05  WHRQOR-DIRECTSHIP-EXCL-SW   PIC X(01) VALUE SPACE.           
+015300             88  WHRQOR-DIRECTSHIP-EXCLUDED    VALUE 'N' ' '.             
+015400             88  WHRQOR-DIRECTSHIP-INCLUDED    VALUE 'Y'.                 
+015500         05  WHRQOR-EDD                  PIC  9(07) COMP-3                
+015600                                                       VALUE 0.           
+015700         05  WHRQOR-EXTRA-TRNSIT-DAYS    PIC 9(01) VALUE ZERO.            
+015800         05  WHRQOR-CUST-PGM-CARR-BYPASS PIC X(01).                       
+015900         05  WHRQOR-POSTAL-DIST-LIMIT    PIC S9(09) COMP-3.               
+016000         05  WHRQOR-ORDER-PROCESS-SW     PIC X(01).                       
+016100         05  WHRQOR-LTL-SKU-SW           PIC X(01).                       
+016110             88  WHRQOR-LTL-SKU-YES           VALUE 'Y'.                  
+016200         05  WHRQOR-TOT-HVY-SKU-WEIGHT   PIC S9(06)V9(2) COMP.            
+016300         05  WHRQOR-HEAVYWEIGHT-FEE-ORIG-SW PIC X(01).                    
+016400         05  WHRQOR-TRUCKLOAD-FLAG       PIC X(01).                       
+016500             88 WHRQOR-TRUCKLOAD-ORDER VALUE 'T' 'M'.                     
+016600         05  WHRQOR-UPGRADE-SW           PIC X(1)   VALUE SPACE.          
+016700         05  WHRQOR-ORDER-ENTRY-DATE     PIC S9(5) COMP-3.                
+016800         05  WHRQOR-SHIP-CONDITION       PIC X(01)  VALUE SPACE.          
+016900         05  WHRQOR-PALR-RESP-IND        PIC 9(03).                       
+017000             88  WHRQOR-PALR-RESP-NOT-EXEC      VALUE 000.                
+017100             88  WHRQOR-PALR-RESP-CARTN-MAX-ERR VALUE 006.                
+017200             88  WHRQOR-PALR-RESP-NO-DIM-WEIGHT VALUE 009.                
+017300             88  WHRQOR-PALR-RESP-NO-ERROR      VALUE 999.                
+017400             88  WHRQOR-PALR-RESP-WITH-ERROR VALUE 001 THRU 998.          
+017500         05  WHRQOR-APO-FPO-SW           PIC X(01).               TND19252
+017500         05  WHRQOR-CHARGE-CNT           PIC 9(02).               TND19252
+017500         05  WHRQOR-FILLER1              PIC X(94).               TND19252
+017501** Tibco I/P area                                                         
+017502         05  WHRQOR-TIBCO-INPUT-AREA.                                     
+017503             10 WHRQOR-INPUT-EAI-KEY     PIC X(20) VALUE SPACES.          
+017504             10 WHRQOR-INPUT-EAI-COMPANY PIC X(02) VALUE SPACES.          
+017505             10 WHRQOR-INPUT-EAI-DB2-KEY.                                 
+017506                15 WHRQOR-SO-ORD-BR      PIC X(02) VALUE SPACES.          
+017507                15 WHRQOR-SO-ORD-NBR     PIC X(05) VALUE SPACES.          
+017508                15 WHRQOR-SO-ORD-DIST    PIC X(01) VALUE SPACES.          
+017509                15 WHRQOR-SO-ORD-SHIP    PIC X(01) VALUE SPACES.          
+017510                15 WHRQOR-DIRECT-CD      PIC X(04) VALUE SPACES.  TND19252
+017520             10 WHRQOR-INPUT-EAI-SOURCE  PIC X(02) VALUE SPACES.          
+017530                88  WHRQOR-API-CALL      VALUE SPACE.                     
+017531                88  WHRQOR-DB2-CALL      VALUE 'DB'.                      
+017532             10 WHRQOR-OPERATION-NAME    PIC X(20) VALUE                  
+017600                                      'PROCESSRATEQUOTATION'.             
+017700             10 WHRQOR-CLIENT-ID         PIC X(05) VALUE SPACES.          
+017800             10 WHRQOR-AP-AR-FLAG        PIC X(05) VALUE SPACES.          
+017900                88  WHRQOR-AP-ONLY       VALUE 'AP'.                      
+018000                88  WHRQOR-AR-ONLY       VALUE 'AR'.                      
+018001                88  WHRQOR-AP-AR         VALUE 'APAR'.                    
+018002             10 WHRQOR-LOCATION-TYPE     PIC X(07) VALUE                  
+018003                                              'SPT_HUB'.                  
+018100             10 WHRQOR-SHIP-FROM-CODE.                                    
+018200                 15 WHRQOR-SF-COMPANY    PIC X(02).                       
+018300                 15 WHRQOR-SF-BRANCH     PIC X(02).                       
+018400             10 WHRQOR-SHIP-FROM-CITY    PIC X(50).                       
+018500             10 WHRQOR-SHIP-FROM-STATE   PIC X(02).                       
+018600             10 WHRQOR-SHIP-FROM-POSTAL PIC X(10).                        
+018700             10 WHRQOR-SHIP-FROM-COUNTRY PIC X(03).                       
+018800             10 WHRQOR-LOCATION-TYPE-NUM PIC X(06)                        
+018900                                        VALUE 'SPT_DC'.                   
+019000* Use 99999FF code for Freight Forwarder.                                 
+019100             10 WHRQOR-SHIP-TO-CODE      PIC X(07)                        
+019200                                        VALUE '99999FF'.                  
+019300             10 WHRQOR-SHIP-TO-CITY      PIC X(50).                       
+019400             10 WHRQOR-SHIP-TO-STATE     PIC X(02).                       
+019500             10 WHRQOR-SHIP-TO-POSTAL    PIC X(10).                       
+019600             10 WHRQOR-SHIP-TO-COUNTRY   PIC X(03).                       
+019700* TMS Tarrif code                                                         
+019800             10 WHRQOR-CUSTOMER-CODE     PIC X(10).                       
+019900* this is the request carrier code, FR1US00074                            
+020000             10 WHRQOR-TMS-CARRIER-CODE PIC X(10).                        
+020100             10 WHRQOR-SERVICE-CODE      PIC X(04).                       
+020200             10 WHRQOR-CONSIGNEE-CODE    PIC X(06).                       
+020300             10 WHRQOR-DIVISION-CODE     PIC X(02) VALUE 'IM'.            
+020400             10 WHRQOR-COMMODITY-CODE    PIC X(06).                       
+020500* FORMAT 2010-06-02T00:11:00                                              
+020600             10 WHRQOR-EARLIEST-TIME     PIC X(19).                       
+020700             10 WHRQOR-LATEST-TIME       PIC X(19).                       
+020800             10 WHRQOR-EARLIEST-ARRVIAL-TM PIC X(19).                     
+020900             10 WHRQOR-LATEST-ARRIVAL-TM PIC X(19).                       
+021000             10 WHRQOR-SYSTEM-UNIT             PIC X(12) VALUE            
+021100                                         'UMS_IMPERIAL'.                  
+021200             10 WHRQOR-WEIGHT-UNIT             PIC X(07) VALUE            
+021300                                         'UMW_LB '.                       
+021400             10 WHRQOR-LENGTH-UNIT             PIC X(06) VALUE            
+021500                                         'UML_IN'.                        
+021600             10 WHRQOR-FREIGT-DETAIL.                                     
+021700*********        15 WHRQOR-TOTAL-WEIGHT        PIC S9(9)V99.              
+021710                 15 WHRQOR-TOTAL-WEIGHT        PIC 9(9).9.                
+021800                 15 WHRQOR-FREIGHT-CLASS       PIC X(4)  VALUE            
+021900                                         '92.5'.                          
+022000                 15 WHRQOR-TOTAL-VOLUME        PIC  9(9).9.               
+022100                 15 WHRQOR-DECLARE-VALUE       PIC  9(9).9.               
+022200*** STORE PALLET COUNT                                                    
+022300                 15 WHRQOR-TOTAL-FLEX-QTY      PIC  9(5).                 
+022400                 15 WHRQOR-APPLY-LEVEL         PIC  X(14) VALUE           
+022500                                           'OAL_RATE_ROUTE'.              
+022600                 15 WHRQOR-CURRENCY            PIC X(03).                 
+022700*** Y= true, N = false. always send TRUE                                  
+022800                 15 WHRQOR-RATE-FUNC-SW        PIC X(1).                  
+022900*** For AP calls, set to RUTNGMTD_SCHEDULING                              
+023000*** For AR calls, set to RUTNGMTD_RATING                                  
+023100                 15 WHRQOR-ROUTING-METHOD      PIC X(20).                 
+023200*** PCS when Pieces is populated                                          
+023300*** PLTS when Pallets is populated                                        
+023400                 15 WHRQOR-CONTAINER-TYPE      PIC X(04).                 
+023500*** Y= true, N = false. always send false                                 
+023600                 15 WHRQOR-DEST-RES-SW         PIC X(01).                 
+023700*** Y= true, N = false. always send false                                 
+023800                 15 WHRQOR-IGNORE-CONTAIN-SW   PIC X(01).                 
+023900*** Y= true, N = false. always send TRUE                                  
+024000                 15 WHRQOR-RETURN-DIAG         PIC X(01).                 
+024100             10 WHRQOR-CHARGE-OVERRIDE-TABLE.                             
+024200                 15 WHRQOR-CHARGE-ENTRIES OCCURS 15 TIMES.                
+024300                    20 WHRQOR-CHG-CODE         PIC X(04).                 
+024400                    20 WHRQOR-CHG-FRT-CLASS    PIC X(04).                 
+024500*** HARD CODE 'CHL_OPTION' for LVL-NUM                                    
+024600                    20 WHRQOR-CHG-LVL-NUM      PIC X(10).                 
+024700             10 WHRQOR-EST-CONTAINER-TABLE.                               
+024800                 15 WHRQOR-EST-CONTAINER-ENTRIES OCCURS 120.              
+024900                    20 WHRQOR-EST-CONT-TYPE    PIC X(04).                 
+025000*** ALWAYS 1 FOR CONT-QTY                                                 
+025100                    20 WHRQOR-EST-CONT-QTY     PIC 9(5).                  
+025200***                 20 WHRQOR-EST-CONT-WGT     PIC S9(7)V99.              
+025210                    20 WHRQOR-EST-CONT-WGT     PIC 9(7).9.                
+025300*** '92.5'                                                                
+025400                    20 WHRQOR-EST-CONT-CLASS-CODE PIC X(04).              
+025500                    20 WHRQOR-EST-CONT-VOL     PIC 9(9).                  
+025600                    20 WHRQOR-EST-CONT-ORD-VAL PIC 9(9).9.                
+025610*****               20 WHRQOR-EST-CONT-ORD-VAL PIC 9(9)V99.               
+025700                    20 WHRQOR-EST-CONT-DECLARE-VAL PIC 9(9).9.            
+025800                    20 WHRQOR-EST-CONT-LENGTH PIC 9(8).9.                 
+025900                    20 WHRQOR-EST-CONT-WIDTH   PIC 9(8).9.                
+026000                    20 WHRQOR-EST-CONT-HEIGHT PIC 9(8).9.                 
+026100***** Carton Tracking # FOR BILLING TRANSACTION.                          
+026200***** FOR ORDER ENTRY IT'S THE SEQ # FROM SHIP_PAL_WEIGHT TABLE.          
+026201***** AND ALSO THE CARTON TRK NBR CAN ONLY BE 28 CHAR IN TMS.             
+026202                    20 WHRQOR-EST-SYS-CONT-ID PIC X(30).                  
+026203*** ALWAYS 1                                                              
+026300                    20 WHRQOR-EST-SHIP-INX     PIC 9(4).                  
+026400***** PLEASE NOTE THE BELOW FILLER IS NOT TO BE USED FOR                  
+026500***** FURTHER EXPANSION OF THE WHRQOR-TIBCO-INPUT-AREA                    
+                   10  WHRQOR-NO-CARTONS             PIC 9(5).                  
+                   10  WHRQOR-CALLING-PGM            PIC X(6).          TND19252
+                   10  WHRQOR-CUSTOMER-NBR           PIC X(8).          KMP23279
+                   10  WHRQOR-FREIGHT-TERMS          PIC 9(1).          KMP23279
+                   10  WHRQOR-TOTAL-SALES            PIC 9(15).99.      KMP24131
+026501          05 WHRQOR-FILLER                     PIC X(4854).       KMP24131
+026502     03   WHRQOR-TIBCO-RESPONSE-AREA                                      
+026503                                REDEFINES WHRQOR-INPUT-COMMAREA.          
+026504          05 FILLER                              PIC X(19988).            
+026505                                                                          
+026506                                                                          
+026507                                                                          
+026508***********************************************************               
+026509* NOW FOR THE RESPONSE AREA FROM WHP970 JDA CALL   WHRQOR-R-              
+026510***********************************************************               
+026520 01 WHRQOR-R-RESPONSE-AREA.                                               
+026530                                                                          
+026540     05  WHRQOR-R-RESPONSE-CODE         PIC X(06).                        
+026550         88 WHRQOR-R-SUCCESS                       VALUE '200'.           
+026560         88 WHRQOR-R-TIMEOUT                       VALUE '3001'.          
+026570     05  WHRQOR-R-RESPONSE-STATUS       PIC X(07).                        
+026580***********************************************************               
+026590* DATA IN WHRQOR-R-FRMR-OUTPUT-AREA , SHOULD USE COPYBOOK *               
+026600* WHXFRM, FRMR-OUTPUT-AREA 03 LEVEL.                      *               
+026700***********************************************************               
+026800     05  WHRQOR-R-FRMR-OUTPUT-AREA      PIC X(18343).                     
+026900     05  FILLER                         PIC X(1644).                      

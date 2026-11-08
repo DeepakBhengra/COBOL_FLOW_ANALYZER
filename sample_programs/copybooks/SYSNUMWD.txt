@@ -1,0 +1,390 @@
+﻿      *REMARKS.                                                                 
+      *    *************************************************************        
+      *    * COMPILE = D2 COBOL II                                              
+      *    * THIS PROGRAM CONVERTS AN S9(12)V99 NUMBER TO A WORD                
+      *    * EQUIVALENT.                                                        
+      *    * IF THE AMOUNT IS GREATER THAN THAT AMOUNT OR A                     
+      *    * NEGATIVE AMOUNT IT DOES NOT CONVERT.                               
+      *    *************************************************************        
+      ******************************************************************        
+      * 11/02/99  ESS  NEW COPYBOOK                                     ESS99306
+      ******************************************************************        
+012500 CONVERT-NBR-TO-WORDS.                                                    
+012600                                                                          
+023991     MOVE SPACE TO CNTW-FINAL-AMOUNT.                                     
+023991     MOVE 1 TO CNTW-WORK-Z.                                               
+023991                                                                          
+023991     IF CONVERT-NBR > 999999999999.99 OR                                  
+023991        CONVERT-NBR  < ZERO                                               
+023991         MOVE CONVERT-NBR TO CNTW-EDIT-AMOUNT                             
+023991         GO TO END-OF-JOB.                                                
+014710                                                                          
+014710     MOVE CONVERT-NBR TO CNTW-SAVE-NBR-FLD.                               
+014710                                                                          
+015580     IF CONVERT-NBR < 100.00                                              
+014710         GO TO CONVERT-1-99-DOLLARS.                                      
+014710                                                                          
+015580     IF CONVERT-NBR < 1000.00                                             
+014710         GO TO CONVERT-1-9-HUNDREDS.                                      
+014710                                                                          
+015580     IF CONVERT-NBR < 10000.00                                            
+014710         GO TO CONVERT-1-9-THOUSANDS.                                     
+014710                                                                          
+015580     IF CONVERT-NBR < 100000.00                                           
+014710         GO TO CONVERT-10-90-THOUSANDS.                                   
+014710                                                                          
+015580     IF CONVERT-NBR < 1000000.00                                          
+014710         GO TO CONVERT-100-900-THOUSANDS.                                 
+014710                                                                          
+015580     IF CONVERT-NBR < 10000000.00                                         
+014710         GO TO CONVERT-1-9-MILLIONS.                                      
+014710                                                                          
+015580     IF CONVERT-NBR < 100000000.00                                        
+014710         GO TO CONVERT-10-90-MILLIONS.                                    
+014710                                                                          
+015580     IF CONVERT-NBR < 1000000000.00                                       
+014710         GO TO CONVERT-100-900-MILLIONS.                                  
+014710                                                                          
+015580     IF CONVERT-NBR < 10000000000.00                                      
+714710         GO TO CONVERT-1-9-BILLIONS.                                      
+014710                                                                          
+015580     IF CONVERT-NBR < 100000000000.00                                     
+714710         GO TO CONVERT-10-90-BILLIONS.                                    
+014710                                                                          
+014740 CONVERT-100-900-BILLIONS.                                                
+014750                                                                          
+014760     IF CONVERT-NBR > 99999999999.99                                      
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-11-FLD                         
+014750         MOVE CNTW-NUM-9-OF-11-FLD TO CONVERT-NBR                         
+014710         GO TO CONVERT-10-90-BILLIONS.                                    
+014750                                                                          
+023991     COMPUTE CNTW-WORK-X = (CONVERT-NBR / 100000000000).                  
+014760     MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL.              
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+014750                                                                          
+014760     MOVE CNTW-WORD-HUNDRED TO CNTW-ALPHA-LABEL.                          
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+014750                                                                          
+014750     MOVE CONVERT-NBR TO CNTW-NUM-9-OF-11-FLD.                            
+014750     MOVE CNTW-NUM-9-OF-11-FLD TO CONVERT-NBR.                            
+014750                                                                          
+014750     IF CONVERT-NBR < 1.00                                                
+               MOVE CNTW-WORD-BILLION TO CNTW-ALPHA-LABEL                       
+               PERFORM MOVE-LABEL-TO-BUFFER                                     
+014750         GO TO MOVE-CNTW-WORD-AND.                                        
+014710                                                                          
+014740 CONVERT-10-90-BILLIONS.                                                  
+014710                                                                          
+014760     IF CONVERT-NBR > 9999999999.99                                       
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-10-FLD                         
+014750         MOVE CNTW-NUM-9-OF-10-FLD TO CONVERT-NBR                         
+014710         GO TO CONVERT-1-9-BILLIONS.                                      
+014710                                                                          
+014760     IF CONVERT-NBR NOT > 20000000000.00                                  
+026596         COMPUTE CNTW-WORK-X = CONVERT-NBR / 1000000000                   
+026596         MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL           
+023991         PERFORM MOVE-LABEL-TO-BUFFER                                     
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-09-FLD                         
+014750         MOVE CNTW-NUM-9-OF-09-FLD TO CONVERT-NBR                         
+014750         IF CONVERT-NBR = ZEROS                                           
+                   MOVE CNTW-WORD-BILLION TO CNTW-ALPHA-LABEL                   
+                   PERFORM MOVE-LABEL-TO-BUFFER                                 
+014750             GO TO MOVE-CNTW-WORD-AND                                     
+014750         ELSE                                                             
+014750             GO TO CONVERT-1-9-BILLIONS.                                  
+023991                                                                          
+023991     COMPUTE CNTW-WORK-X = (CONVERT-NBR / 10000000000) + 18.              
+014760     MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL.              
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+                                                                                
+014750     MOVE CONVERT-NBR TO CNTW-NUM-9-OF-10-FLD.                            
+014750     MOVE CNTW-NUM-9-OF-10-FLD TO CONVERT-NBR.                            
+014750                                                                          
+014750     IF CONVERT-NBR < 1.00                                                
+014760         MOVE CNTW-WORD-BILLION TO CNTW-ALPHA-LABEL                       
+014760         PERFORM MOVE-LABEL-TO-BUFFER                                     
+014750         GO TO MOVE-CNTW-WORD-AND.                                        
+014710                                                                          
+014740 CONVERT-1-9-BILLIONS.                                                    
+014750                                                                          
+014760     IF CONVERT-NBR > 999999999.99                                        
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-09-FLD                         
+014750         MOVE CNTW-NUM-9-OF-09-FLD TO CONVERT-NBR                         
+014710         GO TO MOVE-CNTW-WORD-BILLION.                                    
+014710                                                                          
+023991     COMPUTE CNTW-WORK-X = (CONVERT-NBR / 1000000000).                    
+014760     MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL.              
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+014750                                                                          
+014750     MOVE CONVERT-NBR TO CNTW-NUM-9-OF-09-FLD.                            
+014750     MOVE CNTW-NUM-9-OF-09-FLD TO CONVERT-NBR.                            
+014750                                                                          
+014750     IF CONVERT-NBR < 1.00                                                
+014760         MOVE CNTW-WORD-BILLION TO CNTW-ALPHA-LABEL                       
+014760         PERFORM MOVE-LABEL-TO-BUFFER                                     
+014750         GO TO MOVE-CNTW-WORD-AND.                                        
+014750                                                                          
+015580 MOVE-CNTW-WORD-BILLION.                                                  
+                                                                                
+           IF CNTW-SAVE-NBR-FLD-BILLION > 0                                     
+014760         MOVE CNTW-WORD-BILLION TO CNTW-ALPHA-LABEL                       
+               PERFORM MOVE-LABEL-TO-BUFFER.                                    
+                                                                                
+014740 CONVERT-100-900-MILLIONS.                                                
+014750                                                                          
+014760     IF CONVERT-NBR > 99999999.99                                         
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-08-FLD                         
+014750         MOVE CNTW-NUM-9-OF-08-FLD TO CONVERT-NBR                         
+014710         GO TO CONVERT-10-90-MILLIONS.                                    
+014750                                                                          
+023991     COMPUTE CNTW-WORK-X = (CONVERT-NBR / 100000000).                     
+014760     MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL.              
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+014750                                                                          
+014760     MOVE CNTW-WORD-HUNDRED TO CNTW-ALPHA-LABEL.                          
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+014750                                                                          
+014750     MOVE CONVERT-NBR TO CNTW-NUM-9-OF-08-FLD.                            
+014750     MOVE CNTW-NUM-9-OF-08-FLD TO CONVERT-NBR.                            
+014750                                                                          
+014750     IF CONVERT-NBR < 1.00                                                
+               MOVE CNTW-WORD-MILLION TO CNTW-ALPHA-LABEL                       
+               PERFORM MOVE-LABEL-TO-BUFFER                                     
+014750         GO TO MOVE-CNTW-WORD-AND.                                        
+014710                                                                          
+014740 CONVERT-10-90-MILLIONS.                                                  
+014750                                                                          
+014760     IF CONVERT-NBR > 9999999.99                                          
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-07-FLD                         
+014750         MOVE CNTW-NUM-9-OF-07-FLD TO CONVERT-NBR                         
+014710         GO TO CONVERT-1-9-MILLIONS.                                      
+014750                                                                          
+014760     IF CONVERT-NBR NOT > 20000000.00                                     
+026596         COMPUTE CNTW-WORK-X = CONVERT-NBR / 1000000                      
+026596         MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL           
+023991         PERFORM MOVE-LABEL-TO-BUFFER                                     
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-06-FLD                         
+014750         MOVE CNTW-NUM-9-OF-06-FLD TO CONVERT-NBR                         
+014750         IF CONVERT-NBR = ZEROS                                           
+                   MOVE CNTW-WORD-MILLION TO CNTW-ALPHA-LABEL                   
+                   PERFORM MOVE-LABEL-TO-BUFFER                                 
+014750             GO TO MOVE-CNTW-WORD-AND                                     
+014750         ELSE                                                             
+014750             GO TO MOVE-CNTW-WORD-MILLION.                                
+023991                                                                          
+023991     COMPUTE CNTW-WORK-X = (CONVERT-NBR / 10000000) + 18.                 
+014760     MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL.              
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+                                                                                
+014750     MOVE CONVERT-NBR TO CNTW-NUM-9-OF-07-FLD.                            
+014750     MOVE CNTW-NUM-9-OF-07-FLD TO CONVERT-NBR.                            
+014750                                                                          
+014750     IF CONVERT-NBR < 1.00                                                
+               MOVE CNTW-WORD-MILLION TO CNTW-ALPHA-LABEL                       
+               PERFORM MOVE-LABEL-TO-BUFFER                                     
+014750         GO TO MOVE-CNTW-WORD-AND.                                        
+014750                                                                          
+014740 CONVERT-1-9-MILLIONS.                                                    
+014750                                                                          
+014760     IF CONVERT-NBR > 999999.99                                           
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-06-FLD                         
+014750         MOVE CNTW-NUM-9-OF-06-FLD TO CONVERT-NBR                         
+014710         GO TO MOVE-CNTW-WORD-MILLION.                                    
+014750                                                                          
+023991     COMPUTE CNTW-WORK-X = (CONVERT-NBR / 1000000).                       
+014760     MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL.              
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+014750                                                                          
+014750     MOVE CONVERT-NBR TO CNTW-NUM-9-OF-06-FLD.                            
+014750     MOVE CNTW-NUM-9-OF-06-FLD TO CONVERT-NBR.                            
+014750                                                                          
+014750     IF CONVERT-NBR < 1.00                                                
+014760         MOVE CNTW-WORD-MILLION TO CNTW-ALPHA-LABEL                       
+014760         PERFORM MOVE-LABEL-TO-BUFFER                                     
+014750         GO TO MOVE-CNTW-WORD-AND.                                        
+014750                                                                          
+015580 MOVE-CNTW-WORD-MILLION.                                                  
+                                                                                
+           IF CNTW-SAVE-NBR-FLD-MILLION > 0                                     
+014760         MOVE CNTW-WORD-MILLION TO CNTW-ALPHA-LABEL                       
+               PERFORM MOVE-LABEL-TO-BUFFER.                                    
+                                                                                
+014740 CONVERT-100-900-THOUSANDS.                                               
+014750                                                                          
+014760     IF CONVERT-NBR > 99999.99                                            
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-05-FLD                         
+014750         MOVE CNTW-NUM-9-OF-05-FLD TO CONVERT-NBR                         
+014710         GO TO CONVERT-10-90-THOUSANDS.                                   
+014750                                                                          
+023991     COMPUTE CNTW-WORK-X = (CONVERT-NBR / 100000).                        
+014760     MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL.              
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+014750                                                                          
+014760     MOVE CNTW-WORD-HUNDRED TO CNTW-ALPHA-LABEL.                          
+014760     PERFORM MOVE-LABEL-TO-BUFFER.                                        
+014750                                                                          
+014750     MOVE CONVERT-NBR TO CNTW-NUM-9-OF-05-FLD.                            
+014750     MOVE CNTW-NUM-9-OF-05-FLD TO CONVERT-NBR.                            
+014750                                                                          
+014750     IF CONVERT-NBR < 1000.00 AND                                         
+014750        CONVERT-NBR > 1.00                                                
+               MOVE CNTW-WORD-THOUSAND TO CNTW-ALPHA-LABEL                      
+               PERFORM MOVE-LABEL-TO-BUFFER.                                    
+014750                                                                          
+014750     IF CONVERT-NBR < 1.00                                                
+               MOVE CNTW-WORD-THOUSAND TO CNTW-ALPHA-LABEL                      
+               PERFORM MOVE-LABEL-TO-BUFFER                                     
+014750         GO TO MOVE-CNTW-WORD-AND.                                        
+014750                                                                          
+014740 CONVERT-10-90-THOUSANDS.                                                 
+014750                                                                          
+014760     IF CONVERT-NBR > 9999.99                                             
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-04-FLD                         
+014750         MOVE CNTW-NUM-9-OF-04-FLD TO CONVERT-NBR                         
+014710         GO TO CONVERT-1-9-THOUSANDS.                                     
+014750                                                                          
+014760     IF CONVERT-NBR NOT > 20000.00                                        
+026596         COMPUTE CNTW-WORK-X = CONVERT-NBR / 1000                         
+026596         MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL           
+023991         PERFORM MOVE-LABEL-TO-BUFFER                                     
+023991         GO TO MOVE-CNTW-WORD-THOUSAND.                                   
+023991                                                                          
+023991     COMPUTE CNTW-WORK-X = (CONVERT-NBR / 10000) + 18.                    
+014750     IF CNTW-WORK-X > 27                                                  
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014760         MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL           
+014760         PERFORM MOVE-LABEL-TO-BUFFER.                                    
+                                                                                
+014760 CONVERT-1-9-THOUSANDS.                                                   
+                                                                                
+014760     IF CONVERT-NBR > 999.99                                              
+014750         NEXT SENTENCE                                                    
+014750     ELSE                                                                 
+014750         MOVE CONVERT-NBR TO CNTW-NUM-9-OF-03-FLD                         
+014750         MOVE CNTW-NUM-9-OF-03-FLD TO CONVERT-NBR                         
+014710         GO TO CONVERT-1-9-HUNDREDS.                                      
+014750                                                                          
+014760     MOVE CONVERT-NBR TO CNTW-NUM-9-OF-04-FLD.                            
+014760     MOVE CNTW-NUM-9-OF-04-FLD TO CONVERT-NBR.                            
+014760     IF CONVERT-NBR NOT < 1000.00                                         
+014760         COMPUTE CNTW-WORK-X = CONVERT-NBR / 1000                         
+015100         MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL           
+015100         PERFORM MOVE-LABEL-TO-BUFFER.                                    
+015200                                                                          
+015580 MOVE-CNTW-WORD-THOUSAND.                                                 
+                                                                                
+           MOVE CNTW-WORD-THOUSAND TO CNTW-ALPHA-LABEL.                         
+           PERFORM MOVE-LABEL-TO-BUFFER.                                        
+                                                                                
+015580 CONVERT-1-9-HUNDREDS.                                                    
+014750                                                                          
+015590                                                                          
+           MOVE CONVERT-NBR TO CNTW-NUM-9-OF-03-FLD.                            
+           MOVE CNTW-NUM-9-OF-03-FLD TO CONVERT-NBR.                            
+           IF CONVERT-NBR NOT < 100.00                                          
+               COMPUTE CNTW-WORK-X = CONVERT-NBR / 100                          
+               MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL           
+               PERFORM MOVE-LABEL-TO-BUFFER                                     
+               MOVE CNTW-WORD-HUNDRED TO CNTW-ALPHA-LABEL                       
+015580         PERFORM MOVE-LABEL-TO-BUFFER.                                    
+                                                                                
+015580 CONVERT-1-99-DOLLARS.                                                    
+015590                                                                          
+           MOVE CONVERT-NBR TO CNTW-NUM-9-OF-02-FLD.                            
+           MOVE CNTW-NUM-9-OF-02-FLD TO CONVERT-NBR.                            
+           IF CONVERT-NBR < 1.00                                                
+               GO TO MOVE-CNTW-WORD-AND.                                        
+                                                                                
+           IF CONVERT-NBR NOT > 20.00                                           
+               MOVE CONVERT-NBR TO CNTW-WORK-X                                  
+015580         MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL           
+               PERFORM MOVE-LABEL-TO-BUFFER                                     
+015580         GO TO MOVE-CNTW-WORD-AND.                                        
+                                                                                
+           COMPUTE CNTW-WORK-X = (CONVERT-NBR / 10) + 18.                       
+           MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL.              
+           PERFORM MOVE-LABEL-TO-BUFFER.                                        
+                                                                                
+           MOVE CONVERT-NBR TO CNTW-NUM-9-OF-01-FLD.                            
+           MOVE CNTW-NUM-9-OF-01-FLD TO CONVERT-NBR.                            
+015580     IF CONVERT-NBR > 0.99                                                
+015580         MOVE CONVERT-NBR TO CNTW-WORK-X                                  
+015580         MOVE CNTW-ALPHA-VALUE(CNTW-WORK-X) TO CNTW-ALPHA-LABEL           
+               PERFORM MOVE-LABEL-TO-BUFFER.                                    
+                                                                                
+       MOVE-CNTW-WORD-AND.                                                      
+                                                                                
+           MOVE CNTW-WORD-AND TO CNTW-ALPHA-LABEL.                              
+           PERFORM MOVE-LABEL-TO-BUFFER.                                        
+                                                                                
+       CONVERT-CENTS.                                                           
+015580                                                                          
+015580     MOVE CONVERT-NBR TO CNTW-NUM-2-DECIMAL.                              
+           MOVE CNTW-NUM-1ST-DECIMAL TO CNTW-LETTER(CNTW-WORK-Z).               
+015593     ADD 1 TO CNTW-WORK-Z.                                                
+           MOVE CNTW-NUM-2ND-DECIMAL TO CNTW-LETTER(CNTW-WORK-Z).               
+015593     ADD 1 TO CNTW-WORK-Z.                                                
+                                                                                
+       MOVE-CNTW-WORD-CURRENCY.                                                 
+                                                                                
+           MOVE CNTW-WORD-CURRENCY TO CNTW-ALPHA-LABEL.                         
+           PERFORM MOVE-LABEL-TO-BUFFER.                                        
+                                                                                
+           IF CNTW-LEADING-ASTERIK-REQ                                          
+              IF CNTW-WORK-Z < 120                                              
+                PERFORM SHIFT-TO-THE-RIGHT THRU SHIFT-TO-THE-RIGHT-EXIT.        
+                                                                                
+       END-OF-JOB.                                                              
+                                                                                
+           IF CNTW-LEADING-ASTERIK-REQ                                          
+              INSPECT CNTW-FINAL-AMOUNT REPLACING LEADING ' ' BY '*'.           
+           GO TO NBR-TO-WORDS-EXIT.                                             
+                                                                                
+       MOVE-LABEL-TO-BUFFER SECTION.                                            
+                                                                                
+           MOVE 1 TO CNTW-WORK-Y.                                               
+                                                                                
+       MOVE-1-CHAR.                                                             
+                                                                                
+           MOVE CNTW-CHAR(CNTW-WORK-Y) TO CNTW-LETTER(CNTW-WORK-Z).             
+           ADD 1 TO CNTW-WORK-Y CNTW-WORK-Z.                                    
+           SUBTRACT 1 FROM CNTW-LEN.                                            
+           IF CNTW-LEN > ZERO                                                   
+               GO TO MOVE-1-CHAR.                                               
+       MOVE-LABEL           SECTION.                                            
+           EXIT.                                                                
+       SHIFT-TO-THE-RIGHT.                                                      
+                                                                                
+           MOVE 121 TO CNTW-WORK-Y.                                             
+                                                                                
+       SHIFT-1-CHAR.                                                            
+                                                                                
+           MOVE CNTW-LETTER(CNTW-WORK-Z) TO CNTW-LETTER(CNTW-WORK-Y).           
+           MOVE SPACE TO CNTW-LETTER(CNTW-WORK-Z).                              
+           SUBTRACT 1 FROM CNTW-WORK-Y.                                         
+           SUBTRACT 1 FROM CNTW-WORK-Z.                                         
+           IF CNTW-WORK-Z > 0                                                   
+               GO TO SHIFT-1-CHAR.                                              
+                                                                                
+       SHIFT-TO-THE-RIGHT-EXIT.   EXIT.                                         
+                                                                                
+                                                                                
+       NBR-TO-WORDS-EXIT.    EXIT.                                              
+                                                                                

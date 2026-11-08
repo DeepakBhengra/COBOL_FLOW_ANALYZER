@@ -1,0 +1,483 @@
+                                                                                
+      *****************************************************************         
+      *       WORKING STORAGE PARAMETERS FOR USE BY THE               *         
+      *       SYPCTR ENGINE CONNECTOR UTILITY PROGRAM                 *         
+      *                                                               *         
+      *  PURPOSE:  DATA AREA CONTAINING THE PARAMETERS THAT CONTROL   *         
+      *            THE TARGET ENVIRONMENT THAT SYPCTR CONNECTS TO     *         
+      *            AND OTHER GENERAL PARAMETERS.                      *         
+      *                                                               *         
+      *  USAGE:    CHANGE THIS COPYBOOK AND RECOMPILE SYPCTR TO       *         
+      *            SPECIFY GENERAL CONNECTOR PARAMETERS. THIS         *         
+      *            COPYBOOK IS ONLY INTENDED FOR USE BY SYPCTR,       *         
+      *            NOT FOR USE BY OR BETWEEN APPLICATION PROGRAMS.    *         
+      *                                                               *         
+      *  SPECIAL NOTES:                                               *         
+      *                                                               *         
+      *         1) NOTE THAT SOME OF THE SOCKET PARAMETERS ARE        *         
+      *            case-sensitive, SO THOSE LINES SHOULD BE EDITED    *         
+      *            WITH CAPS OFF, AND THERE ARE SOME VALUES THAT      *         
+      *            ARE ENTERED WITH HEX ON. THE EXISTANCE OF NON-     *         
+      *            DISPLAY AND LOWER-CASE CHARACTERS RESULTS IN       *         
+      *            WARNING MESSAGES WHEN COPYBOOK IS FIRST EDITED.    *         
+      *                                                               *         
+      *         2) TO CHANGE TO A KNOWN TARGET SERVER, CHANGE THE     *         
+      *            VALUE IN WS-IN-SERVER AND RECOMPILE SYPCTR.        *         
+      *                                                               *         
+      *         3) TO ADD A NEW TARGET SERVER, ADD NEW FIELDS FOR     *         
+      *            WS-IP-ADDRESS-XXXX, WS-PORT-XXXX                   *         
+      *            AND WS-HOST-XXXX.  ALSO ADD THESE FIELDS TO THE    *         
+      *            EVALUATION IN COPYBOOK SYSCTRP & RECOMPILE SYPCTR. *         
+      *            TO CHANGE THE DEFAULT TARGET SERVER TO THE NEW     *         
+      *            ONE JUST ADDED FOLLOW SPECIAL NOTE 2 ABOVE.        *         
+      *                                                               * AXR06159
+      *         4) FIELD VALUES THAT ARE LIKELY TO BE CHANGED MORE    * AXR06159
+      *            OFTEN ARE PREFIXED WITH A --==>  EYECATCHER.       * AXR06159
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 02/18/23 WXP  GPE DEPLOYMENT FOR ENABLING US TO POINT TO      * WXP23049
+      *               GPE FROM STRAT PRICING                          * WXP23049
+      * 02/11/23 WXP  ADD ENTRIES FOR GPP SERVERS, AS WELL AS THE     * WXP23042
+      *               COMPANY CONTROL TABLE.  THIS TABLE IS USED TO   * WXP23042
+      *               DETERMINE IF A COMPANY USES GPP OR SP, AND ALSO * WXP23042
+      *               WHETHER OR NOT THE INSTANCE (COUNTRY) VALUE     * WXP23042
+      *               SHOULD BE INCLUDED IN THE CALL TO THEPRICING    * WXP23042
+      *               ENGINE.                                         * WXP23042
+      * 09/03/13 WFP  POINT U.S. PRODUCTION (PUSA) TO NEW STRATEGIC   * WFP13246
+      *               PRICING SERVERS, VIA LOAD BALANCER:             * WFP13246
+      *                  STP.PRICING.CORPORATE.INGRAMMICRO.COM        * WFP13246
+      *                  (10.21.178.34)                               * WFP13246
+      *               USING PORT 8080.                                * WFP13246
+      *               D317, WHICH IS NORMALLY USED FOR DEVELOPMENT,   * WFP13246
+      *               HAS BEEN CHANGED TO:                            * WFP13246
+      *                  USCHLAPP2001I-15.CORPORATE.INGRAMMICRO.COM   * WFP13246
+      *                  (10.22.170.38)                               * WFP13246
+      *               USING PORT 8080.                                * WFP13246
+      * 08/01/06 AXR  1. ADDED NEW 'D317' DEVELOPMENT SERVER TARGET   * AXR06213
+      *                  REMOVING OBSOLETE SERVER TARGETS OF 'ELAN',  * AXR06213
+      *                  'D309' AND 'D310'                            * AXR06213
+      *               2. UPDATED 'PUSA' PRODUCTION SERVER TARGET WITH * AXR06213
+      *                  NEW PARAMETERS VALUES FROM ERIK STROMBERG,   * AXR06213
+      *                  RETAINING OLD PRODUCTION SERVER PARAMETERS   * AXR06213
+      *                  WITH THE SERVER ID OF 'POLD'                 * AXR06213
+      *               3. POST AND HOST FIELDS TRIMMED TO ACTUAL SIZE  * AXR06213
+      *                  PLUS TWO TRAILING SPACES (FOR CR/LF)         * AXR06213
+      * 06/08/06 AXR  1. ADDED SOCKET READ/WRITE TIMEOUT PARAMETERS   * AXR06159
+      *               2. ADDED 'TEST' SERVER OPTION AND PARAMETERS    * AXR06159
+      *               3. MOVED MAX PARAMETERS FROM PROGRAM TO HERE    * AXR06159
+      *               4. INCREASED WS-READ-MAX-COUNT FROM 50 TO 75    * AXR06159
+      * 04/29/05 AXR  1. REPLACED D308 SERVER PARAMETERS WITH 307     * AXR05119
+      * 11/14/04 AXR       *** STRATEGIC PRICING - FULL SOLUTION ***  * AXR04319
+      *               1. CREATED COPYBOOK                             * AXR04319
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+      *****************************************************************         
+      *    PARAMETERS AREA.  THIS AREA CONTAINS THE GENERAL PARAMETERS          
+      *    THAT CONTROL THE SYPCTR ENGINE CONNECTOR UTILITY                     
+      *****************************************************************         
+                                                                                
+         01  SYWCTRP-CONNECTOR-PARMS.                                           
+                                                                                
+      *   (DEBUG ON  - CAPTURES TIMINGS AT KEY SOCKET FUNCTIONS                 
+      *                AND RETURNS THEM IN SYWSPP-DEBUG-TIMINGS)                
+      *   (DEBUG LOG - CAPTURES & RETURNS SOCKET TIMEINGS AND ALSO              
+      *                LOGS THEM TO A TIMING LOG TSQ)                           
+           10  WS-DEBUG-SW             PIC X(01) VALUE 'N'.                     
+               88 WS-DEBUG-OFF         VALUE 'N', SPACE.                        
+               88 WS-DEBUG-ON          VALUE 'Y', 'L'.                          
+               88 WS-DEBUG-LOG         VALUE 'L'.                               
+                                                                        AXR06159
+      *   (PARAMETER VALUES USED BY SOCKET SELECTS TO CONTROL HOW       AXR06159
+      *    LONG TO WAIT FOR A SERVICE TO RESPOND BEFORE TIMING OUT)     AXR06159
+           10 WS-TIMEOUT-PARAMETERS.                                    AXR06159
+--==>         15 WS-WRITE-TIMEOUT-SEC  PIC 9(08) BINARY VALUE 2.        AXR06159
+              15 WS-WRITE-TIMEOUT-MSEC PIC 9(08) BINARY VALUE ZERO.     AXR06159
+--==>         15 WS-READ-TIMEOUT-SEC   PIC 9(08) BINARY VALUE 10.       AXR06159
+              15 WS-READ-TIMEOUT-MSEC  PIC 9(08) BINARY VALUE ZERO.     AXR06159
+                                                                        AXR06159
+      *   (THIS IS THE MAXIMUM NUMBER OF IOCTL ATTEMPTS TO BE PERFORMED)AXR06159
+           10  WS-IOCTL-MAX-COUNT      PIC 9(08) VALUE 1.               AXR06159
+                                                                        AXR06159
+      *   (THIS IS THE MAXIMUM NUMBER OF READ ATTEMPTS TO BE PERFORMED) AXR06159
+           10  WS-READ-MAX-COUNT       PIC 9(03) VALUE 75.              AXR06159
+                                                                                
+      *   (COMMAND LINE PARAMETER: TARGET SERVER)                               
+           10  WS-IN-PARM.                                                      
+                                                                                
+                                                                                
+      *       (THIS SERVER SETTING IS USED TO EVALUATE WHICH SET OF             
+      *        PARAMETERS TO USE WHEN INVOKING A TARGET APPLICATION.            
+      *        CHANGE DEFAULT VALUE AND RECOMPILE TO CHANGE TARGET)             
+                                                                                
+--==>          15 WS-IN-SERVER         PIC X(04) VALUE 'PUSA'.          WXP23042
+                                                                                
+      *          (QUIK MODE DOES NOT CONNECT TO ANY SERVER)                     
+                  88  WS-IN-QUIK       VALUE 'QUIK'.                            
+      *          (PRICING ENGINE ON PRODUCTION US SERVER)                       
+                  88  WS-IN-PUSA       VALUE 'PUSA'.                            
+      *          (PRICING ENGINE ON PRODUCTION GPP SERVER)              WXP23042
+                  88  WS-IN-PGPP       VALUE 'PGPP'.                    WXP23042
+      *          (PRICING ENGINE ON DEVELOPMENT GPP SERVER)             WXP23042
+                  88  WS-IN-DGPP       VALUE 'DGPP'.                    WXP23042
+      *          (PRICING ENGINE ON UAT GPP SERVER)                     WXP23042
+                  88  WS-IN-TGPP       VALUE 'TGPP'.                    WXP23042
+      *          (PRICING ENGINE ON OLD PRODUCTION US SERVER)           AXR06213
+                  88  WS-IN-POLD       VALUE 'POLD'.                    AXR06213
+      *          (PRICING ENGINE ON DEVELOPMENT 307 SERVER)             AXR05119
+                  88  WS-IN-D307       VALUE 'D307'.                    AXR05119
+      *          (PRICING ENGINE ON DEVELOPMENT 317 SERVER)             AXR06213
+                  88  WS-IN-D317       VALUE 'D317'.                    AXR06213
+      *          (TEST SERVLET ON DEVELOPMENT 317 SERVER)               AXR06213
+                  88  WS-IN-TEST       VALUE 'TEST'.                    AXR06159
+               15 FILLER               PIC X(01) VALUE SPACE.                   
+                                                                                
+           10  WS-COMPANY-CONTROL-INIT.                                 WXP23042
+               15 WS-MD-CCT-INIT.                                       WXP23042
+                  20 WS-MD-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'MD'.                   WXP23042
+                  20 WS-MD-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'US'.                   WXP23042
+                  20 WS-MD-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23049
+                  20 WS-MD-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23049
+               15 WS-FT-CCT-INIT.                                       WXP23042
+                  20 WS-FT-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'FT'.                   WXP23042
+                  20 WS-FT-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'CA'.                   WXP23042
+                  20 WS-FT-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-FT-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-AT-CCT-INIT.                                       WXP23042
+                  20 WS-AT-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'AT'.                   WXP23042
+                  20 WS-AT-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'AT'.                   WXP23042
+                  20 WS-AT-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-AT-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-CH-CCT-INIT.                                       WXP23042
+                  20 WS-CH-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'CH'.                   WXP23042
+                  20 WS-CH-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'CH'.                   WXP23042
+                  20 WS-CH-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-CH-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-DE-CCT-INIT.                                       WXP23042
+                  20 WS-DE-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'DE'.                   WXP23042
+                  20 WS-DE-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'DE'.                   WXP23042
+                  20 WS-DE-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-DE-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-MX-CCT-INIT.                                       WXP23042
+                  20 WS-MX-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'MX'.                   WXP23042
+                  20 WS-MX-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'MX'.                   WXP23042
+                  20 WS-MX-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-MX-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-HU-CCT-INIT.                                       WXP23042
+                  20 WS-HU-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'HU'.                   WXP23042
+                  20 WS-HU-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'HU'.                   WXP23042
+                  20 WS-HU-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-HU-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-IA-CCT-INIT.                                       WXP23042
+                  20 WS-IA-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'IA'.                   WXP23042
+                  20 WS-IA-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'IA'.                   WXP23042
+                  20 WS-IA-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-IA-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-HK-CCT-INIT.                                       WXP23042
+                  20 WS-HK-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'HK'.                   WXP23042
+                  20 WS-HK-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'HK'.                   WXP23042
+                  20 WS-HK-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-HK-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-UK-CCT-INIT.                                       WXP23042
+                  20 WS-UK-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'UK'.                   WXP23042
+                  20 WS-UK-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'UK'.                   WXP23042
+                  20 WS-UK-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-UK-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-TH-CCT-INIT.                                       WXP23042
+                  20 WS-TH-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'TH'.                   WXP23042
+                  20 WS-TH-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'TH'.                   WXP23042
+                  20 WS-TH-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-TH-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-FR-CCT-INIT.                                       WXP23042
+                  20 WS-FR-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'FR'.                   WXP23042
+                  20 WS-FR-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'FR'.                   WXP23042
+                  20 WS-FR-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-FR-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-IT-CCT-INIT.                                       WXP23042
+                  20 WS-IT-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'IT'.                   WXP23042
+                  20 WS-IT-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'IT'.                   WXP23042
+                  20 WS-IT-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-IT-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-ES-CCT-INIT.                                       WXP23042
+                  20 WS-ES-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'ES'.                   WXP23042
+                  20 WS-ES-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'ES'.                   WXP23042
+                  20 WS-ES-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-ES-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-PT-CCT-INIT.                                       WXP23042
+                  20 WS-PT-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'PT'.                   WXP23042
+                  20 WS-PT-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'PT'.                   WXP23042
+                  20 WS-PT-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-PT-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-DK-CCT-INIT.                                       WXP23042
+                  20 WS-DK-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'DK'.                   WXP23042
+                  20 WS-DK-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'DK'.                   WXP23042
+                  20 WS-DK-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-DK-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-FI-CCT-INIT.                                       WXP23042
+                  20 WS-FI-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'FI'.                   WXP23042
+                  20 WS-FI-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'FI'.                   WXP23042
+                  20 WS-FI-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-FI-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-SE-CCT-INIT.                                       WXP23042
+                  20 WS-SE-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'SE'.                   WXP23042
+                  20 WS-SE-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'SE'.                   WXP23042
+                  20 WS-SE-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-SE-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-BR-CCT-INIT.                                       WXP23042
+                  20 WS-BR-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'BR'.                   WXP23042
+                  20 WS-BR-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'BR'.                   WXP23042
+                  20 WS-BR-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-BR-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+               15 WS-CN-CCT-INIT.                                       WXP23042
+                  20 WS-CN-CO-CD          PIC X(02)                     WXP23042
+                                          VALUE 'CN'.                   WXP23042
+                  20 WS-CN-CTRY-CD        PIC X(02)                     WXP23042
+                                          VALUE 'CN'.                   WXP23042
+                  20 WS-CN-GPP-COMPANY    PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+                  20 WS-CN-USE-INST       PIC X(01)                     WXP23042
+                                          VALUE 'Y'.                    WXP23042
+           10  WS-COMPANY-CONTROL-TBL REDEFINES WS-COMPANY-CONTROL-INIT WXP23042
+                                      OCCURS 20 TIMES                   WXP23042
+                                      INDEXED BY WS-CCT-IDX.            WXP23042
+               15 WS-CCT-XREF-CO          PIC X(02).                    WXP23042
+               15 WS-CCT-XREF-INST        PIC X(02).                    WXP23042
+               15 WS-CCT-GPP-CO-SW        PIC X(01).                    WXP23042
+                  88 WS-CCT-GPP-CO        VALUE 'Y'.                    WXP23042
+               15 WS-CCT-USE-INST-SW      PIC X(01).                    WXP23042
+                  88 WS-CCT-USE-INST      VALUE 'Y'.                    WXP23042
+                                                                        WXP23042
+           10  WS-REQUEST-CO-CD           PIC X(02)  VALUE SPACES.      WXP23042
+                                                                        WXP23042
+                                                                                
+      *   (EACH IP ADDRESS COMPONENT CONTAINS A HEX VALUE FOR THAT              
+      *    PORTION OF THE ADDRESS. FOR EXAMPLE, A PING OF THE SERVER            
+      *    IMDAAPP310 RETURNS 10.20.9.9 SO THE FOUR FILLER COMPONENTS           
+      *    CONTAIN X'0A' (FOR DECIMAL 10), X'14' (DECIMAL 20),                  
+      *    X'09' (FOR DECIMAL 09) AND X'09' (DECIMAL 09).                       
+                                                                                
+      *   (corresponds to MFPricing.jsp servlet @ 10.21.178.43 for      WXP23049
+      *    mfpricing.gpp.corporate.ingrammicro.com)                     WXP23049
+           10  WS-IP-ADDRESS-PUSA.                                      WXP23049
+10.            15  FILLER              PIC X(01)       VALUE 'é'.       WXP23049
+21.            15  FILLER              PIC X(01)       VALUE '
+'.       WXP23049
+178.           15  FILLER              PIC X(01)       VALUE '•'.       WXP23049
+43.            15  FILLER              PIC X(01)       VALUE 'ã'.       WXP23049
+                                                                        WXP23049
+      *   (corresponds to MFPricing.jsp servlet @ 10.21.178.43 for      WXP23042
+      *    mfpricing.gpp.corporate.ingrammicro.com)                     WXP23042
+           10  WS-IP-ADDRESS-PGPP.                                      WXP23042
+10.            15  FILLER              PIC X(01)       VALUE 'é'.       WXP23042
+21.            15  FILLER              PIC X(01)       VALUE '
+'.       WXP23042
+178.           15  FILLER              PIC X(01)       VALUE '•'.       WXP23042
+43.            15  FILLER              PIC X(01)       VALUE 'ã'.       WXP23042
+                                                                        WXP23042
+      *   (corresponds to MFPricing.jsp servlet @ 10.21.176.37 for      WXP23042
+      *    server usdalgpp4002.corporate.ingrammicro.com)               WXP23042
+           10  WS-IP-ADDRESS-TGPP.                                      WXP23042
+10.            15  FILLER              PIC X(01)       VALUE 'é'.       WXP23042
+21.            15  FILLER              PIC X(01)       VALUE '
+'.       WXP23042
+176.           15  FILLER              PIC X(01)       VALUE '¨'.       WXP23042
+37.            15  FILLER              PIC X(01)       VALUE 'Ö'.       WXP23042
+                                                                        WXP23042
+                                                                        WFP13246
+      *   (corresponds to MFPricing.jsp servlet @ 10.21.176.36 for      WXP23042
+      *    server usdalgpp4001.corporate.ingrammicro.com)               WXP23042
+           10  WS-IP-ADDRESS-DGPP.                                      WXP23042
+10.            15  FILLER              PIC X(01)       VALUE 'é'.       WXP23042
+21.            15  FILLER              PIC X(01)       VALUE '
+'.       WXP23042
+176.           15  FILLER              PIC X(01)       VALUE '¨'.       WXP23042
+36.            15  FILLER              PIC X(01)       VALUE 'Ñ'.       WXP23042
+                                                                        WXP23042
+                                                                        WFP13246
+      *   (corresponds to MFPricing.jsp servlet @ 10.20.104.59 for      AXR06213
+      *    nautilus-prod.us.ingrammicro.com, an older P.E. server)      AXR06213
+           10  WS-IP-ADDRESS-POLD.                                      AXR06213
+10.            15  FILLER              PIC X(01)       VALUE 'é'.       AXR06213
+20.            15  FILLER              PIC X(01)       VALUE 'ù'.       AXR06213
+104.           15  FILLER              PIC X(01)       VALUE '«'.       AXR06213
+59.            15  FILLER              PIC X(01)       VALUE 'õ'.       AXR06213
+                                                                        AXR05119
+      *   (CORRESPONDS TO MFPricing.jsp SERVLET @ 10.20.8.55 FOR        AXR05119
+      *    HTTP://IMDAAPP307:9102/PriceEngineWeb/MFPricing )            AXR05119
+           10  WS-IP-ADDRESS-D307.                                      AXR05119
+10.            15  FILLER              PIC X(01)       VALUE 'é'.       AXR05119
+20.            15  FILLER              PIC X(01)       VALUE 'ù'.       AXR05119
+8.             15  FILLER              PIC X(01)       VALUE 'ó'.       AXR05119
+55.            15  FILLER              PIC X(01)       VALUE ''.       AXR05119
+                                                                        AXR06213
+      *   (corresponds to MFPricing.jsp servlet @ 10.22.170.38 for      WFP13246
+      *    HTTP://IMDAAPP317:9089/PriceEngineWeb/MFPricing )            AXR06213
+           10  WS-IP-ADDRESS-D317.                                      AXR06213
+10.            15  FILLER              PIC X(01)       VALUE 'é'.       WFP13246
+21.            15  FILLER              PIC X(01)       VALUE '
+'.       WXP23042
+176.           15  FILLER              PIC X(01)       VALUE '¨'.       WXP23042
+37.            15  FILLER              PIC X(01)       VALUE 'Ö'.       WXP23042
+                                                                                
+      *   (THE SOCKETS FOR EACH TARGET SERVER)                                  
+           10  WS-PORT-PUSA            PIC 9(4)  BINARY VALUE 8080.     WFP13246
+           10  WS-PORT-PGPP            PIC 9(4)  BINARY VALUE 8080.     WXP23042
+           10  WS-PORT-TGPP            PIC 9(4)  BINARY VALUE 8380.     WXP23042
+           10  WS-PORT-DGPP            PIC 9(4)  BINARY VALUE 8080.     WXP23042
+           10  WS-PORT-POLD            PIC 9(4)  BINARY VALUE 80.       AXR06213
+           10  WS-PORT-D307            PIC 9(4)  BINARY VALUE 9102.     AXR05119
+           10  WS-PORT-D317            PIC 9(4)  BINARY VALUE 8380.     WXP23042
+                                                                                
+                                                                                
+      *   (The post comand must be in mixed case to match the path!)            
+                                                                                
+      *   Each post command has two trailing spaces which are replaced  AXR06213
+      *   by a CR/LF in SYPCTR paragraph 1570).                         AXR06213
+                                                                        AXR06213
+      *                  1         2         3         4         5      AXR06213
+      *         12345678901234567890123456789012345678901234567890123456AXR06213
+                                                                        AXR06213
+      *       (single sku post request command)                                 
+           10  WS-REQUEST-01-SNGL      PIC X(41)  VALUE                 AXR06213
+               'POST /PriceEngineWeb/MFPricing HTTP/1.0  '.             AXR06213
+      *       (multi-sku post request command)                                  
+           10  WS-REQUEST-01-MULT      PIC X(51)  VALUE                 AXR06213
+               'POST /PriceEngineWeb/MFPricing?req=multi HTTP/1.0  '.   AXR06213
+      *       (end order post request command)                                  
+           10  WS-REQUEST-01-EO        PIC X(54)  VALUE                 AXR06213
+               'POST /PriceEngineWeb/MFPricing?req=endorder HTTP/1.0  '.AXR06213
+           10  WS-REQUEST-01-TEST      PIC X(38)  VALUE                 AXR06213
+               'POST /PriceEngineWeb/MFtest HTTP/1.0  '.                AXR06213
+      *                                                                 WXP23042
+      *       (single sku post request command - instance format)       WXP23042
+           10  WS-REQUEST-01-SNGL-INST.                                 WXP23042
+               15 WS-REQUEST-01-SNGL-INST-METH  PIC X(06) VALUE         WXP23042
+               'POST /'.                                                WXP23042
+               15 WS-REQUEST-01-SNGL-INST-CD    PIC X(02) VALUE SPACES. WXP23042
+               15 FILLER                        PIC X(36) VALUE         WXP23042
+               '/PriceEngineWeb/MFPricing HTTP/1.0  '.                  WXP23042
+      *       (multi-sku post request command - instance format'        WXP23042
+           10  WS-REQUEST-01-MULT-INST.                                 WXP23042
+               15 WS-REQUEST-01-MULT-INST-METH PIC X(06) VALUE          WXP23042
+                  'POST /'.                                             WXP23042
+               15 WS-REQUEST-01-MULT-INST-CD  PIC X(02)                 WXP23042
+                  VALUE SPACES.                                         WXP23042
+               15 FILLER                           PIC X(46) VALUE      WXP23042
+               '/PriceEngineWeb/MFPricing?req=multi HTTP/1.0  '.        WXP23042
+      *       (end order post request command - instance format'        WXP23042
+           10  WS-REQUEST-01-EO-INST.                                   WXP23042
+               15 WS-REQUEST-01-EO-INST-METH  PIC X(06) VALUE           WXP23042
+               'POST /'.                                                WXP23042
+               15 WS-REQUEST-01-EO-INST-CD    PIC X(02) VALUE SPACES.   WXP23042
+               15 FILLER                      PIC X(49) VALUE           WXP23042
+               '/PriceEngineWeb/MFPricing?req=endorder HTTP/1.0  '.     WXP23042
+           10  WS-REQUEST-01-TEST-INST.                                 WXP23042
+               15 WS-REQUEST-01-TEST-INST-METH  PIC X(06) VALUE         WXP23042
+               'POST /'.                                                WXP23042
+               15 WS-REQUEST-01-TEST-INST-CD    PIC X(02) VALUE SPACES. WXP23042
+               15 FILLER                      PIC X(33) VALUE           WXP23042
+               '/PriceEngineWeb/MFtest HTTP/1.0  '.                     WXP23042
+                                                                        WXP23042
+                                                                        WXP23042
+                                                                                
+                                                                                
+      *   (THE HOST COMMAND COMBINES THE ABOVE IP ADDRESS AND PORT)             
+                                                                        AXR06213
+      *   Each host command has two trailing spaces which are replaced  AXR06213
+      *   by a CR/LF in SYPCTR paragraph 1570).                         AXR06213
+                                                                        AXR06213
+      *                  1         2         3         4         5      AXR06213
+      *         12345678901234567890123456789012345678901234567890123456AXR06213
+                                                                        AXR06213
+           10  WS-HOST-PUSA            PIC X(24)  VALUE                 WXP23049
+               'HOST: 10.21.178.43:8080 '.                              WXP23049
+           10  WS-HOST-PGPP            PIC X(24)  VALUE                 WXP23042
+               'HOST: 10.21.178.43:8080 '.                              WXP23042
+           10  WS-HOST-TGPP            PIC X(24)  VALUE                 WXP23042
+               'HOST: 10.21.176.37:8380'.                               WXP23042
+           10  WS-HOST-DGPP            PIC X(24)  VALUE                 WXP23042
+               'HOST: 10.21.176.36:8080'.                               WXP23042
+           10  WS-HOST-POLD            PIC X(44)  VALUE                 AXR06213
+               'HOST: 10.20.104.59:80'.                                 AXR06213
+           10  WS-HOST-D307            PIC X(23)  VALUE                 AXR06213
+               'HOST: 10.20.8.55:9102  '.                               AXR06213
+           10  WS-HOST-D317            PIC X(24)  VALUE                 AXR06213
+               'HOST: 10.21.176.37:8380 '.                              WXP23042
+                                                                                

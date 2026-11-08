@@ -1,0 +1,233 @@
+      *================================================================*        
+      *  THE FOLLOWING COPYBOOKS ARE USED BY THIS ROUTINE AND MUST BE  *        
+      *  COPIED INTO WORKING STORAGE.                                  *        
+      *  1.  SAWLENT                                                   *        
+      *  2.  SYWEIB                                                    *        
+      *  3.  PXRMST                                                    *        
+      *  3.  PXKMST                                                    *        
+      *                                                                *        
+      *----------------------------------------------------------------*        
+      *--  DATA FIELD USAGE:  RE(Q)UIRED/(I)NTERNAL/RE(T)URNED         *        
+      *--                     (O)PTIONAL, DEPENDING ON INVOKING LOGIC  *        
+      *----------------------------------------------------------------*        
+      *--   SAWLENT-BR-NBR                                          (Q)*        
+      *--     - SET TO COMPANY BRANCH CODE USED IN                     *        
+      *--       DETERMINATION OF SELECT SOURCE ORDER                   *        
+      *--   SAWLENT-COMPANY                                         (Q)*        
+      *--     - SET TO TWO POSITION COMPANY CODE('MD', FOR EXAMPLE)    *        
+      *--   SAWLENT-ERROR-MESSAGE                                   (R)*        
+      *--     - WILL RETURN DESCRIPTION OF PROCESSING ERROR            *        
+      *--   SAWLENT-ERROR-SW                                        (R)*        
+      *--     - INDICATES EDIT ERROR FOR LENT PROCESS                  *        
+      *--   SAWLENT-FIRST-TIME-SW                                 (Q/R)*        
+      *--       INDICATES PROCESSING THE FIRST PART ON AN ORDER        *        
+      *--       TO DETERMINE IF THE WHOLE ORDER IS LENT OR NON-LENT    *        
+      *--   SAWLENT-ORC-LINE-TYPE-SW                                (Q)*        
+      *--     - USED IN DETERMINING LINE TYPE                          *        
+      *--   SAWLENT-NEXUS-STATUS-SW                               (Q/R)*        
+      *--     - USED TO INDICATE IF THE ORDER IS LENT OR NON-LENT      *        
+      *--   SAWLENT-ORD-FULFILLMENT-SW                              (Q)*        
+      *--       INDICATES FULFILLMENT ORDER                            *        
+      *--   SAWLENT-ORDER-IN-PROGRESS-SW                            (Q)*        
+      *--       WHEN CURRENT ORDER HAS ONE OR MORE LINE ENTRIES        *        
+      *--   SAWLENT-RESELLER-BR-SW                                  (Q)*        
+      *--     - USED IN DETERMINATION OF SELECT SOURCE ORDER(NON U.S.) *        
+      *--   SAWLENT-PXLMAST-READ-TYPE-FLAG                          (Q)*        
+      *--     - INDICATE READ PXLMST BY PRIMARY OR ALT KEY OR DONT READ*        
+      *--   SAWLENT-ERROR-DESC                                      (I)*        
+      *--     - TABLE OF ERROR MSGS, MOVED TO SAWLENT-ERROR-MESSAGE    *        
+      *--------------------------------------------------------------- *        
+      * REVISION INFO:                                                 *        
+      * -------- ---- ------------------------------------------------ *        
+      * 09/05/00 DRK  INITIAL IMPLEMENTATION                           *DRK00249
+      *================================================================*        
+                                                                                
+      ******************************************************************        
+      * COPYBOOK SASLENT -                                                      
+      *  LENT ORDER EDIT ROUTINE - DETERMINE IF ORDER IS                        
+      *  ELEGIBLE FOR LENT ORDER PROCESSING.  REQUIRES                          
+      *  WORKING-STORAGE COPYBOOK SAWLENT.                                      
+      ******************************************************************        
+                                                                                
+       MSL-0000-MAIN-PROCESS.                                                   
+                                                                                
+           EVALUATE TRUE                                                        
+             WHEN SAWLENT-PXLMAST-READ                                          
+               PERFORM MSL-0200-READ-PXMAST      THRU MSL-0200-EXIT             
+             WHEN SAWLENT-PXLMAST-ALT-READ                                      
+               PERFORM MSL-0205-READ-PXMAST-ALT  THRU MSL-0205-EXIT             
+             WHEN SAWLENT-PXLMAST-NO-READ                                       
+               CONTINUE                                                         
+             WHEN OTHER                                                         
+               MOVE 'Y' TO SAWLENT-ERROR-SW                                     
+               MOVE SAWLENT-ERROR-DESC (01)                                     
+                    TO SAWLENT-ERROR-MESSAGE                                    
+               GO TO MSL-0000-EXIT                                              
+           END-EVALUATE.                                                        
+                                                                                
+           IF  SAWLENT-ORDER-IN-PROGRESS                                        
+           AND SAWLENT-FIRST-TIME                                               
+               MOVE SPACES TO SAWLENT-NEXUS-STATUS-SW.                          
+                                                                                
+           IF SAWLENT-FIRST-TIME                                                
+              MOVE SPACES TO SAWLENT-ERROR-SW                                   
+              PERFORM MSL-0100-LENT-EDIT-ROUTINE THRU MSL-0100-EXIT             
+              GO TO MSL-0000-EXIT                                               
+           ELSE                                                                 
+              IF NOT SAWLENT-FIRST-TIME                                         
+                 PERFORM MSL-0100-CONTINUE       THRU MSL-0100-EXIT             
+                 GO TO MSL-0000-EXIT                                            
+              ELSE                                                              
+                 MOVE 'Y' TO SAWLENT-ERROR-SW                                   
+                 MOVE SAWLENT-ERROR-DESC (02)                                   
+                          TO SAWLENT-ERROR-MESSAGE                              
+                 GO TO MSL-0100-EXIT.                                           
+                                                                                
+           GO TO MSL-0000-EXIT.                                                 
+                                                                                
+       MSL-0000-EXIT.                                                           
+           EXIT.                                                                
+                                                                                
+       MSL-0100-LENT-EDIT-ROUTINE.                                              
+                                                                                
+           IF SAWLENT-FIRST-TIME                                                
+              MOVE 'N' TO SAWLENT-FIRST-TIME-SW                                 
+              IF SAWLENT-ORC-LINE-TYPE-SW = 'P' OR 'S'                          
+                 IF  WS-PX-NORESP                                               
+                 AND PX-LENT-ACTIVE                                             
+                     MOVE 'L' TO SAWLENT-NEXUS-STATUS-SW                        
+                     GO TO MSL-0100-EXIT                                        
+                 ELSE                                                           
+                     IF (WS-PX-NOTFND)                                          
+                     OR (WS-PX-NORESP AND NOT PX-LENT-ACTIVE)                   
+                        MOVE 'N' TO SAWLENT-NEXUS-STATUS-SW                     
+                        GO TO MSL-0100-EXIT                                     
+                     ELSE                                                       
+                        MOVE 'Y' TO SAWLENT-ERROR-SW                            
+                        MOVE SAWLENT-ERROR-DESC (03)                            
+                                 TO SAWLENT-ERROR-MESSAGE                       
+                        GO TO MSL-0100-EXIT                                     
+              ELSE                                                              
+                 IF SAWLENT-ORC-LINE-TYPE-SW = 'Z' OR 'W'                       
+                    IF  WS-PX-NORESP                                            
+                    AND PX-LENT                                                 
+                         MOVE 'L' TO SAWLENT-NEXUS-STATUS-SW                    
+                         GO TO MSL-0100-EXIT                                    
+                    ELSE                                                        
+                       IF (WS-PX-NOTFND)                                        
+                       OR (WS-PX-NORESP AND NOT PX-LENT)                        
+                           MOVE 'N' TO SAWLENT-NEXUS-STATUS-SW                  
+                           GO TO MSL-0100-EXIT                                  
+                       ELSE                                                     
+                           MOVE 'Y' TO SAWLENT-ERROR-SW                         
+                           MOVE SAWLENT-ERROR-DESC (04)                         
+                                    TO SAWLENT-ERROR-MESSAGE                    
+                           GO TO MSL-0100-EXIT                                  
+                 ELSE                                                           
+      *             BYPASS EDIT ROUTINE FOR OTHER TYPES OF ORDERS               
+                    MOVE 'Y' TO SAWLENT-ERROR-SW                                
+                    MOVE SAWLENT-ERROR-DESC (05)                                
+                             TO SAWLENT-ERROR-MESSAGE                           
+                    GO TO MSL-0100-EXIT                                         
+           ELSE                                                                 
+              MOVE 'Y' TO SAWLENT-ERROR-SW                                      
+              MOVE SAWLENT-ERROR-DESC (06)                                      
+                       TO SAWLENT-ERROR-MESSAGE                                 
+              GO TO MSL-0100-EXIT.                                              
+                                                                                
+                                                                                
+       MSL-0100-CONTINUE.                                                       
+      *                                                                         
+      *    NOT FIRST TIME PROCESSING                                            
+      *                                                                         
+           IF SAWLENT-ORC-LINE-TYPE-SW = 'P' OR 'S'                             
+              IF (WS-PX-NOTFND)                                                 
+              OR (WS-PX-NORESP AND NOT PX-LENT-ACTIVE)                          
+                 IF SAWLENT-NEXUS-STATUS-SW = 'L'                               
+                    MOVE 'Y' TO SAWLENT-ERROR-SW                                
+                    MOVE SAWLENT-ERROR-DESC (07)                                
+                             TO SAWLENT-ERROR-MESSAGE                           
+                    GO TO MSL-0100-EXIT                                         
+                 ELSE                                                           
+                    IF SAWLENT-NEXUS-STATUS-SW = 'N'                            
+                       GO TO MSL-0100-EXIT                                      
+                    ELSE                                                        
+                       MOVE 'Y' TO SAWLENT-ERROR-SW                             
+                       MOVE SAWLENT-ERROR-DESC (08)                             
+                                TO SAWLENT-ERROR-MESSAGE                        
+                       GO TO MSL-0100-EXIT                                      
+              ELSE                                                              
+                 IF  WS-PX-NORESP                                               
+                 AND PX-LENT-ACTIVE                                             
+                    IF SAWLENT-NEXUS-STATUS-SW = 'N'                            
+                       MOVE 'Y' TO SAWLENT-ERROR-SW                             
+                       MOVE SAWLENT-ERROR-DESC (09)                             
+                                TO SAWLENT-ERROR-MESSAGE                        
+                       GO TO MSL-0100-EXIT                                      
+                    ELSE                                                        
+                       IF SAWLENT-NEXUS-STATUS-SW = 'L'                         
+                          GO TO MSL-0100-EXIT                                   
+                       ELSE                                                     
+                          MOVE 'Y' TO SAWLENT-ERROR-SW                          
+                          MOVE SAWLENT-ERROR-DESC (10)                          
+                                   TO SAWLENT-ERROR-MESSAGE                     
+                          GO TO MSL-0100-EXIT                                   
+                 ELSE                                                           
+                    MOVE 'Y' TO SAWLENT-ERROR-SW                                
+                    MOVE SAWLENT-ERROR-DESC (11)                                
+                             TO SAWLENT-ERROR-MESSAGE                           
+                    GO TO MSL-0100-EXIT                                         
+           ELSE                                                                 
+              IF SAWLENT-ORC-LINE-TYPE-SW = 'Z' OR 'W'                          
+                 IF WS-PX-NOTFND                                                
+                 OR (WS-PX-NORESP AND NOT PX-LENT)                              
+                    IF SAWLENT-NEXUS-STATUS-SW = 'L'                            
+                       MOVE 'Y' TO SAWLENT-ERROR-SW                             
+                       MOVE SAWLENT-ERROR-DESC (12)                             
+                                TO SAWLENT-ERROR-MESSAGE                        
+                       GO TO MSL-0100-EXIT                                      
+                    ELSE                                                        
+                       IF SAWLENT-NEXUS-STATUS-SW = 'N'                         
+                          GO TO MSL-0100-EXIT                                   
+                       ELSE                                                     
+                          MOVE 'Y' TO SAWLENT-ERROR-SW                          
+                          MOVE SAWLENT-ERROR-DESC (13)                          
+                                   TO SAWLENT-ERROR-MESSAGE                     
+                          GO TO MSL-0100-EXIT                                   
+                 ELSE                                                           
+                    IF  WS-PX-NORESP                                            
+                    AND PX-LENT                                                 
+                       IF SAWLENT-NEXUS-STATUS-SW = 'N'                         
+                          MOVE 'Y' TO SAWLENT-ERROR-SW                          
+                          MOVE SAWLENT-ERROR-DESC (14)                          
+                                   TO SAWLENT-ERROR-MESSAGE                     
+                          GO TO MSL-0100-EXIT                                   
+                       ELSE                                                     
+                          IF SAWLENT-NEXUS-STATUS-SW = 'L'                      
+                             GO TO MSL-0100-EXIT                                
+                          ELSE                                                  
+                             MOVE 'Y' TO SAWLENT-ERROR-SW                       
+                             MOVE SAWLENT-ERROR-DESC (15)                       
+                                      TO SAWLENT-ERROR-MESSAGE                  
+                             GO TO MSL-0100-EXIT                                
+                    ELSE                                                        
+                       MOVE 'Y' TO SAWLENT-ERROR-SW                             
+                       MOVE SAWLENT-ERROR-DESC (16)                             
+                                TO SAWLENT-ERROR-MESSAGE.                       
+                                                                                
+       MSL-0100-EXIT.                                                           
+           EXIT.                                                                
+                                                                                
+       MSL-0200-READ-PXMAST.                                                    
+                                                                                
+           PERFORM 760-READ-PXMAST THRU 760-EXIT.                               
+                                                                                
+       MSL-0200-EXIT.                                                           
+           EXIT.                                                                
+                                                                                
+       MSL-0205-READ-PXMAST-ALT.                                                
+                                                                                
+           PERFORM 765-READ-PXMAST-ALT THRU 765-EXIT.                           
+                                                                                
+       MSL-0205-EXIT.                                                           
+           EXIT.                                                                

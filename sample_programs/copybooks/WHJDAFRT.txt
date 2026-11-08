@@ -1,0 +1,2353 @@
+      *****************************************************************         
+      * COPYBOOK:  WHJDAFRT  -  "ONLINE" JDA LINK                               
+      *                                                                         
+      * INPUTS:                                                                 
+      *    INTERFACE FROM CSW - INTERACTIVE CALL                                
+      *                                                                         
+      * OUTPUTS:                                                                
+      *    RATED INTERFACE FOR CSW                                              
+      *****************************************************************         
+      * MODIFICATIONS:                                                          
+      * 09/20/24 WXY CHG16018052-CRN5265 HANDLE FOC 'F' FOR SOR ORDERS* WXY24254
+      * 05/04/24 WXY CHG13390580-PROJECT TMS CLOUD ROUTING GUIDE      * WXY24095
+      * 10/07/23 WXY CHG12069504-PROJECT TMS CLOUD PHASE 2.           * WXY23220
+      * 05/28/23 KGM INC4821109 - Fix missing Invoice amt             * KYM23138
+      * 06/18/22 KGM INC4629803 - FIX CARTOn COUNT ISSUE              * KYM22119
+      * 05/06/22 WXY CHG6507269-CRN4490 INTERNATIONAL                 * WXY22005
+      * 10/05/20 TND CRN4156 - HANDLE ADDITIONAL JDA ERRORS           * TND20279
+      * 07/10/20 MZM REMOVE SYSID FROM LINK AND CICS HANDLE IT        * MZM20192
+      * 06/05/20 TND CHANGE TO AVOID BILLING RETRIGGER FOR LTL ORDERS * TND20157
+      *              IN US.                                           * TND20157
+      * 05/05/20 TND CHANGE TO FIX FREIGHT FOWARDER ORDER             * TND20216
+      *              BYPASS VOIDED CARTON                             * TND20216
+      *              LOG WHEN THERE IS HARD ABEND                     * TND20216
+      * 03/03/20 tnd CHANGE TO NOT SEND jda THE TMS-CONDITION         * TND20079
+      * 03/03/20 WXY PROJECT JDA - RFC488816 CRN3844 WCPV             * WXY20062
+      *              BASERATE N CHANGE                                * WXY20062
+      * 01/31/20 DBN PROJECT JDA - CHANGE TO HANDLE APO               * DBN20031
+      * 01/10/20 DBN PROJECT JDA - CHANGES DONE TO INCLUDE DAS        * DBN20010
+      *              CARRIER CHARGE                                   * DBN20010
+      * 10/12/19 KYR PROJECT JDA - IN CASE OF TIBCO CONNECTION FAILURE* KYR19285
+      *              AT THE TIME OF BILLING FOR ORDERS < 120 CARTONS, * KYR19285
+      *              WRITE THE DATA TO DB2 TABLES FOR TIBCO TO        * KYR19285
+      *              REPROCESS.                                       * KYR19285
+      * 10/02/19 MAK FIX TO INITIALIZE THE INPUT COMM AREA BEFORE     * MAK19275
+      *              SENDING THE DATA TO TIBCO                        * MAK19275
+      * 06/01/19 MAK PROJECT JDA - PHASE II CHANGES TO CALL JDA       * MAK19152
+      *              WITH ORDERS > 120 CARTONS                        * MAK19152
+      *              FIX TO RETAIN ORSH-ACT-TOTAL-WEIGHT              * MAK19152
+      *              DURING LAST CARTON BILLING FOR LTL JDA ORDERS    * MAK19152
+      * 04/17/19 MAK PROJECT JDA - FIX TO RETAIN ORSH-ACT-TOTAL-WEIGHT* MAK19106
+      *              DURING LAST CARTON BILLING FOR JDA ORDERS.       * MAK19106
+      * 01/25/19 MAK PROJECT JDA - FIX TO AVOID SENDING THE CHARGE    * MAK19025
+      *              CODES ON LTL ORDERS FOR CANADA.                  * MAK19025
+      * 01/12/19 MAK PROJECT JDA - TO POPULATE THE CHARGE CODES FOR   * MAK19012
+      *              SHIPMENT CREATE ON SML ORDERS AND CONNECT TIBCO  * MAK19012
+      *              TEST/PROD BASED ON IMPULSE REGION.               * MAK19012
+      * 11/14/18 MAK JDA POST FIX TO SENDING THE SHIP TO COUNTRY CODE * MAK18318
+      *              TO TMS WHEN ORLMTF IS NOT UPDADTED DURING RELEASE* MAK18318
+      * 10/19/18 MAK NEW                                                MAK18292
+      *****************************************************************         
+       J6000-CALL-JDA.                                                          
+      *****************************************************************         
+      * SET UP JDA CALL -                                                       
+      *****************************************************************         
+                                                                                
+      *                                                                         
+            EXEC CICS                                                   MAK19012
+                 ASSIGN APPLID(WS-APPLID)                               MAK19012
+            END-EXEC.                                                   MAK19012
+                                                                                
+           IF (WS-APPLID = 'TDC1CICS' OR WS-APPLID = 'CSWTCICS' OR      MAK19012
+               WS-APPLID = 'IMW1CICS' OR WS-APPLID = 'ETS2CICS')        MAK19012
+               MOVE 'EAIT' TO WS-SYS-ID                                 MAK19012
+           END-IF.                                                      MAK19012
+                                                                        MAK19012
+           IF (WS-APPLID = 'IMU1CICS' OR WS-APPLID = 'IMU2CICS' OR      MAK19012
+               WS-APPLID = 'IMU3CICS' OR WS-APPLID = 'IMU4CICS' OR      MAK19012
+               WS-APPLID = 'IMU5CICS' OR WS-APPLID = 'CICSMDCA')        MAK19012
+               MOVE 'EAI1' TO WS-SYS-ID                                 MAK19012
+           END-IF.                                                      MAK19012
+                                                                                
+           MOVE SPACE      TO WS-ABCODE.                                TND20216
+           IF WHC1-INV-OR-LTL-SEQ-TYPE EQUAL '5B'                               
+              PERFORM J6180A-UPDT-LTL-ORDR THRU J6180A-EXIT                     
+              GO TO J6000-EXIT                                          TND20216
+           END-IF.                                                              
+           MOVE SM-NO-OF-CARTONS TO WS-NO-OF-CARTONS.                   MAK19012
+                                                                        TND20216
+           EXEC SQL                                                     TND20216
+                SELECT CURRENT_DATE                                     TND20216
+                INTO :WS-CURRENT-DATE                                   TND20216
+                FROM SYSIBM.SYSDUMMY1                                   TND20216
+          END-EXEC.                                                     TND20216
+      **** THIS PIECE OF CODE IS FOR THE NEXT RELEASE****               MAK19012
+                                                                                
+           IF WS-NO-OF-CARTONS > 120                                            
+      ***  ONLY PROCESS DB2 FOR SMALL PARCEL AND CANADA LTL             TND20216
+              IF  WHC1-LB-OR-LASTBOX-LTL NOT = 'Y'                      TND20216
+                  PERFORM J618B-UPDATE-ORDER THRU J618B-EXIT            TND20216
+                  PERFORM J6010-CALL-JDA-BY-DB2 THRU J6010-EXIT         TND20216
+              END-IF                                                    TND20216
+              MOVE 'Y' TO  WS-JDA-DB2-BILL-SW                           MAK19152
+              MOVE 'N' TO WS-INVOICE-THIS-ORDER                         MAK19152
+              GO TO J6000-EXIT                                          MAK19152
+           END-IF.                                                      MAK19152
+           PERFORM J6015-CALL-JDA-BY-API      THRU J6015-EXIT.                  
+           PERFORM J6020-LINK-TO-EAI          THRU J6020-EXIT.                  
+                                                                                
+                                                                                
+      *----------------------------------------------------------------*MAK19012
+                                                                                
+      *----------------------------------------------------------------*MAK19152
+       J6000-EXIT.                                                      MAK19152
+             EXIT.                                                      MAK19152
+      *----------------------------------------------------------------*MAK19152
+                                                                                
+                                                                                
+       J6015-CALL-JDA-BY-API.                                                   
+                                                                                
+                                                                                
+           INITIALIZE WHRQOR-INPUT-COMMAREA.                            MAK19275
+           MOVE 'WWFRDEL'                   TO  WHRQOR-INPUT-EAI-KEY.           
+           MOVE WHC1-LB-CART-COMPANY-ID     TO                                  
+                                            WHRQOR-INPUT-EAI-COMPANY.           
+           MOVE WHC1-BILL-CART-SO-BR-ID(1:2) TO WHRQOR-SO-ORD-BR        TND20216
+                                               ORTSHJDA-BR-NBR.         TND20216
+           MOVE WHC1-BILL-CART-SO-ID (1:5)  TO  WHRQOR-SO-ORD-NBR       TND20216
+                                                ORTSHJDA-ORDR-NBR.      TND20216
+           MOVE WHC1-BILL-CART-SO-ID (8:1)  TO  WHRQOR-SO-ORD-DIST      TND20216
+                                                ORTSHJDA-DIST-NBR.      TND20216
+           MOVE WHC1-BILL-CART-SO-ID (10:1) TO  WHRQOR-SO-ORD-SHIP      TND20216
+                                                ORTSHJDA-SHIP-NBR.      TND20216
+           MOVE SPACES                      TO WHRQOR-INPUT-EAI-SOURCE.         
+           MOVE 'processRateQuotation'      TO WHRQOR-OPERATION-NAME.           
+           MOVE SPACES                      TO WHRQOR-CLIENT-ID.                
+           MOVE 'APAR'                      TO WHRQOR-AP-AR-FLAG.               
+           MOVE 'SPT_HUB'                   TO WHRQOR-LOCATION-TYPE.            
+           MOVE WHC1-LB-CART-COMPANY-ID     TO WHRQOR-SF-COMPANY.               
+           IF WHRQOR-SF-COMPANY = 'MD'                                          
+              MOVE 'UT' TO WHRQOR-SF-COMPANY                                    
+           END-IF.                                                              
+           IF WHRQOR-SF-COMPANY = 'FT'                                          
+              MOVE 'CT' TO WHRQOR-SF-COMPANY                                    
+           END-IF.                                                              
+           MOVE ORSH-BR-NBR-SHIP-FROM       TO WHRQOR-SF-BRANCH                 
+                                               WS-BP-BR-NBR.                    
+           MOVE WHC1-LB-CART-COMPANY-ID     TO WS-BP-COMPANY.                   
+                                                                                
+           MOVE '3'                      TO WS-BP-REC-SEQ.                      
+           PERFORM J6040-READ-BP THRU J6040-EXIT.                               
+                                                                                
+           MOVE 'SPT_DC'                    TO WHRQOR-LOCATION-TYPE-NUM.        
+           MOVE '99999FF'                   TO WHRQOR-SHIP-TO-CODE.             
+                                                                                
+           MOVE SM-CITY-ADR4                TO WHRQOR-SHIP-TO-CITY.             
+           MOVE SM-ST-ADR4                  TO WHRQOR-SHIP-TO-STATE.            
+           MOVE SM-ZIP-ADR4(1:5)            TO WHRQOR-SHIP-TO-POSTAL.           
+           IF WHRQOR-SF-COMPANY = 'CT'                                          
+               MOVE SM-ZIP-ADR4(1:3)      TO WHRQOR-SHIP-TO-POSTAL(1:3)         
+               MOVE SPACE                 TO WHRQOR-SHIP-TO-POSTAL(4:1)         
+               MOVE SM-ZIP-ADR4(4:3)      TO WHRQOR-SHIP-TO-POSTAL(5:3)         
+           END-IF.                                                              
+           MOVE ZERO                      TO WS-VALID-APO-ZIP           DBN20010
+           IF SM-ZIP-ADR4 NUMERIC                                       DBN20010
+              MOVE SM-ZIP-ADR4            TO WS-VALID-APO-ZIP           DBN20010
+           END-IF                                                       DBN20010
+           MOVE WHRQOR-SHIP-TO-STATE      TO WS-VALID-APO-ST            DBN20010
+                                                                        DBN20010
+           MOVE ORH-COUNTRY-CODE   TO WHRQOR-SHIP-TO-COUNTRY.           MAK18318
+      *    IF WHRQOR-SHIP-TO-COUNTRY = 'US'                             WXY22005
+      *       MOVE 'USA' TO WHRQOR-SHIP-TO-COUNTRY                      WXY22005
+      *                     WJDA-SC-SO-ST-CNTRY                         WXY22005
+      *    END-IF.                                                      WXY22005
+      *                                                                 WXY22005
+      *    IF ORH-COUNTRY-CODE = 'CA'                                   WXY22005
+      *       MOVE 'CAN' TO WHRQOR-SHIP-TO-COUNTRY                      WXY22005
+      *                     WJDA-SC-SO-ST-CNTRY                         WXY22005
+      *    END-IF.                                                      WXY22005
+                                                                        WXY22005
+                                                                        WXY22005
+           MOVE WHRQOR-SHIP-TO-COUNTRY  TO  WS-SHIP-TO-COUNTRY.         WXY22005
+           PERFORM J7000-GET-COUNTRY-CODE THRU J7000-EXIT.              WXY22005
+           MOVE WS-SHIP-TO-COUNTRY-3    TO  WHRQOR-SHIP-TO-COUNTRY      WXY22005
+                                            WJDA-SC-SO-ST-CNTRY.        WXY22005
+                                                                        WXY22005
+220800     IF ORSH-EXPORT-ORD-IND = 'Y' AND                             TND20216
+220900        NOT (ORH-FREIGHT-FORWARDER = SPACES OR LOW-VALUES         TND20216
+221000               OR '000' )                                         TND20216
+221100         PERFORM 7000-READ-FFLMST                                 TND20216
+221200         IF WS-EIB-NORESP                                         TND20216
+                   MOVE FFR-CITY             TO WHRQOR-SHIP-TO-CITY     TND20216
+                                                WJDA-SC-SO-ST-CITY      TND20216
+                   MOVE FFR-STATE            TO WHRQOR-SHIP-TO-STATE    TND20216
+                                                WJDA-SC-SO-ST-STATE     TND20216
+                   MOVE FFR-COUNTRY-CODE TO WHRQOR-SHIP-TO-COUNTRY      TND20216
+                   IF  WS-BP-COMPANY      = 'MD'                        TND20216
+                       MOVE 'USA' TO WHRQOR-SHIP-TO-COUNTRY             TND20216
+                                     WJDA-SC-SO-ST-CNTRY                TND20216
+                   ELSE                                                 TND20216
+                       MOVE 'CAN' TO WHRQOR-SHIP-TO-COUNTRY             TND20216
+                                     WJDA-SC-SO-ST-CNTRY                TND20216
+                   END-IF                                               TND20216
+                   IF  FFR-ZIP-CODE NUMERIC AND                         TND20216
+                       FFR-ZIP-CODE > ZEROS                             TND20216
+                       MOVE FFR-ZIP-CODE     TO WS-DSI-ZIP-NUM9         TND20216
+                       MOVE WS-DSI-ZIP5      TO WHRQOR-SHIP-TO-POSTAL   TND20216
+                                                WJDA-SC-SO-ST-POSTAL    TND20216
+                   ELSE                                                 TND20216
+                   IF  FFR-ZIP-CODE(1:5) NUMERIC AND                    TND20216
+                       FFR-ZIP-CODE(1:5) > ZEROS                        TND20216
+                       MOVE FFR-ZIP-CODE(1:5)                           TND20216
+                                             TO WS-DSI-ZIP-NUM9(1:5)    TND20216
+                       MOVE ZEROS            TO WS-DSI-ZIP-NUM9(6:4)    TND20216
+                       MOVE WS-DSI-ZIP5      TO WHRQOR-SHIP-TO-POSTAL   TND20216
+                                                WJDA-SC-SO-ST-POSTAL    TND20216
+                   END-IF                                               TND20216
+222000         END-IF                                                   TND20216
+222100     END-IF.                                                      TND20216
+           IF WS-VALID-APO     OR WS-VALID-AE-ZIP  OR                   DBN20010
+              WS-VALID-AA-ZIP  OR WS-VALID-AP-ZIP                       DBN20010
+              MOVE 'USA'           TO WHRQOR-SHIP-TO-COUNTRY            DBN20010
+                                      WJDA-SC-SO-ST-CNTRY               DBN20010
+           ELSE                                                         WXY22005
+              IF ORSH-EXPORT-ORD-IND = 'Y' AND                          WXY22005
+                (ORH-FREIGHT-FORWARDER = SPACES OR LOW-VALUES           WXY22005
+                  OR '000')                                             WXY22005
+                 MOVE '00'   TO   WHRQOR-SHIP-TO-STATE                  WXY22005
+                                  WJDA-SC-SO-ST-STATE                   WXY22005
+              END-IF                                                    WXY22005
+           END-IF                                                       DBN20010
+                                                                        WXY24095
+      **** TMS CLOUD ROUTING GUIDE                                      WXY24095
+                                                                        WXY24095
+           MOVE ZEROS    TO  WJDA-SC-SO-TOT-ORDER-VALUE.                WXY24095
+                                                                        WXY24095
+           IF  ORSH-TOTAL-SALES NUMERIC                                 WXY24095
+               MOVE ORSH-TOTAL-SALES TO WHRQOR-TOTAL-SALES              WXY24095
+                                        WJDA-SC-SO-TOT-ORDER-VALUE.     WXY24095
+                                                                        WXY24095
+      *----------------------------------------------------------------*WXY24095
+      * P-PREPAY, B-BILLED, S-SPLIT, T-THIRD PARTY, C-COLLECT           WXY24095
+      *----------------------------------------------------------------*WXY24095
+                                                                        WXY24095
+           EVALUATE TRUE                                                WXY24095
+               WHEN ORSH-FRT-OUT-CODE = SPACE OR LOW-VALUES             WXY24095
+                    MOVE 0                  TO WHRQOR-FREIGHT-TERMS     WXY24095
+                                               WJDA-SC-SO-FOC           WXY24095
+               WHEN ORSH-FRT-OUT-CODE = 'P' OR 'F'                      WXY24254
+                    MOVE 1                  TO WHRQOR-FREIGHT-TERMS     WXY24095
+                                               WJDA-SC-SO-FOC           WXY24095
+               WHEN ORSH-FRT-OUT-CODE = 'B'                             WXY24095
+               WHEN ORSH-FRT-OUT-CODE = 'S'                             WXY24095
+                    MOVE 2                  TO WHRQOR-FREIGHT-TERMS     WXY24095
+                                               WJDA-SC-SO-FOC           WXY24095
+               WHEN ORSH-FRT-OUT-CODE = 'T'                             WXY24095
+                    MOVE 3                  TO WHRQOR-FREIGHT-TERMS     WXY24095
+                                               WJDA-SC-SO-FOC           WXY24095
+               WHEN ORSH-FRT-OUT-CODE = 'C'                             WXY24095
+                    MOVE 4                  TO WHRQOR-FREIGHT-TERMS     WXY24095
+                                               WJDA-SC-SO-FOC           WXY24095
+               WHEN OTHER                                               WXY24095
+                    MOVE 0                  TO WHRQOR-FREIGHT-TERMS     WXY24095
+                                               WJDA-SC-SO-FOC           WXY24095
+           END-EVALUATE.                                                WXY24095
+                                                                        WXY24095
+      *******************************************************           WXY24095
+                                                                        WXY24095
+           MOVE ORH-BILL-TO-BR-NBR   TO WHRQOR-CUSTOMER-NBR(1:2).       WXY24095
+           MOVE ORH-BILL-TO-CUST-NBR TO WHRQOR-CUSTOMER-NBR(3:6).       WXY24095
+           MOVE WHRQOR-CUSTOMER-NBR  TO WJDA-SC-SO-CUSTOMER-NBR.        WXY24095
+                                                                        WXY24095
+      *                                                                 WXY24095
+      ***** MOVE CUSTOMER CODE FROM FRT_MRKUP TABLE.                    WXY24095
+           PERFORM J6030-READ-FRT-MRKUP    THRU J6030-EXIT.                     
+                                                                                
+      **** POPULATE THE BELOW FROM TMS_CARR_SRVC TABLE.                         
+           PERFORM J6050-CONVERT-CARRIER.                                       
+                                                                                
+           MOVE SPACES                TO WHRQOR-CONSIGNEE-CODE.                 
+           MOVE 'IM'                  TO WHRQOR-DIVISION-CODE.                  
+           MOVE SPACES                TO WHRQOR-COMMODITY-CODE.                 
+                                                                                
+291300     INITIALIZE SY777-PARM-DATA                                           
+291400     MOVE ORH-ENTRY-DATE             TO WS-WORK-JUL-5                     
+           MOVE  WS-WORK-JUL-5  TO SY777-IN-JUL-YYDDD                           
+291600     PERFORM J6060-CONVERT-TO-DB2-DATE                                    
+                                THRU J6060-CONVERT-DB2-DATE-EXIT.               
+                                                                                
+           MOVE SY777-OUT-ISO-10     TO   WS-IN-DT.                             
+                                                                                
+030510     MOVE SM-TIME-BILLED         TO WS-PRTTIME.                           
+030520     MOVE WS-PRNT-HOUR           TO WS-RELS-HOUR.                         
+030530     MOVE WS-PRNT-MIN            TO WS-RELS-MIN.                          
+030540     MOVE WS-PRNT-SEC            TO WS-RELS-SEC.                          
+                                                                                
+     **THIS IS TO FIX THE LAST VOIDED CARTON ISSUE TO GET THE CURRENT   MAK19012
+     **DATE AS THE BILL DATE IF WE DONT HAVE THE DATE FROM IMF          MAK19012
+           EXEC SQL                                                     MAK19012
+                SELECT CURRENT_DATE                                     MAK19012
+                INTO :WS-CURRENT-DATE                                   MAK19012
+                FROM SYSIBM.SYSDUMMY1                                   MAK19012
+          END-EXEC.                                                     MAK19012
+                                                                                
+           IF WHC1-BILL-CART-BILL-DATE  > SPACES                        MAK19012
+              MOVE WHC1-BILL-CART-BILL-DATE                             MAK19012
+                                       TO WHRQOR-EARLIEST-TIME(1:10)    MAK19012
+           ELSE                                                         MAK19012
+              MOVE WS-CURRENT-DATE     TO WHRQOR-EARLIEST-TIME(1:10)    MAK19012
+           END-IF.                                                      MAK19012
+           MOVE 'T'                    TO WHRQOR-EARLIEST-TIME(11:1).           
+           MOVE WS-RELS-TIME           TO WHRQOR-EARLIEST-TIME(12:8).           
+                                                                                
+           IF WHC1-BILL-CART-BILL-DATE  > SPACES                        MAK19012
+              MOVE WHC1-BILL-CART-BILL-DATE                             MAK19012
+                                 TO WHRQOR-EARLIEST-ARRVIAL-TM(1:10)    MAK19012
+           ELSE                                                         MAK19012
+              MOVE WS-CURRENT-DATE TO WHRQOR-EARLIEST-ARRVIAL-TM(1:10)  MAK19012
+           END-IF.                                                      MAK19012
+           MOVE 'T'            TO   WHRQOR-EARLIEST-ARRVIAL-TM(11:1).           
+           MOVE WS-RELS-TIME   TO   WHRQOR-EARLIEST-ARRVIAL-TM(12:8).           
+                                                                                
+           EXEC SQL                                                             
+                SELECT (CURRENT_DATE + 30 DAYS)                                 
+                INTO :WS-LAPSE-DATE                                             
+                FROM SYSIBM.SYSDUMMY1                                           
+           END-EXEC.                                                            
+                                                                                
+           MOVE WS-LAPSE-DATE  TO                                               
+                                    WHRQOR-LATEST-TIME(1:10).                   
+           MOVE 'T'            TO   WHRQOR-LATEST-TIME(11:1).                   
+           MOVE '23:58:59'     TO   WHRQOR-LATEST-TIME(12:8).                   
+           MOVE WS-LAPSE-DATE  TO                                               
+                                    WHRQOR-LATEST-ARRIVAL-TM(1:10).             
+           MOVE 'T'            TO   WHRQOR-LATEST-ARRIVAL-TM(11:1).             
+           MOVE '23:59:59'     TO   WHRQOR-LATEST-ARRIVAL-TM(12:8).             
+                                                                                
+                                                                                
+           MOVE 'UMS_IMPERIAL'        TO WHRQOR-SYSTEM-UNIT.                    
+           MOVE 'UMW_LB'              TO WHRQOR-WEIGHT-UNIT.                    
+           MOVE 'UML_IN'              TO WHRQOR-LENGTH-UNIT.                    
+           MOVE WHC1-LB-OR-TOTAL-WEIGHT TO WHRQOR-TOTAL-WEIGHT.                 
+           MOVE '92.5'                 TO WHRQOR-FREIGHT-CLASS.                 
+           IF WHC1-LB-OR-TOT-VOLUME NUMERIC                                     
+                MOVE WHC1-LB-OR-TOT-VOLUME                                      
+                                       TO  WHRQOR-TOTAL-VOLUME                  
+           ELSE                                                                 
+                MOVE 0.0                    TO  WHRQOR-TOTAL-VOLUME             
+           END-IF.                                                              
+           MOVE 0.0                    TO WHRQOR-DECLARE-VALUE.                 
+           MOVE zero                   TO WHRQOR-TOTAL-FLEX-QTY.        TND20216
+      *    MOVE SM-NO-OF-CARTONS       TO WHRQOR-TOTAL-FLEX-QTY.                
+           MOVE 'OAL_RATE_ROUTE'       TO WHRQOR-APPLY-LEVEL.                   
+           MOVE ORH-CURRENCY-CODE      TO WHRQOR-CURRENCY.                      
+           MOVE '1'                    TO WHRQOR-RATE-FUNC-SW.                  
+      ******** FOR AP CALLS, SET TO RUTNGMTD_SCHEDULING                         
+      ******** FOR AR CALLS, SET TO RUTNGMTD_RATING                             
+      ******** TIBCO WILL UPDATE IT BASED ON THE CALL                           
+           MOVE 'RUTNGMTD_RATING'      TO WHRQOR-ROUTING-METHOD.                
+           MOVE SPACES                 TO WHRQOR-CONTAINER-TYPE.                
+           MOVE '0'                    TO WHRQOR-DEST-RES-SW.                   
+           MOVE '0'                    TO WHRQOR-IGNORE-CONTAIN-SW.             
+           MOVE '1'                    TO WHRQOR-RETURN-DIAG.                   
+                                                                                
+           PERFORM J6070-SET-UP-CONDITION-CODES.                                
+                                                                                
+           IF  (WHC1-LB-OR-LASTBOX-LTL = 'Y' OR                                 
+               ((TB-CARR-MODE = 'LTL ' OR 'AIRH') AND                           
+                 ORH-COMPANY = 'FT'))                                           
+               NEXT SENTENCE                                                    
+           ELSE                                                                 
+           PERFORM J6230-INSERT-JDA-STATUS-REQ                                  
+              THRU J6230-EXIT                                                   
+                                                                                
+           PERFORM J6200-PROCESS-JDA-HDR-DTLS                                   
+              THRU J6200-EXIT                                                   
+           PERFORM J6220-INSERT-JDA-REQ-DATA                                    
+              THRU J6220-INSERT-JDA-REQ-DATA-EXIT                               
+                                                                                
+           PERFORM J6210-PROCESS-JDA-SO-DTLS                                    
+              THRU J6210-EXIT                                                   
+           PERFORM J6220-INSERT-JDA-REQ-DATA                                    
+              THRU J6220-INSERT-JDA-REQ-DATA-EXIT                               
+           END-IF.                                                              
+                                                                                
+           PERFORM J6110-START-RWLPKM.                                          
+                                                                                
+                                                                                
+           MOVE SPACE    TO WS-RWLPKM-IO-SW.                            TND20216
+           MOVE 1        TO WS-SUB-1.                                   TND20216
+           PERFORM J6120-READNEXT-RWLPKM THRU J6120-EXIT                TND20216
+                        UNTIL WS-RWLPKM-ENDFILE OR WS-RWLPKM-NOTFND.    TND20216
+      *    PERFORM J6120-READNEXT-RWLPKM VARYING WS-SUB-1 FROM 1 BY 1   TND20216
+      *                   UNTIL WS-SUB-1 > WS-NO-OF-CARTONS.            TND20216
+                                                                                
+           PERFORM J6130-ENDBR-RWLPKM.                                          
+                                                                                
+           MOVE WHRQOR-TIBCO-INPUT-AREA   TO WHRQOR-PASSED-AREA.                
+                                                                                
+       J6015-EXIT.                                                              
+             EXIT.                                                              
+                                                                                
+       J6020-LINK-TO-EAI.                                                       
+                                                                                
+           PERFORM J6035-LINK-TO-RR-PGM     THRU J6035-EXIT.                    
+       J6020-EXIT.                                                              
+           EXIT.                                                                
+      *                                                                         
+203000 J6030-READ-FRT-MRKUP.                                                    
+203100                                                                          
+           IF WHC1-BILL-CART-MARKUP-ID > SPACES                         TND20216
+              MOVE WHC1-BILL-CART-MARKUP-ID TO WS-FRT-MARKUP-ID         TND20216
+           ELSE                                                         TND20216
+           IF WHC1-LB-CART-DAS-MARKUP-ID > SPACES                               
+              MOVE WHC1-LB-CART-DAS-MARKUP-ID    TO WS-FRT-MARKUP-ID            
+           ELSE IF WHC1-BILL-CART-DAS-MARKUP-ID > SPACES                        
+              MOVE WHC1-BILL-CART-DAS-MARKUP-ID TO WS-FRT-MARKUP-ID             
+           ELSE                                                                 
+              MOVE 'IM01'                        TO WS-FRT-MARKUP-ID            
+           END-IF.                                                              
+                                                                                
+235300     MOVE ORH-BASE-RATE-ORDER-SW   TO SM-BASE-RATE-ORDER-SW.              
+235400     MOVE WHC1-BILL-CART-MARKUP-ID TO SM-MARKUP-ID.                       
+                                                                                
+203400     EXEC SQL                                                             
+203500        SELECT                                                            
+203600           CUST_CD                                                        
+204400        INTO                                                              
+204500          :FRTMRKUP-CUST-CD                                               
+205300        FROM                                                              
+205400           FRT_MRKUP                                                      
+205500        WHERE                                                             
+205600              CO_CD = :WS-CO-CD                                           
+205700          AND FRT_MRKUP_ID = :WS-FRT-MARKUP-ID                            
+206200     END-EXEC.                                                            
+206300                                                                          
+           EVALUATE TRUE                                                        
+206400     WHEN SQLSTATE = SQL-NORESP                                           
+206700        MOVE FRTMRKUP-CUST-CD   TO WHRQOR-CUSTOMER-CODE                   
+                                         WJDA-SC-SO-CUST-CODE                   
+206900     WHEN SQLSTATE = SQL-NOT-FOUND                                        
+              IF ORH-COMPANY = 'MD'                                             
+207310           MOVE  'US_301'       TO WHRQOR-CUSTOMER-CODE           TND20216
+                                         WJDA-SC-SO-CUST-CODE                   
+              ELSE                                                              
+207310           MOVE  'CA_309'       TO WHRQOR-CUSTOMER-CODE           TND20216
+                                         WJDA-SC-SO-CUST-CODE                   
+              END-IF                                                            
+207500     WHEN OTHER                                                           
+207510        MOVE 'N'                TO WS-DAS-CHRG-SW                         
+207520        MOVE ORH-COMPANY        TO WS-ADT-COMPANY                         
+207530        MOVE 'I'                TO WS-ADT-TYPE                            
+207540        MOVE 'WHP819'           TO WS-ADT-PROGRAM                         
+207550        MOVE 'WHSC'             TO WS-ADT-TRAN-ID                         
+207560        MOVE 'J6030-READ-FRT-MRKUP'                                       
+207570                                TO WS-ADT-PARAGRAPH                       
+207580        MOVE 'SELECT'           TO WS-ADT-INSTRUCTION                     
+207590        MOVE 'LOGC'             TO WS-ADT-SYSTEM                          
+207591        MOVE 'FRT_POST_RANG'    TO WS-ADT-FILE-NAME                       
+207592        MOVE 'DB2 ABEND = '     TO WS-ADT-DESCRIPTION(1:12)               
+207593        MOVE SQLSTATE           TO WS-ADT-DESCRIPTION(13:10)              
+207594        MOVE SQLERRM            TO WS-ADT-DESCRIPTION(25:30)              
+              MOVE 'J6030-READ-FRT-MRKUP'                                       
+                                          TO SYWDB2-EXTRA-MESSAGE-1             
+              MOVE 'ERROR INSERT FRT_MRKUP'                                     
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+              MOVE 'J6030'                TO WS-ABCODE                          
+184143        PERFORM 9850-START-AUDIT-PROGRAM                                  
+              PERFORM 990-SQL-MESSAGE                                           
+              IF ORH-COMPANY = 'MD'                                     TND20216
+207310           MOVE  'US_301'       TO WHRQOR-CUSTOMER-CODE           TND20216
+                                         WJDA-SC-SO-CUST-CODE           TND20216
+              ELSE                                                      TND20216
+207310           MOVE  'CA_309'       TO WHRQOR-CUSTOMER-CODE           TND20216
+                                         WJDA-SC-SO-CUST-CODE           TND20216
+              END-IF                                                    TND20216
+      *       PERFORM 999-ABEND                                         TND20216
+            END-EVALUATE.                                                       
+207900                                                                          
+208000 J6030-EXIT.                                                              
+208100     EXIT.                                                                
+208200                                                                          
+      * TIMSTAMP MAK19012: CHANGES TO FIX THE CONNECTION ISSUE WITH     MAK19012
+      * TIBCO DURING THE BILLING TRANSACTION TO JDA.                    MAK19012
+       J6035-LINK-TO-RR-PGM.                                                    
+           MOVE 'REB'                     TO SYTAJDLG-JDA-LOG-TYP.              
+           PERFORM J6160-INSERT-API-JDA-LOG.                                    
+           INITIALIZE RRI-USER-DATA                                             
+           MOVE 'C'                       TO RRI-REQST-OPTION                   
+           MOVE 'C'                       TO RRI-REPLY-OPTION                   
+           MOVE 10                        TO RRI-WAIT-4-REPLY                   
+           MOVE LENGTH OF WHRQOR-TIBCO-INPUT-AREA TO RRI-DATA-LEN               
+           MOVE WS-EAI-KEY                TO RRI-USER-DATA                      
+           MOVE WHRQOR-TIBCO-INPUT-AREA                                         
+                                          TO RRI-USER-DATA                      
+           MOVE LENGTH OF WS-RRI-COMMAREA TO WS-COMMAREA-LENGTH                 
+      *                                                                         
+           EXEC CICS LINK                                                       
+                PROGRAM  (WS-REQUEST-REPLY-PGM)                                 
+                COMMAREA (WS-RRI-COMMAREA)                                      
+                LENGTH   (WS-COMMAREA-LENGTH)                                   
+                RESP     (WS-EIBRESP)                                           
+                SYNCONRETURN                                                    
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              MOVE  WS-RRI-COMMAREA  TO WHWRQRB-RESPONSE-AREA                   
+              IF (WHWRQRB-RESPONSE-AREA(65:7) = 'SUCCESS' AND                   
+                  WHWRQRB-RESPONSE-AREA(72:3) = '200')                          
+                  MOVE 'N'                 TO WS-DAS-CHRG-SW            DBN20010
+                  IF WHWRQRB-RESPONSE-AREA(131:17) GREATER THAN SPACES          
+                        MOVE WHWRQRB-RESPONSE-AREA(131:17)                      
+                                            TO WS-WORK-DOLLARS-ALPHA            
+                        MOVE WS-WORK-DOLLARS-NUM TO SM-TOTAL-CHARGES            
+                  END-IF                                                        
+                  IF WHWRQRB-RESPONSE-AREA(148:17) GREATER THAN SPACE           
+                        MOVE WHWRQRB-RESPONSE-AREA(148:17)                      
+                                           TO WS-WORK-DOLLARS-ALPHA             
+                        MOVE WS-WORK-DOLLARS-NUM TO SM-FRT-CUS-PAYS             
+                  END-IF                                                        
+                  IF WHWRQRB-RESPONSE-AREA(169:4) GREATER THAN SPACE            
+                        MOVE WHWRQRB-RESPONSE-AREA(169:4)                       
+                                           TO WS-WORK-DOLLARS-BETA              
+                        MOVE WS-WORK-DOLLARS-NUM-BETA                           
+                                           TO SM-DIM-TOTAL-FSAP-CHG             
+                  END-IF                                                        
+                  IF WHWRQRB-RESPONSE-AREA(177:4) GREATER THAN SPACE            
+                         MOVE WHWRQRB-RESPONSE-AREA(177:4)                      
+                                           TO  WS-WORK-DOLLARS-BETA             
+                         MOVE WS-WORK-DOLLARS-NUM-BETA                          
+                                           TO  SM-DIM-TOTAL-FSAR-CHG            
+                  END-IF                                                        
+                  IF WHWRQRB-RESPONSE-AREA(185:4) GREATER THAN SPACE            
+                         MOVE WHWRQRB-RESPONSE-AREA(185:4)                      
+                                            TO WS-WORK-DOLLARS-BETA             
+                         MOVE WS-WORK-DOLLARS-NUM-BETA                          
+                                                TO SM-DAS-CARRIER-CHRG          
+                         IF SM-DAS-CARRIER-CHRG NUMERIC                 DBN20010
+                            IF SM-DAS-CARRIER-CHRG > ZEROES             DBN20010
+                               MOVE 'Y'    TO WS-DAS-CHRG-SW            DBN20010
+                            END-IF                                      DBN20010
+                         END-IF                                         DBN20010
+                  END-IF                                                        
+                  IF WHWRQRB-RESPONSE-AREA(193:4) GREATER THAN SPACE            
+                         MOVE WHWRQRB-RESPONSE-AREA(193:4)                      
+                                             TO  WS-WORK-DOLLARS-BETA           
+                         MOVE WS-WORK-DOLLARS-NUM-BETA                          
+                                                TO SM-DAS-CUST-CHRG             
+                  END-IF                                                        
+                  MOVE 'U'                     TO  SM-REC-TYPE                  
+                  MOVE 'REC'                   TO SYTAJDLG-JDA-LOG-TYP          
+                  PERFORM J6160-INSERT-API-JDA-LOG                              
+                  PERFORM J6180-UPDATE-ORDER   THRU J6180-EXIT                  
+                  PERFORM J6075-SET-UP-CONDITION-CODES THRU J6075-EXIT  MAK19012
+                  PERFORM J6190-PROCESS-SHMT-CREATE  THRU J6190-EXIT            
+                  PERFORM J6036-CHECK-IM-CHOICE-CARR THRU J6036-EXIT    WXY20062
+                  IF (ORSHOF-IM-CHOICE-CARRIER > SPACES AND                     
+                      ORSHOF-IM-CHOICE-CARRIER = ORSH-CARRIER-CODE)             
+                  OR  WS-CARR-BASERATE-SW NOT  = 'Y'                    WXY20062
+                      PERFORM 7200-CONTINUE                                     
+                      GO TO J6020-EXIT                                          
+                  ELSE                                                          
+                      MOVE WHRQOR-PASSED-AREA TO WHRQOR-TIBCO-INPUT-AREA        
+                      PERFORM J6150-CALL-JDA THRU J6150-EXIT                    
+                  END-IF                                                        
+              ELSE                                                              
+                  IF WHWRQRB-RESPONSE-AREA(65:6) = ('FAILED'                    
+                                                       OR SPACES)               
+                     PERFORM J901-CHECK-JDA-ERROR THRU J901-EXIT        TND20279
+                     MOVE 'B' TO ORTSHJDA-PRCS-TYP                              
+                     MOVE 'Y' TO WS-JDA-ERROR-SW                                
+                     MOVE 'N' TO WS-INVOICE-THIS-ORDER                          
+                     MOVE WHWRQRB-RESPONSE-AREA(72:50) TO                       
+                                         ORTSHJDA-JDA-RESP-TXT                  
+                     IF  WHC1-LB-OR-LASTBOX-LTL NOT = 'Y'               TND20157
+                     PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT        
+                     END-IF                                             TND20157
+      *===============================================================* KYR19285
+      * IN CASE OF ACTIVITY TIMEOUT ISSUE, WRITE THE BILLING DATA TO  * KYR19285
+      * DB2 TABLES SO THAT TIBCO CAN REPROCESS.                       * KYR19285
+      *===============================================================* KYR19285
+                     IF ((WHWRQRB-RESPONSE-AREA(81:18) =                KYR19285
+                          'Activity timed out') OR                      KYR19285
+      * NO CONNECTION BETWEEN IMPULSE AND TIBCO                       * TND20279
+                         (WHWRQRB-RESPONSE-AREA(102:20) =               KYR19285
+                          'processRateQuotation'))                      KYR19285
+                         OR WS-MSG-FOUND = 'Y'                          TND20279
+                       IF  WS-MSG-FOUND = 'Y'                           TND20279
+                         SET WS-JDA-CONNECT-FAIL       TO TRUE          TND20279
+                       ELSE                                             TND20279
+                         SET WS-TIBCO-CONNECT-FAIL     TO TRUE          TND20279
+                       END-IF                                           TND20279
+                     IF  WHC1-LB-OR-LASTBOX-LTL NOT = 'Y'               TND20157
+                         PERFORM J618B-UPDATE-ORDER                     TND20157
+                            THRU J618B-EXIT                             TND20157
+                         PERFORM J6010-CALL-JDA-BY-DB2                  TND20157
+                            THRU J6010-EXIT                             TND20157
+                     END-IF                                             TND20157
+                     MOVE 'Y' TO WS-JDA-DB2-BILL-SW                     KYR19285
+                     MOVE 'N' TO WS-INVOICE-THIS-ORDER                  KYR19285
+                     END-IF                                             KYR19285
+                     MOVE 'REC'             TO SYTAJDLG-JDA-LOG-TYP             
+                     PERFORM J6160-INSERT-API-JDA-LOG THRU J6160-EXIT           
+                  ELSE                                                  MAK19012
+                     PERFORM J901-CHECK-JDA-ERROR THRU J901-EXIT        TND20279
+                     MOVE 'B' TO ORTSHJDA-PRCS-TYP                      MAK19012
+                     MOVE 'Y' TO WS-JDA-ERROR-SW                        MAK19012
+                     MOVE 'N' TO WS-INVOICE-THIS-ORDER                  MAK19012
+                     MOVE WHWRQRB-RESPONSE-AREA(72:50) TO               MAK19012
+                                         ORTSHJDA-JDA-RESP-TXT          MAK19012
+                     IF  WHC1-LB-OR-LASTBOX-LTL NOT = 'Y'               TND20157
+                     PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXITMAK19012
+                     END-IF                                             TND20157
+                     IF ((WHWRQRB-RESPONSE-AREA(81:18) =                KYR19285
+                          'Activity timed out') OR                      KYR19285
+                         (WHWRQRB-RESPONSE-AREA(102:20) =               KYR19285
+                          'processRateQuotation'))                      KYR19285
+                         OR WS-MSG-FOUND = 'Y'                          TND20279
+                       IF  WS-MSG-FOUND = 'Y'                           TND20279
+                         SET WS-JDA-CONNECT-FAIL       TO TRUE          TND20279
+                       ELSE                                             TND20279
+                         SET WS-TIBCO-CONNECT-FAIL     TO TRUE          TND20279
+                       END-IF                                           TND20279
+                     IF  WHC1-LB-OR-LASTBOX-LTL NOT = 'Y'               TND20157
+                         PERFORM J618B-UPDATE-ORDER                     TND20157
+                            THRU J618B-EXIT                             TND20157
+                         PERFORM J6010-CALL-JDA-BY-DB2                  TND20157
+                            THRU J6010-EXIT                             TND20157
+                     END-IF                                             TND20157
+                     MOVE 'Y' TO WS-JDA-DB2-BILL-SW                     KYR19285
+                     MOVE 'N' TO WS-INVOICE-THIS-ORDER                  KYR19285
+                     END-IF                                             KYR19285
+                     MOVE 'REC'             TO SYTAJDLG-JDA-LOG-TYP     MAK19012
+                     PERFORM J6160-INSERT-API-JDA-LOG THRU J6160-EXIT   MAK19012
+                  END-IF                                                        
+              END-IF                                                            
+           ELSE                                                                 
+              MOVE 'B' TO ORTSHJDA-PRCS-TYP                                     
+              MOVE 'Y' TO WS-JDA-ERROR-SW                                       
+              MOVE 'TIBCO CONNECTION FAILURE'   TO                      MAK19152
+                             ORTSHJDA-JDA-RESP-TXT                              
+              IF  WHC1-LB-OR-LASTBOX-LTL NOT = 'Y'                      TND20157
+              PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT               
+              END-IF                                                    TND20157
+      *===============================================================* KYR19285
+      * IN CASE OF TIBCO CONNECTIVITY ISSUE, WRITE THE BILLING DATA TO* KYR19285
+      * DB2 TABLES SO THAT TIBCO CAN REPROCESS.                       * KYR19285
+      *===============================================================* KYR19285
+              SET WS-TIBCO-CONNECT-FAIL         TO TRUE                 KYR19285
+              IF  WHC1-LB-OR-LASTBOX-LTL NOT = 'Y'                      TND20157
+                  PERFORM J618B-UPDATE-ORDER                            TND20157
+                     THRU J618B-EXIT                                    TND20157
+                  PERFORM J6010-CALL-JDA-BY-DB2                         TND20157
+                     THRU J6010-EXIT                                    TND20157
+              END-IF                                                    TND20157
+              MOVE 'Y' TO WS-JDA-DB2-BILL-SW                            KYR19285
+              MOVE 'N' TO WS-INVOICE-THIS-ORDER                         KYR19285
+              MOVE 'REC'               TO SYTAJDLG-JDA-LOG-TYP                  
+              PERFORM J6160-INSERT-API-JDA-LOG THRU J6160-EXIT                  
+           END-IF.                                                              
+                                                                                
+                                                                                
+       J6035-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      *----------------------------------------------------------------*TND20279
+       J901-CHECK-JDA-ERROR.                                            TND20279
+           INITIALIZE WS-TBJDAER-AREA.                                  TND20279
+           MOVE  'MD'                     TO TB-JDAER-CO.               TND20279
+           MOVE ZERO                      TO TB-JDAER-ERROR-CODE        TND20279
+                                             TB-JDAER-REC-NBR.          TND20279
+           CALL 'SYU510' USING TB-JDAER-PROC-IA.                        TND20279
+           MOVE 'N'                       TO TB-JDAER-REQUEST-CODE.     TND20279
+           MOVE ZERO                      TO WS-ER-SUB.                 TND20279
+           PERFORM                                                      TND20279
+                   UNTIL TB-JDAER-EOT OR                                TND20279
+                         TB-JDAER-TABLE-NOTFND OR                       TND20279
+                         TB-JDAER-ENTRY-NOTFND OR                       TND20279
+                         WS-ER-SUB > 100                                TND20279
+               CALL 'SYU510' USING TB-JDAER-PROC-IA                     TND20279
+               IF  TB-JDAER-NORESP                                      TND20279
+                   ADD 1 TO WS-ER-SUB                                   TND20279
+                   MOVE TB-JDAER-MSG                                    TND20279
+                                 TO WS-JDA-MSG (WS-ER-SUB)(1:34)        TND20279
+                   MOVE TB-JDAER-MSG-CONT                               TND20279
+                                 TO WS-JDA-MSG (WS-ER-SUB)(35:9)        TND20279
+               END-IF                                                   TND20279
+           END-PERFORM.                                                 TND20279
+      *- SEARCH JDA ERROR, IF FOUND, SET ORDER TO RETRY   -------------*TND20279
+           MOVE SPACE      TO WS-MSG-FOUND.                             TND20279
+           MOVE FUNCTION UPPER-CASE(WHWRQRB-RESPONSE-AREA)(82:43)       TND20279
+                           TO WS-RESP-MSG.                              TND20279
+           PERFORM  VARYING WS-MSG-SUB FROM 1 BY 1                      TND20279
+                    UNTIL   WS-MSG-SUB > WS-ER-SUB OR                   TND20279
+                            WS-MSG-FOUND = 'Y'                          TND20279
+              IF  WS-RESP-MSG        = WS-JDA-MSG (WS-MSG-SUB)          TND20279
+                  MOVE 'Y'       TO WS-MSG-FOUND                        TND20279
+              END-IF                                                    TND20279
+           END-PERFORM.                                                 TND20279
+       J901-EXIT.                                                       TND20279
+           EXIT.                                                        TND20279
+       J6036-CHECK-IM-CHOICE-CARR.                                      WXY20062
+                                                                        WXY20062
+      * CALL TBXCARR USING IM CHOICE CARRIER                            WXY20062
+                                                                        WXY20062
+           MOVE ORSHOF-IM-CHOICE-CARRIER  TO  TB-CARR-CODE.             WXY20062
+           MOVE ORH-COMPANY               TO  TB-CARR-CO.               WXY20062
+           CALL 'SYU510' USING TB-CARRIER-TABLE-IA.                     WXY20062
+                                                                        WXY20062
+           IF TB-CARR-NORESP                                            WXY20062
+              MOVE TB-CARR-BASERATE-SW TO WS-CARR-BASERATE-SW           WXY20062
+           ELSE                                                         WXY20062
+              MOVE SPACE               TO WS-CARR-BASERATE-SW           WXY20062
+           END-IF.                                                      WXY20062
+                                                                        WXY20062
+      * CALL TBXCARR USING ORDER CARRIER CODE                           WXY20062
+                                                                        WXY20062
+           MOVE ORSH-CARRIER-CODE    TO TB-CARR-CODE.                   WXY20062
+           MOVE ORH-COMPANY          TO TB-CARR-CO.                     WXY20062
+           CALL 'SYU510' USING TB-CARRIER-TABLE-IA.                     WXY20062
+                                                                        WXY20062
+       J6036-EXIT.                                                      WXY20062
+           EXIT.                                                        WXY20062
+                                                                        WXY20062
+119650 J6040-READ-BP.                                                           
+119660                                                                          
+119670     MOVE WS-BP-MAXLEN           TO  WS-BP-REC-LENGTH.                    
+119680                                                                          
+119760                                                                          
+702400     EXEC CICS READ DATASET(WS-BP-FILE-NAME)                              
+702500                    LENGTH(WS-BP-REC-LENGTH)                              
+702600                    INTO(BP-BPRMST)                                       
+702700                    RIDFLD(WS-BP-KEY)                                     
+702800                    RESP(WS-EIBRESP)                                      
+702900                    END-EXEC                                              
+                                                                                
+119770     IF WS-EIB-NORESP                                                     
+119780        MOVE 'Y'                    TO  WS-BP-IO-SW                       
+075540        MOVE BP-SHIP-TO-CITY        TO WHRQOR-SHIP-FROM-CITY              
+                                              WJDA-SC-SO-SF-CITY                
+075550        MOVE BP-SHIP-TO-STATE       TO WHRQOR-SHIP-FROM-STATE             
+                                              WJDA-SC-SO-SF-STATE               
+075560        MOVE BP-SHIP-TO-ZIP(1:5)    TO WHRQOR-SHIP-FROM-POSTAL            
+                                              WJDA-SC-SO-SF-POSTAL              
+075560        MOVE BP-SHIP-TO-COUNTRY     TO WHRQOR-SHIP-FROM-COUNTRY           
+                                              WJDA-SC-SO-SF-CNTRY               
+              IF WHRQOR-SHIP-FROM-COUNTRY = 'US'                                
+                 MOVE 'USA' TO WHRQOR-SHIP-FROM-COUNTRY                         
+                                WJDA-SC-SO-SF-CNTRY                             
+              END-IF                                                            
+              IF WHRQOR-SHIP-FROM-COUNTRY = 'CA'                                
+                 MOVE 'CAN' TO WHRQOR-SHIP-FROM-COUNTRY                         
+                                WJDA-SC-SO-SF-CNTRY                             
+075560        MOVE BP-SHIP-TO-ZIP(1:3)  TO WHRQOR-SHIP-FROM-POSTAL(1:3)         
+                                           WJDA-SC-SO-SF-POSTAL(1:3)            
+075560        MOVE SPACE                TO WHRQOR-SHIP-FROM-POSTAL(4:1)         
+075560        MOVE BP-SHIP-TO-ZIP(4:3)  TO WHRQOR-SHIP-FROM-POSTAL(5:3)         
+                                           WJDA-SC-SO-SF-POSTAL(5:3)            
+              END-IF                                                            
+119790     ELSE                                                                 
+075540        MOVE SPACES                 TO WHRQOR-SHIP-FROM-CITY              
+075550        MOVE SPACES                 TO WHRQOR-SHIP-FROM-STATE             
+075560        MOVE SPACES                 TO WHRQOR-SHIP-FROM-POSTAL            
+075560        MOVE SPACES                 TO WHRQOR-SHIP-FROM-COUNTRY           
+119800        MOVE 'N'                    TO WS-BP-IO-SW.                       
+119810                                                                          
+119820 J6040-EXIT.                                                              
+119830     EXIT.                                                                
+                                                                                
+       J6050-CONVERT-CARRIER.                                                   
+      *----------------------------------------------------------------         
+                                                                                
+           MOVE ORSH-CARRIER-CODE       TO SYTMSCRS-LEG-CARR-CD                 
+           MOVE WHC1-LB-CART-COMPANY-ID TO SYTMSCRS-CO-CD                       
+                                                                                
+                                                                                
+           EXEC SQL                                                             
+                SELECT TMS_SERV_TYPE_CD,                                        
+                       TMS_CARR_CD,                                             
+                       TMS_FRT_COND1_CD                                         
+                INTO :SYTMSCRS-TMS-SERV-TYPE-CD,                                
+                     :SYTMSCRS-TMS-CARR-CD,                                     
+                     :SYTMSCRS-TMS-FRT-COND1-CD                                 
+                FROM TMS_CARR_SERVICE_MAP                                       
+                WHERE CO_CD  = :SYTMSCRS-CO-CD                                  
+                AND LEG_CARR_CD = :SYTMSCRS-LEG-CARR-CD                         
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                   TO SQLCODE-STATUS.                    
+                                                                                
+           EVALUATE TRUE                                                        
+              WHEN SQLCODE-NORESP                                               
+                  MOVE SYTMSCRS-TMS-SERV-TYPE-CD TO WHRQOR-SERVICE-CODE         
+                                                    WS-ORDER-REQ-TMS-SRV        
+                  MOVE SYTMSCRS-TMS-CARR-CD                                     
+                                          TO WHRQOR-TMS-CARRIER-CODE            
+                                             WS-ORDER-REQ-TMS-CARR              
+                  MOVE SPACES            TO WS-CARR-CHRG-CODE           TND20079
+              WHEN SQLCODE-NOT-FOUND                                            
+                  MOVE SPACES            TO WHRQOR-SERVICE-CODE                 
+                                             WHRQOR-TMS-CARRIER-CODE            
+              WHEN OTHER                                                        
+                  MOVE 'J6050-'          TO WS-ABCODE                           
+                  MOVE 'J6050-CONVERT-CARRIER' TO SYWDB2-EXTRA-MESSAGE-1        
+                  MOVE 'ERROR SELECT TMS_CARR_SERVICE_MAP'                      
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+                  PERFORM 990-SQL-MESSAGE                                       
+      ***         PERFORM 999-ABEND                                     TND20216
+           END-EVALUATE.                                                        
+                                                                                
+      *----------------------------------------------------------------*        
+       J6060-CONVERT-TO-DB2-DATE.                                               
+      *----------------------------------------------------------------*        
+                                                                                
+           INITIALIZE WS-SY777-OUT-DB2-DATE                                     
+                      WS-OUT-WORK-JUL5.                                         
+                                                                                
+           CALL 'SYU777' USING DFHEIBLK                                         
+                               DFHCOMMAREA                                      
+                               SY777-PARM-DATA.                                 
+           IF SY777-OUT-ERR-SW = SPACE                                          
+              MOVE SY777-OUT-ISO-10    TO WS-SY777-OUT-DB2-DATE                 
+              MOVE SY777-OUT-JUL-YYDDD TO WS-OUT-WORK-JUL5                      
+           ELSE                                                                 
+              MOVE 'Y'                 TO WS-ERROR-SW                           
+           END-IF.                                                              
+                                                                                
+       J6060-CONVERT-DB2-DATE-EXIT.                                             
+           EXIT.                                                                
+                                                                                
+       J6070-SET-UP-CONDITION-CODES.                                            
+      *----------------------------------------------------------------*        
+      *                                                                         
+           INITIALIZE WHRQOR-CHARGE-OVERRIDE-TABLE.                             
+           MOVE 1      TO WS-SUB-2.                                             
+           IF  ORH-RESIDENTIAL-SW = 'R'                                         
+               MOVE 'RESI'   TO WHRQOR-CHG-CODE (WS-SUB-2)                      
+               MOVE 'OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)           MAK19152
+               MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)             
+               ADD 1   TO WS-SUB-2                                              
+               MOVE 'RESD'    TO WHRQOR-CHARGE-ENTRIES (WS-SUB-2)               
+               MOVE 'OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)           MAK19152
+               MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)             
+               ADD 1   TO WS-SUB-2                                              
+           ELSE                                                                 
+               MOVE 'COMM'   TO WHRQOR-CHG-CODE (WS-SUB-2)                      
+               MOVE 'OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)           MAK19152
+               MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)             
+               ADD 1   TO WS-SUB-2.                                             
+           IF  ORSH-CARRIER-CODE = 'FS' OR  'FW'                                
+      * FOR SATURDAY DELIVERY                                                   
+               MOVE 'SATD'   TO WHRQOR-CHG-CODE (WS-SUB-2)                      
+               MOVE 'OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)           MAK19152
+               MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)             
+               ADD 1   TO WS-SUB-2                                              
+           ELSE                                                                 
+               MOVE 'OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)           MAK19152
+               MOVE 'WKDY'   TO WHRQOR-CHARGE-ENTRIES (WS-SUB-2)                
+               MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)             
+               ADD 1   TO WS-SUB-2                                              
+           END-IF.                                                              
+035783*    IF WS-FEDEX                                                          
+035784*       PERFORM 524-DIR-SIGNT-OVERRIDE THRU 524-DIR-EXIT                  
+      *       IF  WS-AOD-SW = 'Y' OR 'A'                                        
+*******           MOVE  'ASIG'    TO WHRQOR-CHG-CODE (WS-SUB-2)                 
+      *       ELSE                                                              
+      *           MOVE  'ISIG'    TO WHRQOR-CHG-CODE (WS-SUB-2)                 
+      *        MOVE 'CHL_OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)               
+      *       END-IF                                                            
+      *       ADD 1   TO WS-SUB-2                                               
+      *    ELSE                                                                 
+           IF  SM-AOD-SW = 'A' OR 'Y'                                           
+      *  SIGNATURE REQUIRED                                                     
+               MOVE 'OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)           MAK19152
+               MOVE 'ISIG'   TO WHRQOR-CHG-CODE (WS-SUB-2)                      
+               MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)             
+               ADD 1   TO WS-SUB-2.                                             
+      *                                                                         
+           IF  WS-CARR-CHRG-CODE > SPACES                                       
+      *  SIGNATURE REQUIRED                                                     
+               MOVE 'OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)           MAK19152
+               MOVE WS-CARR-CHRG-CODE TO WHRQOR-CHG-CODE (WS-SUB-2)             
+               MOVE SPACES            TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)        
+               ADD 1                  TO WS-SUB-2.                              
+      *                                                                 WXY23220
+           MOVE SPACES  TO  WS-SHIPMENT-SW,                             WXY23220
+                            WS-120-SW.                                  WXY23220
+           PERFORM J6070A-SET-UP-HAZ-CHRG-CODES  THRU  J6070A-EXIT.     WXY23220
+                                                                                
+       J6075-SET-UP-CONDITION-CODES.                                    MAK19012
+      *----------------------------------------------------------------*MAK19012
+           IF  (WHC1-LB-OR-LASTBOX-LTL = 'Y' OR                         MAK19025
+               ((TB-CARR-MODE = 'LTL ' OR 'AIRH') AND                   MAK19025
+                 ORH-COMPANY = 'FT'))                                   MAK19025
+               GO TO J6075-EXIT.                                        MAK19012
+                                                                        MAK19012
+           MOVE 1      TO WS-SO-REC-NBR.                                MAK19012
+           IF  ORH-RESIDENTIAL-SW = 'R'                                 MAK19012
+               MOVE 'RESI'   TO WJDA-CHRG-CODE                          MAK19012
+      *        MOVE 'CHL_OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)       MAK19012
+      *        MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)     MAK19012
+               MOVE 0.0000       TO WJDA-CHRG-MANUAL-OVERRIDE           MAK19012
+               PERFORM J6340-PROCESS-JDA-CHRG-DTLS                      MAK19012
+                  THRU J6340-EXIT                                       MAK19012
+               PERFORM J6220-INSERT-JDA-REQ-DATA                        MAK19012
+                  THRU J6220-INSERT-JDA-REQ-DATA-EXIT                   MAK19012
+               ADD 1          TO WS-SO-REC-NBR                          MAK19012
+               MOVE 'RESD'    TO WJDA-CHRG-CODE                         MAK19012
+               MOVE 0.0000       TO WJDA-CHRG-MANUAL-OVERRIDE           MAK19012
+      *        MOVE 'CHL_OPTION'  TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)      MAK19012
+      *        MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)     MAK19012
+               PERFORM J6340-PROCESS-JDA-CHRG-DTLS                      MAK19012
+                  THRU J6340-EXIT                                       MAK19012
+               PERFORM J6220-INSERT-JDA-REQ-DATA                        MAK19012
+                  THRU J6220-INSERT-JDA-REQ-DATA-EXIT                   MAK19012
+           ELSE                                                         MAK19012
+               MOVE 'COMM'   TO WJDA-CHRG-CODE                          MAK19012
+      *        MOVE 'CHL_OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)       MAK19012
+      *        MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)     MAK19012
+               MOVE 0.0000       TO WJDA-CHRG-MANUAL-OVERRIDE           MAK19012
+               PERFORM J6340-PROCESS-JDA-CHRG-DTLS                      MAK19012
+                  THRU J6340-EXIT                                       MAK19012
+               PERFORM J6220-INSERT-JDA-REQ-DATA                        MAK19012
+                  THRU J6220-INSERT-JDA-REQ-DATA-EXIT.                  MAK19012
+           IF  ORSH-CARRIER-CODE = 'FS' OR  'FW'                        MAK19012
+      * FOR SATURDAY DELIVERY                                           MAK19012
+               ADD 1          TO WS-SO-REC-NBR                          MAK19012
+               MOVE 'SATD'   TO WJDA-CHRG-CODE                          MAK19012
+      *        MOVE 'CHL_OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)       MAK19012
+      *        MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)     MAK19012
+               MOVE 0.0000       TO WJDA-CHRG-MANUAL-OVERRIDE           MAK19012
+               PERFORM J6340-PROCESS-JDA-CHRG-DTLS                      MAK19012
+                  THRU J6340-EXIT                                       MAK19012
+               PERFORM J6220-INSERT-JDA-REQ-DATA                        MAK19012
+                  THRU J6220-INSERT-JDA-REQ-DATA-EXIT                   MAK19012
+           ELSE                                                         MAK19012
+      *        MOVE 'CHL_OPTION'  TO WJDA-CHRG-CODE                     MAK19012
+               ADD 1          TO WS-SO-REC-NBR                          MAK19012
+               MOVE 'WKDY'   TO WJDA-CHRG-CODE                          MAK19012
+      *        MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)     MAK19012
+               MOVE 0.0000       TO WJDA-CHRG-MANUAL-OVERRIDE           MAK19012
+               PERFORM J6340-PROCESS-JDA-CHRG-DTLS                      MAK19012
+                  THRU J6340-EXIT                                       MAK19012
+               PERFORM J6220-INSERT-JDA-REQ-DATA                        MAK19012
+                  THRU J6220-INSERT-JDA-REQ-DATA-EXIT                   MAK19012
+           END-IF                                                       MAK19012
+           IF  SM-AOD-SW = 'A' OR 'Y'                                   MAK19012
+      *  SIGNATURE REQUIRED                                             MAK19012
+      *        MOVE 'CHL_OPTION' TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)       MAK19012
+               MOVE 'ISIG'   TO WJDA-CHRG-CODE                          MAK19012
+      *        MOVE SPACES       TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)     MAK19012
+               ADD 1          TO WS-SO-REC-NBR                          MAK19012
+               MOVE 0.0000       TO WJDA-CHRG-MANUAL-OVERRIDE           MAK19012
+               PERFORM J6340-PROCESS-JDA-CHRG-DTLS                      MAK19012
+                  THRU J6340-EXIT                                       MAK19012
+               PERFORM J6220-INSERT-JDA-REQ-DATA                        MAK19012
+                  THRU J6220-INSERT-JDA-REQ-DATA-EXIT.                  MAK19012
+      *                                                                 MAK19012
+           IF  WS-CARR-CHRG-CODE > SPACES                               MAK19012
+      *  SIGNATURE REQUIRED                                             MAK19012
+      *        MOVE 'CHL_OPTION'      TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)  MAK19012
+               MOVE WS-CARR-CHRG-CODE TO WJDA-CHRG-CODE                 MAK19012
+      *        MOVE SPACES            TO WHRQOR-CHG-FRT-CLASS (WS-SUB-2)MAK19012
+               ADD 1          TO WS-SO-REC-NBR                          MAK19012
+               MOVE 0.0000    TO WJDA-CHRG-MANUAL-OVERRIDE              MAK19012
+               PERFORM J6340-PROCESS-JDA-CHRG-DTLS                      MAK19012
+                  THRU J6340-EXIT                                       MAK19012
+               PERFORM J6220-INSERT-JDA-REQ-DATA                        MAK19012
+                  THRU J6220-INSERT-JDA-REQ-DATA-EXIT.                  MAK19012
+      *                                                                 MAK19012
+           MOVE 1 TO WS-SUB-2.                                          WXY23220
+           MOVE 'Y' TO WS-SHIPMENT-SW.                                  WXY23220
+           MOVE SPACE TO WS-120-SW.                                     WXY23220
+           PERFORM J6070A-SET-UP-HAZ-CHRG-CODES THRU J6070A-EXIT.       WXY23220
+                                                                        MAK19012
+       J6075-EXIT.   EXIT.                                              MAK19012
+      *----------------------------------------------------------------*WXY23220
+       J6070A-SET-UP-HAZ-CHRG-CODES.                                    WXY23220
+      *----------------------------------------------------------------*WXY23220
+      *                                                                 WXY23220
+      * GET ROWS FROM SHIP_PAL_ORDER_COND TABLE *                       WXY23220
+      *                                                                 WXY23220
+                                                                        WXY23220
+           MOVE WHC1-LB-CART-COMPANY-ID       TO ORTSPAL-CO-CD.         WXY23220
+           MOVE WHC1-BILL-CART-SO-BR-ID(1:2)  TO ORTSPAL-BR-NBR.        WXY23220
+           MOVE WHC1-BILL-CART-SO-ID (1:5)    TO ORTSPAL-ORDR-NBR.      WXY23220
+           MOVE WHC1-BILL-CART-SO-ID (8:1)    TO ORTSPAL-DIST-NBR.      WXY23220
+           MOVE WHC1-BILL-CART-SO-ID (10:1)   TO ORTSPAL-SHIP-NBR.      WXY23220
+           MOVE WS-IN-DT                      TO ORTSPAL-ORDR-ENTY-DT.  WXY23220
+                                                                        WXY23220
+           EXEC SQL                                                     WXY23220
+              OPEN HAZ_CHRG_CD_CSR                                      WXY23220
+           END-EXEC.                                                    WXY23220
+                                                                        WXY23220
+           EVALUATE SQLCODE                                             WXY23220
+              WHEN DB2-NORESP                                           WXY23220
+                 CONTINUE                                               WXY23220
+              WHEN OTHER                                                WXY23220
+                 MOVE 'J6070A'          TO WS-ABCODE                    WXY23220
+                 MOVE 'J6070A-SET-UP'   TO SYWDB2-EXTRA-MESSAGE-1       WXY23220
+                 MOVE 'ERROR-OPEN  SHIP-PAL-ORDER TABLE'                WXY23220
+                                        TO SYWDB2-EXTRA-MESSAGE-2       WXY23220
+                 MOVE ORH-COMPANY       TO WS-ADT-COMPANY               WXY23220
+                 MOVE 'E'               TO WS-ADT-TYPE                  WXY23220
+                 MOVE 'WHP819'          TO WS-ADT-PROGRAM               WXY23220
+                 MOVE 'J6070A-SET-UP'   TO WS-ADT-PARAGRAPH             WXY23220
+                 MOVE 'OPEN'            TO WS-ADT-INSTRUCTION           WXY23220
+                 MOVE 'LOGC'            TO WS-ADT-SYSTEM                WXY23220
+                 MOVE ' SHIP_PAL_ORDER_COND' TO WS-ADT-FILE-NAME        WXY23220
+                 MOVE 'DB2 ABEND = '    TO WS-ADT-DESCRIPTION(1:12)     WXY23220
+                 MOVE SQLSTATE          TO WS-ADT-DESCRIPTION(13:10)    WXY23220
+                 MOVE SQLERRM           TO WS-ADT-DESCRIPTION(25:30)    WXY23220
+                 PERFORM 9850-START-AUDIT-PROGRAM                       WXY23220
+                 PERFORM 990-SQL-MESSAGE                                WXY23220
+                 PERFORM 999-ABEND                                      WXY23220
+           END-EVALUATE.                                                WXY23220
+                                                                        WXY23220
+           MOVE 0  TO CC-CNT.                                           WXY23220
+                                                                        WXY23220
+           PERFORM J6071A-LOOP-HAZ-CHRG-CODES THRU J6071A-EXIT          WXY23220
+                   VARYING WS-SUB-2 FROM WS-SUB-2 BY 1 UNTIL            WXY23220
+                   WS-SUB-2 > 15  OR SQLCODE = DB2-NOT-FOUND.           WXY23220
+                                                                        WXY23220
+           EXEC SQL                                                     WXY23220
+              CLOSE HAZ_CHRG_CD_CSR                                     WXY23220
+           END-EXEC.                                                    WXY23220
+                                                                        WXY23220
+           EVALUATE SQLCODE                                             WXY23220
+             WHEN DB2-NORESP                                            WXY23220
+              CONTINUE                                                  WXY23220
+             WHEN OTHER                                                 WXY23220
+              MOVE 'J6070A'            TO WS-ABCODE                     WXY23220
+              MOVE 'J6070A-SET-UP'     TO SYWDB2-EXTRA-MESSAGE-1        WXY23220
+              MOVE 'ERROR-CLOSE SHIP-PAL-ORDER TABLE'                   WXY23220
+                                       TO SYWDB2-EXTRA-MESSAGE-2        WXY23220
+              MOVE ORH-COMPANY       TO WS-ADT-COMPANY                  WXY23220
+              MOVE 'E'               TO WS-ADT-TYPE                     WXY23220
+              MOVE 'WHP819'          TO WS-ADT-PROGRAM                  WXY23220
+              MOVE 'J6070A-SET-UP'   TO WS-ADT-PARAGRAPH                WXY23220
+              MOVE 'CLOSE'           TO WS-ADT-INSTRUCTION              WXY23220
+              MOVE 'LOGC'            TO WS-ADT-SYSTEM                   WXY23220
+              MOVE 'SHIP_PAL_ORDER_COND' TO WS-ADT-FILE-NAME            WXY23220
+              MOVE 'DB2 ABEND = '    TO WS-ADT-DESCRIPTION(1:12)        WXY23220
+              MOVE SQLSTATE          TO WS-ADT-DESCRIPTION(13:10)       WXY23220
+              MOVE SQLERRM           TO WS-ADT-DESCRIPTION(25:30)       WXY23220
+              PERFORM 9850-START-AUDIT-PROGRAM                          WXY23220
+              PERFORM 990-SQL-MESSAGE                                   WXY23220
+              PERFORM 999-ABEND                                         WXY23220
+           END-EVALUATE.                                                WXY23220
+                                                                        WXY23220
+       J6070A-EXIT.  EXIT.                                              WXY23220
+      *----------------------------------------------------------------*WXY23220
+       J6071A-LOOP-HAZ-CHRG-CODES.                                      WXY23220
+      *----------------------------------------------------------------*WXY23220
+      *                                                                 WXY23220
+           EXEC SQL                                                     WXY23220
+              FETCH HAZ_CHRG_CD_CSR                                     WXY23220
+              INTO :ORTSPAL-TMS-CD,                                     WXY23220
+                   :ORTSPAL-TMS-CHRG-CD                                 WXY23220
+           END-EXEC.                                                    WXY23220
+                                                                        WXY23220
+           EVALUATE SQLCODE                                             WXY23220
+            WHEN DB2-NORESP                                             WXY23220
+              ADD 1   TO CC-CNT                                         WXY23220
+              MOVE ORTSPAL-TMS-CD TO WHRQOR-CHG-CODE (WS-SUB-2)         WXY23220
+                                     WJDA-CHRG-CODE                     WXY23220
+                                     WHRQBI-CHG-CODE                    WXY23220
+              IF ORTSPAL-TMS-CHRG-CD = 'C'                              WXY23220
+                 MOVE 'CONDITION'  TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)     WXY23220
+                                      WHRQBI-CHG-LVL-NUM                WXY23220
+              ELSE                                                      WXY23220
+                 MOVE 'OPTION'     TO WHRQOR-CHG-LVL-NUM (WS-SUB-2)     WXY23220
+                                      WHRQBI-CHG-LVL-NUM                WXY23220
+              END-IF                                                    WXY23220
+      * WRITE INFORMATION TO SHIPMENT *                                 WXY23220
+              IF WS-SHIPMENT-SW = 'Y'                                   WXY23220
+                 ADD 1             TO WS-SO-REC-NBR                     WXY23220
+                 MOVE 0.0000       TO WJDA-CHRG-MANUAL-OVERRIDE         WXY23220
+                 PERFORM J6340-PROCESS-JDA-CHRG-DTLS THRU J6340-EXIT    WXY23220
+                 PERFORM J6220-INSERT-JDA-REQ-DATA                      WXY23220
+                         THRU J6220-INSERT-JDA-REQ-DATA-EXIT            WXY23220
+              END-IF                                                    WXY23220
+      * WRITE INFORMATION TO DB2 FOR CALLING TMS*                       WXY23220
+              IF WS-120-SW = 'Y'                                        WXY23220
+                 MOVE SPACES       TO WHRQBI-CHG-FRT-CLASS              WXY23220
+                 MOVE 'CHL_OPTION' TO WHRQBI-CHG-LVL-NUM                WXY23220
+                 ADD 1             TO WS-SO-REC-NBR                     WXY23220
+                 MOVE WS-SO-REC-NBR   TO SYTJDREQ-REC-NBR               WXY23220
+                 MOVE WHRQBI-ORDR-CHG-DTL-AREA                          WXY23220
+                                      TO SYTJDREQ-DATA-AREA-TEXT        WXY23220
+                 MOVE LENGTH OF SYTJDREQ-DATA-AREA-TEXT                 WXY23220
+                                      TO SYTJDREQ-DATA-AREA-LEN         WXY23220
+                 PERFORM P6001-INSERT-JDA-REQ-DATA THRU                 WXY23220
+                         P6001-INSERT-JDA-REQ-DATA-EXIT                 WXY23220
+              END-IF                                                    WXY23220
+            WHEN DB2-NOT-FOUND                                          WXY23220
+              GO TO J6071A-EXIT                                         WXY23220
+            WHEN OTHER                                                  WXY23220
+              MOVE 'J6071A'            TO WS-ABCODE                     WXY23220
+              MOVE 'J6071A-LOOP' TO SYWDB2-EXTRA-MESSAGE-1              WXY23220
+              MOVE 'ERROR-FETCH SHIP-PAL-ORDER TABLE'                   WXY23220
+                                 TO SYWDB2-EXTRA-MESSAGE-2              WXY23220
+              MOVE ORH-COMPANY       TO WS-ADT-COMPANY                  WXY23220
+              MOVE 'E'               TO WS-ADT-TYPE                     WXY23220
+              MOVE 'WHP819'          TO WS-ADT-PROGRAM                  WXY23220
+              MOVE 'J6071A-FETCHT-UP' TO WS-ADT-PARAGRAPH               WXY23220
+              MOVE 'FETCH'           TO WS-ADT-INSTRUCTION              WXY23220
+              MOVE 'LOGC'            TO WS-ADT-SYSTEM                   WXY23220
+              MOVE 'SHIP_PAL_ORDER_COND' TO WS-ADT-FILE-NAME            WXY23220
+              MOVE 'DB2 ABEND = '    TO WS-ADT-DESCRIPTION(1:12)        WXY23220
+              MOVE SQLSTATE          TO WS-ADT-DESCRIPTION(13:10)       WXY23220
+              MOVE SQLERRM           TO WS-ADT-DESCRIPTION(25:30)       WXY23220
+              PERFORM 9850-START-AUDIT-PROGRAM                          WXY23220
+              PERFORM 990-SQL-MESSAGE                                   WXY23220
+              PERFORM 999-ABEND                                         WXY23220
+           END-EVALUATE.                                                WXY23220
+                                                                        WXY23220
+       J6071A-EXIT. EXIT.                                               WXY23220
+      ******************************************************************        
+      * CONVERT ISO 10 DATE FORMAT TO JULIAN DATE                      *        
+      ******************************************************************        
+      *----------------------------------------------------------------*        
+       J6080-GET-CSO-ORDER-DT.                                                  
+      *----------------------------------------------------------------*        
+                                                                                
+           INITIALIZE SY777-PARM-DATA.                                          
+           MOVE WS-IN-DT                 TO SY777-IN-ISO-10.                    
+           PERFORM J6060-CONVERT-TO-DB2-DATE                                    
+                                       THRU J6060-CONVERT-DB2-DATE-EXIT.        
+           MOVE WS-OUT-WORK-JUL5         TO TC-CSO-ORDER-DATE.                  
+                                                                                
+       J6080-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+       J6090-CONVERT-CARRIER.                                                   
+      *----------------------------------------------------------------         
+                                                                                
+           MOVE ORSHOF-IM-CHOICE-CARRIER TO SYTMSCRS-LEG-CARR-CD                
+           MOVE WHC1-LB-CART-COMPANY-ID TO SYTMSCRS-CO-CD                       
+                                                                                
+                                                                                
+           EXEC SQL                                                             
+                SELECT TMS_SERV_TYPE_CD,                                        
+                       TMS_CARR_CD,                                             
+                       TMS_FRT_COND1_CD                                         
+                INTO :SYTMSCRS-TMS-SERV-TYPE-CD,                                
+                     :SYTMSCRS-TMS-CARR-CD,                                     
+                     :SYTMSCRS-TMS-FRT-COND1-CD                                 
+                FROM TMS_CARR_SERVICE_MAP                                       
+                WHERE CO_CD  = :SYTMSCRS-CO-CD                                  
+                AND LEG_CARR_CD = :SYTMSCRS-LEG-CARR-CD                         
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                   TO SQLCODE-STATUS.                    
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                   MOVE SYTMSCRS-TMS-SERV-TYPE-CD TO WHRQOR-SERVICE-CODE        
+                                                  WS-ING-CHOICE-CARR-SRV        
+                   MOVE SYTMSCRS-TMS-CARR-CD                                    
+                                          TO WHRQOR-TMS-CARRIER-CODE            
+                   MOVE SPACES            TO WS-CARR-CHRG-CODE          TND20079
+               WHEN SQLCODE-NOT-FOUND                                           
+                   MOVE SPACES            TO WHRQOR-SERVICE-CODE                
+                                             WHRQOR-TMS-CARRIER-CODE            
+               WHEN OTHER                                                       
+                   MOVE 'J6090-'          TO WS-ABCODE                          
+                   MOVE 'J6090-CONVERT-CARRIER'                                 
+                                          TO SYWDB2-EXTRA-MESSAGE-1             
+                   MOVE 'ERROR SELECT TMS_CARR_SERVICE_MAP'                     
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+                   PERFORM 990-SQL-MESSAGE                                      
+      ***          PERFORM 999-ABEND                                    TND20216
+           END-EVALUATE.                                                        
+                                                                                
+697400*                                                                         
+      *                                                                         
+039632 J6100-DIR-SIGNT-OVERRIDE.                                                
+039633* CHECK IF A CUSTOMER IS SET TO USE ORDER LEVEL AOD SW AND                
+039634* DIRECT / INDIRECT SIGNATURE RULES WILL NOT APPLY                        
+039635                                                                          
+           MOVE ORH-AOD-SW           TO WS-AOD-SW.                              
+039636     MOVE WHC1-LB-CART-COMPANY-ID  TO TB-MAIF-CO.                         
+039637*    MOVE '70'                 TO TB-MAIF-SF.                             
+039637     MOVE ORH-BR-NBR           TO TB-MAIF-SF.                             
+039638     MOVE ORH-BILL-TO-CUST-NBR TO TB-MAIF-BILL-TO.                        
+039641     MOVE 'FED'                TO TB-MAIF-CARRIER-TYPE.                   
+039642     MOVE '4'                  TO TB-MAIF-SEQ.                            
+039643     CALL 'SYU510'          USING TB-MAIF-TABLE-IA.                       
+039644     IF TB-MAIF-NORESP                                                    
+039645        IF TB-MAIF-FRTCRG-ORDVALUE                                        
+039646           GO TO J6100-DIR-EXIT                                           
+039647        ELSE                                                              
+              IF  WS-AOD-SW = 'B'                                               
+039654            MOVE 'N'           TO   WS-AOD-SW                             
+              ELSE                                                              
+              IF  WS-AOD-SW = 'A' OR 'Y'                                        
+039654            MOVE 'Y'           TO  WS-AOD-SW                              
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       J6100-DIR-EXIT.   EXIT.                                                  
+                                                                                
+141224 J6110-START-RWLPKM.                                                      
+                                                                                
+           MOVE LOW-VALUES              TO WS-RWLPKM-RECORD-KEY.                
+786100     MOVE '1'                     TO WS-RWLPKM-REC-TYPE.                  
+786200     MOVE WS-ORSHED-CO            TO WS-RWLPKM-CO.                        
+786300     MOVE ORSH-BR-NBR-SHIP-FROM TO WS-RWLPKM-SF-BR.                       
+786400     MOVE ORH-BR-NBR              TO WS-RWLPKM-ORDER-BR                   
+                                           ORTSHJDA-BR-NBR.                     
+786500     MOVE WS-ORSHED-NBR           TO WS-RWLPKM-ORDER-NBR                  
+                                           ORTSHJDA-ORDR-NBR.                   
+786600     MOVE WS-ORSSHH-DIST          TO WS-RWLPKM-ORDER-DIST-NBR             
+                                           ORTSHJDA-DIST-NBR.                   
+786700     MOVE WS-ORSSHH-SHIP          TO WS-RWLPKM-ORDER-SHIP-NBR             
+                                           ORTSHJDA-SHIP-NBR.                   
+           MOVE WS-RWLPKM-ORDER-NO      TO WS-SAVE-ORDER-NO.            TND20216
+786800*    MOVE LOW-VALUES              TO WS-RWLPKM-PACKAGE-ID.                
+141225*                                                                         
+141226     EXEC CICS                                                            
+141227          STARTBR                                                         
+141228          DATASET (WS-RWLPKM-FILE-NAME)                                   
+141229          RIDFLD  (WS-RWLPKM-RECORD-KEY)                                  
+141230          RESP    (WS-EIBRESP)                                            
+141231          GTEQ                                                            
+141232     END-EXEC.                                                            
+141233                                                                          
+                                                                                
+141234     IF WS-EIB-NORESP                                                     
+141235     OR WS-EIB-NOTFND                                                     
+141236        NEXT SENTENCE                                                     
+141237     ELSE                                                                 
+141238        MOVE '840S'           TO WS-ABCODE                                
+304500        MOVE WS-EIBRESP       TO WS-ADT-EIBRESP                   TND20216
+              MOVE WS-ADT-EIBRESP   TO ORTSHJDA-JDA-RESP-TXT(1:2)       TND20216
+              MOVE 'J6110-START-RWLPKM'                                 TND20216
+                                    TO ORTSHJDA-JDA-RESP-TXT(4:25)      TND20216
+              MOVE 'E'              TO WS-PROCESS-ERROR                 TND20216
+              MOVE 'B'              TO ORTSHJDA-PRCS-TYP                TND20216
+              PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT       TND20216
+141239        PERFORM 999-ABEND.                                        TND20216
+141240*                                                                         
+                                                                                
+470200 J6120-READNEXT-RWLPKM.                                                   
+470300     MOVE WS-RWLPKM-MAX-LENGTH     TO WS-RWLPKM-REC-LENGTH.               
+786900*    MOVE LENGTH OF PKM-RWLPKM     TO WS-RWLPKM-REC-LENGTH.               
+                                                                                
+470400     EXEC CICS READNEXT DATASET(WS-RWLPKM-FILE-NAME)                      
+470500                        LENGTH (WS-RWLPKM-REC-LENGTH)                     
+470600                        INTO   (PKM-RWLPKM)                               
+470700                        RIDFLD (WS-RWLPKM-RECORD-KEY)                     
+470800                        RESP   (WS-EIBRESP)                               
+470900                        END-EXEC                                          
+471000     IF WS-EIB-NORESP                                                     
+              if  RWPM-ORDER-NO NOT = WS-SAVE-ORDER-NO                  TND20216
+471100             MOVE 'N'       TO WS-RWLPKM-IO-SW                    TND20216
+              ELSE                                                      TND20216
+471100             MOVE 'Y'       TO WS-RWLPKM-IO-SW                    TND20216
+                   IF NOT RWPM-VOID                                     TND20216
+                      PERFORM J6120A-PROCESS-CARTONS THRU J6120A-EXIT   TND20216
+                   END-IF                                               TND20216
+              END-IF                                                    TND20216
+471200     ELSE                                                                 
+471300        IF WS-EIB-ENDFILE                                                 
+471400          MOVE 'N'                TO WS-RWLPKM-IO-SW                      
+471500        ELSE                                                              
+471600          MOVE 'N'                 TO WS-RWLPKM-IO-SW                     
+471700          MOVE WS-RWLPKM-FILE-NAME TO WS-ADT-FILE-NAME                    
+304500          MOVE WS-EIBRESP          TO WS-ADT-EIBRESP              TND20216
+                MOVE WS-ADT-EIBRESP      TO ORTSHJDA-JDA-RESP-TXT(1:2)  TND20216
+471800          MOVE 'READNXT'           TO WS-ADT-INSTRUCTION                  
+471900          MOVE WS-RWLPKM-RECORD-KEY   TO WS-ADT-FILE-KEY                  
+472000                                       WS-ADT-DESCRIPTION(38:62)          
+                                            ORTSHJDA-JDA-RESP-TXT(17:33)TND20216
+472100          MOVE 'J6120-READNEXT-RWLPKM'  TO WS-ADT-PARAGRAPH       TND20216
+                MOVE 'J6120-NXTPKM'  TO     ORTSHJDA-JDA-RESP-TXT(4:12) TND20216
+472200          MOVE 'READ NEXT FAILED FOR FILE:RWLPKM KEY:'                    
+472300                                 TO WS-ADT-DESCRIPTION                    
+472400          PERFORM 9850-START-AUDIT-PROGRAM                                
+472500          MOVE '6120'             TO WS-ABCODE                    TND20216
+                MOVE 'E'                 TO WS-PROCESS-ERROR            TND20216
+                MOVE 'B'                 TO ORTSHJDA-PRCS-TYP           TND20216
+                PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT     TND20216
+472600          PERFORM 999-ABEND                                       TND20216
+              END-IF                                                            
+           END-IF.                                                              
+532806*                                                                 TND20216
+532806 J6120-EXIT.                                                      TND20216
+           EXIT.                                                        TND20216
+472700*                                                                         
+532806 J6130-ENDBR-RWLPKM.                                                      
+532807                                                                          
+532808     EXEC CICS ENDBR                                                      
+532809          DATASET(WS-RWLPKM-FILE-NAME)                                    
+532810          END-EXEC.                                                       
+                                                                                
+532806 J6120A-PROCESS-CARTONS.                                          TND20216
+           IF RWPM-BOX-NBR = 'PL'                                       TND20216
+              MOVE 'PLTS'         TO WHRQOR-EST-CONT-TYPE (WS-SUB-1)    TND20216
+           ELSE                                                         TND20216
+              MOVE 'PCS'          TO WHRQOR-EST-CONT-TYPE (WS-SUB-1)    TND20216
+           END-IF                                                       TND20216
+           MOVE 1                 TO WHRQOR-EST-CONT-QTY (WS-SUB-1)     TND20216
+           MOVE '92.5'                                                  TND20216
+                              TO WHRQOR-EST-CONT-CLASS-CODE (WS-SUB-1)  TND20216
+           MOVE ZEROS             TO WHRQOR-EST-CONT-ORD-VAL (WS-SUB-1) TND20216
+           MOVE RWPM-DV-CARTON-VALUE                                    TND20216
+                              TO WHRQOR-EST-CONT-DECLARE-VAL (WS-SUB-1) TND20216
+           COMPUTE WS-CARTON-LENGHT =                                   TND20216
+                               RWPM-BOX-LENGTH + .09                    TND20216
+           MOVE WS-CARTON-LENGHT TO                                     TND20216
+                                WJDA-CONT-LENGTH                        TND20216
+                                WHRQOR-EST-CONT-LENGTH (WS-SUB-1)       TND20216
+                                                                        TND20216
+           COMPUTE WS-CARTON-WIDTH =                                    TND20216
+                               RWPM-BOX-WIDTH + .09                     TND20216
+           MOVE WS-CARTON-WIDTH TO                                      TND20216
+                                WJDA-CONT-WIDTH                         TND20216
+                                WHRQOR-EST-CONT-WIDTH (WS-SUB-1)        TND20216
+                                                                        TND20216
+           COMPUTE WS-CARTON-HEIGHT =                                   TND20216
+                               RWPM-BOX-HEIGHT + .09                    TND20216
+           MOVE WS-CARTON-HEIGHT TO                                     TND20216
+                                WJDA-CONT-HEIGHT                        TND20216
+                                WHRQOR-EST-CONT-HEIGHT (WS-SUB-1)       TND20216
+      *USING RWPM-WEIGHT INSTEAD OF RWPM-RATED-WEIGHT TO ENSURE         TND20216
+      *THE WEIGHT IS PASSED WITHOUT RUNDING TO THE WHOLE NUMBER         TND20216
+           IF RWPM-WEIGHT > ZEROS                                       TND20216
+              COMPUTE WHRQOR-EST-CONT-WGT (WS-SUB-1) =                  TND20216
+                                   RWPM-WEIGHT + .09                    TND20216
+           ELSE                                                         TND20216
+              COMPUTE WHRQOR-EST-CONT-WGT (WS-SUB-1) =                  TND20216
+                                   RWPM-RATED-WEIGHT + .09              TND20216
+           END-IF                                                       TND20216
+           MOVE WHRQOR-EST-CONT-WGT (WS-SUB-1) TO WJDA-CONT-WEIGHT      TND20216
+*********** LEN*WID*HEIGHT                                              TND20216
+           COMPUTE WHRQOR-EST-CONT-VOL (WS-SUB-1) =                     TND20216
+                                 (WS-CARTON-LENGHT *                    TND20216
+                       WS-CARTON-WIDTH *                                TND20216
+                       WS-CARTON-HEIGHT)                                TND20216
+                                                                        TND20216
+           MOVE WHRQOR-EST-CONT-VOL (WS-SUB-1) TO WJDA-CONT-VOLUME      TND20216
+                                                                        TND20216
+           MOVE WS-SUB-1          TO WHRQOR-EST-SYS-CONT-ID (WS-SUB-1)  TND20216
+                                     SYTJDREQ-REC-NBR                   TND20216
+           MOVE RWPM-PACKAGE-ID   TO WJDA-CONT-TRACK-NBR1               TND20216
+           MOVE RWPM-SSCC-NUMBER  TO WJDA-CONT-TRACK-NBR2               TND20216
+           MOVE 1                 TO WHRQOR-EST-SHIP-INX (WS-SUB-1)     TND20216
+      **  BYPASS SHIPMENT CREATE FOR LTL US ORDER AND CANADA.  CANADA   TND20216
+      **  DOENT' TURN ON THE '5B' PROCESS                               TND20216
+           IF  (WHC1-LB-OR-LASTBOX-LTL = 'Y' OR                         TND20216
+               ((TB-CARR-MODE = 'LTL ' OR 'AIRH') AND                   TND20216
+                 ORH-COMPANY = 'FT'))                                   TND20216
+               NEXT SENTENCE                                            TND20216
+           ELSE                                                         TND20216
+           PERFORM J6240-PROCESS-JDA-PALT-DTLS                          TND20216
+              THRU J6240-EXIT                                           TND20216
+           PERFORM J6220-INSERT-JDA-REQ-DATA                            TND20216
+              THRU J6220-INSERT-JDA-REQ-DATA-EXIT                       TND20216
+           END-IF.                                                      TND20216
+           ADD  1    TO WS-SUB-1.                                       TND20216
+532806 J6120A-EXIT.                                                     TND20216
+           EXIT.                                                        TND20216
+                                                                                
+      *----------------------------------------------------------------*        
+       J6140-FIND-CHAR-LEN.                                                     
+      *----------------------------------------------------------------*        
+                                                                                
+           INITIALIZE WS-SPACE-LEN                                              
+                      WS-STR-LEN.                                               
+           INSPECT FUNCTION REVERSE(WS-TEMP-STR)                                
+                   TALLYING WS-SPACE-LEN FOR LEADING SPACES.                    
+                                                                                
+           MOVE ZEROES          TO WS-STR-LEN.                                  
+           COMPUTE WS-STR-LEN = LENGTH OF WS-TEMP-STR - WS-SPACE-LEN.           
+                                                                                
+       J6140-FIND-CHAR-LEN-EXIT.                                                
+           EXIT.                                                                
+                                                                                
+       J6150-CALL-JDA.                                                          
+                                                                                
+           IF  (WHC1-LB-OR-LASTBOX-LTL = 'Y' OR                                 
+                TB-CARR-MODE = 'LTL ' OR 'AIRH')                                
+               PERFORM 7200-CONTINUE                                            
+               GO TO J6150-EXIT.                                                
+                                                                                
+           PERFORM J6090-CONVERT-CARRIER.                                       
+           PERFORM J6070-SET-UP-CONDITION-CODES.                                
+           MOVE 'AR  '                    TO WHRQOR-AP-AR-FLAG.                 
+           INITIALIZE RRI-USER-DATA                                             
+           MOVE 'C'                       TO RRI-REQST-OPTION                   
+           MOVE 'C'                       TO RRI-REPLY-OPTION                   
+           MOVE 10                        TO RRI-WAIT-4-REPLY                   
+           MOVE LENGTH OF WHRQOR-TIBCO-INPUT-AREA TO RRI-DATA-LEN               
+           MOVE WS-EAI-KEY                TO RRI-USER-DATA                      
+           MOVE WHRQOR-TIBCO-INPUT-AREA                                         
+                                          TO RRI-USER-DATA                      
+           MOVE LENGTH OF WS-RRI-COMMAREA TO WS-COMMAREA-LENGTH                 
+                                                                                
+           EXEC CICS LINK                                                       
+                PROGRAM  (WS-REQUEST-REPLY-PGM)                                 
+                COMMAREA (WS-RRI-COMMAREA)                                      
+                LENGTH   (WS-COMMAREA-LENGTH)                                   
+                RESP     (WS-EIBRESP)                                           
+                SYNCONRETURN                                                    
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP                                                     
+            MOVE  WS-RRI-COMMAREA  TO WHWRQRB-RESPONSE-AREA                     
+             IF (WHWRQRB-RESPONSE-AREA(65:7) = 'SUCCESS' AND                    
+                 WHWRQRB-RESPONSE-AREA(72:3) = '200')                           
+                IF WHWRQRB-RESPONSE-AREA(150:15) GREATER THAN SPACE             
+                      MOVE WHWRQRB-RESPONSE-AREA(150:15)                        
+                                            TO WS-WORK-DOLLARS-ALPHA-1          
+                      MOVE WS-WORK-DOLLARS-NUM-1 TO SM-INGRAM-CHOICE-FRT        
+                      PERFORM 7200-CONTINUE                                     
+                END-IF                                                          
+             ELSE                                                               
+                IF WHWRQRB-RESPONSE-AREA(65:6) = ('FAILED'                      
+                                                       OR SPACES)               
+                   MOVE 'B' TO ORTSHJDA-PRCS-TYP                                
+                   MOVE WHWRQRB-RESPONSE-AREA(72:50) TO                         
+                             ORTSHJDA-JDA-RESP-TXT                              
+                   PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT          
+                   PERFORM 7200-CONTINUE                                KYM23138
+                END-IF                                                          
+             END-IF                                                             
+           ELSE                                                                 
+            MOVE 'B' TO ORTSHJDA-PRCS-TYP                                       
+            MOVE WHWRQRB-RESPONSE-AREA(72:50) TO                                
+                             ORTSHJDA-JDA-RESP-TXT                              
+            PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT                 
+           END-IF.                                                              
+                                                                                
+       J6150-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+       J6160-INSERT-API-JDA-LOG.                                                
+                                                                                
+           MOVE ORH-COMPANY         TO TB-FRM-COMPANY-CODE.                     
+           CALL 'SYU510'            USING TB-FRM-PROC-IA.                       
+                                                                                
+           IF  NOT  TB-FRM-LOG-ON                                               
+               GO TO J6160-EXIT.                                                
+                                                                                
+           IF SYTAJDLG-JDA-LOG-TYP = 'REB'                                      
+              MOVE WHRQOR-TIBCO-INPUT-AREA TO SYTAJDLG-LOG-TXT-TEXT             
+           ELSE IF SYTAJDLG-JDA-LOG-TYP = 'REC'                                 
+              MOVE WHWRQRB-RESPONSE-AREA TO SYTAJDLG-LOG-TXT-TEXT               
+           END-IF.                                                              
+           MOVE ORH-COMPANY             TO SYTAJDLG-CO-CD.                      
+           MOVE WHRQOR-INPUT-EAI-DB2-KEY(1:9) TO                                
+                                 SYTAJDLG-API-LOG-KEY(1:9).                     
+           MOVE SPACES                  TO                                      
+                                 SYTAJDLG-API-LOG-KEY(10:21).                   
+           MOVE WHRQOR-OPERATION-NAME   TO SYTAJDLG-API-CALL.                   
+           MOVE LENGTH OF SYTAJDLG-LOG-TXT-TEXT TO SYTAJDLG-LOG-TXT-LEN.        
+           MOVE 'WHP819'                TO SYTAJDLG-LAST-CHG-PGM-ID.            
+                                                                                
+           EXEC SQL                                                             
+               INSERT INTO API_JDA_LOG                                          
+                   ( CO_CD            ,                                         
+                     CRT_TS           ,                                         
+                     API_LOG_KEY      ,                                         
+                     API_CALL         ,                                         
+                     JDA_LOG_TYP      ,                                         
+                     LOG_TXT          ,                                         
+                     LAST_CHG_PGM_ID  ,                                         
+                     LST_CHG_TS                                                 
+                   )                                                            
+               VALUES                                                           
+                   (                                                            
+                      :SYTAJDLG-CO-CD                                           
+                    , CURRENT TIMESTAMP                                         
+                    , :SYTAJDLG-API-LOG-KEY                                     
+                    , :SYTAJDLG-API-CALL                                        
+                    , :SYTAJDLG-JDA-LOG-TYP                                     
+                    , :SYTAJDLG-LOG-TXT                                         
+                    , :SYTAJDLG-LAST-CHG-PGM-ID                                 
+                    , CURRENT TIMESTAMP                                         
+                   )                                                            
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                   TO SQLCODE-STATUS.                    
+                                                                                
+            EVALUATE TRUE                                                       
+184110      WHEN SQLSTATE = SQL-NORESP                                          
+184110      WHEN SQLSTATE = SQL-NOT-FOUND                                       
+184110      WHEN SQLSTATE = SQL-DUPLICATE                               TND20216
+184120         CONTINUE                                                         
+184130      WHEN OTHER                                                          
+184131        MOVE ORH-COMPANY        TO WS-ADT-COMPANY                         
+184132        MOVE 'I'                TO WS-ADT-TYPE                            
+184133        MOVE 'WHP819'           TO WS-ADT-PROGRAM                         
+184134        MOVE 'WHSC'             TO WS-ADT-TRAN-ID                         
+184135        MOVE 'INSERT-API_JDA_LOG' TO WS-ADT-PARAGRAPH                     
+184137        MOVE 'INSERT'           TO WS-ADT-INSTRUCTION                     
+184138        MOVE 'LOGC'             TO WS-ADT-SYSTEM                          
+184139        MOVE 'API-LOG'   TO WS-ADT-FILE-NAME                              
+184140        MOVE 'DB2 ABEND = '     TO WS-ADT-DESCRIPTION(1:12)               
+184141        MOVE SQLSTATE           TO WS-ADT-DESCRIPTION(13:10)              
+184142        MOVE SQLERRM            TO WS-ADT-DESCRIPTION(25:30)              
+              MOVE 'J6160-INSERT-API-JDA-LOG'                                   
+                                          TO SYWDB2-EXTRA-MESSAGE-1             
+              MOVE 'ERROR INSERT API_JDA_LOG'                                   
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+              MOVE 'J6160'          TO WS-ABCODE                                
+184143        PERFORM 9850-START-AUDIT-PROGRAM                                  
+              PERFORM 990-SQL-MESSAGE                                           
+      ***     PERFORM 999-ABEND                                         TND20216
+            END-EVALUATE.                                                       
+                                                                                
+       J6160-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+474500 J6170-UPDATE-ORLMTF.                                                     
+474600*                                                                         
+611300     IF ORSH-OUT-PREPAY                                                   
+548900        MOVE SM-TOTAL-CHARGES     TO ORSH-FRT-OUT-AMT                     
+611500        MOVE ZERO                 TO SM-FRT-CUS-PAYS                      
+611600                                     ORSH-FRT-CUS-PAYS                    
+           END-IF.                                                              
+488700*                                                                         
+488500     MOVE ZERO                   TO SM-TBL-CNT.                           
+488600     MOVE LENGTH OF SM-SMRMST    TO  WS-SM-REC-LENGTH.                    
+488700*                                                                         
+488800     EXEC CICS REWRITE DATASET(WS-SM-FILE-NAME)                           
+488900         LENGTH(WS-SM-REC-LENGTH)                                         
+489000         FROM(SM-SMRMST)                                                  
+489100         RESP(WS-EIBRESP)                                                 
+489200         END-EXEC.                                                        
+489300     IF WS-EIB-NORESP                                                     
+489400        MOVE 'Y'                 TO WS-SM-IO-SW                           
+489500     ELSE                                                                 
+489600        MOVE 'PROBLEM REWRITING ORDER MANIF.  MTF KEY:'                   
+489700                                 TO WS-ADT-DESCRIPTION                    
+              MOVE 'J6170-'            TO ORTSHJDA-JDA-RESP-TXT(1:6)    TND20216
+489800        MOVE WS-EIBRESP          TO WS-SAVE-EIBRESP                       
+                                          ORTSHJDA-JDA-RESP-TXT(8:2)    TND20216
+489900        MOVE WS-SM-RECORD-KEY    TO WS-ADT-DESCRIPTION(41:59)             
+                                          ORTSHJDA-JDA-RESP-TXT(11:20)  TND20216
+490000        MOVE WS-SM-FILE-NAME     TO WS-ADT-FILE-NAME                      
+490100        MOVE 'REWRITE'           TO WS-ADT-INSTRUCTION                    
+490200        MOVE WS-SM-RECORD-KEY    TO WS-ADT-FILE-KEY                       
+490300        MOVE 'J6170-UPDATE-ORLMTF'   TO WS-ADT-PARAGRAPH                  
+490400        PERFORM 9850-START-AUDIT-PROGRAM                                  
+490600        MOVE 'E'                 TO WS-PROCESS-ERROR              TND20216
+                MOVE 'B'                 TO ORTSHJDA-PRCS-TYP           TND20216
+                PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT.    TND20216
+490700***     PERFORM 999-ABEND.                                        TND20216
+490800*                                                                         
+       J6170-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+474500 J6180-UPDATE-ORDER.                                                      
+474600*                                                                         
+           IF   WHC1-LB-OR-LASTBOX-LTL = 'Y'                                    
+               GO TO J6180-EXIT.                                                
+                                                                                
+           PERFORM 905-POPULATE-DAS-SWITCH                              DBN20010
+              THRU 905-EXIT.                                            DBN20010
+                                                                        DBN20010
+306200        MOVE '('                     TO WS-ORSHED-QUAL                    
+306300                                        WS-ORSSHH-QUAL                    
+306400        MOVE WHC1-LB-OR-SO-ID (8:1)  TO  WS-ORSSHH-DIST                   
+306500        MOVE WHC1-LB-OR-SO-ID (10:1) TO  WS-ORSSHH-SHIP                   
+306600        PERFORM 1210-GHU-ORSSHH                                           
+306700        MOVE 'I'                     TO ORSH-STATUS                       
+306800        MOVE SM-OPER-ID              TO ORSH-OPER-ID                      
+              MOVE WS-WGT-CSW-WHOLE        TO ORSH-ACT-TOTAL-WEIGHT     MAK19106
+307100        SET ORSH-ORDER-LINE-BILLED   TO TRUE                              
+307200        INITIALIZE SY777-PARM-DATA                                        
+307300        MOVE WHC1-LB-OR-SHIP-DATE    TO SY777-IN-ISO-10                   
+307400        PERFORM 9050-CONVERT-DATE-TIME                                    
+307500        MOVE SY777-OUT-JUL-YYDDD     TO SM-SHIP-DATE                      
+307600                                        ORSH-SHIP-DATE                    
+                                                                                
+           IF SM-NBR-OF-BOXES-BILLED  NUMERIC                           KYM22119
+               MOVE SM-NBR-OF-BOXES-BILLED  TO ORSH-NUM-OF-CARTONS      KYM22119
+           END-IF                                                       KYM22119
+                                                                                
+611300     IF ORSH-OUT-PREPAY                                                   
+611400        MOVE SM-TOTAL-CHARGES     TO ORSH-FRT-OUT-AMT                     
+611500        MOVE ZERO                 TO SM-FRT-CUS-PAYS                      
+                                           SM-DAS-CUST-CHRG             DBN20010
+611600                                     ORSH-FRT-CUS-PAYS                    
+           END-IF.                                                              
+                                                                                
+                                                                                
+307900        PERFORM 1314-REPL-ORSSHH.                                         
+490800*                                                                         
+       J6180-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+474500 J618B-UPDATE-ORDER.                                              MAK19152
+474600*                                                                 MAK19152
+           IF   WHC1-LB-OR-LASTBOX-LTL = 'Y'                            MAK19152
+               GO TO J618B-EXIT.                                        MAK19152
+                                                                        MAK19152
+306200        MOVE '('                     TO WS-ORSHED-QUAL            MAK19152
+306300                                        WS-ORSSHH-QUAL            MAK19152
+306400        MOVE WHC1-LB-OR-SO-ID (8:1)  TO  WS-ORSSHH-DIST           MAK19152
+306500        MOVE WHC1-LB-OR-SO-ID (10:1) TO  WS-ORSSHH-SHIP           MAK19152
+306600        PERFORM 1210-GHU-ORSSHH                                   MAK19152
+306800        MOVE SM-OPER-ID              TO ORSH-OPER-ID              MAK19152
+              MOVE WS-WGT-CSW-WHOLE        TO ORSH-ACT-TOTAL-WEIGHT     MAK19152
+307200        INITIALIZE SY777-PARM-DATA                                MAK19152
+307300        MOVE WHC1-LB-OR-SHIP-DATE    TO SY777-IN-ISO-10           MAK19152
+307400        PERFORM 9050-CONVERT-DATE-TIME                            MAK19152
+307500        MOVE SY777-OUT-JUL-YYDDD     TO SM-SHIP-DATE              MAK19152
+307600                                        ORSH-SHIP-DATE            MAK19152
+307900        PERFORM 1314-REPL-ORSSHH.                                 MAK19152
+490800*                                                                 MAK19152
+       J618B-EXIT.                                                      MAK19152
+           EXIT.                                                        MAK19152
+                                                                                
+474500 J6180A-UPDT-LTL-ORDR.                                                    
+474600*                                                                         
+      *       PERFORM J6270-CHECK-SHIP-JDA-ORDER THRU                   TND20216
+      *                                 J6270-EXIT.                     TND20216
+                                                                                
+      *       IF WS-SHIP-JDA-ERR-CNT = ZERO                             TND20216
+306200          MOVE '('                     TO WS-ORSHED-QUAL                  
+306300                                        WS-ORSSHH-QUAL                    
+306400          MOVE WHC1-LB-OR-SO-ID (8:1)  TO  WS-ORSSHH-DIST                 
+306500          MOVE WHC1-LB-OR-SO-ID (10:1) TO  WS-ORSSHH-SHIP                 
+306600          PERFORM 1210-GHU-ORSSHH                                         
+                IF  ORSH-STATUS = 'I'                                   TND20216
+                    GO TO J6180A-EXIT.                                  TND20216
+306700          MOVE 'I'                     TO ORSH-STATUS                     
+306800          MOVE SM-OPER-ID              TO ORSH-OPER-ID                    
+                IF  SM-OPER-ID = SPACE                                  TND20216
+                    MOVE 'W819'              TO TC-OPER-ID              TND20216
+                END-IF                                                  TND20216
+307100          SET ORSH-ORDER-LINE-BILLED   TO TRUE                            
+                MOVE WS-WGT-CSW-WHOLE        TO ORSH-ACT-TOTAL-WEIGHT   MAK19152
+307200          INITIALIZE SY777-PARM-DATA                                      
+307300          MOVE WHC1-LB-OR-SHIP-DATE    TO SY777-IN-ISO-10                 
+307400          PERFORM 9050-CONVERT-DATE-TIME                                  
+307500          MOVE SY777-OUT-JUL-YYDDD     TO SM-SHIP-DATE                    
+307600                                        ORSH-SHIP-DATE                    
+                IF  WHC1-LB-OR-AIRBILL > SPACE                          TND20216
+                    MOVE  WHC1-LB-OR-AIRBILL TO ORSH-SHIP-VIA           TND20216
+                                                SM-SHIP-VIA             TND20216
+                END-IF                                                  TND20216
+                IF  WS-ORSSHH-NORESP                                    TND20216
+307900              PERFORM 1314-REPL-ORSSHH                            TND20216
+                    IF  WS-ORSSHH-NORESP                                TND20216
+                        PERFORM 8873-TRIGGER-RWP568 THRU 8873-EXIT      TND20216
+                        PERFORM 9000-START-AG62                         TND20216
+                        PERFORM 210D-DELETE-ORLMTF                      TND20157
+                        MOVE 'I'  TO SM-ORDER-STATUS                    TND20157
+                        MOVE 'U'  TO SM-REC-TYPE                        TND20157
+                                     WS-SM-REC-TYPE                     TND20157
+                        PERFORM 210C-WRITE-ORLMTF                       TND20157
+                        GO TO J6180A-EXIT                               TND20216
+                    END-IF.                                             TND20216
+298200          MOVE 'GH'              TO WS-ADT-INSTRUCTION            TND20216
+                                       ORTSHJDA-JDA-RESP-TXT(1:2)       TND20216
+298400          MOVE ORPCB-STS         TO WS-ADT-PCB-STS                TND20216
+                                       ORTSHJDA-JDA-RESP-TXT(4:2)       TND20216
+298500          MOVE 'E'               TO WS-PROCESS-ERROR              TND20216
+298600          MOVE 'j6180A-'         TO WS-ADT-PARAGRAPH              TND20216
+                                        ORTSHJDA-JDA-RESP-TXT(7:39)     TND20216
+298700          PERFORM 9850-START-AUDIT-PROGRAM                        TND20216
+                MOVE SPACE             TO WS-ORDER-REQ-TMS-CARR         TND20216
+                                        WS-ORDER-REQ-TMS-SRV            TND20216
+                MOVE 'B'               TO ORTSHJDA-PRCS-TYP             TND20216
+301200          MOVE WHC1-LB-OR-CARRIER-CODE TO ORSH-CARRIER-CODE       TND20216
+291300          INITIALIZE SY777-PARM-DATA                              TND20216
+                SET SY777-GET-CURRENT-DATE TO TRUE                      TND20216
+                CALL 'SYU777' USING DFHEIBLK                            TND20216
+                                     DFHCOMMAREA                        TND20216
+                                     SY777-PARM-DATA                    TND20216
+                MOVE SY777-OUT-ISO-10 TO WS-IN-DT                       TND20216
+                PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT.    TND20216
+490800*                                                                         
+       J6180A-EXIT.                                                             
+           EXIT.                                                                
+      *--------------------------------------------------------------*          
+       J6190-PROCESS-SHMT-CREATE.                                               
+      *--------------------------------------------------------------*          
+                                                                                
+           IF  (WHC1-LB-OR-LASTBOX-LTL = 'Y' OR                                 
+                TB-CARR-MODE = 'LTL ' OR 'AIRH')                                
+               GO TO J6190-EXIT.                                                
+                                                                                
+           IF ORSH-OUT-THIRD-PARTY  OR                                          
+              ORSH-THIRD-PARTY-FRT-ACCOUNT  NOT =  SPACES                       
+               GO TO J6190-EXIT.                                                
+           MOVE 'WWSHCAL'                  TO WSHIP-EAI-KEY.                    
+           MOVE 'processShipmentOrderCreate'                                    
+                                           TO WSHIP-OPERATION-NAME.             
+           MOVE WHC1-LB-CART-COMPANY-ID    TO WSHIP-COMPANY-CODE.               
+           MOVE SYTJDREQ-SEQ-NBR           TO WSHIP-DB2-SEQUENCE-NBR.           
+           STRING WHC1-LB-CART-COMPANY-ID DELIMITED BY SPACES,                  
+                  ORSH-BR-NBR-SHIP-FROM DELIMITED BY SPACES                     
+            INTO WSHIP-DC-ID.                                                   
+           MOVE SPACES                     TO WSHIP-PRO-NBR.                    
+           MOVE WS-ORDER-REQ-TMS-SRV       TO WSHIP-TMS-CARR-SRV.               
+           MOVE WS-ORDER-REQ-TMS-CARR      TO WSHIP-TMS-CARRIER.                
+           MOVE 'PARCEL'                   TO WSHIP-CREATE-SOURCE.              
+           MOVE 'STEP1'                    TO WSHIP-CREATE-STEP.                
+           MOVE 'S'                        TO ORTSHJDA-PRCS-TYP.                
+                                                                                
+           INITIALIZE RRI-USER-DATA.                                            
+           MOVE 'C'                       TO RRI-REQST-OPTION.                  
+           MOVE 'C'                       TO RRI-REPLY-OPTION.                  
+           MOVE 10                        TO RRI-WAIT-4-REPLY.                  
+           MOVE LENGTH OF WSHIP-CREATE-COMMAREA TO RRI-DATA-LEN.                
+           MOVE WS-EAI-KEY                TO RRI-USER-DATA.                     
+           MOVE WSHIP-CREATE-COMMAREA                                           
+                                          TO RRI-USER-DATA.                     
+           MOVE LENGTH OF WS-RRI-COMMAREA TO WS-COMMAREA-LENGTH.                
+      *                                                                         
+           EXEC CICS LINK                                                       
+                PROGRAM  (WS-REQUEST-REPLY-PGM)                                 
+                COMMAREA (WS-RRI-COMMAREA)                                      
+                LENGTH   (WS-COMMAREA-LENGTH)                                   
+                RESP     (WS-EIBRESP)                                           
+                SYNCONRETURN                                                    
+           END-EXEC.                                                            
+                                                                                
+           IF WS-EIB-NORESP                                                     
+             MOVE  WS-RRI-COMMAREA  TO WHWRQRB-RESPONSE-AREA                    
+             IF (WHWRQRB-RESPONSE-AREA(65:7) = 'SUCCESS')                       
+                 CONTINUE                                                       
+             ELSE                                                               
+                MOVE 'SHIPMENT CREATE FAILED'     TO                            
+                             ORTSHJDA-JDA-RESP-TXT                              
+                PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU                        
+                                            J6260-EXIT                          
+             END-IF                                                             
+           ELSE                                                                 
+             MOVE 'SHIPMENT CREATE FAILED'     TO                               
+                             ORTSHJDA-JDA-RESP-TXT                              
+             PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU                           
+                                          J6260-EXIT                            
+           END-IF.                                                              
+      *                                                                         
+      *                                                                         
+      *                                                                         
+       J6190-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+       J6200-PROCESS-JDA-HDR-DTLS.                                              
+           MOVE 'processShipmentOrderCreate'                                    
+                                           TO WJDA-SHPMT-OPERATION-NAME.        
+           MOVE 'ZLF'                      TO WJDA-SHPMT-VER-CD.                
+           MOVE 'IM'                       TO WJDA-SHPMT-VER-TYP-CD.            
+           MOVE 'IS_EXTERNAL_API'          TO WJDA-SHPMT-NUMVAL.                
+           MOVE 'TOM_COMP_LEVEL_DETAIL'    TO WJDA-SHPMT-MODENUM.               
+           IF WHC1-BILL-CART-BILL-DATE  > SPACES                        TND20216
+              MOVE WHC1-BILL-CART-BILL-DATE                             TND20216
+                                    TO WJDA-LOAD-CREATION-TIME(1:10)    TND20216
+           ELSE                                                         TND20216
+              MOVE WS-CURRENT-DATE  TO WJDA-LOAD-CREATION-TIME(1:10).   TND20216
+           MOVE 'T'               TO WJDA-LOAD-CREATION-TIME(11:1)              
+           MOVE WS-RELS-TIME      TO WJDA-LOAD-CREATION-TIME(12:8)              
+           MOVE WHC1-BILL-CART-SO-BR-ID(1:2)                                    
+                                     TO WJDA-SHPMT-LOAD-DESC(1:2).              
+           MOVE WHC1-BILL-CART-SO-ID (1:5)                                      
+                                     TO WJDA-SHPMT-LOAD-DESC(3:5).              
+           MOVE WHC1-BILL-CART-SO-ID (8:1)                                      
+                                     TO WJDA-SHPMT-LOAD-DESC(8:1).              
+           MOVE WHC1-BILL-CART-SO-ID (10:1)                                     
+                                     TO WJDA-SHPMT-LOAD-DESC(9:1).              
+           MOVE SPACES                                                          
+                                     TO WJDA-SHPMT-LOAD-DESC(10:60).            
+           MOVE WHC1-LB-CART-COMPANY-ID    TO WJDA-SHPMT-COMPANY-ID.            
+           IF WJDA-SHPMT-COMPANY-ID = 'MD'                                      
+              MOVE 'US' TO WJDA-SHPMT-COMPANY-ID.                               
+           IF WJDA-SHPMT-COMPANY-ID = 'FT'                                      
+              MOVE 'CA' TO WJDA-SHPMT-COMPANY-ID.                               
+           MOVE ORSH-BR-NBR-SHIP-FROM      TO WJDA-SHPMT-DC-ID.                 
+           MOVE WHC1-BILL-CART-SO-BR-ID(1:2)                                    
+                                     TO WJDA-SHPMT-PRO-NBR(1:2).                
+           MOVE WHC1-BILL-CART-SO-ID (1:5)                                      
+                                     TO WJDA-SHPMT-PRO-NBR(3:5).                
+           MOVE WHC1-BILL-CART-SO-ID (8:1)                                      
+                                     TO WJDA-SHPMT-PRO-NBR(8:1).                
+           MOVE WHC1-BILL-CART-SO-ID (10:1)                                     
+                                     TO WJDA-SHPMT-PRO-NBR(9:1).                
+           MOVE WS-ORDER-REQ-TMS-SRV   TO WJDA-SHPMT-TMS-CARR-SRV.              
+           MOVE WS-ORDER-REQ-TMS-CARR      TO WJDA-SHPMT-TMS-CARRIER.           
+           MOVE WHC1-LB-OR-TOTAL-WEIGHT                                         
+                                           TO WJDA-SHPMT-TOT-WEIGHT.            
+           MOVE WHC1-LB-CART-COMPANY-ID    TO SYTJDREQ-CO-CD.                   
+           MOVE '02'                       TO SYTJDREQ-SEQ-TYP.                 
+           MOVE 0                          TO SYTJDREQ-REC-TYP.                 
+           MOVE 1                          TO SYTJDREQ-REC-NBR.                 
+           MOVE 'WHP819'                   TO SYTJDREQ-LAST-CHG-PGM-ID.         
+           MOVE WJDA-SHIPMENT-HEADER-AREA  TO SYTJDREQ-DATA-AREA-TEXT.          
+           MOVE LENGTH OF SYTJDREQ-DATA-AREA-TEXT                               
+                                           TO SYTJDREQ-DATA-AREA-LEN.           
+       J6200-EXIT.                                                              
+           EXIT.                                                                
+      *                                                                         
+       J6210-PROCESS-JDA-SO-DTLS.                                               
+           MOVE WHC1-LB-CART-COMPANY-ID    TO WJDA-SC-SO-COMPANY-ID.            
+           MOVE ORSH-BR-NBR-SHIP-FROM      TO WJDA-SC-SO-DC-ID.                 
+           MOVE WHC1-BILL-CART-SO-BR-ID(1:2)                                    
+                                     TO WJDA-SC-SO-PRO-NBR(1:2)                 
+                                        ORTSHJDA-PRO-NBR(1:2).                  
+           MOVE WHC1-BILL-CART-SO-ID (1:5)                                      
+                                     TO WJDA-SC-SO-PRO-NBR(3:5)                 
+                                        ORTSHJDA-PRO-NBR(3:5).                  
+           MOVE WHC1-BILL-CART-SO-ID (8:1)                                      
+                                     TO WJDA-SC-SO-PRO-NBR(8:1)                 
+                                        ORTSHJDA-PRO-NBR(8:1).                  
+           MOVE WHC1-BILL-CART-SO-ID (10:1)                                     
+                                     TO WJDA-SC-SO-PRO-NBR(9:1)                 
+                                        ORTSHJDA-PRO-NBR(9:1).                  
+           IF WHC1-LB-CART-COMPANY-ID = 'MD'                                    
+              MOVE 'UT' TO WJDA-SC-SO-SF-LOC(1:2)                               
+           END-IF.                                                              
+           IF WHC1-LB-CART-COMPANY-ID = 'FT'                                    
+              MOVE 'CT' TO WJDA-SC-SO-SF-LOC(1:2)                               
+           END-IF.                                                              
+           STRING                                                               
+                  ORSH-BR-NBR-SHIP-FROM DELIMITED BY SPACES                     
+            INTO WJDA-SC-SO-SF-LOC(3:2).                                        
+           MOVE '99999'                    TO WJDA-SC-SO-ST-LOC-CD.             
+           MOVE 'STT_DC'                   TO WJDA-SC-SO-ST-LOC-TYPE.           
+           MOVE WHC1-BILL-CART-SO-BR-ID(1:2) TO WJDA-SC-SO-BR-ID                
+                                              ORTSHJDA-BR-NBR                   
+           MOVE WHC1-BILL-CART-SO-ID (1:5) TO WJDA-SC-SO-ID                     
+                                              ORTSHJDA-ORDR-NBR                 
+           MOVE WHC1-BILL-CART-SO-ID (8:1) TO WJDA-SC-SO-DIST-NBR               
+                                              ORTSHJDA-DIST-NBR                 
+           MOVE WHC1-BILL-CART-SO-ID (10:1) TO WJDA-SC-SO-SHIP-NBR              
+                                              ORTSHJDA-SHIP-NBR                 
+           MOVE 'IMSO'                      TO WJDA-SC-SO-REF-TYPE1             
+           MOVE WHC1-BILL-CART-SO-BR-ID(1:2) TO WJDA-SC-SO-REF-NUM1(1:2)        
+           MOVE WHC1-BILL-CART-SO-ID (1:5) TO WJDA-SC-SO-REF-NUM1(3:5)          
+           MOVE WHC1-BILL-CART-SO-ID (8:1) TO WJDA-SC-SO-REF-NUM1(8:1)          
+           MOVE WHC1-BILL-CART-SO-ID (10:1) TO WJDA-SC-SO-REF-NUM1(9:1)         
+           MOVE 'IM_PRO'                     TO WJDA-SC-SO-REF-TYPE2            
+           MOVE SPACES                     TO WJDA-SC-SO-REF-NUM2               
+           MOVE 'IMPO'                     TO WJDA-SC-SO-REF-TYPE3              
+           IF ORH-ORD-REF-NBR > SPACES                                          
+                MOVE ORH-ORD-REF-NBR            TO WJDA-SC-SO-REF-NUM3          
+                                                   ORTSHJDA-CUST-NBR            
+           ELSE IF ORH-END-CUST-NUM > SPACES                                    
+                MOVE ORH-END-CUST-NUM           TO WJDA-SC-SO-REF-NUM3          
+                                                   ORTSHJDA-CUST-NBR            
+           ELSE IF ORH-CUST-REF-NBR2 > SPACES                                   
+                MOVE ORH-CUST-REF-NBR2          TO WJDA-SC-SO-REF-NUM3          
+                                                   ORTSHJDA-CUST-NBR            
+           ELSE IF ORH-CUST-ORDER-NBR > SPACES                                  
+           MOVE ORH-CUST-ORDER-NBR         TO WJDA-SC-SO-REF-NUM3               
+                                                   ORTSHJDA-CUST-NBR            
+           ELSE                                                                 
+           MOVE SPACES                     TO WJDA-SC-SO-REF-NUM3               
+                                                   ORTSHJDA-CUST-NBR            
+           END-IF.                                                              
+           MOVE SPACES                     TO WJDA-SC-SO-REF-TYPE4              
+           MOVE SPACES                     TO WJDA-SC-SO-REF-NUM4               
+                                                                                
+           IF WHC1-LB-CART-COMPANY-ID = 'MD'                                    
+              MOVE 'USA' TO WJDA-SC-SO-LGST-GRP-CD                              
+           END-IF.                                                              
+           IF WHC1-LB-CART-COMPANY-ID = 'FT'                                    
+              MOVE 'CAN' TO WJDA-SC-SO-LGST-GRP-CD                              
+           END-IF.                                                              
+                                                                                
+           MOVE 'IM'                       TO WJDA-SC-SO-DIV-CD                 
+           MOVE 'FT_PRE_PAID'              TO WJDA-SC-SO-FRT-TERM.              
+           MOVE 'SFT_HUB'                  TO WJDA-SC-SO-SF-LOC-TYP.            
+           MOVE SPACES                     TO WJDA-SC-SO-ST-BLOCK.              
+           IF SM-CUST-ADR1 > SPACES                                             
+              MOVE SM-CUST-ADR1               TO WJDA-SC-SO-ST-STREET           
+           ELSE IF SM-CUST-ADR2 > SPACES                                MAK19152
+              MOVE SM-CUST-ADR2               TO WJDA-SC-SO-ST-STREET   MAK19152
+           ELSE                                                         MAK19152
+              MOVE SM-CUST-NAME               TO WJDA-SC-SO-ST-STREET   MAK19152
+           END-IF.                                                              
+                                                                                
+           MOVE SPACES                     TO WJDA-SC-SO-ST-UNIT.               
+           MOVE SM-CITY-ADR4               TO WJDA-SC-SO-ST-CITY.               
+           IF  WJDA-SC-SO-ST-STATE NOT > SPACE                          WXY22005
+               MOVE SM-CUST-ST             TO WJDA-SC-SO-ST-STATE.      WXY22005
+                                                                                
+           IF ORH-COMPANY = 'FT'                                                
+              MOVE SM-ZIP-ADR4(1:3)      TO WJDA-SC-SO-ST-POSTAL(1:3)           
+              MOVE SPACE                 TO WJDA-SC-SO-ST-POSTAL(4:1)           
+              MOVE SM-ZIP-ADR4(4:3)      TO WJDA-SC-SO-ST-POSTAL(5:3)           
+           ELSE                                                                 
+              MOVE SM-CUST-ZIP(1:5)      TO WJDA-SC-SO-ST-POSTAL                
+           END-IF.                                                              
+                                                                                
+           MOVE '99999F'                   TO WJDA-SC-SO-ST-DESC.               
+           IF WHC1-BILL-CART-BILL-DATE  > SPACES                        TND20216
+              MOVE WHC1-BILL-CART-BILL-DATE                             TND20216
+                                  TO WJDA-SC-SO-PCKUP-FROM-DATE(1:10)   TND20216
+           ELSE                                                         TND20216
+              MOVE WS-CURRENT-DATE TO  WJDA-SC-SO-PCKUP-FROM-DATE(1:10).TND20216
+           MOVE 'T'                                                             
+                                  TO WJDA-SC-SO-PCKUP-FROM-DATE(11:1).          
+           MOVE '00:00:00'                                                      
+                                  TO WJDA-SC-SO-PCKUP-FROM-DATE(12:8).          
+           EXEC SQL                                                             
+                SELECT (CURRENT_DATE + 30 DAYS)                                 
+                INTO :WS-SHIPC-DATE                                             
+                FROM SYSIBM.SYSDUMMY1                                           
+           END-EXEC.                                                            
+                                                                                
+           MOVE WS-SHIPC-DATE                                                   
+                                  TO WJDA-SC-SO-PCKUP-TO-DATE(1:10).            
+           MOVE 'T'                                                             
+                                  TO WJDA-SC-SO-PCKUP-TO-DATE(11:1).            
+           MOVE '23:58:00'                                                      
+                                  TO WJDA-SC-SO-PCKUP-TO-DATE(12:8).            
+           IF WHC1-BILL-CART-BILL-DATE  > SPACES                        TND20216
+              MOVE WHC1-BILL-CART-BILL-DATE                             TND20216
+                                  TO WJDA-SC-SO-DLVRY-FROM-DATE(1:10)   TND20216
+           ELSE                                                         TND20216
+              MOVE WS-CURRENT-DATE TO  WJDA-SC-SO-DLVRY-FROM-DATE(1:10).TND20216
+           MOVE 'T'                                                             
+                                  TO WJDA-SC-SO-DLVRY-FROM-DATE(11:1).          
+           MOVE '00:01:00'                                                      
+                                  TO WJDA-SC-SO-DLVRY-FROM-DATE(12:8).          
+           MOVE WS-SHIPC-DATE                                                   
+                                  TO WJDA-SC-SO-DLVRY-TO-DATE(1:10).            
+           MOVE 'T'                                                             
+                                  TO WJDA-SC-SO-DLVRY-TO-DATE(11:1).            
+           MOVE '23:59:00'                                                      
+                                  TO WJDA-SC-SO-DLVRY-TO-DATE(12:8).            
+           MOVE 'Y'                        TO WJDA-SC-SO-LST-ORD-IND.           
+           MOVE WJDA-SHIPCREATE-SO-INFO-AREA TO SYTJDREQ-DATA-AREA-TEXT.        
+           MOVE LENGTH OF SYTJDREQ-DATA-AREA-TEXT                               
+                                           TO SYTJDREQ-DATA-AREA-LEN.           
+           MOVE WHC1-LB-CART-COMPANY-ID    TO SYTJDREQ-CO-CD.                   
+           MOVE '02'                       TO SYTJDREQ-SEQ-TYP.                 
+           MOVE 1                          TO SYTJDREQ-REC-TYP.                 
+           MOVE 1                          TO SYTJDREQ-REC-NBR.                 
+           MOVE 'WHP819'                   TO SYTJDREQ-LAST-CHG-PGM-ID.         
+      *                                                                         
+       J6210-EXIT.                                                              
+           EXIT.                                                                
+      *                                                                         
+                                                                                
+      *--------------------------------------------------------------*          
+       J6220-INSERT-JDA-REQ-DATA.                                               
+      *--------------------------------------------------------------*          
+                                                                                
+           EXEC SQL                                                             
+                INSERT INTO API_JDA_REQUEST_DATA                                
+                              ( CO_CD                                           
+                               ,SEQ_NBR                                         
+                               ,SEQ_TYP                                         
+                               ,REC_TYP                                         
+                               ,REC_NBR                                         
+                               ,DATA_AREA                                       
+                               ,LAST_CHG_PGM_ID                                 
+                               ,LST_CHG_TS)                                     
+                       VALUES ( :SYTJDREQ-CO-CD                                 
+                               ,:SYTJDREQ-SEQ-NBR                               
+                               ,:SYTJDREQ-SEQ-TYP                               
+                               ,:SYTJDREQ-REC-TYP                               
+                               ,:SYTJDREQ-REC-NBR                               
+                               ,:SYTJDREQ-DATA-AREA                             
+                               ,:SYTJDREQ-LAST-CHG-PGM-ID                       
+                               ,CURRENT TIMESTAMP)                              
+             END-EXEC.                                                          
+      *                                                                         
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN DB2-DUPLICATE                                               
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+               MOVE ORH-COMPANY             TO WS-ADT-COMPANY                   
+               MOVE 'I'                     TO WS-ADT-TYPE                      
+               MOVE 'WHP819'                TO WS-ADT-PROGRAM                   
+               MOVE 'WHSC'                  TO WS-ADT-TRAN-ID                   
+               MOVE 'JDA_REQ'               TO WS-ADT-FILE-NAME                 
+               MOVE 'INSERT DB2'            TO WS-ADT-INSTRUCTION               
+               MOVE 'DB2 ABEND = '          TO WS-ADT-DESCRIPTION(1:12)         
+               MOVE 'INS JDA_REQ_DATA '  TO ORTSHJDA-JDA-RESP-TXT(1:18) TND20216
+               MOVE 'LOGC'                  TO WS-ADT-SYSTEM                    
+               MOVE SQLSTATE                TO WS-ADT-DESCRIPTION(13:10)        
+                                            ORTSHJDA-JDA-RESP-TXT(20:2) TND20216
+               MOVE SQLERRM                 TO WS-ADT-DESCRIPTION(25:30)        
+                                            ORTSHJDA-JDA-RESP-TXT(25:10)TND20216
+               MOVE SYTJDREQ-REC-NBR        TO WS-ADT-DESCRIPTION(29:10)        
+               MOVE SYTJDREQ-LAST-CHG-PGM-ID                                    
+                                            TO WS-ADT-DESCRIPTION(42:04)        
+               MOVE SYWDB2-ERROR-TEXT (1)(1:28) TO                              
+                    WS-ADT-DESCRIPTION(71:28)                                   
+               MOVE 'J6220'                 TO WS-ABCODE                        
+               MOVE SQLCODE                 TO SQLCODE-STATUS                   
+               MOVE 'J6220-INSERT-JDA-REQ-DATA'                                 
+                                            TO WS-ADT-PARAGRAPH                 
+                                             SYWDB2-EXTRA-MESSAGE-1             
+               MOVE 'ERROR INSERT API_JDA_REQ_DATA'                             
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+               PERFORM 9850-START-AUDIT-PROGRAM                                 
+               PERFORM 990-SQL-MESSAGE                                          
+               MOVE 'B'             TO ORTSHJDA-PRCS-TYP                TND20216
+               PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT      TND20216
+               PERFORM 999-ABEND                                        TND20216
+           END-EVALUATE.                                                        
+                                                                                
+       J6220-INSERT-JDA-REQ-DATA-EXIT.                                          
+           EXIT.                                                                
+                                                                                
+      *--------------------------------------------------------------*          
+       J6230-INSERT-JDA-STATUS-REQ.                                             
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE WHC1-LB-CART-COMPANY-ID     TO SYTJDSRQ-CO-CD                   
+           MOVE 'S'                         TO SYTJDSRQ-API-TYP                 
+           MOVE 'WHP819'                    TO SYTJDSRQ-LAST-CHG-PGM-ID         
+           MOVE '0'                         TO SYTJDSRQ-TIBCO-STUS              
+                                                                                
+           EXEC SQL                                                             
+                INSERT INTO API_JDA_STATUS_REQ                                  
+                              ( CO_CD                                           
+                               ,API_TYP                                         
+                               ,TIBCO_STUS                                      
+                               ,CRT_TS                                          
+                               ,LAST_CHG_PGM_ID                                 
+                               ,LST_CHG_TS)                                     
+                       VALUES (:SYTJDSRQ-CO-CD                                  
+                               ,:SYTJDSRQ-API-TYP                               
+                               ,:SYTJDSRQ-TIBCO-STUS                            
+                               ,CURRENT TIMESTAMP                               
+                               ,:SYTJDSRQ-LAST-CHG-PGM-ID                       
+                               ,CURRENT TIMESTAMP)                              
+             END-EXEC.                                                          
+      *                                                                         
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    PERFORM J6250-CURR-SEQUENCE THRU J6250-EXIT                 
+               WHEN DB2-DUPLICATE                                               
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+               MOVE ORH-COMPANY             TO WS-ADT-COMPANY                   
+               MOVE 'I'                     TO WS-ADT-TYPE                      
+               MOVE 'WHP819'                TO WS-ADT-PROGRAM                   
+               MOVE 'WHSC'                  TO WS-ADT-TRAN-ID                   
+               MOVE 'JDA_REQ'               TO WS-ADT-FILE-NAME                 
+               MOVE 'INSERT DB2'            TO WS-ADT-INSTRUCTION               
+               MOVE 'DB2 ABEND = '          TO WS-ADT-DESCRIPTION(1:12)         
+               MOVE 'LOGC'                  TO WS-ADT-SYSTEM                    
+               MOVE SQLSTATE                TO WS-ADT-DESCRIPTION(13:10)        
+               MOVE SQLERRM                 TO WS-ADT-DESCRIPTION(25:30)        
+               MOVE SYTJDREQ-REC-NBR        TO WS-ADT-DESCRIPTION(29:10)        
+               MOVE SYTJDREQ-LAST-CHG-PGM-ID                                    
+                                            TO WS-ADT-DESCRIPTION(42:04)        
+               MOVE SYWDB2-ERROR-TEXT (1)(1:28) TO                              
+                    WS-ADT-DESCRIPTION(71:28)                                   
+               MOVE 'J6230'                 TO WS-ABCODE                        
+               MOVE SQLCODE                 TO SQLCODE-STATUS                   
+               MOVE SQLCODE-STATUS          TO                          TND20216
+                                          ORTSHJDA-JDA-RESP-TXT(1:9)    TND20216
+               MOVE 'J6230-INSERT-JDA-STATUS-REQ'                               
+                                            TO WS-ADT-PARAGRAPH                 
+                                             SYWDB2-EXTRA-MESSAGE-1             
+                                          ORTSHJDA-JDA-RESP-TXT(10:27)  TND20216
+               MOVE 'ERROR INSERT API_JDA_STATUS_REQ'                           
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+               PERFORM 990-SQL-MESSAGE                                          
+               PERFORM 9850-START-AUDIT-PROGRAM                                 
+               MOVE 'B'                TO ORTSHJDA-PRCS-TYP             TND20216
+               PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT      TND20216
+               PERFORM 999-ABEND                                                
+           END-EVALUATE.                                                        
+                                                                                
+       J6230-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      *                                                                         
+       J6240-PROCESS-JDA-PALT-DTLS.                                             
+           MOVE WHC1-LB-CART-COMPANY-ID    TO WJDA-CONT-COMPANY-ID              
+           MOVE ORSH-BR-NBR-SHIP-FROM      TO WJDA-CONT-DC-ID                   
+           MOVE WHC1-BILL-CART-SO-BR-ID(1:2) TO                                 
+                                           WJDA-CONT-PRO-NBR(1:2)               
+                                           WJDA-CONT-SO-BR-ID.                  
+           MOVE WHC1-BILL-CART-SO-ID(1:5) TO                                    
+                                           WJDA-CONT-PRO-NBR(3:5)               
+                                           WJDA-CONT-SO-ID.                     
+           MOVE WHC1-BILL-CART-SO-ID(8:1) TO                                    
+                                           WJDA-CONT-PRO-NBR(8:1)               
+                                           WJDA-CONT-SO-DIST-NBR.               
+           MOVE WHC1-BILL-CART-SO-ID(10:1) TO                                   
+                                           WJDA-CONT-PRO-NBR(9:1)               
+                                           WJDA-CONT-SO-SHIP-NBR.               
+           MOVE 'PCS'                      TO WJDA-CONT-CNT-TYP-CD.             
+           MOVE '1'                         TO WJDA-CONT-CNT-QTY                
+           MOVE ZERO                        TO WJDA-CONT-FLEX-QYT.      TND20216
+      *    MOVE SM-NO-OF-CARTONS            TO WJDA-CONT-FLEX-QYT.      TND20216
+           MOVE 'IM_CARR_TRCK'              TO WJDA-CONT-REF-TYPE1.             
+           MOVE 'IMHUTRKG'                  TO WJDA-CONT-REF-TYPE2.             
+           MOVE '92.5'                      TO WJDA-CONT-FRT-CLASS.             
+           MOVE '0'                   TO WJDA-CONT-IGNOR-REF-NUM-SW.            
+           MOVE WHC1-LB-CART-COMPANY-ID    TO SYTJDREQ-CO-CD                    
+           MOVE '02'                       TO SYTJDREQ-SEQ-TYP                  
+           MOVE 3                          TO SYTJDREQ-REC-TYP                  
+           MOVE 'WHP819'                   TO SYTJDREQ-LAST-CHG-PGM-ID          
+           MOVE WJDA-CONT-INFO-AREA        TO SYTJDREQ-DATA-AREA-TEXT.          
+           MOVE LENGTH OF SYTJDREQ-DATA-AREA-TEXT                               
+                                            TO SYTJDREQ-DATA-AREA-LEN.          
+      *                                                                         
+       J6240-EXIT.                                                              
+           EXIT.                                                                
+                                                                                
+      *                                                                         
+       J6340-PROCESS-JDA-CHRG-DTLS.                                     MAK19012
+           MOVE WHC1-LB-CART-COMPANY-ID    TO WJDA-CHRG-COMPANY-ID      MAK19012
+           MOVE ORSH-BR-NBR-SHIP-FROM      TO WJDA-CHRG-DC-ID           MAK19012
+           MOVE WHC1-BILL-CART-SO-BR-ID(1:2) TO                         MAK19012
+                                           WJDA-CHRG-PRO-NBR(1:2)       MAK19012
+                                           WJDA-CHRG-SO-BR-ID.          MAK19012
+           MOVE WHC1-BILL-CART-SO-ID(1:5) TO                            MAK19012
+                                           WJDA-CHRG-PRO-NBR(3:5)       MAK19012
+                                           WJDA-CHRG-SO-ID.             MAK19012
+           MOVE WHC1-BILL-CART-SO-ID(8:1) TO                            MAK19012
+                                           WJDA-CHRG-PRO-NBR(8:1)       MAK19012
+                                           WJDA-CHRG-SO-DIST-NBR.       MAK19012
+           MOVE WHC1-BILL-CART-SO-ID(10:1) TO                           MAK19012
+                                           WJDA-CHRG-PRO-NBR(9:1)       MAK19012
+                                           WJDA-CHRG-SO-SHIP-NBR.       MAK19012
+           MOVE WHC1-LB-CART-COMPANY-ID    TO SYTJDREQ-CO-CD.           MAK19012
+           MOVE '02'                       TO SYTJDREQ-SEQ-TYP.         MAK19012
+           MOVE 4                          TO SYTJDREQ-REC-TYP.         MAK19012
+           MOVE 'WHP819'                   TO SYTJDREQ-LAST-CHG-PGM-ID. MAK19012
+           MOVE WS-SO-REC-NBR              TO SYTJDREQ-REC-NBR          MAK19012
+           MOVE WJDA-CHRG-CODES            TO SYTJDREQ-DATA-AREA-TEXT.  MAK19012
+           MOVE LENGTH OF SYTJDREQ-DATA-AREA-TEXT                       MAK19012
+                                            TO SYTJDREQ-DATA-AREA-LEN.  MAK19012
+      *                                                                         
+       J6340-EXIT.                                                      MAK19012
+           EXIT.                                                        MAK19012
+                                                                                
+       J6250-CURR-SEQUENCE.                                                     
+                                                                                
+           EXEC SQL                                                             
+                SELECT IDENTITY_VAL_LOCAL()                                     
+                INTO :SYTJDREQ-SEQ-NBR                                          
+                FROM SYSIBM.SYSDUMMY1                                           
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE TO SQLCODE-STATUS.                                      
+           EVALUATE TRUE                                                        
+           WHEN SQLCODE-NORESP                                                  
+              CONTINUE                                                          
+           WHEN OTHER                                                           
+              MOVE 'J6250-CURR-SEQUENCE'  TO                                    
+                                         SYWDB2-EXTRA-MESSAGE-1                 
+              MOVE 'ERROR SELECT FAILED - IDENTITY_VAL_LOCAL'                   
+                                         TO SYWDB2-EXTRA-MESSAGE-2              
+                                       ORTSHJDA-JDA-RESP-TXT(11:30)     TND20216
+              PERFORM 990-SQL-MESSAGE                                           
+              MOVE 'J6250'              TO WS-ABCODE                            
+                                       ORTSHJDA-JDA-RESP-TXT(1:7)       TND20216
+               MOVE SQLCODE-STATUS  TO ORTSHJDA-JDA-RESP-TXT(8:2)       TND20216
+               MOVE 'B'             TO ORTSHJDA-PRCS-TYP                TND20216
+               PERFORM J6260-INSERT-SHIP-JDA-ORDER THRU J6260-EXIT      TND20216
+              PERFORM 999-ABEND                                                 
+           END-EVALUATE.                                                        
+       J6250-EXIT.                                                              
+           EXIT.                                                                
+123230                                                                          
+      *--------------------------------------------------------------*          
+       J6260-INSERT-SHIP-JDA-ORDER.                                             
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE WHC1-LB-CART-COMPANY-ID     TO ORTSHJDA-CO-CD                   
+           MOVE 'WHP819'                    TO ORTSHJDA-LAST-CHG-PGM-ID         
+           MOVE ORSH-CARRIER-CODE    TO ORTSHJDA-REQ-LEGACY-CARR-CD             
+           IF WHC1-BILL-CART-BILL-DATE  > SPACES                        MAK19012
+              MOVE WHC1-BILL-CART-BILL-DATE                             MAK19012
+                                       TO ORTSHJDA-BILL-DT              MAK19012
+           ELSE                                                         MAK19012
+              MOVE WS-CURRENT-DATE     TO ORTSHJDA-BILL-DT              MAK19012
+           END-IF.                                                      MAK19012
+                                                                                
+           EXEC SQL                                                             
+                INSERT INTO SHIP_JDA_ORDER                                      
+                              ( CO_CD                                           
+                               ,BR_NBR                                          
+                               ,ORDR_NBR                                        
+                               ,DIST_NBR                                        
+                               ,SHIP_NBR                                        
+                               ,ORDR_ENTY_DT                                    
+                               ,PRCS_TYP                                        
+                               ,CRT_TS                                          
+                               ,REQ_LEGACY_CARR_CD                              
+                               ,REQ_TMS_CARR_CD                                 
+                               ,REQ_TMS_SRVC                                    
+                               ,RTUN_TMS_CARR_CD                                
+                               ,RTUN_LEGACY_CARR_CD                             
+                               ,CUST_BR_NBR                                     
+                               ,CUST_NBR                                        
+                               ,CUST_CD                                         
+                               ,PRO_NBR                                         
+                               ,API_SEQ_NBR                                     
+                               ,BILL_DT                                         
+                               ,JDA_RESP_TXT                                    
+                               ,LAST_CHG_PGM_ID                                 
+                               ,LST_CHG_TS)                                     
+                       VALUES (:ORTSHJDA-CO-CD                                  
+                               ,:ORTSHJDA-BR-NBR                                
+                               ,:ORTSHJDA-ORDR-NBR                              
+                               ,:ORTSHJDA-DIST-NBR                              
+                               ,:ORTSHJDA-SHIP-NBR                              
+                               ,:WS-IN-DT                                       
+                               ,:ORTSHJDA-PRCS-TYP                              
+                               ,CURRENT TIMESTAMP                               
+                               ,:ORTSHJDA-REQ-LEGACY-CARR-CD                    
+                               ,:WS-ORDER-REQ-TMS-CARR                          
+                               ,:WS-ORDER-REQ-TMS-SRV                           
+                               ,' '                                             
+                               ,' '                                             
+                               ,:ORTSHJDA-CUST-BR-NBR                           
+                               ,:ORTSHJDA-CUST-NBR                              
+                               ,:ORTSHJDA-CUST-CD                               
+                               ,' '                                             
+                               ,:SYTJDREQ-SEQ-NBR                               
+                               ,CURRENT DATE                            MAK19012
+                               ,:ORTSHJDA-JDA-RESP-TXT                          
+                               ,:ORTSHJDA-LAST-CHG-PGM-ID                       
+133500                         ,CURRENT TIMESTAMP)                              
+133600       END-EXEC.                                                          
+                                                                                
+           EVALUATE SQLCODE                                                     
+               WHEN DB2-NORESP                                                  
+                    CONTINUE                                                    
+               WHEN DB2-DUPLICATE                                               
+                    CONTINUE                                                    
+               WHEN OTHER                                                       
+               MOVE ORH-COMPANY             TO WS-ADT-COMPANY                   
+               MOVE 'I'                     TO WS-ADT-TYPE                      
+               MOVE 'WHP819'                TO WS-ADT-PROGRAM                   
+               MOVE 'WHSC'                  TO WS-ADT-TRAN-ID                   
+               MOVE 'SHIP_JDA'              TO WS-ADT-FILE-NAME                 
+               MOVE 'INSERT DB2'            TO WS-ADT-INSTRUCTION               
+               MOVE 'DB2 ABEND = '          TO WS-ADT-DESCRIPTION(1:12)         
+               MOVE 'LOGC'                  TO WS-ADT-SYSTEM                    
+               MOVE SQLSTATE                TO WS-ADT-DESCRIPTION(13:10)        
+               MOVE SQLERRM                 TO WS-ADT-DESCRIPTION(25:30)        
+               MOVE SYTJDREQ-REC-NBR        TO WS-ADT-DESCRIPTION(29:10)        
+               MOVE SYTJDREQ-LAST-CHG-PGM-ID                                    
+                                            TO WS-ADT-DESCRIPTION(42:04)        
+               MOVE SYWDB2-ERROR-TEXT (1)(1:28) TO                              
+                    WS-ADT-DESCRIPTION(71:28)                                   
+               MOVE 'J6260'                 TO WS-ABCODE                        
+               MOVE SQLCODE                 TO SQLCODE-STATUS                   
+               MOVE 'J6260-INSERT-SHIP-JDA-ORD'                                 
+                                            TO WS-ADT-PARAGRAPH                 
+                                             SYWDB2-EXTRA-MESSAGE-1             
+               MOVE 'ERROR INSERT SHIP_JDA_ORDER'                               
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+               PERFORM 990-SQL-MESSAGE                                          
+               PERFORM 9850-START-AUDIT-PROGRAM                                 
+      ***      PERFORM 999-ABEND                                        TND20216
+           END-EVALUATE.                                                        
+                                                                                
+133700*                                                                         
+137200                                                                          
+137300 J6260-EXIT.                                                              
+137400     EXIT.                                                                
+                                                                                
+      *                                                                         
+      *--------------------------------------------------------------*          
+                                                                                
+      *--------------------------------------------------------------*          
+       J6270-CHECK-SHIP-JDA-ORDER.                                              
+      *--------------------------------------------------------------*          
+                                                                                
+           MOVE WHC1-LB-CART-COMPANY-ID     TO ORTSHJDA-CO-CD                   
+786400     MOVE ORH-BR-NBR                  TO ORTSHJDA-BR-NBR                  
+786500     MOVE WS-ORSHED-NBR               TO ORTSHJDA-ORDR-NBR                
+786600     MOVE WS-ORSSHH-DIST              TO ORTSHJDA-DIST-NBR                
+786700     MOVE WS-ORSSHH-SHIP              TO ORTSHJDA-SHIP-NBR                
+           MOVE 'B'                         TO ORTSHJDA-PRCS-TYP                
+                                                                                
+                                                                                
+           EXEC SQL                                                             
+                SELECT COUNT(*)                                                 
+                INTO :WS-SHIP-JDA-ERR-CNT                                       
+                FROM SHIP_JDA_ORDER                                             
+                WHERE CO_CD     = :ORTSHJDA-CO-CD     AND                       
+                      BR_NBR    = :ORTSHJDA-BR-NBR    AND                       
+                      ORDR_NBR  = :ORTSHJDA-ORDR-NBR  AND                       
+                      DIST_NBR  = :ORTSHJDA-DIST-NBR  AND                       
+                      SHIP_NBR  = :ORTSHJDA-SHIP-NBR  AND                       
+                      PRCS_TYP  = :ORTSHJDA-PRCS-TYP                            
+           END-EXEC.                                                            
+                                                                                
+                                                                                
+            EVALUATE TRUE                                                       
+184110      WHEN SQLSTATE = SQL-NORESP                                          
+184120         CONTINUE                                                         
+184130      WHEN OTHER                                                          
+347531        MOVE ORH-COMPANY        TO WS-ADT-COMPANY                         
+347532        MOVE 'I'                TO WS-ADT-TYPE                            
+347533        MOVE 'WHP819'           TO WS-ADT-PROGRAM                         
+347534        MOVE 'WHSC'             TO WS-ADT-TRAN-ID                         
+347535        MOVE 'J6270-CHECK-SHIP-JDA'                                       
+347536                                TO WS-ADT-PARAGRAPH                       
+347537        MOVE 'SELECT'           TO WS-ADT-INSTRUCTION                     
+347538        MOVE 'LOGC'             TO WS-ADT-SYSTEM                          
+347539        MOVE 'SHIP_JDA_ORDE'    TO WS-ADT-FILE-NAME                       
+347540        MOVE 'DB2 ABEND = '     TO WS-ADT-DESCRIPTION(1:12)               
+347541        MOVE SQLSTATE           TO WS-ADT-DESCRIPTION(13:10)              
+347542        MOVE SQLERRM            TO WS-ADT-DESCRIPTION(25:30)              
+              MOVE 'J6270-CHECK-SHIP-JDA'                                       
+                                          TO SYWDB2-EXTRA-MESSAGE-1             
+              MOVE 'ERROR SELECT SHIP_JDA_'                                     
+                                          TO SYWDB2-EXTRA-MESSAGE-2             
+              PERFORM 990-SQL-MESSAGE                                           
+347543        PERFORM 9850-START-AUDIT-PROGRAM                                  
+              END-EVALUATE.                                                     
+133700*                                                                         
+137200                                                                          
+137300 J6270-EXIT.                                                              
+137400     EXIT.                                                                
+                                                                                
+       J7000-GET-COUNTRY-CODE.                                          WXY22005
+                                                                        WXY22005
+           MOVE WS-SHIP-TO-COUNTRY     TO WWTCTRY-CTRY-CD.              WXY22005
+                                                                        WXY22005
+           EXEC SQL                                                     WXY22005
+                SELECT CTRY3_CD                                         WXY22005
+                INTO :WWTCTRY-CTRY3-CD                                  WXY22005
+                FROM CTRY                                               WXY22005
+                WHERE CTRY_CD = :WWTCTRY-CTRY-CD                        WXY22005
+           END-EXEC.                                                    WXY22005
+                                                                        WXY22005
+           MOVE SQLCODE   TO SQLCODE-STATUS.                            WXY22005
+           EVALUATE TRUE                                                WXY22005
+               WHEN SQLCODE-NORESP                                      WXY22005
+                    MOVE WWTCTRY-CTRY3-CD TO WS-SHIP-TO-COUNTRY-3       WXY22005
+               WHEN SQLCODE-NOT-FOUND                                   WXY22005
+                    MOVE SPACES     TO WS-SHIP-TO-COUNTRY-3             WXY22005
+               WHEN OTHER                                               WXY22005
+                    MOVE '920'      TO WS-ABCODE                        WXY22005
+                    MOVE 'J7000-GET-COUNTRY-CODE'                       WXY22005
+                                             TO SYWDB2-EXTRA-MESSAGE-1  WXY22005
+                    MOVE 'ERROR SELECT CTRY'                            WXY22005
+                                             TO SYWDB2-EXTRA-MESSAGE-2  WXY22005
+                    PERFORM 990-SQL-MESSAGE                             WXY22005
+           END-EVALUATE.                                                WXY22005
+                                                                        WXY22005
+                                                                        WXY22005
+       J7000-EXIT.                                                      WXY22005
+           EXIT.                                                        WXY22005
+                                                                        WXY22005
+       J6280-UNLOCK-ORLMTF.                                                     
+           EXEC CICS UNLOCK DATASET(WS-SM-FILE-NAME)                            
+                            RESP   (WS-EIBRESP)                                 
+           END-EXEC.                                                            
+           IF WS-EIB-NORESP                                                     
+              MOVE 'Y'                 TO WS-SM-IO-SW                           
+           ELSE                                                                 
+              MOVE SPACE               TO WS-SM-IO-SW.                          
+      *                                                                         
+      *                                                                         
+      *--------------------------------------------------------------*          
+                                                                                

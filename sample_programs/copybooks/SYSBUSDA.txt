@@ -1,0 +1,235 @@
+                                                                                
+      ******************************************************************        
+      *** YEAR 2000 REMEDIATED                                         *PWLY8308
+      ******************************************************************        
+      ******************************************************************        
+      *         NAME: SYSBUSDA                                                  
+      *=================================================================        
+      * NMBR | DATE  | PGMR | DESCRIPTION                                       
+      *------+-------+------+-------------------------------------------        
+      *      09/28/99| MCV  | REMOVE TBLMST CLOSE                       MCV99271
+      *      1062599 | SSL  | INITIALIZED SYSBUSDA-COUNT                SSL99134
+      *      11/04/98| RXD  | Y2K REMEDIATION                           RXDY8308
+      *-----------------------------------------------------------------RXDY8308
+      *      |072996 | TSR  | CREATED THIS COPYBOOK TO CALCULATE A              
+      *      |       |      | FUTURE OR PREVIOUS BUSNESS DATE.                  
+      *=================================================================        
+      *  THIS COPYBOOK IS USED WITH SYWBUSDA TO CALCULATE A FUTURE OR  *        
+      *    PREVIOUS BUSINESS DATE.                                     *        
+      *                                                                *        
+      *  COPYBOOK SYSBUSDA WILL CALCULATE THE BUSINESS DATE (+/-)      *        
+      *    FROM THE INPUTTED DATE EXCLUDING SATURDAY, SUNDAY AND       *        
+      *    DATES CONTAINED IN THE HOLIDAY TABLE.                       *        
+      *                                                                *        
+      *  WILL CALCULATE WITH BOTH CICS AND BATCH PROGRAMS.             *        
+      *                                                                *        
+      *  THE OUTPUT DATE WILL BE IN SYWBUSDA-COMP-DATE.                *        
+      *                                                                *        
+      *  FIELD "SYWBUSDA-ERROR-SW" WILL CONTAIN A CODE INDICATING      *        
+      *    THE RESULTS OF THE CONVERSION. ("N" IS A NORMAL RESPONCE).  *        
+      *                                                                *        
+      *  YOU WILL NEED TO COPY TBIHDAY AND SYSRDATE INTO THE WORKING-  *        
+      *    STORAGE SECTION IF THEY ARE NOT NOW BEING USED.             *        
+      *                                                                *        
+      *  INITIALIZE THE FOLLOWING FIELDS.                              *        
+      *     CICS SWITCH ...................... SYWBUSDA-SW             *        
+      *     COMPAY CODE ...................... SYWBUSDA-COMPANY        *        
+      *     NUMBER OF DAYS (+/-) ............. SYWBUSDA-DAYS           *        
+      *     JULIAN DATE TO BEGIN CALCULATION . SYWBUSDA-COMP-DATE      *        
+      *                                                                *        
+      *================================================================*        
+      *  EXAMPLE:                                                      *        
+      *================================================================*        
+      *                                                                *        
+      *  WORKING-STORAGE SECTION                                       *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      COPY SYRDATE  SUPPRESS.    *** IF NOT ALLREADY BEING USED.*        
+      *      .                                                         *        
+      *      COPY TBIHDAY  SUPPRESS.                                   *        
+      *      COPY SYWBUSDA SUPPRESS.                                   *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *  PROCEDURE DIVIDION.                                           *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      MOVE 'Y'                   TO  SYWBUSDA-SW. (CICS ONLY)   *        
+      *      MOVE TB-DATE-COMPANY       TO  SYWBUSDA-COMPANY.          *        
+      *      MOVE +15                   TO  SYWBUSDA-DAYS.             *        
+      *      MOVE TB-DATE-AS-OF-JULIAN  TO  SYWBUSDA-COMP-DATE.        *        
+      *                                                                *        
+      *      PERFORM 6200-SYSBUSDA-DATE THRU 6200-SYSBUSDA-EXIT.       *        
+      *      IF SYWBUSDA-NORESP                                        *        
+      *         MOVE SYWBUSDA-COMP-DATE TO  ** YOUR DATA NAME **       *        
+      *      ELSE                                                      *        
+      *         **  YOUR ERROR PROCESSING  **                          *        
+      *      .                                                         *        
+      *      .                                                         *        
+      *      COPY SYSBUSDA.                                            *        
+      ******************************************************************        
+                                                                                
+       6200-SYSBUSDA-DATE.                                                      
+           MOVE ZERO  TO SYWBUSDA-COUNT.                                SSL99134
+           IF NOT END-OF-SYWBUSDA-TABLE                                         
+              PERFORM 6220-SYSBUSDA-TABLE THRU 6220-SYSBUSDA-EXIT.              
+                                                                                
+           IF SYWBUSDA-COMP-DATE IS NUMERIC AND                                 
+              SYWBUSDA-COMP-DATE > ZERO                                         
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              IF SYWBUSDA-COMP-DATE NOT NUMERIC                                 
+                 MOVE '1' TO SYWBUSDA-ERROR-SW                                  
+              ELSE                                                              
+                 MOVE '2' TO SYWBUSDA-ERROR-SW                                  
+              END-IF                                                            
+              GO TO 6200-SYSBUSDA-EXIT.                                         
+                                                                                
+           IF SYWBUSDA-DAYS IS NUMERIC AND                                      
+              SYWBUSDA-DAYS NOT = ZERO                                          
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              IF SYWBUSDA-DAYS NOT NUMERIC                                      
+                 MOVE '3' TO SYWBUSDA-ERROR-SW                                  
+              ELSE                                                              
+                 MOVE '4' TO SYWBUSDA-ERROR-SW                                  
+              END-IF                                                            
+              GO TO 6200-SYSBUSDA-EXIT.                                         
+                                                                                
+      * CALCULATE BUSINESS DATE                                                 
+                                                                                
+           MOVE SPACES             TO WS-DATE-PARAMETER-1.                      
+           MOVE SYWBUSDA-COMP-DATE TO WS-DATE-JULIAN.                           
+           CALL 'SYU015'     USING WS-DATE-PARAMETER-1.                         
+                                                                                
+           IF NOT WS-DATE-OK                                                    
+              MOVE '5' TO SYWBUSDA-ERROR-SW                                     
+              GO TO 6200-SYSBUSDA-EXIT.                                         
+                                                                                
+           PERFORM 6210-SYSBUSDA-CALCULATE THRU 6210-SYSBUSDA-EXIT              
+             UNTIL SYWBUSDA-DAYS = SYWBUSDA-COUNT.                              
+                                                                                
+           MOVE 'N' TO SYWBUSDA-ERROR-SW.                                       
+                                                                                
+       6200-SYSBUSDA-EXIT.                                                      
+           EXIT.                                                                
+                                                                                
+       6210-SYSBUSDA-CALCULATE.                                                 
+           IF SYWBUSDA-DAYS < ZERO                                              
+      *Y2K********************************************************Y2K*  RXDY8308
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+              CALL 'CAWINUP'                                            RXDY8308
+                  USING SYWBUSDA-COMP-DATE                              RXDY8308
+                        SYWBUSDA-DEFAULT-WINDOW-SPEC                    RXDY8308
+                        SYWBUSDA-DISPLAY5-TYPE                          RXDY8308
+                        SYWBUSDA-COMP-DATE-Y2K                          RXDY8308
+                        SYWBUSDA-THIS-YEAR-Y2K                          RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *       ADD -1 TO SYWBUSDA-COMP-DATE                              RXDY8308
+              ADD -1 TO SYWBUSDA-COMP-DATE-Y2K                          RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+              MOVE SYWBUSDA-COMP-DATE-Y2K TO SYWBUSDA-COMP-DATE         RXDY8308
+           ELSE                                                                 
+              ADD  1 TO SYWBUSDA-COMP-DATE.                                     
+                                                                                
+           MOVE SPACES             TO WS-DATE-PARAMETER-1.                      
+           MOVE SYWBUSDA-COMP-DATE TO WS-DATE-JULIAN.                           
+           CALL 'SYU015'     USING WS-DATE-PARAMETER-1.                         
+                                                                                
+           IF NOT WS-DATE-OK                                                    
+              IF SYWBUSDA-DAYS < ZERO                                           
+                 MOVE 367 TO SYWBUSDA-COMP-DAY                                  
+      *Y2K********************************************************Y2K*  RXDY8308
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+                 CALL 'CAWINUP'                                         RXDY8308
+                     USING SYWBUSDA-COMP-YR                             RXDY8308
+                           SYWBUSDA-DEFAULT-WINDOW-SPEC                 RXDY8308
+                           SYWBUSDA-DISPLAY2-TYPE                       RXDY8308
+                           SYWBUSDA-COMP-YR-Y2K                         RXDY8308
+                           SYWBUSDA-THIS-YEAR-Y2K                       RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *          ADD   -1 TO SYWBUSDA-COMP-YR                           RXDY8308
+                 ADD   -1 TO SYWBUSDA-COMP-YR-Y2K                       RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+      *      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+      *Y2K********************************************************Y2K*  RXDY8308
+                 MOVE SYWBUSDA-COMP-YR-Y2K TO SYWBUSDA-COMP-YR          RXDY8308
+              ELSE                                                              
+                 MOVE   0 TO SYWBUSDA-COMP-DAY                                  
+                 ADD    1 TO SYWBUSDA-COMP-YR                                   
+              END-IF                                                            
+              GO TO 6210-SYSBUSDA-CALCULATE                                     
+           END-IF.                                                              
+                                                                                
+      *    'NEXT DAY' IS SATURDAY OR SUNDAY, DON'T COUNT IT                     
+           IF WS-DATE-DAY-NAME = 'SATURDAY ' OR 'SUNDAY   '                     
+              GO TO 6210-SYSBUSDA-CALCULATE.                                    
+                                                                                
+      *    'NEXT DAY' IS A HOLIDAY, DON'T COUNT IT                              
+           MOVE 'N' TO SYWBUSDA-FOUND-SW.                                       
+           PERFORM VARYING SYWBUSDA-INDEX FROM 1 BY 1                           
+             UNTIL SYWBUSDA-DATE (SYWBUSDA-INDEX) = ZEROES OR                   
+                   SYWBUSDA-FOUND                                               
+                   IF SYWBUSDA-DATE (SYWBUSDA-INDEX)                            
+                                                   = SYWBUSDA-COMP-DATE         
+                      MOVE 'Y' TO SYWBUSDA-FOUND-SW                             
+                   END-IF                                                       
+           END-PERFORM.                                                         
+                                                                                
+           IF SYWBUSDA-FOUND                                                    
+              GO TO 6210-SYSBUSDA-CALCULATE.                                    
+                                                                                
+                                                                                
+           IF SYWBUSDA-DAYS < ZERO                                              
+              ADD -1 TO SYWBUSDA-COUNT                                          
+           ELSE                                                                 
+              ADD  1 TO SYWBUSDA-COUNT.                                         
+                                                                                
+       6210-SYSBUSDA-EXIT.                                                      
+           EXIT.                                                                
+                                                                                
+       6220-SYSBUSDA-TABLE.                                                     
+           PERFORM VARYING SYWBUSDA-INDEX FROM 1 BY 1                           
+              UNTIL SYWBUSDA-INDEX > 100                                        
+                    MOVE ZEROES TO SYWBUSDA-DATE (SYWBUSDA-INDEX)               
+           END-PERFORM.                                                         
+                                                                                
+           MOVE LOW-VALUES              TO TB-HDAY-ENTRY                MCV99271
+           MOVE SYWBUSDA-COMPANY        TO TB-HDAY-COMPANY-CODE.                
+           MOVE 'N'                     TO TB-HDAY-REQUEST-CODE.                
+           MOVE ' '                     TO SYWBUSDA-TBL-SW.                     
+                                                                                
+           PERFORM VARYING SYWBUSDA-INDEX FROM 1 BY 1                           
+             UNTIL END-OF-SYWBUSDA-TABLE OR                                     
+                   SYWBUSDA-INDEX > 100                                         
+                   IF SYWBUSDA-CICS                                             
+                      CALL SYWBUSDA-SYU510 USING TB-HOLIDAY-TABLE-IA            
+                   ELSE                                                         
+                      CALL SYWBUSDA-SYU500 USING TB-HOLIDAY-TABLE-IA            
+                   END-IF                                                       
+                   IF TB-HDAY-NORESP                                            
+                      IF TB-HDAY-COMPANY-CODE = SYWBUSDA-COMPANY                
+                         MOVE  TB-HDAY-DATE TO                                  
+                                        SYWBUSDA-DATE (SYWBUSDA-INDEX)          
+                      ELSE                                                      
+                         MOVE 'Y' TO SYWBUSDA-TBL-SW                            
+                      END-IF                                                    
+                   ELSE                                                         
+                      MOVE 'Y' TO SYWBUSDA-TBL-SW                               
+                   END-IF                                                       
+           END-PERFORM.                                                         
+                                                                                
+                                                                                
+       6220-SYSBUSDA-EXIT.                                                      
+           EXIT.                                                                
+                                                                                

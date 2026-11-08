@@ -1,0 +1,39 @@
+      *****************************************************************         
+      *  ORSCBN - COPYBOOK USED TO INVOKE ORP450 PROGRAM              *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 09/04/2009 GAE INITIAL IMPLEMENTATION.                        * GAE09247
+      *****************************************************************         
+      *                                                                         
+       CBN-100-PROCESS-CBN-ORDER.                                               
+      *                                                                         
+           IF  TB-ACOP-CBN-PROCESSING                                           
+           AND ORBT-SO-TYPE = 'D'                                               
+           AND ORHOF-CBN                                                        
+               PERFORM CBN-110-CALL-ORP450.                                     
+      *                                                                         
+       CBN-110-CALL-ORP450.                                                     
+      *                                                                         
+           IF WS-DLI-SCHEDULED                                                  
+               PERFORM 990-TERMINATE-DLI.                                       
+      *                                                                         
+           MOVE TC-MAP-PROGRAM             TO CBN-IN-CALLING-PROGRAM.           
+           MOVE TC-OPER-ID                 TO CBN-IN-OPER-ID.                   
+      *                                                                         
+           CALL CBN-PROGRAM             USING DFHEIBLK                          
+                                              CBN-COMMAREA                      
+                                              ORBT-ORRBT.                       
+      *                                                                         
+           PERFORM 980-SCHEDULE-DLI.                                            
+      *                                                                         
+      *--- CBN-OUT-ERROR INDICATOR IS SET TO "Y" TO PREVENT PUP590              
+      *--- FROM INVOKING ORP450                                                 
+           SET ORBT-CBN-ORP450-PROCESS     TO TRUE.                             
+      *                                                                         
+           IF CBN-OUT-RETURN-ERROR                                              
+           OR CBN-OUT-RETURN-NON-CBN-ORDER                                      
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+              MOVE CBN-OUT-VEND-PURCHASING TO ORBT-VENDOR-PURCH                 
+              IF CBN-OUT-VEND-PURCHASING > SPACES                               
+                 SET  ORBT-CBN             TO TRUE.                             

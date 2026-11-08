@@ -1,0 +1,141 @@
+      ****************************************************************          
+      *                                                                         
+      * THIS COPYBOOK IS USED TO COMMUNICATE BETWEEN SUBSTATION                 
+      *   AND WWPINB .                                                          
+      *                                                                         
+      * THIS LAYOUT IS MIMICED IN WWPINB.                                       
+      * WHEN EVER THIS COPYBOOK LAYOUT CHANGES , MAKE SURE WE CHANGE            
+      *   THE LAYOUT IN WWPINB PROGRAM.                                         
+      *                                                                         
+      ****************************************************************          
+      * REVISIONS:                                                              
+      *                                                                         
+      * 06/08/21  NR1  ADDED FIELD INBND-CALL-WWPTRG-DIRECT-SW FOR      NR121218
+      *                TIBCO RED PROJECT , TO KNOW IF THE CALL IS       NR121218
+      *                DIRECT FROM EAI OR NOT                           NR121218
+001220* 01/09/21  TEH  ADD SWITCH FOR CODE PAGE CONVERSION.  IF 'N'     TEH21009
+001230*                THEN CONVERSION HAS BEEN DONE IN BW.             TEH21009
+      * 11/02/18  VXA  CHNAGES FOR EAI LOGGING                          VXA18306
+      * 05/05/17  VXA  CHANGES FOR PCG/XML MIGRATION PROJECT            VXA17125
+      * 02/28/08  TKC  ADD CODEPAGE FOR BE, DK, FN AND IT.              TKC08060
+      * 06/02/07  ROR  ADD A  FIELD TO CAPTURE THE NAME OF THE SOURCE   ROR07153
+      *                OF INCOMING TRANSACTION                          ROR07153
+      *           -->  ADD NEW VALUES TO CODE PAGE IND.                 ROR07153
+      * 06/22/06  ROR  ADD A  FIELD TO CAPTURE THE LENGTH OF INCOMING   ROR06173
+      *                TRANSACTION.                                     ROR06173
+      * 01/19/06  ROR  ADD A  FIELD AND RENAMED A FIELD.                ROR06019
+      * 10/20/05  ROR  NEW COPYBOOK CREATED.                            ROR05293
+      *                                                                         
+      ****************************************************************          
+      ***************************************************************           
+       01 INBND-AREA.                                                           
+      ***************************************************************           
+        03 INBND-HEADER.                                                        
+         05 INBND-RESOURCE-TYPE                PIC X(01).                       
+              88 INBND-PGM                     VALUE 'P'.                       
+              88 INBND-QUE                     VALUE 'Q'.                       
+              88 INBND-TYPE-VALID              VALUE 'P' 'Q'.                   
+         05 INBND-CALL                         PIC X(01).                       
+              88 INBND-CALLS                   VALUE 'C'.                       
+              88 INBND-LINK                    VALUE 'L'.                       
+              88 INBND-START                   VALUE 'S'.                       
+              88 INBND-CALL-VALID              VALUE 'C' 'L' 'S'.               
+         05 INBND-CODE-PAGE-ID                 PIC X(02).                       
+              88 INBND-CP037                   VALUE '10'.                      
+              88 INBND-CP273                   VALUE '12'.                      
+              88 INBND-CP285                   VALUE '14'.              ROR07153
+              88 INBND-CP297                   VALUE '16'.              ROR07153
+              88 INBND-CP284                   VALUE '18'.              ROR07153
+              88 INBND-CP274                   VALUE '20'.              TKC08060
+              88 INBND-CP277                   VALUE '22'.              TKC08060
+              88 INBND-CP278                   VALUE '24'.              TKC08060
+              88 INBND-CP280                   VALUE '28'.              TKC08060
+         05 INBND-LOGGING                      PIC X(01).                       
+      *       88 INBND-LOG-INBOUND             VALUE 'I' 'B'.           VXA18306
+      *       88 INBND-LOG-OUTBOUND            VALUE 'O' 'B'.           VXA18306
+      *       88 INBND-LOG-BOTH                VALUE 'B'.               VXA18306
+      *       88 INBND-DO-NOT-LOG              VALUE 'N' ' '.           VXA18306
+              88 INBND-LOG-INBOUND              VALUE 'X' 'Z'.          VXA18306
+              88 INBND-LOG-OUTBOUND             VALUE 'Y' 'Z'.          VXA18306
+              88 INBND-LOG-BOTH                 VALUE 'Z'.              VXA18306
+              88 INBND-DO-NOT-LOG               VALUE 'N' ' '.          VXA18306
+              88 INBND-LOG-INBOUND-IN-JRNL      VALUE 'J' 'L'.          VXA18306
+              88 INBND-LOG-INBOUND-OUT-JRNL     VALUE 'K' 'L'.          VXA18306
+              88 INBND-LOG-BOTH-JRNL            VALUE 'L'.              VXA18306
+              88 INBND-LOG-OUTBOUND-JRNL        VALUE 'M'.              VXA18306
+         05  INBND-COMPANY-CODE-OFFSET         PIC 9(05).                       
+         05  INBND-COMPANY-CODE                PIC X(02).                       
+         05  INBND-DATE                        PIC X(10).                       
+         05  INBND-IN-TIME                     PIC X(08).                       
+         05  INBND-OUT-TIME                    PIC X(08).                       
+         05  INBND-RESPONSE                    PIC 9(08).                       
+         05  INBND-SYSTEM                      PIC X(02).                       
+         05  INBND-RESOURCE                    PIC X(08).                       
+         05  INBND-QUEUE-NAME REDEFINES INBND-RESOURCE.                         
+             10  INBND-QUEUE                   PIC X(04).                       
+             10  FILLER                        PIC X(04).                       
+      *************************************************************             
+      *** ABEND-ON-ERROR IS USED FOR A PROCESS THAT REQUIRES AN                 
+      *** ABEND FOR THE CALLING PROCESS TO HANDLE THE RECOVERY. AN              
+      *** EXAMPLE OF THIS IS THE EMS PROCESS. THE EMS QUEUE WILL                
+      *** STORE FAILED MESSAGES IF IT RECEIVES AN ABEND FROM SS.                
+      ***                                                                       
+      *** RETURN-ERROR-ON-ERROR IS USED BY AN APPLICATION WHEN IT WANTS         
+      *** TO CALL THE TRANSACTION IN A SYNCHRONOUS PROCESS AND CAN              
+      *** HANDLE THE RETRY PROCESS AT THE CLIENT SIDE. THIS PROCESS             
+      *** SIMPLY RETURN THE RESULTS WITHOUT ATTEMPTING A RETRY. IT              
+      *** WILL ALSO MASK AN ABEND AND RETURN AN ERROR.                          
+      ***                                                                       
+      *** RETURN-EXISTING-ERROR-ON-ERROR MEANS THAT THE APPLICATION             
+      *** WILL NOT MASK THE ABEND/ERROR OF THE CALLED APPLICATION. IF           
+      *** THE APPLICATION ABENDS, WWPINB WILL ALSO ABEND. IF THE APP            
+      *** RETURNS AND ERROR, WWPINB WILL RETURN AN ERROR.                       
+      ***                                                                       
+      ******                                                                    
+      ***                                                                       
+      *** RETRY-IF-ERROR IS USED FOR A PROCESS THAT WILL NOT HANDLE THE         
+      *** RECOVERY PROCESS. THIS OPTION IS USED SO THAT THE RETRY IS            
+      *** HANDLED ON THE MAINFRAME SIDE. THE CLIENTS ONLY                       
+      *** RESPONSIBILITY IS TO GET THE DATA TO THE CICS APPLICATION.            
+      ***                                                                       
+      *****************************************************************         
+         05  INBND-ABEND-ALL-EAI-ERROR-SW      PIC X(01).               ROR06019
+             88  ABEND-ON-ERROR                VALUE 'Y'.               ROR06173
+             88  RETURN-ERROR-ON-ERROR         VALUE 'E'.               ROR06173
+             88  RETURN-EXISTING-ERROR-ON-ERROR VALUE ' '.              ROR06173
+         05  INBND-RETRY-IF-ERROR-SW           PIC X(01).                       
+             88  RETRY-IF-ERROR                VALUE 'Y'.                       
+             88  DO-NOT-RETRY                  VALUE 'N' ' '.                   
+         05  INBND-RECOVERY-SW                 PIC X(01).               ROR06019
+             88  INBND-FROM-RECOVERY           VALUE 'Y'.               ROR06019
+         05  INBND-TRANSACTION-LENGTH          PIC 9(08).               ROR06173
+         05  INBND-INCOMING-SOURCE             PIC X(08).               ROR07153
+      *      88  INBND-FRM-RAMSTESTSLAMFILE    VALUE 'SLAMFILE'.        ROR07153
+010810   05  INBND-CODE-PAGE-CONV-LOC          PIC X(01).               TEH21009
+010820       88  INBND-CONV-IN-WWP             VALUE 'Y'.               TEH21009
+010830       88  INBND-CONV-IN-BW              VALUE 'N'.               TEH21009
+         05  INBND-CALL-WWPTRG-DIRECT-SW       PIC X(01).               NR121218
+              88 INBND-CALL-WWPTRG-DIRECT      VALUE 'Y'.               NR121218
+         05  FILLER                            PIC X(23).               NR121218
+010900*  05  FILLER                            PIC X(24).               NR121218
+       03  INBND-DATA-AREA.                                                     
+             10 INBND-DATA                     PIC X(15900).                    
+      **                                                                        
+      **  THIS IS THE RESPONSE FROM THE INBOUND CALL                            
+      **  IF THE CALLING APP DOES NOT WANT A RESPONSE, SET                      
+      **  SET ABEND-IF-ERROR TO TRUE THEN THE WWPINB APP WILL                   
+      **  ABEND ON ERROR CONDITION.                                             
+      **                                                                        
+       01  INBND-REPONSE.                                                       
+           05 INBND-RESP-RC                 PIC X(04).                          
+              88 INBND-RES-TYPE-MISSING        VALUE '2001'.            ROR06173
+              88 INBND-RES-TYPE-INVALID        VALUE '2002'.            ROR06173
+              88 INBND-RES-CALL-INVALID        VALUE '2003'.            ROR06173
+              88 INBND-CO-OFFSET-LT-ZERO       VALUE '2004'.            ROR06173
+              88 INBND-CO-OFFSET-NOT-NUM       VALUE '2005'.            ROR06173
+              88 INBND-INVALID-CO-CODE         VALUE '3501'.            ROR06173
+              88 INBND-PROB-WWLCOT-FILE        VALUE '3502'.            ROR06173
+              88 INBND-ABEND-IN-CALLED-PGM     VALUE '5100'.            ROR06173
+              88 INBND-PROB-REGION-DOWN        VALUE '9999'.            ROR06173
+           05 INBND-RESP-DATA               PIC X(88).                  VXA17125
+           05 INBND-RESP-TIME               PIC X(08).                  VXA17125

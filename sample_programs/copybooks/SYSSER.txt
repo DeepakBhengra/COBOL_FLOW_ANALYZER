@@ -1,0 +1,762 @@
+      **************************************************************            
+      * COPYBOOK SYXSER - LOGICAL ROUTINE TO INSERT/UPDATE/FETCH                
+      *          UPDATE/DELETE SERIAL DATA PRESENT TO TABLE                     
+      **************************************************************            
+      * REVISION HISTORY                                                        
+      * 10/22/21 TXT DUPLICATE CHECK FOR INSERT                         TXT21304
+      * 05/07/21 CYR ADD FULFILL SW                                     CYR21127
+      * 04/05/20 CYR FIX TO UPDATE PROCESSED FLAG TO 'Y'                CYR20096
+      * 04/03/20 CYR INITIAL CODE                                       CYR20094
+      **************************************************************            
+      *   ROUTINES FOR DB2 TABLE                                                
+      *----------------------------------------------------------               
+      *   SR1000-OPEN-LN-CURSOR                                                 
+      *   SR1100-FETCH-LN-CURSOR                                                
+      *   SR1200-CLOSE-LN-CURSOR                                                
+      *----------------------------------------------------------               
+      *   SR1000A-OPEN-PRI-CURSOR                                               
+      *   SR1100A-FETCH-PRI-CURSOR                                              
+      *   SR1200A-CLOSE-PRI-CURSOR                                              
+      *----------------------------------------------------------               
+      *   SR1000B-OPEN-ACCS-CURSOR                                              
+      *   SR1100B-FETCH-ACCS-CURSOR                                             
+      *   SR1200B-CLOSE-ACCS-CURSOR                                             
+      *----------------------------------------------------------               
+      *   SR2000-OPEN-DS-CURSOR                                                 
+      *   SR2100-FETCH-DS-CURSOR                                                
+      *   SR2200-CLOSE-DS-CURSOR                                                
+      *----------------------------------------------------------               
+      *   SR3000-INSERT-SERIAL                                                  
+      *   SR4000-UPDATE-SERIAL                                                  
+      *   SR5000-DELETE-LN-SERIALS                                              
+      *   SR5100-DLET-PROCS-LN-SERIALS                                          
+      *   SR6000-DELETE-DS-SERIALS                                              
+      *----------------------------------------------------------               
+      *   SR7000-GET-MAX-SEQ-NBR                                                
+      **************************************************************            
+      * NECESSARY OTHER COPYBOOKS.                                              
+      *            - DCLGEN FOR ESD_WARR_SERIALS TABLE                          
+      *   SYRDATE  - DATE ROUTINE                                               
+      *   SYRSER   - WORK VARIABLES AND CURSOR DEFINITON                        
+      **************************************************************            
+                                                                                
+      **************************************************************            
+      * OPEN CURSOR FOR LIST OF SERIALS FOR A GIVEN ORDER LINE.                 
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * ORTESDWS-CO-CD                                                          
+      * ORTESDWS-BR-NBR                                                         
+      * ORTESDWS-ORDR-DT                                                        
+      * ORTESDWS-ORDR-NBR                                                       
+      * ORTESDWS-DIST-NBR                                                       
+      * ORTESDWS-SHIP-NBR                                                       
+      * ORTESDWS-ORDR-LINE-NBR                                                  
+      **************************************************************            
+       SR1000-OPEN-LN-CURSOR.                                                   
+                                                                                
+           EXEC SQL                                                             
+              OPEN SYWSER-LN-SERIAL-CSR                                         
+           END-EXEC                                                             
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR10'          TO WS-ABCODE                             
+                  MOVE 'SR1000-OPEN-LN-CURSOR'                                  
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR OPEN SYWSER-LN-SERIAL-CSR'                        
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR1000-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * FETCH ALL SERIAL INFO FOR THE GIVEN ORDER LINE                          
+      **************************************************************            
+       SR1100-FETCH-LN-CURSOR.                                                  
+           EXEC SQL                                                             
+              FETCH SYWSER-LN-SERIAL-CSR                                        
+               INTO :ORTESDWS-SERL-ITEM-SEQ-NBR                                 
+                  , :ORTESDWS-VEND-PROD-SERL-NBR                                
+                  , :ORTESDWS-IM-ASET-TAG-NBR                                   
+                  , :ORTESDWS-HWRE-PURC-DT :SYWSER-HWRE-PURC-DT-IND             
+                  , :ORTESDWS-HWRE-SHIP-DT :SYWSER-HWRE-SHIP-DT-IND             
+                  , :ORTESDWS-ROLL-FLG                                          
+                  , :ORTESDWS-SERL-TYPE-FLG                                     
+                  , :ORTESDWS-SERL-PROCS-FLG                                    
+                  , :ORTESDWS-LAST-CHG-TS                                       
+                  , :ORTESDWS-LAST-UPD-PGM-ID                                   
+                  , :ORTESDWS-LAST-CHG-OPER-ID                                  
+                  , :ORTESDWS-FULFILL-SW                                CYR21127
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR11'          TO WS-ABCODE                             
+                  MOVE 'SR1100-FETCH-LN-CURSOR'                                 
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR FETCH SYWSER-LN-SERIAL-CSR'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR1100-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * CLOSE CURSOR                                                            
+      **************************************************************            
+       SR1200-CLOSE-LN-CURSOR.                                                  
+           EXEC SQL                                                             
+              CLOSE SYWSER-LN-SERIAL-CSR                                        
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR12'          TO WS-ABCODE                             
+                  MOVE 'SR1200-CLOSE-LN-CURSOR'                                 
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR CLOSE SYWSER-LN-SERIAL-CSR'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR1200-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * OPEN CURSOR FOR LIST OF PRIMARY SERIALS FOR A GIVEN ORDER LINE.         
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * ORTESDWS-CO-CD                                                          
+      * ORTESDWS-BR-NBR                                                         
+      * ORTESDWS-ORDR-DT                                                        
+      * ORTESDWS-ORDR-NBR                                                       
+      * ORTESDWS-DIST-NBR                                                       
+      * ORTESDWS-SHIP-NBR                                                       
+      * ORTESDWS-ORDR-LINE-NBR                                                  
+      **************************************************************            
+       SR1000A-OPEN-PRI-CURSOR.                                                 
+                                                                                
+           EXEC SQL                                                             
+              OPEN SYWSER-PRI-SERIAL-CSR                                        
+           END-EXEC                                                             
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'S10A'          TO WS-ABCODE                             
+                  MOVE 'SR1000A-OPEN-PRI-CURSOR'                                
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR OPEN SYWSER-PRI-SERIAL-CSR'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR1000A-EXIT.                                                            
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * FETCH ALL SERIAL INFO FOR THE GIVEN ORDER LINE                          
+      **************************************************************            
+       SR1100A-FETCH-PRI-CURSOR.                                                
+           EXEC SQL                                                             
+              FETCH SYWSER-PRI-SERIAL-CSR                                       
+               INTO :ORTESDWS-SERL-ITEM-SEQ-NBR                                 
+                  , :ORTESDWS-VEND-PROD-SERL-NBR                                
+                  , :ORTESDWS-HWRE-PURC-DT :SYWSER-HWRE-PURC-DT-IND             
+                  , :ORTESDWS-HWRE-SHIP-DT :SYWSER-HWRE-SHIP-DT-IND             
+                  , :ORTESDWS-ROLL-FLG                                          
+                  , :ORTESDWS-SERL-PROCS-FLG                                    
+                  , :ORTESDWS-FULFILL-SW                                CYR21127
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'S11A'          TO WS-ABCODE                             
+                  MOVE 'SR1100A-FETCH-PRI-CURSOR'                               
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR FETCH SYWSER-PRI-SERIAL-CSR'                      
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR1100A-EXIT.                                                            
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * CLOSE CURSOR                                                            
+      **************************************************************            
+       SR1200A-CLOSE-PRI-CURSOR.                                                
+           EXEC SQL                                                             
+              CLOSE SYWSER-PRI-SERIAL-CSR                                       
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'S12A'          TO WS-ABCODE                             
+                  MOVE 'SR1200A-CLOSE-PRI-CURSOR'                               
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR CLOSE SYWSER-PRI-SERIAL-CSR'                      
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR1200A-EXIT.                                                            
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * OPEN CURSOR FOR LIST OF ACCS SERIALS FOR A GIVEN ORDER LINE.            
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * ORTESDWS-CO-CD                                                          
+      * ORTESDWS-BR-NBR                                                         
+      * ORTESDWS-ORDR-DT                                                        
+      * ORTESDWS-ORDR-NBR                                                       
+      * ORTESDWS-DIST-NBR                                                       
+      * ORTESDWS-SHIP-NBR                                                       
+      * ORTESDWS-ORDR-LINE-NBR                                                  
+      **************************************************************            
+       SR1000B-OPEN-ACCS-CURSOR.                                                
+                                                                                
+           EXEC SQL                                                             
+              OPEN SYWSER-ACCS-SERIAL-CSR                                       
+           END-EXEC                                                             
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'S10B'          TO WS-ABCODE                             
+                  MOVE 'SR1000B-OPEN-ACCS-CURSOR'                               
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR OPEN SYWSER-ACCS-SERIAL-CSR'                      
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR1000B-EXIT.                                                            
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * FETCH ALL SERIAL INFO FOR THE GIVEN ORDER LINE                          
+      **************************************************************            
+       SR1100B-FETCH-ACCS-CURSOR.                                               
+           EXEC SQL                                                             
+              FETCH SYWSER-ACCS-SERIAL-CSR                                      
+               INTO :ORTESDWS-SERL-ITEM-SEQ-NBR                                 
+                  , :ORTESDWS-VEND-PROD-SERL-NBR                                
+                  , :ORTESDWS-HWRE-PURC-DT :SYWSER-HWRE-PURC-DT-IND             
+                  , :ORTESDWS-HWRE-SHIP-DT :SYWSER-HWRE-SHIP-DT-IND             
+                  , :ORTESDWS-ROLL-FLG                                          
+                  , :ORTESDWS-SERL-PROCS-FLG                                    
+                  , :ORTESDWS-FULFILL-SW                                CYR21127
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'S11B'          TO WS-ABCODE                             
+                  MOVE 'SR1100B-FETCH-ACCS-CURSOR'                              
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR FETCH SYWSER-ACCS-SERIAL-CSR'                     
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR1100B-EXIT.                                                            
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * CLOSE CURSOR                                                            
+      **************************************************************            
+       SR1200B-CLOSE-ACCS-CURSOR.                                               
+           EXEC SQL                                                             
+              CLOSE SYWSER-ACCS-SERIAL-CSR                                      
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'S12B'          TO WS-ABCODE                             
+                  MOVE 'SR1200B-CLOSE-ACCS-CURSOR'                              
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR CLOSE SYWSER-ACCS-SERIAL-CSR'                     
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR1200B-EXIT.                                                            
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * OPEN CURSOR FOR LIST OF SERIALS FOR ALL LINES IN A DIST/SHIP.           
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * ORTESDWS-CO-CD                                                          
+      * ORTESDWS-BR-NBR                                                         
+      * ORTESDWS-ORDR-DT                                                        
+      * ORTESDWS-ORDR-NBR                                                       
+      * ORTESDWS-DIST-NBR                                                       
+      * ORTESDWS-SHIP-NBR                                                       
+      **************************************************************            
+       SR2000-OPEN-DS-CURSOR.                                                   
+                                                                                
+           EXEC SQL                                                             
+              OPEN SYWSER-DS-SERIAL-CSR                                         
+           END-EXEC                                                             
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR20'          TO WS-ABCODE                             
+                  MOVE 'SR2000-OPEN-DS-CURSOR'                                  
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR OPEN SYWSER-DS-SERIAL-CSR'                        
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR2000-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * FETCH ALL SERIAL INFO FOR ALL LINES IN A DIST/SHIP                      
+      **************************************************************            
+       SR2100-FETCH-DS-CURSOR.                                                  
+           EXEC SQL                                                             
+              FETCH SYWSER-DS-SERIAL-CSR                                        
+               INTO :ORTESDWS-ORDR-LINE-NBR                                     
+                  , :ORTESDWS-SERL-ITEM-SEQ-NBR                                 
+                  , :ORTESDWS-VEND-PROD-SERL-NBR                                
+                  , :ORTESDWS-IM-ASET-TAG-NBR                                   
+                  , :ORTESDWS-HWRE-PURC-DT :SYWSER-HWRE-PURC-DT-IND             
+                  , :ORTESDWS-HWRE-SHIP-DT :SYWSER-HWRE-SHIP-DT-IND             
+                  , :ORTESDWS-ROLL-FLG                                          
+                  , :ORTESDWS-SERL-TYPE-FLG                                     
+                  , :ORTESDWS-SERL-PROCS-FLG                                    
+                  , :ORTESDWS-LAST-CHG-TS                                       
+                  , :ORTESDWS-LAST-UPD-PGM-ID                                   
+                  , :ORTESDWS-LAST-CHG-OPER-ID                                  
+                  , :ORTESDWS-FULFILL-SW                                CYR21127
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR21'          TO WS-ABCODE                             
+                  MOVE 'SR2100-FETCH-DS-CURSOR'                                 
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR FETCH SYWSER-DS-SERIAL-CSR'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR2100-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * CLOSE CURSOR                                                            
+      **************************************************************            
+       SR2200-CLOSE-CURSOR.                                                     
+           EXEC SQL                                                             
+              CLOSE SYWSER-DS-SERIAL-CSR                                        
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR22'          TO WS-ABCODE                             
+                  MOVE 'SR2200-CLOSE-CURSOR'                                    
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR CLOSE SYWSER-DS-SERIAL-CSR'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR2200-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * INSERT SERIAL INFO                                                      
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * ORTESDWS-CO-CD                                                          
+      * ORTESDWS-BR-NBR                                                         
+      * ORTESDWS-ORDR-DT                                                        
+      * ORTESDWS-ORDR-NBR                                                       
+      * ORTESDWS-DIST-NBR                                                       
+      * ORTESDWS-SHIP-NBR                                                       
+      * ORTESDWS-ORDR-LINE-NBR                                                  
+      * ORTESDWS-SERL-ITEM-SEQ-NBR                                              
+      * ORTESDWS-ROLL-FLG                                                       
+      * ORTESDWS-SERL-TYPE-FLG                                                  
+      * ORTESDWS-VEND-PROD-SERL-NBR                                             
+      * ORTESDWS-IM-ASET-TAG-NBR                                                
+      * ORTESDWS-HWRE-PURC-DT                                                   
+      *   >> IF THIS IS NULL, UPDATE SYWSER-HWRE-PURC-DT-IND TO -1              
+      * ORTESDWS-SERL-PROCS-FLG                                                 
+      * ORTESDWS-LAST-UPD-PGM-ID                                                
+      * ORTESDWS-LAST-CHG-OPER-ID                                               
+      * ORTESDWS-WARRTY-COVG-DT                                                 
+      *   >> IF THIS IS NULL, UPDATE SYWSER-WARRTY-COVG-DT-IND TO -1            
+      * ORTESDWS-HWRE-SHIP-DT                                                   
+      *   >> IF THIS IS NULL, UPDATE SYWSER-HWRE-SHIP-DT-IND TO -1 )            
+      **************************************************************            
+       SR3000-INSERT-SERIAL.                                                    
+           EXEC SQL                                                             
+              INSERT INTO ESD_WARR_SERIALS                                      
+                 (CO_CD                                                         
+                 ,BR_NBR                                                        
+                 ,ORDR_DT                                                       
+                 ,ORDR_NBR                                                      
+                 ,DIST_NBR                                                      
+                 ,SHIP_NBR                                                      
+                 ,ORDR_LINE_NBR                                                 
+                 ,SERL_ITEM_SEQ_NBR                                             
+                 ,ROLL_FLG                                                      
+                 ,SERL_TYPE_FLG                                                 
+                 ,VEND_PROD_SERL_NBR                                            
+                 ,IM_ASET_TAG_NBR                                               
+                 ,HWRE_PURC_DT                                                  
+                 ,SERL_PROCS_FLG                                                
+                 ,LAST_UPD_PGM_ID                                               
+                 ,LAST_CHG_OPER_ID                                              
+                 ,WARRTY_COVG_DT                                                
+                 ,HWRE_SHIP_DT)                                                 
+              VALUES                                                            
+                 ( :ORTESDWS-CO-CD                                              
+                 , :ORTESDWS-BR-NBR                                             
+                 , :ORTESDWS-ORDR-DT                                            
+                 , :ORTESDWS-ORDR-NBR                                           
+                 , :ORTESDWS-DIST-NBR                                           
+                 , :ORTESDWS-SHIP-NBR                                           
+                 , :ORTESDWS-ORDR-LINE-NBR                                      
+                 , :ORTESDWS-SERL-ITEM-SEQ-NBR                                  
+                 , :ORTESDWS-ROLL-FLG                                           
+                 , :ORTESDWS-SERL-TYPE-FLG                                      
+                 , :ORTESDWS-VEND-PROD-SERL-NBR                                 
+                 , :ORTESDWS-IM-ASET-TAG-NBR                                    
+                 , :ORTESDWS-HWRE-PURC-DT :SYWSER-HWRE-PURC-DT-IND              
+                 , :ORTESDWS-SERL-PROCS-FLG                                     
+                 , :ORTESDWS-LAST-UPD-PGM-ID                                    
+                 , :ORTESDWS-LAST-CHG-OPER-ID                                   
+                 , :ORTESDWS-WARRTY-COVG-DT :SYWSER-WARTY-COVG-DT-IND           
+                 , :ORTESDWS-HWRE-SHIP-DT :SYWSER-HWRE-SHIP-DT-IND )            
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN SQLCODE-DUPLICATE                                   TXT21304
+                     CONTINUE                                           TXT21304
+               WHEN OTHER                                                       
+                  MOVE 'SR30'          TO WS-ABCODE                             
+                  MOVE 'SR3000-INSERT-SERIAL'                                   
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR INSERT ON ESD_WARR_SERIALS'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR3000-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * UPDATE SERIAL INFO                                                      
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * :ORTESDWS-ROLL-FLG                                                      
+      * :ORTESDWS-SERL-TYPE-FLG                                                 
+      * :ORTESDWS-SERL-ITEM-SEQ-NBR                                             
+      * :ORTESDWS-VEND-PROD-SERL-NBR                                            
+      * :ORTESDWS-IM-ASET-TAG-NBR                                               
+      * :ORTESDWS-HWRE-PURC-DT                                                  
+      *    IF THIS IS NULL, UPDATE :SYWSER-HWRE-PURC-DT-IND TO -1               
+      * :ORTESDWS-LAST-UPD-PGM-ID                                               
+      * :ORTESDWS-LAST-CHG-OPER-ID                                              
+      **************************************************************            
+       SR4000-UPDATE-SERIAL.                                                    
+           EXEC SQL                                                             
+              UPDATE ESD_WARR_SERIALS                                           
+                 SET ROLL_FLG = :ORTESDWS-ROLL-FLG                              
+                   , SERL_TYPE_FLG = :ORTESDWS-SERL-TYPE-FLG                    
+                   , SERL_ITEM_SEQ_NBR = :ORTESDWS-SERL-ITEM-SEQ-NBR            
+                   , VEND_PROD_SERL_NBR = :ORTESDWS-VEND-PROD-SERL-NBR          
+                   , IM_ASET_TAG_NBR = :ORTESDWS-IM-ASET-TAG-NBR                
+                   , HWRE_PURC_DT = :ORTESDWS-HWRE-PURC-DT                      
+                                    :SYWSER-HWRE-PURC-DT-IND                    
+                   , LAST_UPD_PGM_ID = :ORTESDWS-LAST-UPD-PGM-ID                
+                   , LAST_CHG_OPER_ID = :ORTESDWS-LAST-CHG-OPER-ID              
+               WHERE CO_CD = :ORTESDWS-CO-CD                                    
+                 AND BR_NBR = :ORTESDWS-BR-NBR                                  
+                 AND ORDR_DT = :ORTESDWS-ORDR-DT                                
+                 AND ORDR_NBR = :ORTESDWS-ORDR-NBR                              
+                 AND DIST_NBR = :ORTESDWS-DIST-NBR                              
+                 AND SHIP_NBR = :ORTESDWS-SHIP-NBR                              
+                 AND ORDR_LINE_NBR = :ORTESDWS-ORDR-LINE-NBR                    
+                 AND SERL_ITEM_SEQ_NBR = :ORTESDWS-SERL-ITEM-SEQ-NBR            
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+                  CONTINUE                                                      
+               WHEN SQLCODE-DUPLICATE                                   TXT21304
+                     CONTINUE                                           TXT21304
+               WHEN OTHER                                                       
+                  MOVE 'SR40'          TO WS-ABCODE                             
+                  MOVE 'SR4000-UPDATE-SERIAL'                                   
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR UPDATE ON ESD_WARR_SERIALS'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR4000-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * DELETE SERIAL INFO OF A SPECIFIC ORDER LINE                             
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * :ORTESDWS-CO-CD                                                         
+      * :ORTESDWS-BR-NBR                                                        
+      * :ORTESDWS-ORDR-DT                                                       
+      * :ORTESDWS-ORDR-NBR                                                      
+      * :ORTESDWS-DIST-NBR                                                      
+      * :ORTESDWS-SHIP-NBR                                                      
+      * :ORTESDWS-ORDR-LINE-NBR                                                 
+      **************************************************************            
+       SR5000-DELETE-LN-SERIALS.                                                
+           EXEC SQL                                                             
+              DELETE FROM ESD_WARR_SERIALS                                      
+               WHERE CO_CD = :ORTESDWS-CO-CD                                    
+                 AND BR_NBR = :ORTESDWS-BR-NBR                                  
+                 AND ORDR_DT = :ORTESDWS-ORDR-DT                                
+                 AND ORDR_NBR = :ORTESDWS-ORDR-NBR                              
+                 AND DIST_NBR = :ORTESDWS-DIST-NBR                              
+                 AND SHIP_NBR = :ORTESDWS-SHIP-NBR                              
+                 AND ORDR_LINE_NBR = :ORTESDWS-ORDR-LINE-NBR                    
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR50'          TO WS-ABCODE                             
+                  MOVE 'SR5000-DELETE-LN-SERIALS'                               
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR DELETE ON ESD_WARR_SERIALS'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR5000-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * DELETE SERIAL INFO OF A SPECIFIC ORDER LINE + VERIFIED FLAG             
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * :ORTESDWS-CO-CD                                                         
+      * :ORTESDWS-BR-NBR                                                        
+      * :ORTESDWS-ORDR-DT                                                       
+      * :ORTESDWS-ORDR-NBR                                                      
+      * :ORTESDWS-DIST-NBR                                                      
+      * :ORTESDWS-SHIP-NBR                                                      
+      * :ORTESDWS-ORDR-LINE-NBR                                                 
+      * :ORTESDWS-SERL-PROCS-FLG                                                
+      **************************************************************            
+       SR5100-DLET-PROCS-LN-SERIALS.                                            
+           EXEC SQL                                                             
+              DELETE FROM ESD_WARR_SERIALS                                      
+               WHERE CO_CD = :ORTESDWS-CO-CD                                    
+                 AND BR_NBR = :ORTESDWS-BR-NBR                                  
+                 AND ORDR_DT = :ORTESDWS-ORDR-DT                                
+                 AND ORDR_NBR = :ORTESDWS-ORDR-NBR                              
+                 AND DIST_NBR = :ORTESDWS-DIST-NBR                              
+                 AND SHIP_NBR = :ORTESDWS-SHIP-NBR                              
+                 AND ORDR_LINE_NBR = :ORTESDWS-ORDR-LINE-NBR                    
+                 AND SERL_PROCS_FLG != 'Y'                              CYR20096
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR51'          TO WS-ABCODE                             
+                  MOVE 'SR5100-DELETE-LN-SERIALS'                               
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR DELETE ON ESD_WARR_SERIALS'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR5100-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * DELETE SERIAL INFO OF ALL LINES IN A DIST/SHIP                          
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * :ORTESDWS-CO-CD                                                         
+      * :ORTESDWS-BR-NBR                                                        
+      * :ORTESDWS-ORDR-DT                                                       
+      * :ORTESDWS-ORDR-NBR                                                      
+      * :ORTESDWS-DIST-NBR                                                      
+      * :ORTESDWS-SHIP-NBR                                                      
+      **************************************************************            
+       SR6000-DELETE-DS-SERIALS.                                                
+           EXEC SQL                                                             
+              DELETE FROM ESD_WARR_SERIALS                                      
+               WHERE CO_CD = :ORTESDWS-CO-CD                                    
+                 AND BR_NBR = :ORTESDWS-BR-NBR                                  
+                 AND ORDR_DT = :ORTESDWS-ORDR-DT                                
+                 AND ORDR_NBR = :ORTESDWS-ORDR-NBR                              
+                 AND DIST_NBR = :ORTESDWS-DIST-NBR                              
+                 AND SHIP_NBR = :ORTESDWS-SHIP-NBR                              
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR60'          TO WS-ABCODE                             
+                  MOVE 'SR6000-DELETE-DS-SERIALS'                               
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR DELETE ON ESD_WARR_SERIALS'                       
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR6000-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+      **************************************************************            
+      * GET THE HIGHEST SEQUENCE NUMBER FOR AN ORDER LINE                       
+      * SUPPLY THE FOLLOWING DATA BEFORE CALLING THIS PARA:                     
+      * :ORTESDWS-CO-CD                                                         
+      * :ORTESDWS-BR-NBR                                                        
+      * :ORTESDWS-ORDR-DT                                                       
+      * :ORTESDWS-ORDR-NBR                                                      
+      * :ORTESDWS-DIST-NBR                                                      
+      * :ORTESDWS-SHIP-NBR                                                      
+      * :ORTESDWS-ORDR-LINE-NBR                                                 
+      **************************************************************            
+       SR7000-GET-MAX-SEQ-NBR.                                                  
+           INITIALIZE SYWSER-MAX-SEQ-NBR.                                       
+           EXEC SQL                                                             
+              SELECT MAX(SERL_ITEM_SEQ_NBR)                                     
+                INTO :SYWSER-MAX-SEQ-NBR:SYWSER-SERL-ITEM-SEQ-NULL              
+                FROM ESD_WARR_SERIALS                                           
+               WHERE CO_CD         = :ORTESDWS-CO-CD                            
+                 AND BR_NBR        = :ORTESDWS-BR-NBR                           
+                 AND ORDR_DT       = :ORTESDWS-ORDR-DT                          
+                 AND ORDR_NBR      = :ORTESDWS-ORDR-NBR                         
+                 AND DIST_NBR      = :ORTESDWS-DIST-NBR                         
+                 AND SHIP_NBR      = :ORTESDWS-SHIP-NBR                         
+                 AND ORDR_LINE_NBR = :ORTESDWS-ORDR-LINE-NBR                    
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+           EVALUATE TRUE                                                        
+               WHEN SQLCODE-NORESP                                              
+               WHEN SQLCODE-NOT-FOUND                                           
+                  CONTINUE                                                      
+               WHEN OTHER                                                       
+                  MOVE 'SR70'          TO WS-ABCODE                             
+                  MOVE 'SR7000-GET-MAX-SEQ-NBR'                                 
+                                       TO SYWSER-DB2-ERROR-PARA                 
+                  MOVE SQLCODE         TO SYWSER-SQLCODE                        
+                  MOVE SYWSER-EXTRA-MESSAGE                                     
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                  MOVE 'ERROR SELECT SEQNBR ON ESD_WAR_SERIALS'                 
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                  PERFORM 990-SQL-MESSAGE                                       
+                  PERFORM 999-ABEND                                             
+           END-EVALUATE.                                                        
+       SR7000-EXIT.                                                             
+           EXIT.                                                                

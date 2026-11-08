@@ -1,0 +1,137 @@
+      * ------------------------------------------------------------- *         
+      *  IMQAPI PARAMETER LIST COBOL COPYBOOK                           MXV22244
+      *                                                                 MXV22244
+      * ------------------------------------------------------------- *         
+      *  MODIFICATIONS:                                               *         
+      *  -------------                                                *         
+      *  05/18/2024 - MXV - REMOVE MQ-INIT REDEFINITION.                MXV24139
+      *               THE QUEUE NAME IS NEEDED FOR PUT1 PROCESSING.     MXV24139
+      *               ADD EXTENDED FORMAT FLAG FOR MESSAGES UP TO 2 MEG.MXV24139
+      *               ADD WAIT INTERVAL (MILLISECONDS).                 MXV24139
+      *  09/01/2022 - MXV - ADD DIAGNOSTIC MESSAGES                     MXV22244
+      *  01/03/2006 - MCV - IMQPUT1 FUNCTIONS                           MCV06003
+      *  01/27/2005 - MCV - 1. CODEDCHARSETID                           MCV05027
+      *  09/01/1999 - MCV - 1. ADD SET TRIGGER-CONTROL FUNCTIONS      * MCV99244
+      *  04/30/1998 - NSA - 1. CHANGED IMQAPI-LENGTH FROM PIC X(04)   *         
+      *                        TO S9(9) BINARY TO ALLOW FOR LENGTH    *         
+      *                        EXPANSION.                             *         
+      *  02/13/1998 - LMH - 1. ADDED 88 LEVEL'S FOR COMPCODE AND      * LMH98044
+      *                        REASON                                 * LMH98044
+      *  01/15/1998 - NSA - 1. MODIFIED TO SUPPORT MULTIPLE MQI       *         
+      *                        CALL HANDLES. CALL PARAMETER HAS       *         
+      *                        BEEN DIVIDED INTO HEADER AND           *         
+      *                        PROCESS AREA.                          *         
+      *  12/22/1997 - NSA - 1. ADDED 'GETA' AND 'PUTA' FUNCTIONS      *         
+      *                        IN SUPPORT OF ASCII TO EBCDIC          *         
+      *                        CONVERSION.                            *         
+      *  12/09/1997 - NSA - 1. CREATED.                               *         
+      * ------------------------------------------------------------- *         
+       01  IMQAPI-PARMS.                                                        
+           05  IMQAPI-HEADER.                                                   
+               10  IMQAPI-CALLER               PIC X(12).                       
+               10  IMQAPI-FUNC                 PIC X(04).                       
+                   88 MQ-FUNC-INIT             VALUE 'INIT'.                    
+                   88 MQ-FUNC-GET              VALUE 'GET'.                     
+                   88 MQ-FUNC-GETA             VALUE 'GETA'.                    
+                   88 MQ-FUNC-PUT              VALUE 'PUT'.                     
+                   88 MQ-FUNC-PUTA             VALUE 'PUTA'.                    
+                   88 MQ-FUNC-PUT1             VALUE 'PUT1'.            MCV06003
+                   88 MQ-FUNC-PUTA1            VALUE 'PTA1'.            MCV06003
+                   88 MQ-FUNC-TERM             VALUE 'TERM'.                    
+                   88 MQ-FUNC-COMMIT           VALUE 'CMIT'.            MXV22244
+               10  FILLER REDEFINES IMQAPI-FUNC PIC S9(09) BINARY.      MCV99244
+                   88 MQ-FUNC-TRIGGER-CONTROL  VALUE 24.                MCV99244
+               10  IMQAPI-COMPCODE             PIC S9(9) BINARY.                
+                   88 MQ-OK                    VALUE +0.                MXV22244
+                   88 MQ-WARNING               VALUE +1.                LMH98044
+                   88 MQ-FAILED                VALUE +2.                LMH98044
+               10  IMQAPI-REASON               PIC S9(9) BINARY.                
+                   88 MQ-NONE                  VALUE +0000.             MXV22244
+                   88 MQ-CONNECTION-BROKEN     VALUE +2009.             LMH98044
+                   88 MQ-DYNAMIC-Q-NAME-ERROR  VALUE +2011.             LMH98044
+                   88 MQ-ENVIRONMENT-ERROR     VALUE +2012.             LMH98044
+                   88 MQ-GET-INHIBITED         VALUE +2016.             LMH98044
+                   88 MQ-HOBJ-ERROR            VALUE +2019.             LMH98044
+                   88 MQ-MSG-TYPE-ERROR        VALUE +2029.             LMH98044
+                   88 MQ-MSG-TOO-BIG-FOR-Q     VALUE +2030.             LMH98044
+                   88 MQ-MSG-TOO-BIG-FOR-Q-MGR VALUE +2031.             LMH98044
+                   88 MQ-NO-MSG-AVAILABLE      VALUE +2033.             LMH98044
+                   88 MQ-NOT-OPEN-FOR-BROWSE   VALUE +2036.             LMH98044
+                   88 MQ-NOT-OPEN-FOR-INPUT    VALUE +2037.             LMH98044
+                   88 MQ-NOT-OPEN-FOR-OUTPUT   VALUE +2039.             LMH98044
+                   88 MQ-OBJECT-IN-USE         VALUE +2042.             LMH98044
+                   88 MQ-OBJECT-TYPE-ERROR     VALUE +2043.             LMH98044
+                   88 MQ-Q-FULL                VALUE +2053.             LMH98044
+                   88 MQ-STORAGE-NOT-AVAILABLE VALUE +2071.             LMH98044
+                   88 MQ-UNKNOWN-OBJECT-NAME   VALUE +2085.             LMH98044
+                   88 MQ-UNKNOWN-OBJECT-Q-MGR  VALUE +2086.             LMH98044
+                   88 MQ-XMIT-Q-USAGE-ERROR    VALUE +2092.             LMH98044
+                   88 MQ-OD-ERROR              VALUE +2204.             LMH98044
+               10  IMQAPI-MQ-FUNC              PIC X(08).                       
+               10  IMQAPI-OPERATION            PIC X(01).                       
+                   88 MQ-OPER-INPUT-SHARED     VALUE 'I'.                       
+                   88 MQ-OPER-OUTPUT           VALUE 'O'.                       
+                   88 MQ-OPER-INPUT-EXCLUSIVE  VALUE 'X'.                       
+                   88 MQ-OPER-INPUT-Q-DEF      VALUE 'D'.               MXV24139
+               10  IMQAPI-TRIGGER-CONTROL-OPER REDEFINES                MCV99244
+                   IMQAPI-OPERATION            PIC X(01).               MCV99244
+                   88 MQ-OPER-TRIGGER-CONTROL-ON    VALUE 'Y'.          MCV99244
+                   88 MQ-OPER-TRIGGER-CONTROL-OFF   VALUE 'N'.          MCV99244
+               10  IMQAPI-CODEDCHARSETID-CO    PIC X(02).               MXV24139
+                                                                        MXV24139
+      *----------------------------------------------------------------*MXV24139
+      *    I/O PARAMETERS                                               MXV24139
+      *                                                                 MXV24139
+      * IMQAPI-LENGTH        MESSAGE LENGTH                             MXV24139
+      * IMQAPI-CORLID        CORRELATION ID                             MXV24139
+      * IMQAPI-MESSAGE       MESSAGE DATA AREA                          MXV24139
+      * IMQAPI-GET-BROWSE    GET WITH NON-DESTRUCTIVE READ              MXV24139
+      * IMQAPI-GET-WAIT      GET AND WAIT UNTIL MESSAGE IS RECEIVED OR  MXV24139
+      *                      WAIT INTERVAL EXPIRES.                     MXV24139
+      * IMQAPI-WAITINTERVAL  MAXIMUM MESSAGE WAIT TIME (MILLISECONDS)   MXV24139
+      * IMQAPI-HANDLE-NBR    POINTER TO OPEN MQ OBJECT                  MXV24139
+      * IMQAPI-EXTENDED-FORMAT-SW  GET/PUT TO ALTERNATE MESSAGE AREA.   MXV24139
+      *        THE ALTERNATE MESSAGE IS SUPPLIED AS A SECOND CALL       MXV24139
+      *        PARAMETER FOR GET/PUT/PUT1 FUNCTIONS.                    MXV24139
+      *        MESSAGE SIZE IS LIMITED TO 2 MILLION BYTES.              MXV24139
+      *                                                                 MXV24139
+      *           CALL 'IMQGET'  USING IMQAPI-PARMS                     MXV24139
+      *                                WS-BIG-MESSAGE                   MXV24139
+      *                                                                 MXV24139
+      *----------------------------------------------------------------*MXV24139
+                                                                        MXV24139
+           05  IMQAPI-PROCESS.                                          MXV24139
+               10  IMQAPI-LENGTH           PIC S9(9) BINARY.            MXV24139
+               10  IMQAPI-CORLID           PIC X(24).                   MXV24139
+               10  IMQAPI-MESSAGE          PIC X(4096).                 MXV24139
+               10  IMQAPI-GET-BROWSE       PIC X(01).                   MXV24139
+                   88  MQ-OPER-GET-BROWSE-NEXT      VALUE 'Y'.          MXV24139
+               10  IMQAPI-GET-WAIT         PIC X(01).                   MXV24139
+                   88  MQ-OPER-GET-WAIT             VALUE 'Y'.          MXV24139
+               10  IMQAPI-WAITINTERVAL     PIC S9(9) BINARY.            MXV24139
+                   88  MQ-WAIT-UNLIMITED            VALUE -1.           MXV24139
+               10  IMQAPI-HANDLE-NBR           PIC S9(03) COMP-3.               
+                   88 MQ-HANDLE-1              VALUE +1.                        
+                   88 MQ-HANDLE-2              VALUE +2.                        
+                   88 MQ-HANDLE-3              VALUE +3.                        
+                   88 MQ-HANDLE-4              VALUE +4.                        
+                   88 MQ-HANDLE-5              VALUE +5.                        
+                   88 MQ-HANDLE-6              VALUE +6.                        
+                   88 MQ-HANDLE-7              VALUE +7.                        
+                   88 MQ-HANDLE-8              VALUE +8.                        
+                   88 MQ-HANDLE-9              VALUE +9.                        
+                   88 MQ-HANDLE-10             VALUE +10.                       
+               10  IMQAPI-EXTENDED-FORMAT-SW   PIC X(01).               MXV24139
+                   88  MQ-EXTENDED-FORMAT           VALUE 'Y'.          MXV24139
+                                                                        MXV22244
+           05  IMQAPI-MQ-INIT.                                          MXV24139
+               10  IMQAPI-MQMGR-NAME       PIC X(48).                           
+               10  IMQAPI-QUEUE-NAME       PIC X(48).                           
+                                                                        MXV22244
+           05  IMQAPI-DIAGNOSTICS.                                      MXV24139
+               10  IMQAPI-CALLER-PARAGRAPH     PIC X(30) VALUE SPACES.  MXV22244
+               10  IMQAPI-EXTRA-MESSAGES.                               MXV22244
+                   15  IMQAPI-EXTRA-MESSAGE-1  PIC X(80) VALUE SPACES.  MXV22244
+                   15  IMQAPI-EXTRA-MESSAGE-2  PIC X(80) VALUE SPACES.  MXV22244
+                   15  IMQAPI-EXTRA-MESSAGE-3  PIC X(80) VALUE SPACES.  MXV22244
+                   15  IMQAPI-EXTRA-MESSAGE-4  PIC X(80) VALUE SPACES.  MXV22244

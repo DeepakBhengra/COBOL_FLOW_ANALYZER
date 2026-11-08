@@ -1,0 +1,157 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT016                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV016 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV016-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *     INPUT/OUTPUT: EDV016-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV016-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - EDV016-CO-CD                                  *          
+      *              - EDV016-PARTNER-ID                             *          
+      *              - EDV016-EDI-CO                                 *          
+      *              - EDV016-LST-CHG-TS                             *          
+      *              - EDV016-LST-CHG-NAM                            *          
+      *                                                              *          
+      *    OUTPUT: EDV016-OUTPUT-DATA                                *          
+      *          - EDV016-ROW-COUNT                                  *          
+      *          - EDV016-MODULE-RESULT-CD                           *          
+      *          - EDV016-MODULE-MESSAGE                             *          
+      *          - EDV016-DATABASE-RESULT-CODES:                     *          
+      *              - EDV016-SQLCA VALUES                           *          
+      *              - EDV016-SQLCODE                                *          
+      *              - EDV016-SQLSTATE                               *          
+      *                                                              *          
+      *                                                              *          
+      *   EDV016 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE EDV016-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-CO-CD      TO EDV016-CO-CD.                     *          
+      *     MOVE PGM-PARTNER-ID TO EDV016-PARTNER-ID.                *          
+      *     MOVE PGM-EDI-CD     TO EDV016-EDI-CD.                    *          
+      *     MOVE 'S ' TO EDV016-ACTION-CD.     .                     *          
+      *     MOVE 'IE_PARTNER_EDI_XRF' TO EDV016-OBJECT-ID.           *          
+      *                                                              *          
+      *     CALL 'EDV016' USING EDV016-COMMUNICATIONS-AREA.          *          
+      *                                                              *          
+      *     IF EDV016-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR PARTNER_ID.                 *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM EDV016 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK EDT016 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                02/04/03  TWA   FIELD PIC SIZE ENLARGED TO    *  TWA03035
+      *                                HANDLE "NEW" PID (MD123456)   *  TWA03035
+      *                04/22/01  SXP   ORIGINAL.                     *          
+      ****************************************************************          
+                                                                                
+       01  EDV016-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV016-ACTION-CD                     PIC  X(002).                
+               88  EDV016-SELECT                    VALUE 'S '.                 
+               88  EDV016-INSERT                    VALUE 'I '.                 
+               88  EDV016-KEYED-DELETE              VALUE 'D '.                 
+               88  EDV016-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV016-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV016-CURSOR-CL                 VALUE 'CL'.                 
+               88  EDV016-COUNT                     VALUE 'C '.                 
+           05  EDV016-USER-ID                       PIC  X(010).                
+           05  EDV016-KEY-AREA.                                                 
+               10  EDV016-KEY-CO-CD                 PIC  X(002).                
+               10  EDV016-KEY-PARTNER-ID            PIC  X(015).                
+               10  EDV016-KEY-EDI-CD                PIC  X(008).        TWA03035
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV016-INPUT-OUTPUT-AREA.                                        
+               10  EDV016-OBJECT-ID                 PIC  X(030).                
+                   88  EDV016-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV016-PARTNER-EDI-XRF       VALUE                       
+                                  'IE_PARTNER_EDI_XRF            '.             
+                   88  EDV016-EDI-TO-PARTNER        VALUE                       
+                                  'EDI TO PARTNER TRANSLATION    '.             
+                   88  EDV016-PARTNER-TO-EDI        VALUE                       
+                                  'PARTNER TO EDI TRANSLATION    '.             
+               10  EDV016-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV016-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV016-ARRAY OCCURS 20 TIMES.                                
+                   15  EDV016-CO-CD                 PIC  X(002).                
+                   15  EDV016-PARTNER-ID            PIC  X(015).                
+                   15  EDV016-EDI-CD                PIC  X(007).                
+                   15  EDV016-LST-CHG-TS            PIC  X(026).                
+                   15  EDV016-LST-CHG-NAM           PIC  X(015).                
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV016-OUTPUT-DATA.                                              
+               10  EDV016-ROW-COUNT                 PIC  S9(009).               
+               10  EDV016-MODULE-RESULT-CD          PIC  X(002).                
+                   88  EDV016-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV016-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV016-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV016-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV016-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV016-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV016-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV016-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV016-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV016-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV016-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV016-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV016-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV016-EXCEPTION-MESSAGE.                                    
+                   15  EDV016-MSG-OBJECT            PIC  X(030).                
+                   15  EDV016-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV016-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV016-SQLCA.                                            
+                       20  EDV016-SQLCAID           PIC  X(008).                
+                       20  EDV016-SQLCABC           PIC  S9(009).               
+                       20  EDV016-SQLCODE           PIC  S9(009).               
+                       20  EDV016-SQLERRM.                                      
+                           25  EDV016-SQLERRML      PIC  S9(004).               
+                           25  EDV016-SQLERRMC      PIC  X(070).                
+                       20  EDV016-SQLERRP           PIC  X(008).                
+                       20  EDV016-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV016-SQLWARN.                                      
+                           25  EDV016-SQLWARN0      PIC  X(001).                
+                           25  EDV016-SQLWARN1      PIC  X(001).                
+                           25  EDV016-SQLWARN2      PIC  X(001).                
+                           25  EDV016-SQLWARN3      PIC  X(001).                
+                           25  EDV016-SQLWARN4      PIC  X(001).                
+                           25  EDV016-SQLWARN5      PIC  X(001).                
+                           25  EDV016-SQLWARN6      PIC  X(001).                
+                           25  EDV016-SQLWARN7      PIC  X(001).                
+                       20  EDV016-SQLEXT.                                       
+                           25  EDV016-SQLWARN8      PIC  X(001).                
+                           25  EDV016-SQLWARN9      PIC  X(001).                
+                           25  EDV016-SQLWARNA      PIC  X(001).                
+                           25  EDV016-SQLSTATE      PIC  X(005).                

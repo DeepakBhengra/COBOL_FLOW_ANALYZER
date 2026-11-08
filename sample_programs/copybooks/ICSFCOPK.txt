@@ -1,0 +1,129 @@
+000100******************************************************************        
+000200*** YEAR 2000 READY                                              *PWLY8307
+000300******************************************************************        
+000400*================================================================*        
+000500*  THIS COPYBOOK IS USED TO FORMAT ACOP VSAM KEY.                *        
+000600*                                                                *        
+000700* REVISION INFO:                                                 *        
+000800* 05/04/24 SS8 CHANGES FOR ADDING EFF DATE IN THE KEY            *SS824125
+000800* 01/08/08 MXK CHAGES FOR PRODUCT GROUP ACOPS                    *MXK08011
+000810* 07/31/03 MXK CHAGES FOR SINGLE SOURCE PROJECT                  *MXK03212
+000900* 11/16/98 GAE ADD ENDUSER ACOP LOGIC.                           *GAE98320
+001000* 09/23/97 GAE FORMAT PROGRAM KEY FIELD.                         *GAE97266
+001100* 03/31/97 GAE NEW COPYBOOK                                      *GAE97090
+001200*================================================================*        
+001300*                                                                         
+001400*--- FORMAT ACOP VSAM KEY                                                 
+001500     MOVE SPACES                   TO WS-COP-ICLCOP-KEY.                  
+001600     MOVE TC-COMPANY               TO WS-COP-COMPANY.                     
+001610                                                                          
+001631     IF  TB-ACOP-PROD-GRP                                         MXK08011
+001632         CONTINUE                                                 MXK08011
+001633     ELSE                                                         MXK08011
+001634         MOVE TC-INV-VEND-NBR      TO  TC-PROD-GROUP              MXK08011
+001650     END-IF                                                       MXK08011
+           MOVE WS-PROGRAM               TO  WS-CP1-FLOW                SS824125
+           IF WS-CP1-ICP276-FLW                                         SS824125
+              IF SETI276Q-EFF-DATE IS NUMERIC AND                       SS824125
+                 SETI276Q-EFF-DATE > 0                                  SS824125
+                 MOVE SETI276Q-EFF-DATE  TO WS-COP-EFF-DATE             SS824125
+              ELSE                                                      SS824125
+                 MOVE ZEROES             TO WS-COP-EFF-DATE             SS824125
+              END-IF                                                    SS824125
+           ELSE                                                         SS824125
+              IF SETATRK-ACOP-EFF-DT > SPACES                           SS824125
+                 INITIALIZE SY777-PARM-DATA                             SS824125
+                 MOVE SETATRK-ACOP-EFF-DT                               SS824125
+                                         TO SY777-IN-ISO-10             SS824125
+                 IF ICWCOP-PGM-BATCH                                    SS824125
+                    CALL 'SYV777'      USING SY777-PARM-DATA            SS824125
+                 ELSE                                                   SS824125
+                    CALL 'SYU777'      USING DFHEIBLK                   SS824125
+                                             DFHCOMMAREA                SS824125
+                                             SY777-PARM-DATA            SS824125
+                 END-IF                                                 SS824125
+                 IF SY777-OUT-ERR-SW = SPACES                           SS824125
+                    MOVE SY777-OUT-JUL-YYDDD                            SS824125
+                                         TO ICWCOP-COP-EFF-DATE         SS824125
+                 END-IF                                                 SS824125
+                 IF ICWCOP-COP-EFF-DATE IS NUMERIC AND                  SS824125
+                    ICWCOP-COP-EFF-DATE > 0                             SS824125
+                    MOVE ICWCOP-COP-EFF-DATE                            SS824125
+                                         TO WS-COP-EFF-DATE             SS824125
+                 ELSE                                                   SS824125
+                    MOVE ZEROES          TO WS-COP-EFF-DATE             SS824125
+                 END-IF                                                 SS824125
+              ELSE                                                      SS824125
+                 MOVE ZEROES             TO WS-COP-EFF-DATE             SS824125
+                                            ICWCOP-COP-EFF-DATE         SS824125
+              END-IF                                                    SS824125
+           END-IF.                                                      SS824125
+001700*                                                                         
+001800     EVALUATE TRUE                                                MXK03212
+001900       WHEN ICWCOP-CO-VEND-OVERRIDE                               MXK03212
+002000        SET WS-COP-VENDOR-TYPE     TO TRUE                        MXK03212
+002100        SET WS-COP-COMPANY-WIDE    TO TRUE                        MXK03212
+002200        MOVE TC-PROD-GROUP         TO WS-COP-VENDOR-NBR           MXK03212
+002300        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+002400       WHEN ICWCOP-CO-PART-OVERRIDE                               MXK03212
+002410        SET WS-COP-PART-TYPE       TO TRUE                                
+002420        SET WS-COP-COMPANY-WIDE    TO TRUE                        MXK03212
+002600        MOVE TC-PART-NBR           TO WS-COP-PART-NBR             MXK03212
+002800        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+002900       WHEN ICWCOP-BR-VEND-OVERRIDE                               MXK03212
+002910        SET WS-COP-VENDOR-TYPE     TO TRUE                        MXK03212
+002920        SET WS-COP-BRANCH-NUMBER   TO TRUE                        MXK03212
+003100        MOVE TC-PROD-GROUP         TO WS-COP-VENDOR-NBR                   
+003300        MOVE TC-CUST-BR            TO WS-COP-CUST-BR-NBR                  
+003400        MOVE SPACES                TO WS-COP-CUST-NBR                     
+003500        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+003600       WHEN ICWCOP-BR-PART-OVERRIDE                               MXK03212
+003610        SET WS-COP-PART-TYPE       TO TRUE                        MXK03212
+003620        SET WS-COP-BRANCH-NUMBER   TO TRUE                        MXK03212
+003800        MOVE TC-PART-NBR           TO WS-COP-PART-NBR                     
+004000        MOVE TC-CUST-BR            TO WS-COP-CUST-BR-NBR                  
+004100        MOVE SPACES                TO WS-COP-CUST-NBR                     
+004200        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+004300       WHEN ICWCOP-CUS-VEND-OVERRIDE                              MXK03212
+004310        SET WS-COP-VENDOR-TYPE     TO TRUE                        MXK03212
+004320        SET WS-COP-CUSTOMER-SPECIFIC TO TRUE                      MXK03212
+004500        MOVE TC-PROD-GROUP         TO WS-COP-VENDOR-NBR                   
+004700        MOVE TC-CUST-BR            TO WS-COP-CUST-BR-NBR                  
+004800        MOVE TC-CUST-NBR           TO WS-COP-CUST-NBR                     
+004900        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+005000       WHEN ICWCOP-CUS-PART-OVERRIDE                              MXK03212
+005010        SET WS-COP-PART-TYPE       TO TRUE                        MXK03212
+005020        SET WS-COP-CUSTOMER-SPECIFIC TO TRUE                      MXK03212
+005200        MOVE TC-PART-NBR           TO WS-COP-PART-NBR                     
+005400        MOVE TC-CUST-BR            TO WS-COP-CUST-BR-NBR                  
+005500        MOVE TC-CUST-NBR           TO WS-COP-CUST-NBR             GAE97266
+005600        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+005700       WHEN ICWCOP-PRG-VEND-OVERRIDE                              MXK03212
+005710        SET WS-COP-VENDOR-TYPE     TO TRUE                        MXK03212
+005720        SET WS-COP-PROGRAM-SPECIFIC TO TRUE                       MXK03212
+005900        MOVE TC-PROD-GROUP         TO WS-COP-VENDOR-NBR           GAE97266
+006100        MOVE ICWCOP-PROGRAM-TYPE   TO WS-COP-PROGRAM-TYPE         GAE97266
+006200        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+006300       WHEN ICWCOP-PRG-PART-OVERRIDE                              MXK03212
+006310        SET WS-COP-PART-TYPE       TO TRUE                        MXK03212
+006320        SET WS-COP-PROGRAM-SPECIFIC TO TRUE                       MXK03212
+006500        MOVE TC-PART-NBR           TO WS-COP-PART-NBR             GAE97266
+006700        MOVE ICWCOP-PROGRAM-TYPE   TO WS-COP-PROGRAM-TYPE         GAE98320
+006800        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+006900       WHEN ICWCOP-CUS-EUS-VEND-OVERRIDE                          MXK03212
+006910        SET WS-COP-VENDOR-TYPE     TO TRUE                        MXK03212
+006920        SET WS-COP-CUSTOMER-ENDUSER TO TRUE                       MXK03212
+007100        MOVE TC-PROD-GROUP         TO WS-COP-VENDOR-NBR           GAE98320
+007300        MOVE TC-CUST-BR            TO WS-COP-EU-CUST-BR-NBR       GAE98320
+007400        MOVE TC-CUST-NBR           TO WS-COP-EU-CUST-NBR          GAE98320
+007500        MOVE ICWCOP-ENDUSER-NBR    TO WS-COP-EU-END-USER-NBR      GAE98320
+007600        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+007700       WHEN ICWCOP-CUS-EUS-PART-OVERRIDE                          MXK03212
+007710        SET WS-COP-PART-TYPE       TO TRUE                        MXK03212
+007720        SET WS-COP-CUSTOMER-ENDUSER TO TRUE                       MXK03212
+007900        MOVE TC-PART-NBR           TO WS-COP-PART-NBR             GAE98320
+008100        MOVE TC-CUST-BR            TO WS-COP-EU-CUST-BR-NBR       GAE98320
+008200        MOVE TC-CUST-NBR           TO WS-COP-EU-CUST-NBR          GAE98320
+008300        MOVE ICWCOP-ENDUSER-NBR    TO WS-COP-EU-END-USER-NBR      MXK03212
+008400        MOVE ICWCOP-AUTH-SEQNO     TO WS-COP-SEQNO                MXK03212
+008500     END-EVALUATE.                                                MXK03212

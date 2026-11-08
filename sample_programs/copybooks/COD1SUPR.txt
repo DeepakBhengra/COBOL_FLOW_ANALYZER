@@ -1,0 +1,505 @@
+      ******************************************************************        
+      * COPYBOOK: COD1SUPR                                             *AXS17062
+      ******************************************************************AXS17062
+      * PURPOSE : BYPASS CHECK FOR CODE1 ADDRESS VALIDATION            *AXS17062
+      *                                                                *AXS17125
+      *        1) CODE1 BYPASS ROUTINE CHECKS FOR BELOW CONDITIONS,    *AXS17125
+      *                                                                *AXS17062
+      *           PARENT CUST THIRD PARTY    - (CUOF-ECOM-BYP-GRP1)    *AXS17062
+      *           CHILD CUST THIRD PARTY     - (CUOF-ECOM-BYP-GRP1)    *AXS17062
+      *           CUST SUFFIX                - (ORTC1CUS-SFX-BYPAS-FLG)*AXS17062
+      *           3RD PARTY CODE1 CHILD CUST - (ORTC1CUS-THPTY-FLG)    *AXS17062
+      *           3RD PARTY CODE1 PARENT CUST- (ORTC1CUS-THPTY-FLG)    *AXS17062
+      *           CARRIER MODE CHILD CUST    - (ORTC1MOD-MODE-CD)      *AXS17062
+      *           CARRIER MODE PARENT CUST   - (ORTC1MOD-MODE-CD)      *AXS17062
+      *           CARRIER CODE CHILD CUST    - (ORTC1CAR-CARR-CD)      *AXS17062
+      *           CARRIER CODE PARENT CUST   - (ORTC1CAR-CARR-CD)      *AXS17062
+      *           ZIPCODE CHILD CUST         - (ORTC1POS-FROM-POST-CD) *AXS17062
+      *                                        (ORTC1POS-TO-POST-CD)   *AXS17062
+      *           ZIPCODE PARENT CUST        - (ORTC1POS-FROM-POST-CD) *AXS17062
+      *                                        (ORTC1POS-TO-POST-CD)   *AXS17062
+      *           COUNTRY CODE CHILD CUST    - (ORTC1CTR-CTRY-CD)      *AXS17062
+      *           COUNTRY CODE PARENT CUST   - (ORTC1CTR-CTRY-CD)      *AXS17062
+      *                                                                *AXS17062
+      *        2) SETS WS-BYPASS-CODE1-SW TO 'Y', IF ANY OF THOSE      *AXS17062
+      *           CONDITION SATISFIES.                                 *AXS17062
+      *                                                                *AXS17062
+      *        3) BYPASSES THE CODE1 FROM VALIDATING ADDRESS.          *AXS17062
+      *                                                                *AXS17062
+      *----------------------------------------------------------------*AXS17062
+      * DESC:  1) COD1SUPR IS A PROCEDURE DIVISION COPYBOOK USED IN    *AXS17125
+      *           ORDER ENTRY PROCESS FOR SUPPRESSING CODE1 VALIDATION *AXS17125
+      *                                                                *AXS17125
+      *        2) COD1SUPR IS ADDED IN PROGRAM USING KEYWORD 'INCLUDE' *AXS17125
+      *           AND USES BELOW INPUT WORKING STORAGE VARIABLES,      *AXS17125
+      *           INPUT  :  ORDER#            - WS-CD1-ORDER-NBR       *AXS17125
+      *                     FREIGHT OUT CODE  - WS-CD1-FRTO-CODE       *AXS17125
+      *                     CARR CODE         - WS-CD1-CARR-CODE       *AXS17125
+      *                     COUNTRY CODE      - WS-CD1-COUNTRY         *AXS17125
+      *                     ZIPCODE           - WS-CD1-ZIPCODE         *AXS17125
+      *           FOR WHICH VALUES ARE MOVED BEFORE CALLING THIS       *AXS17125
+      *           COD1SUPR ROUTINE EITHER FROM MAP OR IMS DB           *AXS17125
+      *                                                                *AXS17125
+      *        3) IF THE INPUT WORKING STORAGE VARIABLES ARE NOT HAVING*AXS17125
+      *           VALUES, THEN THE VALUES ARE TAKEN FROM ORDER DB      *AXS17125
+      *           INSIDE THE COPYBOOK                                  *AXS17125
+      *                                                                *AXS17125
+      *EXAMPLE 1: IF CODE1 IS TO BE BYPASSED FOR A CUSTOMER, THEN      *AXS17125
+      *           CUSTOMER ECOM BYPASS FLAG (CUOF-ECOM-BYP-GRP1)       *AXS17125
+      *           IS SET TO 'Y', WHICH INTURN SETS, WS-BYPASS-CODE1-SW *AXS17125
+      *           TO 'Y'                                               *AXS17125
+      *                                                                *AXS17125
+      *EXAMPLE 2: IF CODE1 IS TO BE BYPASSED FOR A CUSTOMER, THEN      *AXS17125
+      *           CUSTOMER SUFFIX BYPASS FLAG (ORTC1CUS-SFX-BYPAS-FLG) *AXS17125
+      *           IS SET TO 'Y', WHICH INTURN SETS, WS-BYPASS-CODE1-SW TAXS17125
+      *           TO 'Y'                                               *AXS17125
+      *                                                                *AXS17125
+      *EXAMPLE 3: IF CODE1 IS TO BE BYPASSED FOR A CUSTOMER, THEN      *AXS17125
+      *           FREIGHT OUT CODE (WS-CD1-FRTO-CODE) IS SET TO 'T' OR *AXS17125
+      *           'P' AND ALSO CARRIER CODE (WS-CD1-CARR-CODE) IS SET  *AXS17125
+      *           IN CODE1 SUPPRESSION SCREEN, WHICH INTURN SETS,      *AXS17125
+      *           WS-BYPASS-CODE1-SW TO 'Y'                            *AXS17125
+      *                                                                *AXS17125
+      * INPUT  :  CUST #                 - TC-CUST-NBR                 *AXS17125
+      *           PARENT CUST #          - CU-PARENT-NBR               *AXS17125
+      *           CUST SUFFIX #          - TC-CUST-SUFFIX              *AXS17125
+      *           ORDER#                 - WS-CD1-ORDER-NBR            *AXS17125
+      *           FREIGHT OUT CODE       - WS-CD1-FRTO-CODE            *AXS17125
+      *           CARR CODE              - WS-CD1-CARR-CODE            *AXS17125
+      *           COUNTRY CODE           - WS-CD1-COUNTRY              *AXS17125
+      *           ZIPCODE                - WS-CD1-ZIPCODE              *AXS17125
+      *                                                                *AXS17125
+      * OUTPUT :  CODE1 BYPASS SW        - WS-BYPASS-CODE1-SW          *AXS17125
+      *           CODE1 BYPASS REASON    - WS-CD1-BYP-MESSAGE          *AXS17125
+      *                                                                *AXS17125
+      * DB2 TABLES ACCESSED : C1_CUST_BYPASS                           *AXS17062
+      *                       C1_CARR_MODE_BYPASS                      *AXS17062
+      *                       C1_CARR_CODE_BYPASS                      *AXS17062
+      *                       C1_CTRY_CODE_BYPASS                      *AXS17062
+      *                       C1_POSTAL_CODE_BYPASS                    *AXS17062
+      *                                                                *AXS17062
+      ******************************************************************        
+      * REVISION INFO:                                                 *        
+      * DATE     PGMR DESCRIPTION                                      *        
+      * -------- ---- -------------------------------------------------*        
+      * 05/05/17 AXS  CHANGED DESCRIPTION OF COPYBOOK IN COMMENTS      *AXS17125
+      * 03/03/17 AXS  ADDED DESCRIPTION OF COPYBOOK IN COMMENTS        *AXS17062
+      * 01/13/17 AXS  CHANGED CUSTOMER SUFFIX BYPASS LOGIC             *AXS17013
+      * 11/11/16 KXV  NEW ROUTINE CREATED FOR CODE1 BYPASS CHECK       *KXV16316
+      ******************************************************************        
+                                                                                
+       S1010-CODE1-BYPASS-CHECK.                                                
+                                                                                
+      * PARENT CUSTOMER THIRD PARTY FLAG BYPASS VALIDATION                      
+           MOVE SPACES                       TO WS-BYPASS-CODE1-SW.             
+                                                                                
+           IF CU-PARENT-NBR NOT EQUAL  SPACES AND                               
+              CU-PARENT-NBR NOT EQUAL  ZEROS  AND                               
+              CU-PARENT-NBR NOT EQUAL  LOW-VALUES                               
+              IF CU-KEY-CUSMST(3:8) NOT EQUAL CU-PARENT-NBR                     
+                 MOVE TC-COMPANY             TO WS-CUSHED-CO                    
+                 MOVE CU-PARENT-BR-NBR       TO WS-CUSHED-BR                    
+                 MOVE CU-PARENT-CUST-NBR     TO WS-CUSHED-CUST                  
+                 PERFORM 1000-GU-CUSHED                                         
+                                                                                
+                 IF WS-CUSHED-NORESP                                            
+                    MOVE '0'                 TO WS-CUSHEDOF-NBR                 
+                    PERFORM 1201-GU-CUSHEDOF                                    
+                    IF WS-CUSHEDOF-NORESP                                       
+                       MOVE CUOF-CUSHEDOF    TO CUOF-CUSHEDOF-0                 
+                       IF CUOF-ECOM-BYP-GRP1 = 'Y'                              
+                          MOVE 'Y'           TO WS-BYPASS-CODE1-SW              
+                          MOVE 'PARENT CUSTOMER ECOM BYPASS'            AXS17062
+                                             TO WS-CD1-BYP-MESSAGE              
+                          GO TO S1010-EXIT                                      
+                       END-IF                                                   
+                    END-IF                                                      
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+      * CHILD  CUSTOMER THIRD PARTY FLAG BYPASS VALIDATION                      
+           MOVE TC-COMPANY                   TO WS-CUSHED-CO.                   
+           MOVE TC-BR-NBR                    TO WS-CUSHED-BR.                   
+           MOVE TC-BR-CUST-NBR(3:6)          TO WS-CUSHED-CUST.                 
+                                                                                
+           PERFORM 1000-GU-CUSHED.                                              
+           IF WS-CUSHED-NORESP                                                  
+              MOVE '0'                 TO WS-CUSHEDOF-NBR                       
+              PERFORM 1201-GU-CUSHEDOF                                          
+              IF WS-CUSHEDOF-NORESP                                             
+                 MOVE CUOF-CUSHEDOF    TO CUOF-CUSHEDOF-0                       
+                 IF CUOF-ECOM-BYP-GRP1 = 'Y'                                    
+                    MOVE 'Y'           TO WS-BYPASS-CODE1-SW                    
+                    MOVE 'CHILD CUSTOMER ECOM BYPASS'                   AXS17062
+                                       TO WS-CD1-BYP-MESSAGE                    
+                    GO TO S1010-EXIT                                            
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+      * CUSTOMER SUFFIX LEVEL BYPASS VALIDATION                                 
+                                                                                
+           MOVE TC-COMPANY                TO ORTC1CUS-CO-CD             AXS17013
+           MOVE TC-BR-NBR                 TO ORTC1CUS-BR-NBR            AXS17013
+           MOVE TC-BR-CUST-NBR(3:6)       TO ORTC1CUS-CUST-NBR          AXS17013
+           MOVE TC-CUST-SUFFIX            TO ORTC1CUS-CUST-SFX          AXS17013
+                                                                        AXS17013
+           PERFORM S070-CUSBY-CUST-CHECK THRU S070-EXIT.                AXS17013
+                                                                        AXS17013
+           IF ORTC1CUS-SFX-BYPAS-FLG = 'Y'                              AXS17013
+              MOVE 'Y'                    TO WS-BYPASS-CODE1-SW         AXS17013
+              MOVE 'CUSTOMER SUFFIX LEVEL BYPASS'                       AXS17013
+                                          TO WS-CD1-BYP-MESSAGE         AXS17013
+              GO TO S1010-EXIT                                          AXS17013
+           END-IF.                                                      AXS17013
+                                                                        AXS17013
+      * CUSTOMER THIRD PARTY BYPASS  VALIDATION FRIEGHT OUT CODE                
+                                                                                
+           IF WS-CD1-ORDER-NBR > SPACES                                         
+              MOVE TC-COMPANY                TO WS-ORSHED-CO                    
+              MOVE TC-BR-NBR                 TO WS-ORSHED-BR                    
+              MOVE WS-CD1-ORDER-NBR          TO WS-ORSHED-NBR                   
+              MOVE TC-DIST-NBR               TO WS-ORSSHH-DIST                  
+              MOVE TC-SHIP-NBR               TO WS-ORSSHH-SHIP                  
+              PERFORM 1200-GU-ORSHED                                            
+              IF WS-ORSHED-NORESP                                               
+                 PERFORM 1202-GU-ORSSHH                                         
+              END-IF                                                            
+              IF WS-CD1-FRTO-CODE > SPACES                                      
+                 CONTINUE                                                       
+              ELSE                                                              
+                 MOVE ORSH-FRT-OUT-CODE      TO WS-CD1-FRTO-CODE                
+              END-IF                                                            
+              IF WS-CD1-CARR-CODE > SPACES                                      
+                 CONTINUE                                                       
+              ELSE                                                              
+                 MOVE ORSH-CARRIER-CODE      TO WS-CD1-CARR-CODE                
+              END-IF                                                            
+              IF WS-ORSHED-NORESP                                               
+                 MOVE '14'                   TO WS-ORSSTO-KEY-VALUE             
+                 PERFORM 1207-GU-ORSSTO                                         
+              END-IF                                                            
+              IF WS-CD1-ZIPCODE > SPACES                                        
+                 CONTINUE                                                       
+              ELSE                                                              
+                 MOVE ORSA-ZIP               TO WS-CD1-ZIPCODE                  
+              END-IF                                                            
+              IF WS-CD1-COUNTRY > SPACES                                        
+                 CONTINUE                                                       
+              ELSE                                                              
+                 MOVE ORSA-COUNTRY-CODE      TO WS-CD1-COUNTRY                  
+              END-IF                                                            
+           END-IF                                                               
+                                                                                
+           IF WS-CD1-FRTO-CODE = 'T' OR 'P'                                     
+              MOVE TC-COMPANY                TO ORTC1CUS-CO-CD                  
+              MOVE TC-BR-NBR                 TO ORTC1CUS-BR-NBR                 
+              MOVE TC-BR-CUST-NBR(3:6)       TO ORTC1CUS-CUST-NBR               
+              MOVE TC-CUST-SUFFIX            TO ORTC1CUS-CUST-SFX               
+                                                                                
+              PERFORM S020-THPTY-CUST-CHECK THRU S020-EXIT                      
+                                                                                
+              IF ORTC1CUS-THPTY-FLG = 'Y'                                       
+                 MOVE 'Y'                    TO WS-BYPASS-CODE1-SW              
+                 MOVE 'THIRD PARTY CODE1 CHILD CUST BYPASS'                     
+                                             TO WS-CD1-BYP-MESSAGE              
+                 GO TO S1010-EXIT                                               
+              END-IF                                                            
+              IF CU-PARENT-NBR > SPACES                                         
+                 MOVE TC-COMPANY             TO ORTC1CUS-CO-CD                  
+                 MOVE CU-PARENT-BR-NBR       TO ORTC1CUS-BR-NBR                 
+                 MOVE CU-PARENT-CUST-NBR     TO ORTC1CUS-CUST-NBR               
+                 MOVE '000'                  TO ORTC1CUS-CUST-SFX               
+                 PERFORM S020-THPTY-CUST-CHECK THRU S020-EXIT                   
+                                                                                
+                 IF ORTC1CUS-THPTY-FLG = 'Y'                                    
+                    MOVE 'Y'                 TO WS-BYPASS-CODE1-SW              
+                    MOVE 'THIRD PARTY CODE1 PARENT CUST BYPASS'                 
+                                             TO WS-CD1-BYP-MESSAGE              
+                    GO TO S1010-EXIT                                            
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+      * CARRIER MODE BYPASS VALIDATION                                          
+           IF WS-CD1-CARR-CODE > SPACES                                         
+              MOVE TC-COMPANY                TO TB-CARR-CO                      
+              MOVE WS-CD1-CARR-CODE          TO TB-CARR-CODE                    
+              CALL 'SYU510'               USING TB-CARRIER-TABLE-IA             
+              IF TB-CARR-NORESP                                                 
+                 MOVE TC-COMPANY             TO ORTC1MOD-CO-CD                  
+                 MOVE TC-BR-NBR              TO ORTC1MOD-BR-NBR                 
+                 MOVE TC-BR-CUST-NBR (3:6)   TO ORTC1MOD-CUST-NBR               
+                 MOVE TC-CUST-SUFFIX         TO ORTC1MOD-CUST-SFX               
+                 MOVE TB-CARR-MODE           TO ORTC1MOD-MODE-CD                
+                 PERFORM S030-CUST-CMODE-CHECK THRU S030-EXIT                   
+                                                                                
+                 IF CU-PARENT-NBR > SPACES                                      
+                    MOVE TC-COMPANY          TO ORTC1MOD-CO-CD                  
+                    MOVE CU-PARENT-BR-NBR    TO ORTC1MOD-BR-NBR                 
+                    MOVE CU-PARENT-CUST-NBR  TO ORTC1MOD-CUST-NBR               
+                    MOVE '000'               TO ORTC1MOD-CUST-SFX               
+                    MOVE TB-CARR-MODE        TO ORTC1MOD-MODE-CD                
+                    PERFORM S030-CUST-CMODE-CHECK THRU S030-EXIT                
+                 END-IF                                                         
+                                                                                
+      * CARRIER CODE BYPASS VALIDATION                                          
+                 MOVE TC-COMPANY             TO ORTC1CAR-CO-CD                  
+                 MOVE TC-BR-NBR              TO ORTC1CAR-BR-NBR                 
+                 MOVE TC-BR-CUST-NBR(3:6)    TO ORTC1CAR-CUST-NBR               
+                 MOVE TC-CUST-SUFFIX         TO ORTC1CAR-CUST-SFX               
+                 MOVE WS-CD1-CARR-CODE       TO ORTC1CAR-CARR-CD                
+                 PERFORM S040-CUST-CCODE-CHECK THRU S040-EXIT                   
+                                                                                
+                 IF CU-PARENT-NBR > SPACES                                      
+                    MOVE TC-COMPANY          TO ORTC1CAR-CO-CD                  
+                    MOVE CU-PARENT-BR-NBR    TO ORTC1CAR-BR-NBR                 
+                    MOVE CU-PARENT-CUST-NBR  TO ORTC1CAR-CUST-NBR               
+                    MOVE '000'               TO ORTC1CAR-CUST-SFX               
+                    MOVE WS-CD1-CARR-CODE    TO ORTC1CAR-CARR-CD                
+                    PERFORM S040-CUST-CCODE-CHECK THRU S040-EXIT                
+                 END-IF                                                         
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+      * ZIPCODE BYPASS VALIDATION                                               
+           IF WS-CD1-ZIPCODE > SPACES                                           
+              MOVE TC-COMPANY                TO ORTC1POS-CO-CD                  
+              MOVE TC-BR-NBR                 TO ORTC1POS-BR-NBR                 
+              MOVE TC-BR-CUST-NBR(3:6)       TO ORTC1POS-CUST-NBR               
+              MOVE TC-CUST-SUFFIX            TO ORTC1POS-CUST-SFX               
+              IF TC-USA                                                         
+                 MOVE WS-CD1-ZIPCODE(1:5)    TO ORTC1POS-FROM-POST-CD           
+                                                ORTC1POS-TO-POST-CD             
+              ELSE                                                              
+                 IF TC-CANADA                                                   
+                    MOVE WS-CD1-ZIPCODE(1:6) TO ORTC1POS-FROM-POST-CD           
+                                                ORTC1POS-TO-POST-CD             
+                 END-IF                                                         
+              END-IF                                                            
+              PERFORM S050-CUST-ZIP-CHECK THRU S050-EXIT                        
+                                                                                
+              IF CU-PARENT-NBR > SPACES                                         
+                 MOVE TC-COMPANY             TO ORTC1POS-CO-CD                  
+                 MOVE CU-PARENT-BR-NBR       TO ORTC1POS-BR-NBR                 
+                 MOVE CU-PARENT-CUST-NBR     TO ORTC1POS-CUST-NBR               
+                 MOVE '000'                  TO ORTC1POS-CUST-SFX               
+                 IF TC-USA                                                      
+                    MOVE WS-CD1-ZIPCODE(1:5) TO ORTC1POS-FROM-POST-CD           
+                                                ORTC1POS-TO-POST-CD             
+                 ELSE                                                           
+                    IF TC-CANADA                                                
+                       MOVE WS-CD1-ZIPCODE(1:6) TO ORTC1POS-FROM-POST-CD        
+                                                   ORTC1POS-TO-POST-CD          
+                    END-IF                                                      
+                 END-IF                                                         
+                 PERFORM S050-CUST-ZIP-CHECK THRU S050-EXIT                     
+              END-IF                                                            
+           END-IF                                                               
+                                                                                
+           IF WS-CD1-COUNTRY > SPACES                                           
+              MOVE TC-COMPANY                TO ORTC1CTR-CO-CD                  
+              MOVE TC-BR-NBR                 TO ORTC1CTR-BR-NBR                 
+              MOVE TC-BR-CUST-NBR(3:6)       TO ORTC1CTR-CUST-NBR               
+              MOVE TC-CUST-SUFFIX            TO ORTC1CTR-CUST-SFX               
+              MOVE WS-CD1-COUNTRY            TO ORTC1CTR-CTRY-CD                
+              PERFORM S060-CUST-CNTRY-CHECK THRU S060-EXIT                      
+                                                                                
+              IF CU-PARENT-NBR > SPACES                                         
+                 MOVE TC-COMPANY             TO ORTC1CTR-CO-CD                  
+                 MOVE CU-PARENT-BR-NBR       TO ORTC1CTR-BR-NBR                 
+                 MOVE CU-PARENT-CUST-NBR     TO ORTC1CTR-CUST-NBR               
+                 MOVE '000'                  TO ORTC1CTR-CUST-SFX               
+                 MOVE WS-CD1-COUNTRY         TO ORTC1CTR-CTRY-CD                
+                 PERFORM S060-CUST-CNTRY-CHECK THRU S060-EXIT                   
+              END-IF                                                            
+            END-IF.                                                             
+                                                                                
+       S1010-EXIT.                                                              
+            EXIT.                                                               
+      *SQL QUERY FOR VALIDATING CUSTOMER SUFFIX BYPASS FLAG             AXS17013
+       S070-CUSBY-CUST-CHECK.                                           AXS17013
+                                                                        AXS17013
+            EXEC SQL                                                    AXS17013
+               SELECT SFX_BYPAS_FLG                                     AXS17013
+               INTO   :ORTC1CUS-SFX-BYPAS-FLG                           AXS17013
+               FROM   C1_CUST_BYPASS                                    AXS17013
+               WHERE  CO_CD      = :ORTC1CUS-CO-CD                      AXS17013
+                 AND  BR_NBR     = :ORTC1CUS-BR-NBR                     AXS17013
+                 AND  CUST_NBR   = :ORTC1CUS-CUST-NBR                   AXS17013
+                 AND  CUST_SFX   = :ORTC1CUS-CUST-SFX                   AXS17013
+            END-EXEC.                                                   AXS17013
+                                                                        AXS17013
+            EVALUATE SQLCODE                                            AXS17013
+            WHEN DB2-NORESP                                             AXS17013
+                 CONTINUE                                               AXS17013
+            WHEN DB2-NOT-FOUND                                          AXS17013
+                 CONTINUE                                               AXS17013
+            WHEN OTHER                                                  AXS17013
+                 MOVE 'S070-CUSBY-CUST-CHECK' TO SYWDB2-EXTRA-MESSAGE-1 AXS17013
+                 MOVE 'SELECT QUERY FAIL ON C1_CUST_BYPASS'             AXS17013
+                                              TO SYWDB2-EXTRA-MESSAGE-2 AXS17013
+                 PERFORM 990-SQL-MESSAGE                                AXS17013
+                 GO TO S070-EXIT                                        AXS17013
+            END-EVALUATE.                                               AXS17013
+                                                                        AXS17013
+       S070-EXIT.                                                       AXS17013
+           EXIT.                                                        AXS17013
+      *SQL QUERY FOR VALIDATING THIRD PART FLAG                                 
+       S020-THPTY-CUST-CHECK.                                                   
+                                                                                
+            EXEC SQL                                                            
+               SELECT THPTY_FLG                                                 
+               INTO   :ORTC1CUS-THPTY-FLG                                       
+               FROM   C1_CUST_BYPASS                                            
+               WHERE  CO_CD      = :ORTC1CUS-CO-CD                              
+                 AND  BR_NBR     = :ORTC1CUS-BR-NBR                             
+                 AND  CUST_NBR   = :ORTC1CUS-CUST-NBR                           
+                 AND  CUST_SFX   = :ORTC1CUS-CUST-SFX                           
+            END-EXEC.                                                           
+                                                                                
+            EVALUATE SQLCODE                                                    
+            WHEN DB2-NORESP                                                     
+                 CONTINUE                                                       
+            WHEN DB2-NOT-FOUND                                                  
+                 CONTINUE                                                       
+            WHEN OTHER                                                          
+                 MOVE 'S020-THPTY-CUST-CHECK' TO SYWDB2-EXTRA-MESSAGE-1         
+                 MOVE 'SELECT QUERY FAIL ON C1_CUST_BYPASS'                     
+                                              TO SYWDB2-EXTRA-MESSAGE-2         
+                 PERFORM 990-SQL-MESSAGE                                        
+                 GO TO S020-EXIT                                                
+            END-EVALUATE.                                                       
+                                                                                
+       S020-EXIT.                                                               
+           EXIT.                                                                
+      *SQL QUERY FOR VALIDATING CARRIER MODE VALUE                              
+      *                                                                         
+       S030-CUST-CMODE-CHECK.                                                   
+                                                                                
+            EXEC SQL                                                            
+              SELECT 1                                                          
+              INTO   :WS-COUNT-CMODE                                            
+              FROM   C1_CARR_MODE_BYPASS                                        
+              WHERE  CO_CD         = :ORTC1MOD-CO-CD                            
+                AND  BR_NBR        = :ORTC1MOD-BR-NBR                           
+                AND  CUST_NBR      = :ORTC1MOD-CUST-NBR                         
+                AND  CUST_SFX      = :ORTC1MOD-CUST-SFX                         
+                AND  MODE_CD       = :ORTC1MOD-MODE-CD                          
+            END-EXEC.                                                           
+                                                                                
+            EVALUATE SQLCODE                                                    
+            WHEN DB2-NORESP                                                     
+                 MOVE 'Y'                     TO WS-BYPASS-CODE1-SW             
+                 MOVE 'CARRIER MODE BYPASS'   TO WS-CD1-BYP-MESSAGE             
+                 GO TO S1010-EXIT                                               
+            WHEN DB2-NOT-FOUND                                                  
+                 CONTINUE                                                       
+            WHEN OTHER                                                          
+                 MOVE 'S030-CUST-CMODE-CHECK' TO SYWDB2-EXTRA-MESSAGE-1         
+                 MOVE 'SELECT QUERY FAIL ON C1_CARR_MODE_BYPASS'                
+                                              TO SYWDB2-EXTRA-MESSAGE-2         
+                 PERFORM 990-SQL-MESSAGE                                        
+                 GO TO S030-EXIT                                                
+            END-EVALUATE.                                                       
+                                                                                
+       S030-EXIT.                                                               
+           EXIT.                                                                
+      *SQL QUERY FOR VALIDATING CARRIER CODE VALUE                              
+      *                                                                         
+       S040-CUST-CCODE-CHECK.                                                   
+                                                                                
+            EXEC SQL                                                            
+              SELECT 1                                                          
+              INTO   :WS-COUNT-CCODE                                            
+              FROM   C1_CARR_CODE_BYPASS                                        
+              WHERE  CO_CD         = :ORTC1CAR-CO-CD                            
+                AND  BR_NBR        = :ORTC1CAR-BR-NBR                           
+                AND  CUST_NBR      = :ORTC1CAR-CUST-NBR                         
+                AND  CUST_SFX      = :ORTC1CAR-CUST-SFX                         
+                AND  CARR_CD       = :ORTC1CAR-CARR-CD                          
+            END-EXEC.                                                           
+                                                                                
+            EVALUATE SQLCODE                                                    
+            WHEN DB2-NORESP                                                     
+                 MOVE 'Y'                     TO WS-BYPASS-CODE1-SW             
+                 MOVE 'CARRIER CODE BYPASS'   TO WS-CD1-BYP-MESSAGE             
+                 GO TO S1010-EXIT                                               
+            WHEN DB2-NOT-FOUND                                                  
+                 CONTINUE                                                       
+            WHEN OTHER                                                          
+                 MOVE 'S040-CUST-CCODE-CHECK' TO SYWDB2-EXTRA-MESSAGE-1         
+                 MOVE 'SELECT QUERY FAIL ON C1_CARR_CODE_BYPASS'                
+                                              TO SYWDB2-EXTRA-MESSAGE-2         
+                 PERFORM 990-SQL-MESSAGE                                        
+                 GO TO S040-EXIT                                                
+            END-EVALUATE.                                                       
+                                                                                
+       S040-EXIT.                                                               
+           EXIT.                                                                
+      *SQL QUERY FOR VALIDATING ZIPCODE RANGE VALUE                             
+      *                                                                         
+       S050-CUST-ZIP-CHECK.                                                     
+                                                                                
+            EXEC SQL                                                            
+              SELECT 1                                                          
+              INTO   :WS-COUNT-ZIP                                              
+              FROM   C1_POSTAL_CODE_BYPASS                                      
+              WHERE  CO_CD         = :ORTC1POS-CO-CD                            
+                AND  BR_NBR        = :ORTC1POS-BR-NBR                           
+                AND  CUST_NBR      = :ORTC1POS-CUST-NBR                         
+                AND  CUST_SFX      = :ORTC1POS-CUST-SFX                         
+                AND  FROM_POST_CD <= :ORTC1POS-FROM-POST-CD                     
+                AND  TO_POST_CD   >= :ORTC1POS-TO-POST-CD                       
+              FETCH FIRST 1 ROW ONLY                                    AXS17013
+            END-EXEC.                                                           
+                                                                                
+            EVALUATE SQLCODE                                                    
+            WHEN DB2-NORESP                                                     
+                 MOVE 'Y'                     TO WS-BYPASS-CODE1-SW             
+                 MOVE 'ZIPCODE BYPASS'        TO WS-CD1-BYP-MESSAGE             
+                 GO TO S1010-EXIT                                               
+            WHEN DB2-NOT-FOUND                                                  
+                 CONTINUE                                                       
+            WHEN OTHER                                                          
+                 MOVE 'S050-CUST-ZIP-CHECK'   TO SYWDB2-EXTRA-MESSAGE-1         
+                 MOVE 'SELECT QUERY FAIL ON C1_POSTAL_CODE_BYPASS'              
+                                              TO SYWDB2-EXTRA-MESSAGE-2         
+                 PERFORM 990-SQL-MESSAGE                                        
+                 GO TO S050-EXIT                                                
+            END-EVALUATE.                                                       
+                                                                                
+       S050-EXIT.                                                               
+           EXIT.                                                                
+      *SQL QUERY FOR VALIDATING COUNTRY CODE                                    
+      *                                                                         
+       S060-CUST-CNTRY-CHECK.                                                   
+                                                                                
+            EXEC SQL                                                            
+              SELECT 1                                                          
+              INTO   :WS-COUNT-CNTRY                                            
+              FROM   C1_CTRY_CODE_BYPASS                                        
+              WHERE  CO_CD         = :ORTC1CTR-CO-CD                            
+                AND  BR_NBR        = :ORTC1CTR-BR-NBR                           
+                AND  CUST_NBR      = :ORTC1CTR-CUST-NBR                         
+                AND  CUST_SFX      = :ORTC1CTR-CUST-SFX                         
+                AND  CTRY_CD       = :ORTC1CTR-CTRY-CD                          
+            END-EXEC.                                                           
+                                                                                
+            EVALUATE SQLCODE                                                    
+            WHEN DB2-NORESP                                                     
+                 MOVE 'Y'                     TO WS-BYPASS-CODE1-SW             
+                 MOVE 'COUNTRY CODE BYPASS'   TO WS-CD1-BYP-MESSAGE             
+                 GO TO S1010-EXIT                                               
+            WHEN DB2-NOT-FOUND                                                  
+                 CONTINUE                                                       
+            WHEN OTHER                                                          
+                 MOVE 'S060-CUST-CNTRY-CHECK' TO SYWDB2-EXTRA-MESSAGE-1         
+                 MOVE 'SELECT QUERY FAIL ON C1_CTRY_CODE_BYPASS'                
+                                              TO SYWDB2-EXTRA-MESSAGE-2         
+                 PERFORM 990-SQL-MESSAGE                                        
+                 GO TO S060-EXIT                                                
+            END-EVALUATE.                                                       
+                                                                                
+       S060-EXIT.                                                               
+           EXIT.                                                                

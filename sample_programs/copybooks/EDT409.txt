@@ -1,0 +1,211 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT409                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV409 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      ****************************************************************          
+      * REVISION INFO:                                               *          
+      *                                                              *          
+      * DATE      PROG  COMMENT                                      *          
+      * ---------------------------------                            *          
+      * 08/31/25  JZA   ADDED THE FIELD EDV409-QUOTE-LINE-IND FOR    *  JZA25243
+      *                 XEDI QUOTE ORDER PROCESSING.                 *  JZA25243
+      * 11/10/23  KZC   SE#8863  - VMF IMPLEMENTATION FOR IMPE       *  KZC23314
+      *                   BUSINESS MODEL                             *  KZC23314
+      * 06/16/23  SML   MS GATEWAY PROJECT: ADD EDV409-EU-PP-PRC-AMT *  SML23167
+      *                 AND EDV409-EU-PP-PUR-DT.                     *  SML23167
+      * 06/04/22  KXD   US APPLECARE AUTOMATION PROJECT CHANGES      *  KXD22155
+      *                 ADDED NEW COLUMN LINK_ID                     *  KXD22155
+      * 08/07/21  MYM   SE8651-NORDICS EDI FUTURE ORDER CHANGES      *  MYM21219
+      *                 ADDED NEW COLUMN FUT_LINE_PROM_DT            *  MYM21219
+      * 06/19/21  SXT   CTO PROJECT:NEW COLUMNS FOR CTO COST/PRICE   *  SXT21170
+      * 01/18/20  GXP   HPE NEXT - NEW COLUMN LINE_VMF_INFO_SW       *  GXP20018
+      * 11/03/18  FXS   SE8359- VSAM MSL TXT MIGRATED TO DB2ESC:     *  FXS18307
+      *                 ADDED NEW FIELD IMI_REJ_CD_DESC              *  FXS18307
+      * 10/07/17  VYP   HERMES - ADDED NEW COLUMNS FOR N LINE        *  VYP17280
+      *                 PROCESSING                                   *  VYP17280
+      * 08/05/17  SXR   SE25141 - ADDED NEW FIELD FOR ORIGINAL       *  SXR17217
+      *                 SUPPLIED PART NUMBER                         *  SXR17217
+      * 08/05/17  VYP   EVPN - ADDED NEW FIELD FOR EXTENDED VENDOR   *  VYP17217
+      *                 PART NUMBER                                  *  VYP17217
+      * 01/14/17  SXR   EDI AUTOMATION PROJECT - ADDED BELOW 2 FIELDS*  SXR17014
+      *                 EDV409-BID-NBR                               *  SXR17014
+      *                 EDV409-BID-VRSN-NBR                          *  SXR17014
+      * 04/09/16  GXP   SE24540- ADDED EDV409-HT-INIT-REJ-CD         *  GXP16100
+      * 03/05/16  DXB   SE24222- ADDED EDV409-ETA-SOURCE-CD          *  DXB16065
+      * 06/06/15  VXD   SE24025-HOLDING TANK II                      *  VXD15157
+      * 04/06/14  MZT   INCREASED EDV409-CUST-PART-NBR FROM 15 TO 20 *  MZT14096
+      * 04/06/14  MZT   FOR IMM DE REQUIREMENT.                      *  MZT14096
+      * 01/13/05  LAR   ADDED SERVICE AMT AND SERVICE QTY            *  LAR05013
+      * 06/22/04  KWC   ADD EDV409-SERIAL-NBR-FLG                    *  KWC04174
+      * 01/13/04  KWC   ADD SELECT OPTION                            *  KWC04013
+      * 10/09/03  RPB   ADDED EDV409-CUST-SPEC-HNDL                  *  JAK03282
+      * 11/15/02  KWC   ADDED TWO NEW FIELDS.                        *  KWC02319
+      * 02/01/02  SXP   ORIGINAL IN ADDITION TO                      *  SXP02032
+      *           MKL   INCREASED CUST_PO_NBR FROM 15 TO 18 CHARS    *  SXP02032
+      *                 AND ADDED MISSING FILEDS (12-31-01)          *  SXP02032
+      ****************************************************************          
+                                                                                
+       01  EDV409-COMMUNICATIONS-AREA.                                          
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV409-ACTION-CD                     PIC  X(002).                
+               88  EDV409-INSERT                    VALUE 'I '.                 
+               88  EDV409-SELECT                    VALUE 'S '.         KWC04013
+               88  EDV409-UPDATE                    VALUE 'U '.                 
+           05  EDV409-USER-ID                       PIC  X(010).                
+           05  EDV409-KEY-AREA.                                                 
+               10  EDV409-KEY-CUST-CO-CD      PIC X(2).                         
+               10  EDV409-KEY-CUST-BR         PIC X(2).                         
+               10  EDV409-KEY-CUST-NBR        PIC X(6).                         
+               10  EDV409-KEY-CUST-SFX        PIC X(3).                         
+               10  EDV409-KEY-CUST-PO-NBR     PIC X(18).                        
+               10  EDV409-KEY-SDQ-SEQ-NBR     PIC S9(9) USAGE COMP.             
+               10  EDV409-KEY-CUST-PO-DT      PIC X(10).                        
+               10  EDV409-KEY-CUST-PO-SEQ-NBR PIC S9(9) USAGE COMP.             
+               10  EDV409-KEY-LINE-SEQ-NBR    PIC S9(9) USAGE COMP.             
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV409-INPUT-OUTPUT-AREA.                                        
+               10  EDV409-OBJECT-ID                 PIC  X(030).                
+                   88  EDV409-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV409-LINE-INFO             VALUE                       
+                                  'EO_LINE_INFO                 '.              
+               10  EDV409-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV409-MAX-ARRAY-COUNT       VALUE 020.                  
+               10  EDV409-FIELDS.                                               
+                12  EDV409-KEY-FIELDS.                                  KWC02319
+                  15 EDV409-CUST-CO-CD       PIC X(2).                          
+                  15 EDV409-CUST-BR          PIC X(2).                          
+                  15 EDV409-CUST-NBR         PIC X(6).                          
+                  15 EDV409-CUST-SFX         PIC X(3).                          
+                  15 EDV409-CUST-PO-NBR      PIC X(18).                         
+                  15 EDV409-SDQ-SEQ-NBR      PIC S9(9) USAGE COMP.              
+                  15 EDV409-CUST-PO-DT       PIC X(10).                         
+                  15 EDV409-CUST-PO-SEQ-NBR  PIC S9(9) USAGE COMP.              
+                  15 EDV409-LINE-SEQ-NBR     PIC S9(9) USAGE COMP.              
+                12  EDV409-DATA-FIELDS.                                 KWC02319
+                  15 EDV409-PRTNR-LINE-NBR   PIC S9(9) USAGE COMP.              
+                  15 EDV409-IMI-LINE-NBR     PIC S9(9) USAGE COMP.              
+                  15 EDV409-IMI-PART-NBR     PIC X(12).                         
+                  15 EDV409-CUST-PART-NBR    PIC X(20).                 MZT14096
+                  15 EDV409-MFCTR-PART-NBR   PIC X(20).                         
+                  15 EDV409-UPC-PART-NBR     PIC X(13).                         
+                  15 EDV409-QTY-ORDERED      PIC S9(9) USAGE COMP.              
+                  15 EDV409-CUST-QOTD-PRC    PIC S9(13)V9(2) COMP-3.            
+                  15 EDV409-CS-PK-QTY        PIC S9(9) USAGE COMP.              
+                  15 EDV409-CUST-PART-DESC-1 PIC X(35).                         
+                  15 EDV409-CUST-PART-DESC-2 PIC X(35).                         
+                  15 EDV409-RSV-INVTY-FLG    PIC X(1).                          
+                  15 EDV409-IMI-PART-DESC-1  PIC X(35).                         
+                  15 EDV409-IMI-PART-DESC-2  PIC X(35).                         
+                  15 EDV409-PRC-USE-FLG      PIC X(1).                          
+                  15 EDV409-LINE-REQ-DLVY-DT PIC X(10).                         
+                  15 EDV409-LINE-REQ-SHIP-DT PIC X(10).                         
+                  15 EDV409-LINE-REQ-CANC-DT PIC X(10).                         
+                  15 EDV409-LINE-BO-FLG      PIC X(1).                          
+                  15 EDV409-AGGR-CD          PIC X(6).                          
+                  15 EDV409-MISC-CHRG-SKU    PIC X(12).                         
+                  15 EDV409-ASSET-TAG-FLG    PIC X(1).                          
+                  15 EDV409-OPRT-SYS         PIC X(5).                          
+                  15 EDV409-DLVY-MTHD        PIC X(1).                          
+                  15 EDV409-LAB-TYPE         PIC X(6).                          
+                  15 EDV409-QTY-PER-CONFIG   PIC S9(9) USAGE COMP.              
+                  15 EDV409-CONFIG-QTY       PIC S9(9) USAGE COMP.              
+                  15 EDV409-ITEM-TYPE-IND    PIC X(1).                          
+                  15 EDV409-QTY-ALLOC        PIC S9(9) USAGE COMP.              
+                  15 EDV409-END-USER-PRC     PIC S9(13)V9(2) COMP-3.            
+                  15 EDV409-IMI-REJ-CD       PIC X(2).                          
+                  15 EDV409-ACPT-REJ-FLG     PIC X(1).                          
+                  15 EDV409-MISC-CD          PIC X(3).                          
+                  15 EDV409-LINE-TYPE-SW     PIC X(1).                          
+                  15 EDV409-QTY-BO           PIC S9(9) USAGE COMP.              
+                  15 EDV409-UNIT-PRC         PIC S9(13)V9(2) COMP-3.            
+                  15 EDV409-RTL-PRC          PIC S9(13)V9(2) COMP-3.            
+                  15 EDV409-FRGN-UNIT-PRC    PIC S9(13)V9(2) COMP-3.            
+                  15 EDV409-SUB-PART-NBR     PIC X(12).                         
+                  15 EDV409-ETA              PIC X(10).                         
+                  15 EDV409-FREE-ITEM-SW     PIC X(1).                          
+                  15 EDV409-VEND-NBR         PIC X(4).                          
+                  15 EDV409-LINE-VLA-AUTH-NBR PIC X(30).                        
+                  15 EDV409-EU-ADDR-LOC      PIC X(01).                 KWC02319
+                  15 EDV409-EU-INFO-REQ-FLG  PIC X(01).                 KWC02319
+                  15 EDV409-CUST-SPEC-HNDL   PIC X(10).                 JAK03282
+                  15 EDV409-SERIAL-NBR-FLG   PIC X(01).                 KWC04174
+                  15 EDV409-SVC-AMT          PIC S9(12)V99  COMP-3.     LAR05013
+                  15 EDV409-SVC-QTY          PIC S9(07) COMP.           LAR05013
+                  15 EDV409-HT-IMI-REJ-CD    PIC X(2).                  VXD15157
+                  15 EDV409-ETA-SOURCE-CD    PIC X(1).                  DXB16065
+                  15 EDV409-HT-INIT-REJ-CD   PIC X(2).                  GXP16100
+                  15 EDV409-BID-NBR          PIC X(25).                 SXR17014
+                  15 EDV409-BID-VRSN-NBR     PIC X(3).                  SXR17014
+                  15 EDV409-EXT-VEND-PART-NBR PIC X(40).                VYP17217
+                  15 EDV409-ORIG-SPPL-PART-NBR  PIC X(30).              SXR17217
+                  15 EDV409-HERM-SHIP-FR-BR-NBR PIC X(02).              VYP17280
+                  15 EDV409-HERM-UNIT-COST-AMT  PIC S9(13)V9(2) COMP-3. VYP17280
+                  15 EDV409-HERM-UNIT-PRC-AMT   PIC S9(13)V9(2) COMP-3. VYP17280
+                  15 EDV409-HERM-LINE-TYPE-CD   PIC X(01).              VYP17280
+                  15 EDV409-HERM-STUS-FLG       PIC X(01).              VYP17280
+                  15 EDV409-IMI-REJ-CD-DESC     PIC X(70).              FXS18307
+                  15 EDV409-LINE-VMF-INFO-SW    PIC X(01).              GXP20018
+                  15 EDV409-CTO-UNIT-COST-AMT   PIC S9(13)V9(2) COMP-3. SXT21170
+                  15 EDV409-CTO-UNIT-PRC-AMT    PIC S9(13)V9(2) COMP-3. SXT21170
+                  15 EDV409-FUT-LINE-PROM-DT    PIC X(10).              MYM21219
+                  15 EDV409-LINK-ID             PIC X(25).              KXD22155
+                  15 EDV409-EU-PP-PRC-AMT       PIC S9(13)V9(4) COMP-3. SML23167
+                  15 EDV409-EU-PP-PUR-DT        PIC X(10).              SML23167
+                  15 EDV409-TERM-END-DT         PIC X(10).              KZC23314
+                  15 EDV409-QUOTE-LINE-IND      PIC X(01).              JZA25243
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV409-OUTPUT-DATA.                                              
+               10  EDV409-ROW-COUNT             PIC  S9(009).                   
+               10  EDV409-MODULE-RESULT-CD      PIC  X(002).                    
+                   88  EDV409-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV409-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV409-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  EDV409-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV409-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV409-INSERT-FAIL           VALUE 'IF'.                 
+                   88  EDV409-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  EDV409-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  EDV409-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  EDV409-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV409-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  EDV409-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV409-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV409-EXCEPTION-MESSAGE.                                    
+                   15  EDV409-MSG-OBJECT            PIC  X(030).                
+                   15  EDV409-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV409-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV409-SQLCA.                                            
+                       20  EDV409-SQLCAID           PIC  X(008).                
+                       20  EDV409-SQLCABC           PIC  S9(009).               
+                       20  EDV409-SQLCODE           PIC  S9(009).               
+                       20  EDV409-SQLERRM.                                      
+                           25  EDV409-SQLERRML      PIC  S9(004).               
+                           25  EDV409-SQLERRMC      PIC  X(070).                
+                       20  EDV409-SQLERRP           PIC  X(008).                
+                       20  EDV409-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV409-SQLWARN.                                      
+                           25  EDV409-SQLWARN0      PIC  X(001).                
+                           25  EDV409-SQLWARN1      PIC  X(001).                
+                           25  EDV409-SQLWARN2      PIC  X(001).                
+                           25  EDV409-SQLWARN3      PIC  X(001).                
+                           25  EDV409-SQLWARN4      PIC  X(001).                
+                           25  EDV409-SQLWARN5      PIC  X(001).                
+                           25  EDV409-SQLWARN6      PIC  X(001).                
+                           25  EDV409-SQLWARN7      PIC  X(001).                
+                       20  EDV409-SQLEXT.                                       
+                           25  EDV409-SQLWARN8      PIC  X(001).                
+                           25  EDV409-SQLWARN9      PIC  X(001).                
+                           25  EDV409-SQLWARNA      PIC  X(001).                
+                           25  EDV409-SQLSTATE      PIC  X(005).                

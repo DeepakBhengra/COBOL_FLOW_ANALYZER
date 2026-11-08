@@ -1,0 +1,153 @@
+      * NAME: VNSWARR - PROCEDURE DIVISION COPY BOOK                  *         
+      *       TO BE USED WITH 'VNTWARR' WORKING STORAGE COPY-BOOK     *         
+      *---------------------------------------------------------------*         
+      *REVISION LOGS                                                  *         
+      * DATE     ID   DESCRIPTION                                     *         
+      *--------- ---- ------------------------------------------------*         
+      * 06/16/23 MP4  APPLECARE EDI BILL DUE TO SEEBURGER DELAY    *    MP423167
+      *               ADDED BILLING MODEL FIELD IN THE DB2 SELECT.    * MP423167
+      * 02/10/23 AP3  CISCO SERIAL# & WARRANTY:                       * AP323041
+      *               ADDED PO BEFORE SERIAL FLAG IN THE DB2 SELECT.  * AP323041
+      * 10/31/21 TXV  ADDED NEW FIELD VNDOF-WARR-RTUN-GRACE-PERIOD    * TXV21304
+      *               FOR WARRANTY RETURN PROJECT.                    * TXV21304
+      * 07/09/21 MYG  REMOVED 'VNDOF-CUSTMIZE-ESD-MAIL-SW' FIELD      * MYG21190
+      *               WHICH DOES NOT BELONG TO WARRANTY.              * MYG21190
+      * 06/04/21 TXV  REMOVED 'VNDOF-OVERRIDE-PO-BR' FIELD AND        * TXV21155
+      *               'VNDOF-NEWDST-AFTSHP9-SW' FIELD WHICH ARE NOT   * TXV21155
+      *               BELONGS TO WARRANTY.                            * TXV21155
+      * 03/14/21 TXV  DB2 VEND_VNSHED_OFLW SELECT                     * TXV21073
+      *-----------------------------------------------------------------        
+       777-CHECK-FOR-VENDOR-WARR.                                               
+      *-----------------------------------------------------------------        
+           MOVE SPACES                   TO WS-VEND-FOUND-SW.                   
+           MOVE VNDOF-CO-CD              TO VNTSHO-CO-CD.                       
+           MOVE VNDOF-VENDOR-NBR         TO VNTSHO-VNDR-NBR.                    
+           MOVE VNDOF-VENDOR-CLASS       TO VNTSHO-VNDR-TYP-CD.                 
+                                                                                
+           EXEC SQL                                                             
+              SELECT                                                            
+                    SEND_POS_IND                                        TXV21155
+                   ,API_TRGR_IND                                                
+                   ,UPDT_ESD_SW                                                 
+                   ,API_SCHEMA_NM                                               
+                   ,API_SUB_SCHEMA_CD                                           
+                   ,CMPT_CHK_FLG                                                
+                   ,SNDY_SERL_ALLOW_NBR                                         
+                   ,WARR_NBR_DAYS_PAST                                          
+                   ,WARR_VEND_FLG                                               
+                   ,APPLE_NSPART_SW                                             
+                   ,CNSLDT_POC_IND                                              
+                   ,API_VER_SW                                                  
+                   ,API_RMA_SW                                                  
+                   ,API_CREATE_SW                                               
+                   ,API_LOOKUP_SW                                               
+                   ,ALT_SEQ_INVC_SW                                             
+                   ,VEND_DIST_EMAIL                                             
+                   ,WARR_RTUN_GRACE_PRD                                 TXV21304
+                   ,PO_BEF_SERL_FLG                                     AP323041
+                   ,BILL_MODEL_CD                                       MP423167
+              INTO  :VNTSHO-SEND-POS-IND                                TXV21155
+                   ,:VNTSHO-API-TRGR-IND                                        
+                   ,:VNTSHO-UPDT-ESD-SW                                         
+                   ,:VNTSHO-API-SCHEMA-NM                                       
+                   ,:VNTSHO-API-SUB-SCHEMA-CD                                   
+                   ,:VNTSHO-CMPT-CHK-FLG                                        
+                   ,:VNTSHO-SNDY-SERL-ALLOW-NBR                                 
+                    :WS-SERL-NBR-NULL-IND                                       
+                   ,:VNTSHO-WARR-NBR-DAYS-PAST                                  
+                    :WS-WARR-DAYS-NULL-IND                                      
+                   ,:VNTSHO-WARR-VEND-FLG                                       
+                   ,:VNTSHO-APPLE-NSPART-SW                                     
+                   ,:VNTSHO-CNSLDT-POC-IND                                      
+                   ,:VNTSHO-API-VER-SW                                          
+                   ,:VNTSHO-API-RMA-SW                                          
+                   ,:VNTSHO-API-CREATE-SW                                       
+                   ,:VNTSHO-API-LOOKUP-SW                                       
+                   ,:VNTSHO-ALT-SEQ-INVC-SW                                     
+                   ,:VNTSHO-VEND-DIST-EMAIL                                     
+                   ,:VNTSHO-WARR-RTUN-GRACE-PRD                         TXV21304
+                   ,:VNTSHO-PO-BEF-SERL-FLG                             AP323041
+                   ,:VNTSHO-BILL-MODEL-CD                               MP423167
+              FROM  VEND_VNSHED_OFLW                                            
+              WHERE CO_CD                = :VNTSHO-CO-CD                        
+                AND VNDR_TYP_CD          = :VNTSHO-VNDR-TYP-CD                  
+                AND VNDR_NBR             = :VNTSHO-VNDR-NBR                     
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                  TO SQLCODE-STATUS.             AP323041
+                                                                        AP323041
+           EVALUATE SQLCODE                                                     
+              WHEN DB2-NORESP                                                   
+                   SET WS-VEND-FOUND     TO TRUE                                
+              WHEN DB2-NOT-FOUND                                                
+                   SET WS-VEND-NOT-FOUND TO TRUE                                
+              WHEN OTHER                                                        
+                   MOVE '777-CHECK-FOR-VENDOR-WARR'                             
+                                         TO SYWDB2-EXTRA-MESSAGE-1              
+                   MOVE 'ERROR IN SELECT VEND_VNSHED_OFLW'                      
+                                         TO SYWDB2-EXTRA-MESSAGE-2              
+                   PERFORM 990-SQL-MESSAGE                                      
+                   IF NOT WS-DB2-DONT-ABEND                                     
+                      MOVE '777 '        TO WS-ABCODE                           
+                      PERFORM 999-ABEND                                         
+                   END-IF                                                       
+           END-EVALUATE.                                                        
+           IF WS-VEND-FOUND                                                     
+              MOVE VNTSHO-SEND-POS-IND   TO VNDOF-SEND-POS-SW                   
+              MOVE VNTSHO-API-TRGR-IND   TO VNDOF-API-TRIGGER-SW                
+              MOVE VNTSHO-UPDT-ESD-SW    TO VNDOF-UPDT-ESD-SW                   
+              MOVE VNTSHO-API-SCHEMA-NM  TO VNDOF-API-SCHEMA-NAME               
+              MOVE VNTSHO-API-SUB-SCHEMA-CD                                     
+                                         TO VNDOF-API-SUB-SCHEMA                
+              MOVE VNTSHO-CMPT-CHK-FLG   TO VNDOF-COMPAT-CHECK                  
+              MOVE VNTSHO-WARR-VEND-FLG  TO VNDOF-WARRANTY-VENDOR-SW            
+              MOVE VNTSHO-APPLE-NSPART-SW                                       
+                                         TO VNDOF-APPLE-NSPART-SW               
+              MOVE VNTSHO-CNSLDT-POC-IND TO VNDOF-CONSOLIDATE-POC-SW            
+              MOVE VNTSHO-API-VER-SW     TO VNDOF-API-VERIFY-SW                 
+              MOVE VNTSHO-API-RMA-SW     TO VNDOF-API-RMA-SW                    
+              MOVE VNTSHO-API-CREATE-SW  TO VNDOF-API-CREATE-SW                 
+              MOVE VNTSHO-API-LOOKUP-SW  TO VNDOF-API-LOOKUP-SW                 
+              MOVE VNTSHO-ALT-SEQ-INVC-SW                                       
+                                         TO VNDOF-ALT-SEQ-INVOICE-SW            
+              MOVE VNTSHO-VEND-DIST-EMAIL-TEXT                                  
+                                         TO VNDOF-DESK-EMAIL                    
+              IF WS-SERL-NBR-NULL-IND = 0                                       
+                 MOVE VNTSHO-SNDY-SERL-ALLOW-NBR                                
+                                         TO VNDOF-NBR-OF-SECONDAY-SERL          
+              ELSE                                                              
+                 MOVE ZEROS              TO VNDOF-NBR-OF-SECONDAY-SERL          
+              END-IF                                                            
+              IF WS-WARR-DAYS-NULL-IND = 0                                      
+                 MOVE VNTSHO-WARR-NBR-DAYS-PAST                                 
+                                         TO VNDOF-WARR-DAYS-PAST                
+              ELSE                                                              
+                 MOVE ZEROS              TO VNDOF-WARR-DAYS-PAST                
+              END-IF                                                            
+              MOVE VNTSHO-WARR-RTUN-GRACE-PRD                           TXV21304
+                                       TO VNDOF-WARR-RTUN-GRACE-PERIOD  TXV21304
+              MOVE VNTSHO-BILL-MODEL-CD                                 MP423167
+                                       TO VNDOF-BILL-MODEL-CD           MP423167
+           ELSE                                                                 
+              MOVE SPACES                TO VNDOF-SEND-POS-SW           TXV21155
+                                            VNDOF-API-TRIGGER-SW                
+                                            VNDOF-UPDT-ESD-SW                   
+                                            VNDOF-API-SCHEMA-NAME               
+                                            VNDOF-API-SUB-SCHEMA                
+                                            VNDOF-COMPAT-CHECK                  
+                                            VNDOF-WARRANTY-VENDOR-SW            
+                                            VNDOF-APPLE-NSPART-SW               
+                                            VNDOF-CONSOLIDATE-POC-SW            
+                                            VNDOF-API-VERIFY-SW                 
+                                            VNDOF-API-RMA-SW                    
+                                            VNDOF-API-CREATE-SW                 
+                                            VNDOF-API-LOOKUP-SW                 
+                                            VNDOF-ALT-SEQ-INVOICE-SW            
+                                            VNDOF-DESK-EMAIL                    
+                                            VNDOF-BILL-MODEL-CD         MP423167
+              MOVE ZEROS                 TO VNDOF-NBR-OF-SECONDAY-SERL          
+                                            VNDOF-WARR-DAYS-PAST                
+                                         VNDOF-WARR-RTUN-GRACE-PERIOD   TXV21304
+           END-IF.                                                              
+       777-EXIT.                                                                
+            EXIT.                                                               

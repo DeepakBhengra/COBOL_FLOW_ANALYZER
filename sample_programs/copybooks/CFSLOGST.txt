@@ -1,0 +1,206 @@
+      ******************************************************************        
+      *** YEAR 2000 READY (NO DATE LOGIC)                              *        
+      ******************************************************************        
+      * COPY MEMBER NAME: CFSLOGST                                              
+      *   PROCEDURE DIVISION COPYBOOK TO CHECK WHETHER TO LOG THE               
+      *   ORDER STATUS FOR A SPECIFIC COMPANY, AND IF SO, TO START              
+      *   CFP062 TO LOG THE CURRENT ORDER STATUS TO VARIOUS DB2 TABLES.         
+      *   CFP062 CAN ALSO BE STARTED TO TRIGGER MBAA DB2 TABLE          AXR02070
+      *   MAINTENACE VIA STARTS TO ORP063 AND/OR ORP064.                AXR02070
+      ******************************************************************        
+      *   DATE   BY   DESCRIPTION OF CHANGE                                     
+      * 11/01/19 KYR  CAPTURE THE CYCLE STATUS EVENTS FOR CN, DN,       KYR19305
+      *               IC AND RMA                                        KYR19305
+      * 07/19/17 SAS  CICS UPGRADE PHASE II -                           SAS17200
+      *               DELETED THE CICS TRANSLATED CODE AND              SAS17200
+      *               UNCOMMENTED THE EXEC CICS STATEMENTS.             SAS17200
+      * 02/20/03 CJK  REMOVED THE FOLLOWING STATEMENT FROM LINK:        CJK03051
+      *               MOVE EIBRESP TO WS-EIBRESP.                       CJK03051
+      * 01/26/03 CJK  ADDED LINK STATEMENT                              CJK03026
+      * 05/15/02 JLF  CORRECT MISAXR COMMENTS YEAR FROM 01 TO 02        JLF02135
+      * 03/11/02 AXR  1. ADDED A CONDITIONAL READ OF TBICORP4 TO        JLF02135
+      *                  DETERMINE IF MBAA IS ON. THIS CHANGE REQUIRES  AXR02070
+      *                  ALL PROGRAMS THAT USE THIS COPYBOOK TO         AXR02070
+      *                  COPY TBICORP4.                                 AXR02070
+      *               2. AG62/CFP062 WILL NOW BE STARTED WHEN EITHER    AXR02070
+      *                  TB-CPO3-LOG-ORDER-STATUS IS SET                AXR02070
+      *                  >>OR<< TB-CPO4-MULT-BR-AUTO-ALLOC-ON           AXR02070
+      *                  TO SUPPORT CYCLE STATUS LOGGING >>OR<< AUTO    AXR02070
+      *                  ALLOCATION/AUTO PRINT FUNCTIONALITY.           AXR02070
+      *               3. AN EXPLICIT VALUE CAN NOW PASSED TO CFP062     AXR02070
+      *                  FOR CFWAG62-LOG-ORDER-STAT-SW AND              AXR02070
+      *                  CFWAG62-CPO4-MBAA-SW SO THAT IT DOES NOT HAVE  AXR02070
+      *                  TO DO A REDUNDANT TBICORP3 AND/OR TBICORP4     AXR02070
+      *                  READS FOR THESE.                               AXR02070
+      *               4. AN EXPLICIT VALUE CAN NOW PASSED TO CFP062 FOR AXR02070
+      *                  CFWAG62-CU-AUTO-PRINT-BO-SW AND                AXR02070
+      *                  CFWAG62-CU-MULT-BR-AUTO-ALLOC SO THAT IT DOES  AXR02070
+      *                  NOT NEED A REDUNDANT CUSHED READ FOR THIS.     AXR02070
+      * 10/25/00 DBC  ADDED NOHANDLE OPTION TO START OF AG62.           DBC00299
+      * 05/16/00 AXR  ADDED NEW FILTER CRITERIA FOR RMAS & CR MEMOS     DBC00151
+      * 05/08/00 DJP  MODIFIED DESCRIPTION OF CFG-ORDER-RELEASED        DJP00129
+      * 03/22/00 AXR  NEW COPYBOOK.                                     DJP00082
+      ******************************************************************        
+      * HOW TO USE THIS ROUTINE WITHIN AN INVOKING PROGRAM:                     
+      * ---------------------------------------------------                     
+      *   >FOR EXAMPLE OF THESE STEPS, SEE ORP610MD, CFP521IM, OTHERS<          
+      * 1. ADD CFWAG62 W/S COPYBOOK TO DEFINE REQUIRED I/O VARIABLES            
+      * 2. ADD TBICORP3 W/S COPYBOOK TO DEFINE CO TABLE3 I/O VARIABLES          
+      * 3. ADD CFSLOGST PROC/DIV COPYBOOK TO INCLUDE THIS ROUTINE               
+      *    (USE 'COPY REPLACING' IF DATA NOT FROM ORH-, ORSH-, TC-)             
+      * 4. AT PROGRAM DB COMMIT POINT, INITIALIZE CFWAG62-ORDER-STATUS          
+      * 5. MOVE PROGRAM-SPECIFIC VALUES TO THE FOLLOWING CFWAG62 FIELDS:        
+      *    PROGRAM-NAME, UPDATE-TEXT, CHANGE-TYPE (USE SET OF 88 LEVEL)         
+      *    AND OPTIONALLY POPULATE ANY OTHER FIELDS.  IF THE STANDARD           
+      *    KEY MOVES IN THIS COPYBOOK DO NOT APPLY TO YOUR SITUATION,           
+      *    THEN USE THE COPY REPLACING OPTION TO OVERRIDE THEM.                 
+      *    TO REDUCE REDUNDANT I/O, MOVE VALUES TO THE CFWAG62 FIELDS   AXR02070
+      *    FROM TBICORP3, TBICORP4 AND/OR CUSHED, OTHERWISE             AXR02070
+      *    THIS ROUTINE AND/OR CFP062 WILL HAVE TO RE-DO THE I/O.       AXR02070
+      * 6. PERFORM 000-CFSLOGST-LOG-ORDER-STATUS THRU 000-CFSLOGST-EXIT         
+      * 7. SINCE THE CONDITIONAL LOGGING IS ASYNCHRONOUS, THERE IS              
+      *    NO FURTHER STATUS CHECKING AVAILALBLE (OR REQUIRED).                 
+      *                                                                         
+      * GENERAL NOTES ABOUT THIS ROUTINE:                                       
+      * ---------------------------------                                       
+      * 1. INPUT INCLUDES: ORDER INFORMATION, INCLUDING IT'S STATUS,            
+      *    WHO PUT IT INTO THE CURRENT STATUS, STATUS TEXT, ETC.                
+      * 2. PROCESSING CAN ACCESS: TBXCORP3 AND TBXCORP4                 AXR02070
+      *    -I/O ONLY PERFORMED IF NOT ALREADY POSITIONED PROPERLY               
+      * 3. OUTPUT INCLUDES: NONE (SEE STARTED PROGRAM CFP062 FOR TABLES)        
+      *    ALSO SEE TABLES MAINTAINED BY STARTED PROGRAMS ORP063, ORP064AXR02070
+      ******************************************************************        
+                                                                                
+       000-CFSLOGST-LOG-ORDER-STATUS.                                           
+                                                                                
+      *   (ONLY INCUR SYU510 I/O IF TBXCORP3 NOT ALREADY ACCESSED)              
+           IF  TB-CPO3-NORESP                                                   
+           AND TC-COMPANY                       = TB-CPO3-COMPANY-CODE          
+               CONTINUE                                                         
+           ELSE                                                                 
+               MOVE TC-COMPANY                 TO TB-CPO3-COMPANY-CODE          
+               CALL 'SYU510'                USING TB-CPO3-PROC-IA               
+           END-IF.                                                              
+                                                                                
+           IF TB-CPO3-NORESP                                                    
+      *      (MOVE AN EXPLICIT VALUE TO INDICATE CP03 READ PERFORMED)   AXR02070
+              IF TB-CPO3-LOG-ORDER-STATUS                               AXR02070
+                 MOVE TB-CPO3-LOG-ORDER-STAT-SW                         AXR02070
+                                     TO CFWAG62-LOG-ORDER-STAT-SW       AXR02070
+              ELSE                                                      AXR02070
+                 MOVE 'N'            TO CFWAG62-LOG-ORDER-STAT-SW       AXR02070
+              END-IF                                                    AXR02070
+           END-IF.                                                      AXR02070
+                                                                        AXR02070
+      *   (ONLY INCUR SYU510 I/O IF TBXCORP4 NOT ALREADY ACCESSED)      AXR02070
+           IF  TB-CPO4-NORESP                                           AXR02070
+           AND TC-COMPANY                       = TB-CPO4-COMPANY-CODE  AXR02070
+               CONTINUE                                                 AXR02070
+           ELSE                                                         AXR02070
+               MOVE TC-COMPANY                 TO TB-CPO4-COMPANY-CODE  AXR02070
+               CALL 'SYU510'                USING TB-CPO4-PROC-IA       AXR02070
+           END-IF.                                                      AXR02070
+                                                                        AXR02070
+           IF TB-CPO4-NORESP                                            AXR02070
+      *      (MOVE AN EXPLICIT VALUE TO INDICATE CP04 READ PERFORMED)   AXR02070
+              IF TB-CPO4-MULT-BR-AUTO-ALLOC-ON                          AXR02070
+                 MOVE TB-CPO4-MULT-BR-AUTO-ALLOC-SW                     AXR02070
+                                     TO CFWAG62-CPO4-MBAA-SW            AXR02070
+              ELSE                                                      AXR02070
+                 MOVE 'N'            TO CFWAG62-CPO4-MBAA-SW            AXR02070
+              END-IF                                                    AXR02070
+           END-IF.                                                      AXR02070
+                                                                        AXR02070
+      *   (WHEN THE CORP3 ORDER CYCLE STATUS SWITCH IS ON, OR THE       AXR02070
+      *    CORP4 MBAA SWITCH IS ON, START AG62)                         AXR02070
+           IF  TB-CPO3-NORESP                                           AXR02070
+           AND TB-CPO4-NORESP                                           AXR02070
+              IF TB-CPO3-LOG-ORDER-STATUS                                       
+              OR TB-CPO4-MULT-BR-AUTO-ALLOC-ON                          AXR02070
+                 PERFORM 9000-CFSLOGST-START-AG62                       DBC00151
+                    THRU 9000-CFSLOGST-EXIT                             DBC00151
+              END-IF                                                            
+           ELSE                                                                 
+      *       >>>> 'PROBLEM ACCESSING TBXCORP3 TABLE!' <<<<             DBC00151
+      *       >>>> OR 'PROBLEM ACCESSING TBXCORP4 TABLE!' <<<<          AXR02070
+              CONTINUE                                                          
+           END-IF.                                                              
+                                                                                
+        000-CFSLOGST-EXIT.                                                      
+            EXIT.                                                               
+                                                                                
+      *                                                                         
+      * START AG62 TRANSACTION (CFP062 PROGRAM) TO LOG ORDER STATUS             
+      *                                                                         
+       9000-CFSLOGST-START-AG62.                                                
+      *                                                                         
+      *   (MOVE STANDARD STATUS INFO TO AG62 COMMUNICATION FIELDS)              
+      *   >>USE COPY REPLACING TO CHANGE SOURCE OF FIELDS IF NECC<<     DBC00151
+           MOVE LENGTH OF CFWAG62-ORDER-STATUS TO CFWAG62-LENGTH.               
+           MOVE ORH-COMPANY                    TO CFWAG62-COMPANY.              
+           MOVE ORH-BR-NBR                     TO CFWAG62-BR-NBR.               
+           MOVE ORH-ORDER-NBR                  TO CFWAG62-ORDER-NBR.            
+           MOVE ORSH-DIST-NBR                  TO CFWAG62-DIST-NBR.             
+           MOVE ORSH-SHIP-NBR                  TO CFWAG62-SHIP-NBR.             
+           IF   CFWAG62-OPERATOR-ID             = SPACES                        
+                MOVE TC-OPER-ID                TO CFWAG62-OPERATOR-ID           
+           END-IF.                                                              
+           IF   CFWAG62-PROGRAM-NAME            = SPACES                        
+                MOVE WRK-PROGRAM-NAME          TO CFWAG62-PROGRAM-NAME          
+           END-IF.                                                              
+                                                                                
+      *   (ALWAYS EXCLUDE THESE ORDER TYPES FROM ORDER STATUS LOGGING)  DBC00151
+           IF ORH-ENTRY-CREDIT-MEMO                                     DJP00129
+           OR ORH-ENHANCED-RMA                                          DBC00151
+           OR ORH-ENHANCED-CM                                           DBC00151
+           OR ORH-RMA-BLANKET-IND               = 'Y'                   DBC00151
+           OR ORSH-RMA                                                  DJP00129
+           OR ORSH-CREDIT-MEMO                                          DBC00151
+           OR ORSH-EXCHANGE                                             DBC00151
+           OR ORSH-RETURN-TO-VENDOR                                     DBC00151
+              EVALUATE TRUE                                             KYR19305
+                WHEN TB-CPO3-CN-CYCLE-EVENT      AND                    KYR19305
+                     ORSH-CREDIT-MEMO                                   KYR19305
+                WHEN TB-CPO3-DN-CYCLE-EVENT      AND                    KYR19305
+                     ORSH-DEBIT-MEMO                                    KYR19305
+                WHEN TB-CPO3-RMA-CYCLE-EVENT     AND                    KYR19305
+                     (ORH-ENHANCED-RMA           OR                     KYR19305
+                      ORH-RMA-BLANKET-IND = 'Y'  OR                     KYR19305
+                      ORSH-RMA)                                         KYR19305
+                     IF ORSH-EXCHANGE            OR                     KYR19305
+                        ORSH-RETURN-TO-VENDOR                           KYR19305
+                        GO TO 9000-CFSLOGST-EXIT                        KYR19305
+                     END-IF                                             KYR19305
+                WHEN OTHER                                              KYR19305
+                     GO TO 9000-CFSLOGST-EXIT                           KYR19305
+              END-EVALUATE                                              KYR19305
+           END-IF.                                                      KYR19305
+                                                                        DJP00129
+      ** EXEC CICS COMMANDS IN A COPYBOOK ARE NOT SUPPORTED BY COMPILER         
+      ** SO THE FOLLOWING CALL WAS COPIED, IN HEX MODE, FROM PROGRAM            
+      ** CODE THAT WENT THROUGH THE CICS TRANSLATOR                             
+           IF CFWAG62-LINK-SW = 'Y'                                     CJK03026
+              PERFORM 9000-LINK-TO-CFP062-PGM                           CJK03026
+           ELSE                                                         CJK03026
+              PERFORM 9000-START-AG62-TXN                               CJK03026
+           END-IF.                                                      CJK03026
+        9000-CFSLOGST-EXIT.                                             CJK03026
+             EXIT.                                                      CJK03026
+        9000-START-AG62-TXN.                                            CJK03026
+      *   (START AG62 TO LOG CURRENT ORDER STATUS ON DB2 STATUS TABLES)         
+           EXEC CICS START                                              SAS17200
+                TRANSID  ('AG62')                                       SAS17200
+                FROM   (CFWAG62-ORDER-STATUS)                           SAS17200
+                LENGTH (CFWAG62-LENGTH)                                 SAS17200
+                PROTECT                                                 SAS17200
+                NOHANDLE                                                SAS17200
+           END-EXEC.                                                    SAS17200
+        9000-LINK-TO-CFP062-PGM.                                        CJK03026
+      **  (LINK CFP062 TO LOG CURRENT ORDER STATUS ON DB2 STATUS TABLES)CJK03026
+           EXEC CICS LINK                                               SAS17200
+                PROGRAM  ('CFP062')                                     SAS17200
+                COMMAREA (CFWAG62-ORDER-STATUS)                         SAS17200
+                LENGTH (CFWAG62-LENGTH)                                 SAS17200
+                RESP(WS-EIBRESP)                                        SAS17200
+           END-EXEC.                                                    SAS17200
+      *---------------------END OF CFSLOGST-------------------------*           

@@ -1,0 +1,171 @@
+﻿000100*****************************************************************         
+      *  ORSUKCAR :                                                   *         
+      *          1.TO VALIDATE THE INCOMING CARRIER CODE FROM         *         
+      *            CUSTOMER/WEB AGAINST HARD CODED LOGIC AND AGAINST  *         
+      *            A FILE.                                            *         
+      *  IN ORDER TO USE THIS IN OTHER PROGRAMS,HAVE TO LOOK AT THE   *         
+      *   BASE DESIGN IN ORP971IM , ORP676IM FOR MORE DETAILS.        *         
+      *  HAVE TO MAKE SURE                                            *         
+      *  1. THAT FOLLOWING COPYBOOK'S NCARRWS, ORWUKCAR,ORWFFCHK,     *         
+      *     TBIVALCC, TBIVALPC, WHWUKCC ARE                           *         
+      *     PRESENT IN THE CALLNG PROGRAM THAT USE THIS COPYBOOK.     *         
+      *    COPY   ORWUKCAR.                                                     
+      *                                                                         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 07/13/06   ROR REMOVE HARDCODED VALIDATION AND TABLE DRIVE    * ROR06194
+      * 03/16/06   ROR NEW COPYBOOK FOR "UK CARRIER VALIDATION "      * ROR06075
+      *****************************************************************         
+      *                                                                         
+       P040-CHECK-UK-CARRIER.                                                   
+      *                                                                         
+      *                                                                         
+           MOVE 'N' TO WS-ORP-IO-SW.                                            
+      *                                                                         
+           IF (WS-ORWUKCAR-CARRIER EQUAL                                        
+              'OT' OR 'CC' OR 'PF' OR 'PI' OR 'PS') OR                          
+              (WS-UK-OTHER AND WS-ORWUKCAR-CARRIER NOT = 'IR')                  
+              GO TO P040-EXIT.                                                  
+      *                                                                         
+           IF WS-ORWUKCAR-CUST-KEY EQUAL '20232323'                             
+              GO TO P040-EXIT.                                                  
+      *                                                                         
+           IF WS-ORWUKCAR-SHIP-TO-ZIP > SPACES                                  
+              UNSTRING WS-ORWUKCAR-SHIP-TO-ZIP DELIMITED BY SPACE               
+                  INTO WS-ORWUKCAR-POSTCODE-PREF                                
+           ELSE                                                                 
+              IF WS-ORWUKCAR-WSA-ZIP-L > SPACES                                 
+                 UNSTRING WS-ORWUKCAR-WSA-ZIP-L DELIMITED BY SPACE              
+                  INTO WS-ORWUKCAR-POSTCODE-PREF                                
+              ELSE                                                              
+                 UNSTRING CUA-ZIP-L DELIMITED BY SPACE                          
+                     INTO WS-ORWUKCAR-POSTCODE-PREF.                            
+      *                                                                         
+           INITIALIZE WS-UKCC-WORK-1.                                   ROR06194
+           MOVE WS-ORWUKCAR-CARRIER            TO WS-UKCC-CARRIER-CODE. ROR06194
+           MOVE WS-ORWUKCAR-POSTCODE-PREF(1:2) TO WS-UKCC-POST-CODE.    ROR06194
+           MOVE WS-ORWUKCAR-CNTRY-CODE         TO WS-UKCC-COUNTRY-CODE. ROR06194
+           MOVE WS-ORWUKCAR-CO-CODE            TO WS-UKCC-COMPANY.      ROR06194
+                                                                        ROR06194
+           PERFORM P041-VALIDATE-CARRIER THRU A110-EXIT.                ROR06194
+      * THIS ABOVE PARAGRAPH IS DEFINED IN CALLED PROGRAM.              ROR06194
+                                                                        ROR06194
+           IF WS-UKCC-INTERNATIONAL = 'Y'                               ROR06194
+              GO TO P040-EXIT                                           ROR06194
+           END-IF.                                                      ROR06194
+                                                                        ROR06194
+           IF WS-UKCC-VALID-CHK = 'Y'                                   ROR06194
+              CONTINUE                                                  ROR06194
+           ELSE                                                         ROR06194
+              MOVE 'Y'                TO WS-ORWUKCAR-ERROR-SW           ROR06194
+              GO TO P040-EXIT                                           ROR06194
+           END-IF.                                                      ROR06194
+      *                                                                 ROR06194
+           IF (WS-ORWUKCAR-POSTCODE-PREF NOT = 'EIRE')     AND                  
+              (WS-ORWUKCAR-POSTCODE-PREF NOT = 'XXX ')     AND                  
+              (WS-ORWUKCAR-POSTCODE-PREF (1:2) NOT = 'JE') AND                  
+              (WS-ORWUKCAR-POSTCODE-PREF (1:2) NOT = 'GY') AND                  
+              (WS-ORWUKCAR-POSTCODE-PREF (1:2) NOT = 'IM') AND                  
+              (WS-ORWUKCAR-POSTCODE-PREF (1:2) NOT = 'BT')                      
+               MOVE LOW-VALUE                 TO  ORP-PCR-KEY                   
+               MOVE WS-ORWUKCAR-CO-CODE       TO  ORP-PCR-CO                    
+               MOVE 'Z'                       TO  ORP-PCR-CODE                  
+               MOVE WS-ORWUKCAR-POSTCODE-PREF TO ORP-PCR-PREFIX                 
+      *                                                                         
+               PERFORM P041-READ-ORLPEB THRU P041-READ-ORLPEB-EXIT              
+      *                                                                         
+      *        EXEC CICS READ                                                   
+      *                  FILE    (WS-ORP-FILE-NAME)                             
+      *                  LENGTH  (WS-ORP-PCR-RECLEN)                            
+      *                  INTO    (ORP-POSTCODE-RECORD)                          
+      *                  RIDFLD  (ORP-PCR-KEY)                                  
+      *                  RESP    (WS-EIBRESP)                                   
+      *        END-EXEC                                                         
+      *                                                                         
+               IF WS-EIB-NORESP                                                 
+                  MOVE 'Y' TO WS-ORP-IO-SW                                      
+               ELSE                                                             
+                  IF WS-EIB-NOTFND                                              
+                     IF (WS-ORWUKCAR-CARRIER NOT = 'OT')                        
+                        MOVE 'Y'    TO WS-ORWUKCAR-ERROR-SW                     
+                     END-IF                                                     
+                  ELSE                                                          
+      *              MOVE 'Y'       TO WS-ORWUKCAR-ERROR-SW                     
+      *              MOVE 'Y'       TO WS-ORWUKCAR-ABEND-SW                     
+                     MOVE 'P040'    TO WS-ABCODE                                
+                     PERFORM 999-ABEND                                          
+                  END-IF                                                        
+               END-IF.                                                          
+      *                                                                         
+      *                                                                         
+      *--- -----------------------------------------------------------          
+      *--- TNT CARRIER VALIDATION                                               
+      *--- WE USE THE TNT SERVICE LEVEL CODE TO DETERMINE ALLOWABLE             
+      *--- CARRIER TYPES FOR TNT DEPOTS.                                        
+      *--- ------------------------------------------------------------*        
+           IF WS-TNT                                                            
+              PERFORM P041-CHECK-UK-TNT-CAR THRU P041-EXIT                      
+              GO TO P040-EXIT.                                                  
+      *                                                                         
+       P040-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+      *                                                                         
+       P041-CHECK-UK-TNT-CAR.                                                   
+      *                                                                         
+           IF WS-TNT-CUST-CONSOLIDATION OR WS-TNT-SAME-DAY                      
+              MOVE '068'                  TO  WS-TNT-HOLD-CARR-VALUE            
+              MOVE '01'                   TO  WS-TNT-HOLD-SVC-VALUE             
+              GO TO P041-EXIT.                                                  
+      *                                                                         
+           MOVE LOW-VALUE                 TO  ORP-PCR-KEY.                      
+           MOVE WS-ORWUKCAR-CO-CODE       TO  ORP-PCR-CO.                       
+           MOVE 'Z'                       TO  ORP-PCR-CODE.                     
+           MOVE WS-ORWUKCAR-POSTCODE-PREF TO ORP-PCR-PREFIX.                    
+      *                                                                         
+           PERFORM P041-READ-ORLPEB THRU P041-READ-ORLPEB-EXIT                  
+      *                                                                         
+      *    EXEC CICS READ FILE    (WS-ORP-FILE-NAME)                            
+      *                   LENGTH  (WS-ORP-PCR-RECLEN)                           
+      *                   INTO    (ORP-POSTCODE-RECORD)                         
+      *                   RIDFLD  (ORP-PCR-KEY)                                 
+      *                   RESP    (WS-EIBRESP)                                  
+      *    END-EXEC.                                                            
+      *                                                                         
+           IF WS-EIB-NORESP                                                     
+              MOVE 'Y' TO WS-ORP-IO-SW                                          
+              MOVE 'N' TO WS-TNT-CARRIER-SW                                     
+              PERFORM P041A-CHECK-UK-TNT-CAR  THRU P041A-EXIT                   
+                 VARYING WS-TNT-PTR FROM 1 BY 1                                 
+                   UNTIL WS-TNT-PTR GREATER THAN WS-TNT-MAX-ENTRIES             
+              IF (WS-TNT-HOLD-SVC-VALUE EQUAL '000') OR                         
+                 (WS-TNT-HOLD-CARR-VALUE EQUAL '000')                           
+                 CONTINUE                                                       
+              ELSE                                                              
+                 IF WS-TNT-HOLD-SVC-VALUE GREATER OR EQUAL                      
+                    WS-TNT-HOLD-CARR-VALUE                                      
+                    MOVE 'Y' TO WS-TNT-CARRIER-SW                               
+                 ELSE                                                           
+                    CONTINUE                                                    
+                 END-IF                                                         
+              END-IF                                                            
+              IF TNT-CARRIER-OK                                                 
+                 NEXT SENTENCE                                                  
+              ELSE                                                              
+                 MOVE 'Y'           TO WS-ORWUKCAR-ERROR-SW.                    
+      *                                                                         
+       P041-EXIT. EXIT.                                                         
+      *                                                                         
+      *                                                                         
+       P041A-CHECK-UK-TNT-CAR.                                                  
+      *                                                                         
+           IF WS-TNT-SVC-LVL (WS-TNT-PTR) EQUAL ORP-PCR-TNT-MAX-SVC-LVL         
+              MOVE WS-TNT-SVC-VALUE (WS-TNT-PTR)                                
+                      TO WS-TNT-HOLD-SVC-VALUE.                                 
+           IF WS-TNT-CARR-ENTRY (WS-TNT-PTR) EQUAL WS-HOLD-CARRIER              
+              MOVE WS-TNT-CARR-VALUE (WS-TNT-PTR)                               
+                     TO WS-TNT-HOLD-CARR-VALUE.                                 
+      *                                                                         
+       P041A-EXIT. EXIT.                                                        
+      *                                                                         
+      *                                                                         

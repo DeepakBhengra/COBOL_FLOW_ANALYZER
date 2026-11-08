@@ -1,0 +1,130 @@
+      ******************************************************************        
+      *  COPYBOOK:  ORR688 - HOLD STATUS MAINTENANCE                   *        
+      *  PROGRAMS:  ORP688 - MAINTAINS HOLD INTEGRITY FOR ON-LINE PGMS *        
+      *             ORP689 - MAINTAINS HOLD INTEGRITY FOR BATCH PGMS   *        
+      *  PURPOSE:   1) WHEN A NEW HOLD IS IDENTIFIED AND THE ORDER     *        
+      *                ALREADY HAS A VALUE IN THE ORSH-STATUS FIELD,   *        
+      *                THE ROUTINE WILL CHECK THE HOLDS AGAINST THE    *        
+      *                'PRIORITY TABLE' ESTABLISHED BY THE BUSINESS    *        
+      *                TO DETERMINE WHICH HOLD SHOULD BE REFLECTED ON  *        
+      *                ORDER                                           *        
+      *             2) THERE IS A NEED TO KNOW THE SEQUENCE# OR TIER#  *        
+      *                ASSIGNED TO THE HOLD                            *        
+      *        FOR PARTICULARS ON HOW TO USE THE COPYBOOK, SEE         *        
+      *            'USAGE EXPLANATION' FOLLOWING THE DATA FIELDS       *        
+      *        FOR FEEDBACK GIVEN BY THE SUBROUTINE, SEE               *        
+      *            'ROUTINE RESPONSES' FOLLOWING THE USAGE EXAMPLES    *        
+      *                                                                *        
+      *  LENGTH:  100 BYTES                                            *        
+      ******************************************************************        
+      * REVISIONS:                                                     *        
+      *  DATE    PGMR    DESCRIPTION                                   *        
+      * -------- ---- -------------------------------------------------*        
+      * 06/12/03 DOK  NEW                                              *DOK03230
+      ******************************************************************        
+                                                                                
+       01 OR688-PARM-DATA.                                                      
+          05 OR688-INPUT-FIELDS.                                                
+             10 OR688-ACTION                   PIC  X(01) VALUE SPACES.         
+                88 OR688-REQ-PRIORITY                     VALUE 'P'.            
+                88 OR688-REQ-SEQ-TIER                     VALUE 'T'.            
+             10 OR688-COMPANY-CODE             PIC  X(02) VALUE SPACES.         
+             10 OR688-ORDER-CURR-STATUS        PIC  X(01) VALUE SPACES.         
+             10 OR688-ORDER-CURR-REASON        PIC  X(02) VALUE SPACES.         
+             10 OR688-ORDER-PREV-STATUS        PIC  X(01) VALUE SPACES.         
+             10 OR688-ORDER-PREV-REASON        PIC  X(02) VALUE SPACES.         
+             10 OR688-NEW-STATUS               PIC  X(01) VALUE SPACES.         
+             10 OR688-NEW-REASON               PIC  X(02) VALUE SPACES.         
+             10 FILLER                         PIC  X(10) VALUE SPACES.         
+                                                                                
+          05 OR688-OUTPUT-FIELDS.                                               
+             10 OR688-OUT-STATUS               PIC  X(01) VALUE SPACES.         
+             10 OR688-OUT-REASON               PIC  X(02) VALUE SPACES.         
+             10 OR688-OUT-SEQ-NBR              PIC  9(03) VALUE ZEROES.         
+             10 OR688-OUT-TIER-NBR             PIC  9(03) VALUE ZEROES.         
+             10 OR688-OUT-PREV-STATUS          PIC  X(01) VALUE SPACES.         
+             10 OR688-OUT-PREV-REASON          PIC  X(02) VALUE SPACES.         
+             10 OR688-OUT-NEXT-ENTRY-STATUS    PIC  X(01) VALUE SPACES.         
+             10 OR688-OUT-NEXT-ENTRY-REASON    PIC  X(02) VALUE SPACES.         
+             10 OR688-OUT-NEXT-ENTRY-SEQ-NBR   PIC  9(03) VALUE ZEROES.         
+             10 OR688-OUT-NEXT-ENTRY-TIER-NBR  PIC  9(03) VALUE ZEROES.         
+             10 OR688-OUT-NEXT-TIER-STATUS     PIC  X(01) VALUE SPACES.         
+             10 OR688-OUT-NEXT-TIER-REASON     PIC  X(02) VALUE SPACES.         
+             10 OR688-OUT-NEXT-TIER-SEQ-NBR    PIC  9(03) VALUE ZEROES.         
+             10 OR688-OUT-NEXT-TIER-TIER-NBR   PIC  9(03) VALUE ZEROES.         
+             10 OR688-OUT-RESPONSE-INFO.                                        
+                15  OR688-RESP-GENERAL         PIC  9(02) VALUE ZEROES.         
+                    88  OR688-VALID-RESP                 VALUE 00.              
+                    88  OR688-WARN-RESP                  VALUE 04.              
+                    88  OR688-ERR-RESP                   VALUE 10.              
+                15  OR688-RESP-DETAIL          PIC  X(02) VALUE SPACES.         
+                    88  OR688-DATA-CHGD                  VALUE 'OK'.            
+                    88  OR688-NO-CHG                     VALUE 'NC'.            
+                15  OR688-RESP-ERR-CODE        PIC  9(02) VALUE ZEROES.         
+                15  OR688-RESP-ERR-DESC        PIC  X(30) VALUE SPACES.         
+                15  FILLER                     PIC  X(10) VALUE SPACES.         
+          05 FILLER                            PIC  X(20).                      
+                                                                                
+      ******************************************************************        
+      * USAGE EXPLANATION:                                                      
+      *   DOCUMENTATION ON THE SEQUENCING ROUTINE CAN BE FOUND IN SPS           
+      *                                                                         
+      *   TO CALL THE ROUTINE, THE FOLLOWING FIELDS SHOULD BE PROVIDED:         
+      *                                                                         
+      * P/T ACTION: WHY ARE YOU ACCESSING THE TABLE - (*REQUIRED)               
+      *           (ALSO DETERMINES WHAT THE ROUTINE WILL EXPECT AS INPUT        
+      *           VALUES: 'P' -  PRIORITY                                       
+      *                   'T' - TIER NUMBER OR SEQUENCE NUMBER                  
+      * P/T COMPANY CODE                                                        
+      * P/T CURRENT ORDER STATUS:                                               
+      *          VALUE THAT APPEARS IN THE ORSH-STATUS POSITION ON THE          
+      *          ORDER                                                          
+      * P/T CURRENT ORDER REASON:                                               
+      *          VALUE THAT APPEARS IN THE ORSH-HOLD-REASON ON THE ORDER        
+      * P   PREVIOUS ORDER STATUS:                                              
+      *          VALUE THAT APPEARS IN ORSH-STATUS-BEFORE-HOLD POSITION         
+      *          ON THE ORDER                                                   
+      * P   PREVIOUS ORDER REASON:                                              
+      *          VALUE THAT APPEARS IN ORSH-REASON-BEFORE-HOLD POSITION         
+      *          ON THE ORDER                                                   
+      * P   NEW STATUS:                                                         
+      *          NEWLY IDENTIFIED STATUS                                        
+      * P   NEW REASON:                                                         
+      *          NEWLY IDENTIFIED REASON                                        
+      *                                                                         
+      *   THE ROUTINE WOULD RESPOND WITH THE FOLLOWING FIELDS:                  
+      * P/T OUT STATUS:                                                         
+      *          VALUE TO BE LOADED TO THE ORSH-STATUS POSITION ON THE          
+      *          ORDER                                                          
+      * P/T OUT REASON:                                                         
+      *          VALUE TO BE LOADED TO THE ORSH-HOLD REASON POSITION ON         
+      *          THE ORDER                                                      
+      * P/T OUT SEQUENCE#:                                                      
+      *          SEQUENTIAL NUMBER OF STATUS/REASON COMBINATION ON THE          
+      *          PRIORITY TABLE                                                 
+      * P/T OUT TIER#:                                                          
+      *          TIER NUMBER ASSIGNED OF STATUS/REASON COMBINATION ON THE       
+      *          PRIORITY TABLE                                                 
+      * P   OUT PREVIOUS STATUS:                                                
+      *          VALUE TO BE LOADED TO THE ORSH-STATUS-BEFORE-HOLD              
+      *          POSITION ON THE ORDER                                          
+      * P   OUT PREVIOUS STATUS:                                                
+      *          VALUE TO BE LOADED TO THE ORSH-REASON-BEFORE-HOLD              
+      *          POSITION ON THE ORDER                                          
+      * P/T GENERAL RESPONSE:                                                   
+      *          00 - GOOD RESPONSE; THE INFORMATION PROVIDED TO THE            
+      *               ROUTINE WAS FINE                                          
+      *          04 - GOOD RESPONSE, BUT THE INFO PROVIDED HAD SOME             
+      *             - PROBLEMS A RESPONSE COULD BE DERIVED,                     
+      *               BUT THERE WERE ISSUES WITH THE INFO PROVIDED              
+      *               (YOU MAY WISH TO ADDRESS)                                 
+      *          10 - SERIOUS PROBLEM, THE ROUTINE CANNOT FUNCTION              
+      * P/T  DETAIL RESPONSE:                                                   
+      *          OK - THERE IS A CHANGE TO SEQUENCE AND YOU SHOULD MOVE         
+      *               RESULTS (OR INPUT WAS GOOD TO GIVE A VALID                
+      *               RESPONSE)                                                 
+      *          NC - NO NEED TO MOVE RESULTS; THERE IS NO CHANGE TO            
+      *               SEQUENCE                                                  
+      * P/T  ERROR RESPONSE DESCRIPTION:                                        
+      *          VERBAL DESCRIPTION OF PROBLEM FOUND                            
+      *                                                                         

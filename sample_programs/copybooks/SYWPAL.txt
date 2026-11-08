@@ -1,0 +1,92 @@
+      ***********************************************************               
+      * COPYBOOK SYWPAL.                                                        
+      * WORKING STORAGE FOR PROCEDURE COPYBOOK SYXPAL AND                       
+      * CURSOR DEFINITION FOR SHIP_PAL_WEIGHT (ORTSHPAL)                        
+      ***********************************************************               
+      * REVISION INFO                                                           
+      * 10/19/18 GXE INCREASE PAL TABLE TO 500                          GXE18292
+      * 06/25/16 KMP CHANGES FOR DIM WEIGHT PROJECT.                    KMP16177
+      * 09/11/15 KMP NEW COPYBOOK FOR DIM WEIGHT PROJECT.               KMP15254
+      ***********************************************************               
+       01  SYWPAL-WORKING-STORAGE.                                              
+           05  SYWPAL-SQLCODE-MASK            PIC +999999999.                   
+           05  SYWPAL-SUB                    PIC S9(03) COMP-3 VALUE +0.KMP16177
+           05  SYWPAL-ORDR-ENTRY-DT-ISO.                                        
+               10  SYWPAL-ORDR-ENTRY-DT-CC    PIC X(02).                        
+               10  SYWPAL-ORDR-ENTRY-DT-YY    PIC X(02).                        
+               10  SYWPAL-ORDR-ENTRY-DT-D1    PIC X(01) VALUE '-'.              
+               10  SYWPAL-ORDR-ENTRY-DT-MM    PIC X(02).                        
+               10  SYWPAL-ORDR-ENTRY-DT-D2    PIC X(01) VALUE '-'.              
+               10  SYWPAL-ORDR-ENTRY-DT-DD    PIC X(02).                        
+           05  SYXPAL-STOP-LOOP-SW            PIC X(01) VALUE SPACE.            
+               88 SYXPAL-STOP-LOOP                      VALUE 'Y'.              
+         02  SYWPAL-INPUT-FIELDS-NEEDED.                                        
+           05  SYWPAL-SUB-MAX                 PIC S9(03) COMP-3         KMP16177
+                                                   VALUE 50.            KMP16177
+           05  SYWPAL-KEY-FIELDS.                                               
+               10  SYWPAL-CO-CD               PIC X(02).                        
+               10  SYWPAL-BR-NBR              PIC X(02).                        
+               10  SYWPAL-ORDR-NBR            PIC X(05).                        
+               10  SYWPAL-DIST-NBR            PIC X(01).                        
+               10  SYWPAL-SHIP-NBR            PIC X(01).                        
+               10  SYWPAL-ORDR-ENTY-DT-JUL    PIC S9(05) COMP-3.                
+               10  SYWPAL-LAST-CHG-OPER-ID    PIC X(04).                        
+               10  SYWPAL-LAST-CHG-PGM-ID     PIC X(08).                        
+           05  SYWPAL-TABLE.                                            KMP16177
+             07 SYWPAL-TABLE-ENTRIES  OCCURS 500 TIMES.                 GXE18292
+               10  SYWPAL-EST-LENGTH          PIC S9(06)V9(02) COMP-3.          
+               10  SYWPAL-EST-LENGTH-USED     PIC X(01).                        
+               10  SYWPAL-EST-WIDTH           PIC S9(06)V9(02) COMP-3.          
+               10  SYWPAL-EST-WIDTH-USED      PIC X(01).                        
+               10  SYWPAL-EST-HEIGHT          PIC S9(06)V9(2) COMP-3.           
+               10  SYWPAL-EST-HEIGHT-USED     PIC X(01).                        
+               10  SYWPAL-EST-VOL             PIC S9(06)V9(2) COMP-3.           
+               10  SYWPAL-EST-VOL-USED        PIC X(01).                        
+               10  SYWPAL-DIM-UM              PIC X(02).                        
+               10  SYWPAL-DIM-USED            PIC X(01).                        
+               10  SYWPAL-EST-WGT             PIC S9(06)V9(02) COMP-3.          
+               10  SYWPAL-EST-WGT-USED        PIC X(01).                        
+               10  SYWPAL-WGT-UM              PIC X(02).                        
+               10  SYWPAL-WGT-UM-USED         PIC X(01).                        
+               10  SYWPAL-HEAVY-SKU-FLG       PIC X(01).                        
+               10  SYWPAL-HEAVY-SKU-FLG-USED  PIC X(01).                        
+               10  SYWPAL-EST-OSZ-GIRTH-FLG      PIC X(01).                     
+               10  SYWPAL-EST-OSZ-GIRTH-FLG-USED PIC X(01).                     
+               10  SYWPAL-CONTAINER-TYPE      PIC X(01).                GXE18292
+                   88 SYWPAL-CONTAINER-CRTN       VALUE 'C'.            GXE18292
+                   88 SYWPAL-CONTAINER-PALLET     VALUE 'P'.            GXE18292
+               10  SYWPAL-HAZMAT-ID           PIC X(08).                GXE18292
+               10  SYWPAL-FREIGHT-CLASS       PIC X(04).                GXE18292
+      *********************************************************                 
+      * CURSOR SYXPAL_WEIGHT_CSR.  THIS WILL GET ALL RECORDS IN                 
+      * DATABASE FOR THIS ORDER.                                                
+      *********************************************************                 
+           EXEC SQL                                                             
+               DECLARE SYXPAL_WEIGHT_CSR  CURSOR FOR                            
+                   SELECT PKG_SEQ_NBR,                                          
+                          EST_LENGTH,                                           
+                          EST_WIDTH,                                            
+                          EST_HEIGHT,                                           
+                          EST_VOL,                                              
+                          DIM_UM,                                               
+                          EST_WGT,                                              
+                          WGT_UM,                                               
+                          HEAVY_SKU_FLG,                                        
+                          EST_OSZ_GIRTH_FLG,                            GXE18292
+                          LAST_CHG_OPER_ID,                             GXE18292
+                          LAST_CHG_PGM_ID,                              GXE18292
+                          LST_CHG_TS,                                   GXE18292
+                          CNTNR_TYP_CD,                                 GXE18292
+                          HAZMAT_ID,                                    GXE18292
+                          FRT_CLS                                       GXE18292
+                   FROM SHIP_PAL_WEIGHT                                         
+                   WHERE CO_CD        = :ORTSHPAL-CO-CD        AND              
+                         BR_NBR       = :ORTSHPAL-BR-NBR       AND              
+                         ORDR_NBR     = :ORTSHPAL-ORDR-NBR     AND              
+                         DIST_NBR     = :ORTSHPAL-DIST-NBR     AND              
+                         SHIP_NBR     = :ORTSHPAL-SHIP-NBR     AND              
+                         ORDR_ENTY_DT = :ORTSHPAL-ORDR-ENTY-DT                  
+                   ORDER BY PKG_SEQ_NBR                                         
+                   FOR FETCH ONLY                                               
+                   OPTIMIZE FOR 1 ROWS                                          
+           END-EXEC.                                                            

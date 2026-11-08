@@ -1,0 +1,160 @@
+﻿      ******************************************************************TLKY8337
+      *** YEAR 2000 READY                                              *TLKY8337
+      ******************************************************************TLKY8337
+      * ****************************************************************MBS97007
+      *    NOTE:  THIS COPYBOOK IS CURRENTLY NOT BEING USED BY PROGRAM: MBS97007
+      *           CAP647, ORP351, ORP380, ORP572                        MBS97007
+      * ****************************************************************MBS97007
+      * REVISION INFO:                                                          
+      * 02/28/25 RXG STOP SETTING THE ORL-ROLL-SW AS "W" FOR WARRANTY   RXG25059
+      *              SKU LINE IS PLACED IN THE DIRECTSHIP ORDER.        RXG25059
+      * 06/23/17 ROR INDIA GST                                          NXC17174
+      * 08/07/15 TGF VIRTUAL INVENTORY                                  TGF15220
+      * 02/28/08 GAE DO NOT MOVE CONVERSION BASE PRICE FOR MEXICO TO    GAE08043
+      *              PREVENT INSTANT REBATE PROBLEM(ORHL-CONV-BASE IS   GAE08043
+      *              A REDEFINE OF REBATE AMT FIELD).                   GAE08043
+      * 01/14/08 GAE SSEU ENHANCED ACOP PROJECT: EU, CA, TP             GAE08014
+      *              ADD ORL-CONV-BASE-PRICE.                           GAE08014
+003700* 4/14/99   KMB   ADD NEW FIELD INI-MCHG-CODE.    THIS            KMB99104
+003700*         FIELD WILL BE USED TO STORE A MISC. CHARGE CODE.  DURINGKMB99104
+003700*         THE G/L INTERFACE, THE FINANCIAL INFO WILL BE RE-DIRECTDKMB99104
+003700*         FROM THE STANDARD STOCK ACCOUNTS TO THOSE ASSOCIATED    KMB99104
+003700*         WITH THIS MISC. CHARGE CODE.  THIS FIELD CAN ONLY BE    KMB99104
+003700*         ENTERED ON OUTSOURCED ITEMS.                            KMB99104
+      * 02-19-99 JXH ADD ORL-ITEM-CONSIGNED-SW                          JXH99050
+      * 02-23-98 JXH ADD ORL-CONTRACT-ITEM                              JXH98056
+      * 01-07-97 MBS ADD ORL-SPLIT-BILL-TO-SUFF                         MBS97007
+      * 12/10/96 RMF MOVE INI-AUTO-RESERVE-SW TO ORL-AUTO-RESERVE-SW    RMF96346
+      * 08-06-96 PWL ADD ORL-SHIPMENT-IND.                              PWL96218
+      * 06-18-96 PWL COMMENT OUT MXK93267.                              PWL96170
+      * 06-04-96 RXD REMOVED CHANGING OF PRIORITY CODE IF CONFIG ORDER  RXD96156
+      * 01-08-96 RXD ADDED ENTRY TIME.                                  RXD96008
+      * 11-17-95 MCV PART XREF, COUNTRY OF ORIGIN                       MCV95321
+      * 10-20-95 TFM REMOVE OVERSIZE CHECK.                             TFM95293
+      * 09-28-95 DXS ADD TAXABLE ITEM SWITCH                            DXS95271
+      * 08-10-95 RMF INITIALIZE ALLIANCE-SW                             RMF95222
+      * 07-07-95 GEH IF SKU OVERSIZED SET OVERSIZED SW                  GEH95188
+      * 12/20/94 VQV SET CONSTRAINED CONFIG. PRODUCT  PRIORITY HIGHER   VQV94354
+      * 11/08/94 MCV SET NON-CONSTRAINED CONFIGURATION PRIORITY HIGHER  MCV94312
+      * MXK  09/24/93 IF 'D' ORDER MOVE OET-CUST-BR  TO ORL-INV-BR-NBR  MXK93267
+      *                                                                         
+      * ****************************************************************        
+      *                ORDER LINE INITIALIZATION                                
+      *                                                                         
+      *    INPUT : INI-INSHED        : INVENTORY DATABASE HEADER                
+      *          : WS-SAVE-INV-IND   : PART INVENTORY TYPE                      
+      *          : OERTSQA           : ORDER ENTRY TEMP STORAGE                 
+      * ****************************************************************MBS97007
+           INITIALIZE                          ORL-ORSLNE                       
+      *                                                                         
+           MOVE 'C'                        TO  ORL-SHEET-IND                    
+           MOVE OET-TRADE-DISC             TO  ORL-TRADE-DISC.                  
+           MOVE OET-CUST-SUF               TO  ORL-SPLIT-BILL-TO-SUFF.  MBS97007
+                                                                                
+      *    IF  OET-DIRECT-ORDER                                         MXK93267
+      *        MOVE OET-CUST-BR            TO ORL-INV-BR-NBR            MXK93267
+      *    ELSE                                                         MXK93267
+               MOVE OET-BR-NBR-INV (BR-INX)                                     
+                                           TO  ORL-INV-BR-NBR.                  
+           MOVE OET-PROM-DATE              TO  ORL-PROMISE-DATE                 
+           COMPUTE ORL-PRIORITY            =   10 - OET-PRIORITY-CODE           
+           MOVE EIBDATE                    TO  ORL-ENTRY-DATE                   
+           MOVE EIBTIME                    TO  ORL-ENTRY-TIME           RXD96008
+           MOVE WS-SAVE-INV-IND            TO  ORL-INV-IND                      
+      *                                                                         
+           IF OET-BR-TRANSFER-ORDER                                             
+               MOVE '2'                    TO  ORL-ALLOC-TYPE                   
+           ELSE                                                                 
+               MOVE '1'                    TO  ORL-ALLOC-TYPE.                  
+      *                                                                         
+      *    STOCK , DIRECT , & NON-STOCK INITIALIZATION                          
+      *                                                                         
+           IF ORL-INV-STOCK                OR                                   
+              ORL-INV-DIRECT               OR                           TGF15220
+              ORL-INV-NONSTOCK             OR                           TGF15220
+              ORL-INV-OUT-VIRTUAL                                       TGF15220
+                 PERFORM 7100-INIT-ORSLNE-FROM-INSHED THRU 7100-EXIT.           
+      *                                                                         
+       7100-INIT-ORSLNE-FROM-INSHED.                                            
+      *                                                                         
+           IF INI-SYSTEMS-ITEM                                          MCV95321
+           OR INI-HARD-BUNDLE                                           NXC17174
+              MOVE ZERO                    TO  ORL-ADJUSTED-COST        MCV95321
+           ELSE                                                         MCV95321
+              MOVE INI-ADJUSTED-COST       TO  ORL-ADJUSTED-COST.       MCV95321
+      *                                                                         
+           IF INI-COMPANY = 'MX'                                        GAE08043
+              NEXT SENTENCE                                             GAE08043
+           ELSE                                                         GAE08043
+           IF INI-CONV-BASE-PRICE NUMERIC                               GAE08014
+              MOVE INI-CONV-BASE-PRICE     TO  ORL-CONV-BASE-PRICE      GAE08014
+           ELSE                                                         GAE08014
+              MOVE +0                      TO  ORL-CONV-BASE-PRICE.     GAE08014
+           MOVE INI-ITEM-CONSIGNED-SW      TO  ORL-ITEM-CONSIGNED-SW.   JXH99050
+           MOVE INI-BACKORDER-SW           TO  ORL-BACKORDER-SW                 
+           MOVE INI-BASE-UNIT              TO  ORL-BASE-UNIT                    
+           MOVE INI-CATALOG-NBR            TO  ORL-CAT-NBR                      
+           MOVE INI-COMMOD-CODE            TO  ORL-COMMOD-CODE                  
+           MOVE INI-COMPANY                TO  ORL-KEY-CO                       
+           MOVE INI-DESCRIPTION            TO  ORL-DESCRIPTION                  
+           MOVE INI-MCHG-CODE              TO  ORL-MCHG-CODE.           KMB99104
+           MOVE INI-GP-OVERRIDE-FLAG       TO  ORL-GP-OVERRIDE-FLAG             
+           MOVE INI-INV-PART-NBR           TO  ORL-PART-NBR                     
+           MOVE INI-ITEM-TYPE              TO  ORL-ITEM-TYPE                    
+           IF   INI-CONSTRAINED-ITEM                                    RMF96346
+           AND  INI-HIGHLY-CONSTRAINED-ITEM                             RMF96346
+               MOVE INI-AUTO-RESERVE-SW    TO  ORL-AUTO-RESERVE-SW.     RMF96346
+           MOVE INI-NON-STD-CONV-SW        TO  ORL-NON-STD-CONV-SW              
+           MOVE INI-RETAIL-PRICE           TO  ORL-RETAIL-PRICE                 
+      * NO WARRANTY SERVICE ON DIRECT ORDER, RESET ROLL SW AS SPACES,   RXG25059
+      * TO BYPASS WARRANTY AUTOMATION PROCESS.                          RXG25059
+           IF OET-DIRECT-ORDER  AND                                     RXG25059
+              INI-WARRANTY-SERVICE                                      RXG25059
+                 MOVE SPACES           TO  ORL-ROLL-SW                  RXG25059
+           ELSE                                                         RXG25059
+                 MOVE INI-ROLL-SW      TO  ORL-ROLL-SW                  RXG25059
+           END-IF.                                                      RXG25059
+                                                                        RXG25059
+           MOVE INI-TAXABLE-ITEM-SW        TO  ORL-TAXABLE-ITEM-SW.     DXS95271
+           MOVE INI-UM                     TO  ORL-BASE-UM                      
+                                               ORL-UM                           
+           MOVE INI-UPS-ITEM-SW            TO  ORL-UPS-ITEM-SW                  
+           MOVE INI-VENDOR-NBR             TO  ORL-VENDOR-NBR                   
+           MOVE INI-WEIGHT                 TO  ORL-UNIT-WEIGHT                  
+           MOVE INI-WEIGHT-PER             TO  ORL-WEIGHT-PER                   
+           MOVE INI-ALLIANCE-SW            TO  ORL-ALLIANCE-SW          RMF95222
+           MOVE INI-CNTRY-OF-ORIGIN        TO  ORL-CNTRY-OF-ORIGIN      MCV95321
+           MOVE INI-SHIPMENT-IND           TO  ORL-SHIPMENT-IND         PWL96218
+           MOVE ORL-INV-BR-NBR             TO  ORL-KEY-BR                       
+      *                                                                         
+           IF INI-ITEM-TAXABLE                                                  
+              MOVE INI-ITEM-TAXABLE-TABLE-CODE                                  
+                                           TO  ORL-VAT-TAX-CODE.                
+      *                                                                         
+           IF INI-ORDER-ADJ-COST-PROTECTED                                      
+              SET ORL-PROTECTED-ADJ-COST   TO  TRUE                             
+           ELSE                                                                 
+              SET ORL-UNPROTECTED-ADJ-COST TO  TRUE.                            
+      *                                                                         
+           IF INI-SYSTEMS-ITEM                                                  
+           OR INI-HARD-BUNDLE                                           NXC17174
+              SET ORL-SYSTEMS-ITEM         TO  TRUE                             
+           ELSE                                                                 
+              MOVE WS-SAVE-CUBE            TO  ORL-CUBE.                        
+      *                                                                         
+            IF WS-PX-NORESP                                             MCV95321
+               SET ORL-PART-XREF           TO  TRUE.                    MCV95321
+      *                                                                         
+            MOVE WS-CONTRACT-ITEM-SW       TO  ORL-CONTRACT-ITEM-SW.    JXH98056
+      *                                                                 JXH98056
+            PERFORM 7110-USER-EXIT.                                             
+      *                                                                         
+       7100-EXIT.                                                               
+            EXIT.                                                               
+      *                                                                         
+       7110-USER-EXIT.                                                          
+      *                                                                         
+      *     ADDITIONAL USER SETTINGS                                            
+      *                                                                         
+            CONTINUE.                                                           
+      *                                                                         

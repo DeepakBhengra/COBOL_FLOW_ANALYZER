@@ -1,0 +1,81 @@
+﻿      *****************************************************************         
+      * NAME: CFWPDT - WORKING STORAGE AREA FOR CFSPDT                          
+      *                (CONFIG PROMISE DATE CALCULATION ROUTINE)                
+      *                (MAY BE USED IN BOTH BATCH & ONLINE PROGRAMS)            
+      *****************************************************************         
+      * REVISION INFO:                                                          
+      *****************************************************************         
+      * 11/01/01  DBC  NEW COPYBOOK ADDED                               DBC01305
+      *****************************************************************         
+                                                                                
+       01  CFWPDT-PARM-FIELDS.                                                  
+           05  CFWPDT-PROGRAM-NAME        PIC  X(08).                           
+           05  CFWPDT-MODE-SW             PIC  X(01).                           
+               88 CFWPDT-ONLINE-MODE                   VALUE 'O'.               
+               88 CFWPDT-BATCH-MODE                    VALUE 'B'.               
+               88 CFWPDT-VALID-MODE                    VALUES 'O', 'B'.         
+           05  CFWPDT-ORDER-STATUS-SW     PIC  X(01).                           
+               88 CFWPDT-ORDER-ENTRY                   VALUE 'O'.               
+               88 CFWPDT-ORDER-PRINT                   VALUE 'P'.               
+               88 CFWPDT-VALID-ORDER-STATUS            VALUES 'O', 'P'.         
+           05  CFWPDT-CO-CD               PIC  X(02).                           
+           05  CFWPDT-CUST-BR-NBR         PIC  X(02).                           
+           05  CFWPDT-CUST-NBR            PIC  X(06).                           
+           05  CFWPDT-SHIP-FR-BR-NBR      PIC  X(02).                           
+           05  CFWPDT-FMLY-CD             PIC  X(03).                           
+           05  CFWPDT-SLA-CD              PIC  X(04).                           
+           05  CFWPDT-PROMISE-DATE        PIC S9(05) COMP-3.                    
+           05  CFWPDT-RETURN-CODE         PIC  X(02).                           
+               88 CFWPDT-NO-WARNINGS                      VALUE '00'.           
+               88 CFWPDT-INVALID-MODE                     VALUE '01'.           
+               88 CFWPDT-INVALID-ORDER-STATUS             VALUE '02'.           
+               88 CFWPDT-USING-DEFAULT-CUTOFF             VALUE '03'.           
+               88 CFWPDT-USING-DEFAULT-OFFSET             VALUE '04'.           
+               88 CFWPDT-SYSBUSDA-ERROR-1                 VALUE '05'.           
+               88 CFWPDT-SYSBUSDA-ERROR-2                 VALUE '06'.           
+       01  CFWPDT-CONSTANTS.                                                    
+           05  CFWPDT-DEFAULT-DAYS        PIC S9(04) COMP VALUE +0005.          
+           05  CFWPDT-FAROUT-DAYS         PIC S9(08) COMP VALUE +30.            
+           05  CFWPDT-SLA-CD-BATCH        PIC  X(04)      VALUE 'PDBA'.         
+           05  CFWPDT-SLA-CD-ONLINE       PIC  X(04)      VALUE 'PDOL'.         
+           05  CFWPDT-DEFAULT-CUST-BR     PIC  X(02)      VALUE '00'.           
+           05  CFWPDT-DEFAULT-CUST-NBR    PIC  X(06)    VALUE '000000'.         
+           05  CFWPDT-DFLT-BATCH-CUTOFF   PIC S9(04) COMP VALUE 0900.           
+           05  CFWPDT-DFLT-ONLINE-CUTOFF  PIC S9(04) COMP VALUE 1700.           
+       01  CFWPDT-WORK-FIELDS.                                                  
+           05  CFWPDT-LOCAL-BRANCH-TIME   PIC  9(04).                           
+           05  CFWPDT-SLA-CUTOFF-TIME     PIC S9(04) COMP.                      
+           05  CFWPDT-INTEGER-DATE        PIC S9(08) COMP.                      
+           05  CFWPDT-FAROUT-PROM-DT-SW   PIC  X(01).                           
+               88 CFWPDT-SET-PROM-DT-FAROUT               VALUE 'Y'.            
+               88 CFWPDT-SET-PROM-DT-NORMAL               VALUE 'N'.            
+           05  CFWPDT-CUTOFF-FOUND-SW     PIC  X(01).                           
+               88 CFWPDT-CUTOFF-FOUND                     VALUE 'Y'.            
+               88 CFWPDT-CUTOFF-NOT-FOUND                 VALUE 'N'.            
+           05  CFWPDT-DAYS-FOUND-SW       PIC  X(01).                           
+               88 CFWPDT-DAYS-FOUND                       VALUE 'Y'.            
+               88 CFWPDT-DAYS-NOT-FOUND                   VALUE 'N'.            
+           05  CFWPDT-GOT-OFFSET-DAYS-SW  PIC  X(01).                           
+               88 CFWPDT-GOT-OFFSET-DAYS                  VALUE 'Y'.            
+               88 CFWPDT-MISSING-OFFSET-DAYS              VALUE 'N'.            
+           05  CFWPDT-PROCESSING-DATE     PIC  9(05).                           
+           05  CFWPDT-CURRENT-JULIAN-DATE PIC  9(07).                           
+           05  CFWPDT-CURRENT-JULIAN-DATE-R REDEFINES                           
+               CFWPDT-CURRENT-JULIAN-DATE.                                      
+               10  CFWPDT-CUR-JULDT-CC    PIC  9(02).                           
+               10  CFWPDT-CUR-JULDT-YYDDD PIC  9(05).                           
+           05  CFWPDT-FAROUT-JULIAN-DATE  PIC  9(07).                           
+           05  CFWPDT-FAROUT-JULIAN-DATE-R REDEFINES                            
+               CFWPDT-FAROUT-JULIAN-DATE.                                       
+               10  CFWPDT-FAR-JULDT-CC    PIC  9(02).                           
+               10  CFWPDT-FAR-JULDT-YYDDD PIC  9(05).                           
+       01  CFWPDT-CURRENT-DATE-FIELDS.                                          
+           05  CFWPDT-CURRENT-DATE        PIC  9(08).                           
+           05  CFWPDT-CURRENT-DATE-R REDEFINES CFWPDT-CURRENT-DATE.             
+               10  CFWPDT-CUR-DT-CCYY     PIC  9(04).                           
+               10  CFWPDT-CUR-DT-MM       PIC  9(02).                           
+               10  CFWPDT-CUR-DT-DD       PIC  9(02).                           
+           05  CFWPDT-CURRENT-TIME        PIC  9(04).                           
+           05  CFWPDT-CURRENT-TIME-R REDEFINES CFWPDT-CURRENT-TIME.             
+               10  CFWPDT-CUR-TIME-HH     PIC  9(02).                           
+               10  CFWPDT-CUR-TIME-MM     PIC  9(02).                           

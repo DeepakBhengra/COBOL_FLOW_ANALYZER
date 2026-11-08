@@ -1,0 +1,51 @@
+      ***************************************************************   00000100
+      *   INTUIT ROUTING GUIDE LOGIC                                    00000200
+      ***************************************************************   00000300
+      *  09-07-01 GZL INITIAL CREATION                                  00000800
+      ***************************************************************   00000900
+      *************************************************************     00001000
+      * FIRST CHECK FRT-OUT-CODE AND 3RD-PARTY-ACCT CODE TO SPACE       00001100
+      * OUT FREIGHT AMOUNTS                                             00001200
+      *                                                                 00001300
+      * THEN LOGIC TO DETERMINE ORSH-PROMISE-DATE.  IF THE TRANSIT      00001400
+      * DAYS WE HAVE CALCULATED ARE EQUAL TO THE TRANSIT DAYS FROM      00001500
+      * ORP332, THE ORDER RECEIVED DATE IS THE PROMISE DATE.  ELSE      00001600
+      * CALCULATE THE NEW PROMISE DATE BY INCREMENTING BACKWARDS        00001700
+      * FROM THE DELIVERY DATE, BY THE NUMBER OF TRANSIT DAYS FROM      00001800
+      * ORP332.                                                         00001900
+      *                                                                 00002000
+      *************************************************************     00002100
+       S133-PROMISE-DATE-ZERO-FRT.                                      00003000
+                                                                        00004000
+137780      IF (ORSH-FRT-OUT-CODE = 'T' OR 'C') OR                      00005000
+               (WS-3RD-PARTY-ACCT > SPACES)                             00006000
+205970          MOVE +0           TO ORSH-FRT-OUT-AMT                   00007000
+205990          MOVE ZEROES       TO ORSH-GROUND-FRT-OUT-AMT            00008000
+206000                               ORSH-TRANSIT-DAYS                  00009000
+206010                               ORSH-ORIG-FRT-RATE-AMT             00009100
+206020                               ORSH-FRT-CUS-PAYS                  00009200
+            END-IF.                                                     00009300
+                                                                        00009400
+            IF (WS-CB-FRT-OUT-CODE = 'P') AND                           00009500
+               (ORSH-PROMISE-DATE NOT = 0)                              00009600
+              IF WS-EXPECTED-DELIVERY-DATE = 0                          00009700
+                 MOVE WS-ORDER-RECEIVED-DATE                            00009800
+                                       TO ORSH-PROMISE-DATE             00009900
+              ELSE                                                      00010000
+                 IF WS-ROUTING-TRANSIT-DAYS = ORSH-TRANSIT-DAYS         00011000
+                   MOVE WS-ORDER-RECEIVED-DATE                          00011100
+                                       TO ORSH-PROMISE-DATE             00011200
+                 ELSE                                                   00011300
+                   MOVE ORSH-TRANSIT-DAYS                               00011400
+                                       TO WS-ROUTING-TRANSIT-DAYS       00011500
+                   PERFORM 434B-DETERMINE-RELEASE-DATE                  00011600
+                     IF WS-VALID-BUS-DATE                               00011700
+                        MOVE WS-ORSH-PROMISE-DATE                       00011800
+                                       TO ORSH-PROMISE-DATE             00011900
+                     END-IF                                             00012000
+                 END-IF                                                 00013000
+              END-IF                                                    00014000
+           END-IF.                                                      00015000
+                                                                        00016000
+       S133-EXIT.                                                       00017000
+            EXIT.                                                       00018000

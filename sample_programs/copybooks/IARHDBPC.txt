@@ -1,0 +1,142 @@
+﻿      * ****************************************************************        
+      *    INDIA GST - HARD BUNDLE DB2 PROCESSING                      *        
+      ******************************************************************        
+      ******************************************************************        
+      * REVISIONS:                                                     *        
+      *                                                                *        
+      * DATE     PGMR DESCRIPTION                                      *        
+      * -------- ---- ------------------------------------------------ *        
+      * 06/23/17 TGF  CREATED                                          *TGF17174
+      ******************************************************************        
+       800-IA-OPEN-HARD-BUNDLE-CSR.                                             
+                                                                                
+           INITIALIZE WS-IA-GST-HRDBNDLE-SWTICHES.                              
+                                                                                
+           MOVE TC-COMPANY             TO INTHRDC-CO-CD.                        
+           MOVE TC-PART-NBR            TO INTHRDC-PART-NBR.                     
+           MOVE KEY-CMPNT-PART-NBR     TO INTHRDC-CMPNT-PART-NBR.               
+                                                                                
+           EXEC SQL                                                             
+                OPEN HARD_BUNDLE_CSR                                            
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                 TO SQLCODE-STATUS.                      
+                                                                                
+           EVALUATE SQLCODE                                                     
+              WHEN DB2-NORESP                                                   
+                   CONTINUE                                                     
+              WHEN OTHER                                                        
+                   MOVE '800O'         TO WS-ABCODE                             
+                   MOVE SQLCODE        TO IAWHDBLD-SQLCODE-STATUS               
+                   MOVE '800-IA-OPEN-HARD_BUNDLE_CSR'                           
+                                       TO IAWHDBLD-DB2-ERROR-PARA               
+                   MOVE WRK-PROGRAM-NAME                                        
+                                       TO IAWHDBLD-DB2-PGM-ERROR                
+                   MOVE IAWHDBLD-EXTRA-MESSAGE-1                                
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                   MOVE 'ERROR IN OPENING HARD_BUNDLE_CSR'                      
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                   PERFORM 990-SQL-MESSAGE                                      
+                   PERFORM 999-ABEND                                            
+           END-EVALUATE.                                                        
+                                                                                
+       800-IA-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       810-IA-FETCH-HARD-BUNDLE-CSR.                                            
+                                                                                
+           EXEC SQL                                                             
+                FETCH  HARD_BUNDLE_CSR                                          
+                 INTO :INTHRDC-CMPNT-PART-NBR                                   
+                     ,:INTHRDC-DESC-TXT                                         
+                     ,:INTHRDC-UNIT-COST-AMT                                    
+                     ,:INTHRDC-UNIT-PRC-AMT                                     
+                     ,:INTHRDC-CMPNT-QTY                                        
+                     ,:INTHRDC-HSN-SAC-CD                                       
+                     ,:INTHRDC-PRCPL-CMPNT-IND                                  
+                     ,:INTHRDC-LAST-CHG-TS                                      
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+                                                                                
+           EVALUATE SQLCODE                                                     
+           WHEN DB2-NORESP                                                      
+                SET DATA-FOUND         TO TRUE                                  
+                PERFORM 815-IA-FORMAT-DETAIL-DATA                               
+                   THRU 815-IA-EXIT                                             
+           WHEN DB2-NOT-FOUND                                                   
+                SET CURSOR-END         TO TRUE                                  
+      *         SET WS-END-OF-SYSTEM-ITEM                                       
+      *                                TO TRUE                                  
+                IF DATA-NOT-FOUND                                               
+                   MOVE 'NOTF'         TO TC-SI-ABEND-CODE                      
+                END-IF                                                          
+           WHEN OTHER                                                           
+                MOVE '810F'            TO WS-ABCODE                             
+                MOVE SQLCODE           TO IAWHDBLD-SQLCODE-STATUS               
+                MOVE '810-IA-FETCH-HARD_BUNDLE_CSR'                             
+                                       TO IAWHDBLD-DB2-ERROR-PARA               
+                MOVE WRK-PROGRAM-NAME  TO IAWHDBLD-DB2-PGM-ERROR                
+                MOVE IAWHDBLD-EXTRA-MESSAGE-1                                   
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                MOVE 'ERROR IN FETCHING HARD_BUNDLE_CSR'                        
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                PERFORM 990-SQL-MESSAGE                                         
+                PERFORM 999-ABEND                                               
+           END-EVALUATE.                                                        
+                                                                                
+       810-IA-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       815-IA-FORMAT-DETAIL-DATA.                                               
+                                                                                
+           MOVE INTHRDC-CMPNT-PART-NBR TO KEY-CMPNT-PART-NBR.                   
+           IF INTHRDC-PRCPL-CMPNT-IND = 'Y'                                     
+              NEXT SENTENCE                                                     
+           ELSE                                                                 
+      *       ADD INTHRDC-UNIT-PRC-AMT                                          
+      *                               TO WS-CHILD-COMP-PRICE                    
+              COMPUTE WS-CHILD-COMPUTE-PRICE =                                  
+                        (INTHRDC-UNIT-PRC-AMT *                                 
+                         INTHRDC-CMPNT-QTY)                                     
+              ADD WS-CHILD-COMPUTE-PRICE                                        
+                                      TO WS-CHILD-COMP-PRICE                    
+      *       ADD INTHRDC-UNIT-COST-AMT                                         
+      *                               TO WS-CHILD-COMP-COST                     
+              COMPUTE WS-CHILD-COMPUTE-COST =                                   
+                        (INTHRDC-UNIT-COST-AMT *                                
+                         INTHRDC-CMPNT-QTY)                                     
+              ADD WS-CHILD-COMPUTE-COST                                         
+                                      TO WS-CHILD-COMP-COST                     
+           END-IF.                                                              
+                                                                                
+       815-IA-EXIT.                                                             
+           EXIT.                                                                
+                                                                                
+       820-IA-CLOSE-HARD-BUNDLE-CSR.                                            
+                                                                                
+           EXEC SQL                                                             
+                CLOSE HARD_BUNDLE_CSR                                           
+           END-EXEC.                                                            
+                                                                                
+           MOVE SQLCODE                TO SQLCODE-STATUS.                       
+                                                                                
+           EVALUATE SQLCODE                                                     
+           WHEN DB2-NORESP                                                      
+                CONTINUE                                                        
+           WHEN OTHER                                                           
+                MOVE '820C'            TO WS-ABCODE                             
+                MOVE SQLCODE           TO IAWHDBLD-SQLCODE-STATUS               
+                MOVE '820-IA-CLOSE-HARD-BUNDLE-CSR'                             
+                                       TO IAWHDBLD-DB2-ERROR-PARA               
+                MOVE WRK-PROGRAM-NAME  TO IAWHDBLD-DB2-PGM-ERROR                
+                MOVE IAWHDBLD-EXTRA-MESSAGE-1                                   
+                                       TO SYWDB2-EXTRA-MESSAGE-1                
+                MOVE 'ERROR IN CLOSING HARD_BUNDLE_CSR'                         
+                                       TO SYWDB2-EXTRA-MESSAGE-2                
+                PERFORM 990-SQL-MESSAGE                                         
+                PERFORM 999-ABEND                                               
+           END-EVALUATE.                                                        
+                                                                                
+       820-IA-EXIT.                                                             
+           EXIT.                                                                

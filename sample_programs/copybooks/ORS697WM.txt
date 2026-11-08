@@ -1,0 +1,100 @@
+      *****************************************************************         
+      *                                                               *         
+      *                   EXPLAIN WRITER MOVES                        *         
+      *                                                               *         
+      * PURPOSE: STANDARD PROCEDURE DIVISION ROUTINES TO POPULATE     *         
+      *          THE EXPLAIN WRITER PARAMETERS AND TO FORMAT A        *         
+      *          SINGLE EXPLAIN WRITER COMMUNICATION AREA.            *         
+      *                                                               *         
+      * USAGE:   COPY IN YOUR APPLICATION AND PERFORM BOTH THESE      *         
+      *          SUPPORT ROUTINES BEFORE INVOKING THE EXPLAIN         *         
+      *          WRITER UTILITY PROGRAM.                              *         
+      *                                                               *         
+      *****************************************************************         
+      *     REVISION LOG:                                             *         
+      * 11/02/04 AXR       *** STRATEGIC PRICING - FULL SOLUTION ***  * AXR04307
+      *               1. CREATED COPYBOOK.                            * AXR04307
+      *                                                               *         
+      *****************************************************************         
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE PERFORMS THE STANDARD MOVES TO SETUP     <<<**         
+      **>>> THE EXPLAIN WRITER INPUT PARAMETERS. APPLICATIONS     <<<**         
+      **>>> THAT DO NOT HAVE THE SOURCE FIELDS CAN USE            <<<**         
+      **>>> 'COPY REPLACING' TO SPECIFY THE CORRECT SOURCE        <<<**         
+      **>>> FIELDS.                                               <<<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+       SP960-MOVE-WRITER-DATA.                                                  
+                                                                                
+      *   (APPPLICATIONS CAN OVERRIDE THE SOURCE OF ANY OF THESE                
+      *    MOVES BY 'COPY REPLACING' OR BY INDIVIDUAL MOVES TO ORW697WP         
+      *    FIELDS AFTER PERFORMING SP960-MOVE-WRITER-DATA)                      
+                                                                                
+           MOVE TC-COMPANY              TO ORW697WP-COMPANY-CD.                 
+                                                                                
+           MOVE TC-OPER-ID              TO ORW697WP-SOURCE-OPER-ID.             
+                                                                                
+      *   (SET WHETHER TO WRITE PE_ORDER_LINE, PE_EXPLAIN_LINE OR BOTH)         
+           SET ORW697WP-WRITE-ORD       TO TRUE.                                
+                                                                                
+      *   (UNLESS THE APPLICATION REALLY NEEDS THE EXPLAIN ID RETURNED,         
+      *    FOR SOME SPECIAL USE, THE EXPLAIN WRITER SHOULD BE STARTED           
+      *    ASYNCHRONOUSLY INSTEAD OF LINKED SYNCHRONOUSLY, ALTHOUGH             
+      *    BOTH INVOCATION METHODS ARE SUPPORTED)                               
+           SET SYWSPV-EW-VIA-START       TO TRUE.                               
+                                                                                
+      *   (MOVE EXPLAIN WRITER ORDER KEYS, OVERRIDE AS NECESSARY LATER)         
+           MOVE ORH-COMPANY              TO ORW697WP-ORDR-CO-CD.                
+           MOVE ORH-BR-NBR               TO ORW697WP-ORDR-BR-NBR.               
+           MOVE ORH-ENTRY-DATE           TO ORW697WP-ORDR-DT-YYDDD.             
+           MOVE ORH-ORDER-NBR            TO ORW697WP-ORDR-NBR.                  
+           MOVE ORSH-DIST-NBR            TO ORW697WP-DIST-NBR.                  
+           MOVE ORSH-SHIP-NBR            TO ORW697WP-SHIP-NBR.                  
+           MOVE ORL-LINE-NBR             TO ORW697WP-ORDR-LINE-NBR.             
+                                                                                
+      *   (SETUP BASE VALUES FOR THE ORDER LINE REPLACE/COPY FUNCTIONS,         
+      *    THE APPLICATION WILL OVERRIDE WITH NEW VALUES LATER).                
+           MOVE ORW697WP-ORDR-CO-CD      TO ORW697WP-NEW-ORDR-CO-CD.            
+           MOVE ORW697WP-ORDR-BR-NBR     TO ORW697WP-NEW-ORDR-BR-NBR.           
+           MOVE ORW697WP-ORDR-DT-YYDDD   TO ORW697WP-NEW-ORDR-DT-YYDDD.         
+           MOVE ORW697WP-ORDR-NBR        TO ORW697WP-NEW-ORDR-NBR.              
+           MOVE ORW697WP-DIST-NBR        TO ORW697WP-NEW-DIST-NBR.              
+           MOVE ORW697WP-SHIP-NBR        TO ORW697WP-NEW-SHIP-NBR.              
+           MOVE ORW697WP-ORDR-LINE-NBR   TO ORW697WP-NEW-ORDR-LINE-NBR.         
+                                                                                
+                                                                                
+      **>>>-------------------------------------------------------<<<**         
+      **>>> THIS ROUTINE BUILDS A SINGLE COMMUNICATION AREA       <<<**         
+      **>>> WITH THE EXPLAIN WRITER PARAMETERS AND THE EXPLAIN    <<<**         
+      **>>> REQUEST/RESPONSE AREAS, FOR LINKING TO THE EXPLAIN    <<<**         
+      **>>> WRITER PROGRAM.                                        <<**         
+      **>>>                                                       <<<**         
+      **>>>-------------------------------------------------------<<<**         
+                                                                                
+                                                                                
+       SP970-BUILD-WRITER-COMM.                                                 
+                                                                                
+      *   THE EXPLAIN WRITER COMMAREA = PARMS + EXPLAIN DATA                    
+                                                                                
+      *   (CALCULATE LENGTHS OF EACH COMMAREA COMPONENT)                        
+           MOVE LENGTH OF ORW697WP-WRITER-PARMS                                 
+             TO SYWSPV-PARM-LEN.                                                
+           MOVE LENGTH OF SYWSPE-EXPLAIN-DATA-AREA(1)                           
+             TO SYWSPV-DATA-LEN.                                                
+                                                                                
+      *   (THE COMMAREA IS THE COMPRISED OF THE PARM AND DATA AREAS)            
+           COMPUTE SYWSPV-COMMAREA-LEN                                          
+                 = SYWSPV-PARM-LEN + SYWSPV-DATA-LEN.                           
+      *   (THE DATA STARTS 1 POSITION AFTER THE PARM AREA ENDS)                 
+           COMPUTE SYWSPV-DATA-START                                            
+                 = SYWSPV-PARM-LEN + 1.                                         
+      *   (STRING IN THE PARMS AREA AS THE FIRST PART OF THE COMMAREA)          
+           MOVE ORW697WP-WRITER-PARMS                                           
+             TO SYWSPV-COMMAREA.                                                
+      *   (STRING IN THE DATA AREA AS THE NEXT PART OF THE COMMAREA)            
+           MOVE SYWSPE-EXPLAIN-DATA-AREA(SYWSPSRS-IDX)                          
+             TO SYWSPV-COMMAREA(SYWSPV-DATA-START:).                            
+                                                                                

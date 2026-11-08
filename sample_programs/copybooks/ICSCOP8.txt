@@ -1,0 +1,276 @@
+      *  ICSCOP8 - PD CPYBOOK TO CREATE TSQ SETACQ FOR XCTL           *         
+      *            TO INP284 OR ORP545                                *         
+      * ------------------------------------------------------------- *         
+      * REVISIONS:                                                    *         
+      * 01/17/2025 SS8 EVEREST: PASS SUB ORDER TYPE TO GPE            * SS825017
+      * 07/07/2023 JZW EVEREST PROJECT                                * JZW23188
+      *            AP3 PUSH GDS TRACK DETAIL TO SETACQ VARIABLE.      * AP323188
+      * 08/07/2020 MXV VERIFY ACOP TRACKING NUMBER IS NUMERIC         * MXV20220
+      * 07/19/2017 SAS CICS UPGRADE PHASE II -                        * SAS17200
+      *                DELETED THE CICS TRANSLATED CODE AND           * SAS17200
+      *                UNCOMMENTED THE EXEC CICS STATEMENTS.          * SAS17200
+      * 05/12/2017 TGF HANDLE TRACKING/MIN-QTY                        * TGF17132
+      * 02/10/2017 TGF TIER LEVEL PRICING-STOP LOOPING BETWEEN INP284 * TGF17041
+      *                AND INP292 IF NOTHING IS SELECTED              * TGF17041
+      * 10/14/2016 TGF TIER LEVEL PRICING-ADDED CODE XCTL TO INP292   * TGF16288
+      * 09/08/2009 MXK POPULATE SETACQ-ORD-TYP                        * MXK09251
+      * 01/16/2008 MXK SSEU ENHANCED ACOP PROJECT:                      MXK08016
+      *                REPLACE 14 WITH ICWCOP-ACOP-COMB-COUNT         * MXK08016
+      * 11/10/2003 KKC ADDED NEW PRICING FLAGS.                       * KKC03314
+      * 06/17/2003 KKC NEW COPYBOOK FOR SSEUDB PROJECT                * KKC03168
+      *****************************************************************         
+      *                                                                         
+       C400-DISPLAY-COMBINED-ACOP.                                              
+      *                                                                         
+           PERFORM C410-READ-SETACQ.                                            
+           IF TB-CPO4-ACOP-TIER-PRICING                                 TGF16288
+              NEXT SENTENCE                                             TGF16288
+           ELSE                                                         TGF16288
+              INITIALIZE SETACQ-TS-QUEUE.                                       
+           SET SETACQ-GET-FROM-INQUIRY     TO TRUE.                             
+           MOVE WS-INM-COST-REB-LOCAL-AMT  TO SETACQ-INSTANT-REB-AMT.           
+           MOVE WS-SKU-HAS-REBATE-SW       TO SETACQ-INSTANT-REB-IND.           
+           IF ICWCOP-MIN-QTY-REQ NUMERIC AND                            TGF16288
+              ICWCOP-MIN-QTY-REQ > ZERO                                 TGF16288
+              MOVE ICWCOP-MIN-QTY-REQ      TO SETACQ-ACOP-MIN-QTY       TGF16288
+           END-IF.                                                      TGF16288
+                                                                        TGF16288
+           MOVE ICWCOP-QTY-ORDERED         TO SETACQ-QTY-ORDERED.               
+           MOVE TC-PART-NBR                TO SETACQ-PART-NBR.                  
+           IF ICWCOP-BID-NBR               >  SPACES                            
+              MOVE ICWCOP-BID-NBR          TO SETACQ-BID-NBR.                   
+                                                                        MXV20220
+           IF ICWCOP-AUTH-ACOP-TRK-NBR NUMERIC                          MXV20220
+              MOVE ICWCOP-AUTH-ACOP-TRK-NBR TO SETACQ-TRK-NBR-AUTH      MXV20220
+           ELSE                                                         MXV20220
+              MOVE ZEROES                   TO SETACQ-TRK-NBR-AUTH      MXV20220
+           END-IF                                                       MXV20220
+                                                                        MXV20220
+           IF ICWCOP-GDS-AUTH-TRK-NBR NUMERIC AND                       AP323188
+              ICWCOP-GDS-AUTH-TRK-NBR > ZEROES                          AP323188
+              MOVE ICWCOP-GDS-AUTH-TRK-NBR                              AP323188
+                                       TO SETACQ-GDS-AUTH-TRK-NBR       AP323188
+              SET SETACQ-GDS-AUTH      TO TRUE                          AP323188
+           END-IF.                                                      AP323188
+                                                                        AP323188
+           IF SETACQ-TRK-NBR-MIN-QTY NUMERIC AND                        AP323188
+              SETACQ-TRK-NBR-MIN-QTY > ZEROES                           AP323188
+              IF ICWCOP-GDS-TIER-TRK-NBR NUMERIC AND                    AP323188
+                 ICWCOP-GDS-TIER-TRK-NBR > ZEROES                       AP323188
+                 MOVE ICWCOP-GDS-TIER-TRK-NBR                           AP323188
+                                       TO SETACQ-GDS-TIER-TRK-NBR       AP323188
+                 SET SETACQ-GDS-TIER   TO TRUE                          AP323188
+              END-IF                                                    AP323188
+           END-IF.                                                      AP323188
+                                                                        AP323188
+           MOVE ICWCOP-BID-NBR-REQUIRED-IND                             TGF16288
+                                       TO SETACQ-BID-NBR-REQUIRED-SW    TGF16288
+           IF ICWCOP-TRK-NBR-MIN-QTY NUMERIC                            TGF16288
+           AND ICWCOP-TRK-NBR-MIN-QTY       >  ZERO                     TGF16288
+           AND SETACQ-TRK-NBR-MIN-QTY NUMERIC                           TGF17132
+           AND SETACQ-TRK-NBR-MIN-QTY > ZERO                            TGF17132
+              MOVE ICWCOP-TRK-NBR-MIN-QTY  TO SETACQ-TRK-NBR-MIN-QTY.   TGF16288
+           IF ICWCOP-ACOP-MIN-QTY          >  ZERO                      TGF16288
+           AND SETACQ-ACOP-MIN-QTY         >  ZERO                      TGF17132
+              MOVE ICWCOP-ACOP-MIN-QTY     TO SETACQ-ACOP-MIN-QTY.      TGF16288
+      * CHECK IF ORHOF- VARIABLES ARE POPULATED TILL THIS PLACE ELSE    SS825017
+      * WOULD NEED FURTHER CHANGES                                      SS825017
+           IF ORHOF-NP-ORDER-IND > SPACE                                SS825017
+              EVALUATE TRUE                                             SS825017
+                  WHEN ORHOF-NP-ORDER-BACK-2-BACK                       SS825017
+                  WHEN ORHOF-NP-ORDER-REPLNISHMNT                       SS825017
+                  WHEN ORHOF-NP-TREAT-AS-STOCK                          SS825017
+                       MOVE ORHOF-NP-ORDER-IND                          SS825017
+                                       TO SETACQ-SUB-ORD-TYP            SS825017
+                  WHEN OTHER                                            SS825017
+                       MOVE ORSH-ORDER-TYPE                             SS825017
+                                       TO SETACQ-SUB-ORD-TYP            SS825017
+              END-EVALUATE                                              SS825017
+           ELSE                                                         SS825017
+              IF ORSH-ORDER-TYPE > SPACES                               SS825017
+                 MOVE ORSH-ORDER-TYPE  TO SETACQ-SUB-ORD-TYP            SS825017
+              ELSE                                                      SS825017
+                 MOVE SPACE            TO SETACQ-SUB-ORD-TYP            SS825017
+              END-IF                                                    SS825017
+           END-IF.                                                      SS825017
+           IF ORHOF-CISCO-ORD-SW > SPACE                                SS825017
+              MOVE ORHOF-CISCO-ORD-SW  TO SETACQ-CISCO-ORD-SW           SS825017
+           END-IF.                                                      SS825017
+           MOVE ORSH-ORDER-TYPE            TO SETACQ-ORD-TYP.                   
+                                                                                
+           PERFORM VARYING CNT         FROM    1  BY  1                         
+           UNTIL   CNT                     >  ICWCOP-ACOP-COMB-COUNT    MXK08016
+           OR  ICWCOP-TRK-NBR(CNT)     NOT > +0                                 
+             MOVE  ICWCOP-TRK-NBR-AREA(CNT)                                     
+                                           TO SETACQ-TRK-NBR-AREA(CNT)          
+           END-PERFORM.                                                         
+                                                                                
+           MOVE ICWCOP-APPLY-ACOP-DELTA-IND  TO                         MXK08016
+                                        SETACQ-APPLY-ACOP-DELTA-IND.    MXK08016
+           MOVE ICWCOP-APPLY-ACOP-IND-SRC    TO                         MXK08016
+                                        SETACQ-APLY-ACOP-DELTA-IND-SRC. MXK08016
+           MOVE ICWCOP-ACOP-DELTA-TO-PRICE   TO                         MXK08016
+                                        SETACQ-TOT-ACOP-DELTA-PRC.      MXK08016
+                                                                                
+           PERFORM C450-SAVE-ENTRY-FIELDS-SETACQ.                               
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              PERFORM C430-REWRITE-SETACQ                                       
+           ELSE                                                                 
+              PERFORM C420-WRITE-SETACQ.                                        
+                                                                                
+      *                                                                         
+       C400-EXIT.   EXIT.                                                       
+      *                                                                         
+       C410-READ-SETACQ.                                                        
+      *                                                                         
+           MOVE LENGTH OF SETACQ-TS-QUEUE TO SEKACQ-REC-LENGTH.                 
+           MOVE TC-OPER-ID                TO SEKACQ-QUEUE-OPER-ID.              
+           MOVE 'TSAC'                 TO SEKACQ-QUEUE-ID.              JZW23188
+           MOVE 1                      TO SEKACQ-ITEM-NBR.              JZW23188
+                                                                                
+           EXEC CICS                                                    SAS17200
+                READQ TS                                                SAS17200
+                QNAME  (SEKACQ-QUEUE-NAME)                              SAS17200
+                INTO   (SETACQ-TS-QUEUE)                                SAS17200
+                LENGTH (SEKACQ-REC-LENGTH)                              SAS17200
+                ITEM   (SEKACQ-ITEM-NBR)                                SAS17200
+                RESP   (WS-EIBRESP)                                     SAS17200
+           END-EXEC.                                                    SAS17200
+                                                                                
+           IF NOT WS-EIB-NORESP                                                 
+              INITIALIZE SETACQ-TS-QUEUE.                                       
+                                                                                
+      *                                                                         
+       C420-WRITE-SETACQ.                                                       
+      *                                                                         
+           MOVE LENGTH OF SETACQ-TS-QUEUE TO SEKACQ-REC-LENGTH.                 
+           MOVE TC-OPER-ID                TO SEKACQ-QUEUE-OPER-ID.              
+           MOVE 'TSAC'                 TO SEKACQ-QUEUE-ID.              JZW23188
+           MOVE 1                      TO SEKACQ-ITEM-NBR.              JZW23188
+                                                                                
+           EXEC CICS                                                    SAS17200
+                WRITEQ TS                                               SAS17200
+                QNAME  (SEKACQ-QUEUE-NAME)                              SAS17200
+                FROM   (SETACQ-TS-QUEUE)                                SAS17200
+                LENGTH (SEKACQ-REC-LENGTH)                              SAS17200
+                ITEM   (SEKACQ-ITEM-NBR)                                SAS17200
+                RESP   (WS-EIBRESP)                                     SAS17200
+           END-EXEC.                                                    SAS17200
+                                                                                
+           IF NOT WS-EIB-NORESP                                                 
+              MOVE 'C420'              TO WS-ABCODE                             
+              MOVE EIBRCODE            TO WS-STATUS                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       C430-REWRITE-SETACQ.                                                     
+      *                                                                         
+           MOVE LENGTH OF SETACQ-TS-QUEUE TO SEKACQ-REC-LENGTH.                 
+           MOVE TC-OPER-ID                TO SEKACQ-QUEUE-OPER-ID.              
+           MOVE 'TSAC'                 TO SEKACQ-QUEUE-ID.              JZW23188
+           MOVE 1                      TO SEKACQ-ITEM-NBR.              JZW23188
+                                                                                
+           EXEC CICS                                                    SAS17200
+                WRITEQ TS                                               SAS17200
+                QNAME  (SEKACQ-QUEUE-NAME)                              SAS17200
+                FROM   (SETACQ-TS-QUEUE)                                SAS17200
+                LENGTH (SEKACQ-REC-LENGTH)                              SAS17200
+                ITEM   (SEKACQ-ITEM-NBR)                                SAS17200
+                RESP   (WS-EIBRESP)                                     SAS17200
+                REWRITE                                                 SAS17200
+           END-EXEC.                                                    SAS17200
+      *                                                                         
+           IF NOT WS-EIB-NORESP                                                 
+              MOVE 'C430'              TO WS-ABCODE                             
+              MOVE EIBRCODE            TO WS-STATUS                             
+              PERFORM 999-ABEND                                                 
+           END-IF.                                                              
+                                                                                
+      *                                                                         
+       C440-DELETE-SETACQ.                                                      
+      *                                                                         
+           MOVE TC-OPER-ID                TO SEKACQ-QUEUE-OPER-ID.              
+           MOVE 'TSAC'                 TO SEKACQ-QUEUE-ID.              JZW23188
+           MOVE 1                      TO SEKACQ-ITEM-NBR.              JZW23188
+                                                                                
+           EXEC CICS                                                    SAS17200
+                DELETEQ TS                                              SAS17200
+                QNAME   (SEKACQ-QUEUE-NAME)                             SAS17200
+                RESP    (WS-EIBRESP)                                    SAS17200
+           END-EXEC.                                                    SAS17200
+      *                                                                         
+       C500-GET-ACOP-BID-NBR.                                                   
+      *                                                                         
+      *---THE FOLLOWING 2 STATEMENTS ARE TO BE EXECUTED IN THE                  
+      *   MAIN PROGRAM BEFORE CALLING C500                                      
+      *                                                                         
+      *    PERFORM C410-READ-SETACQ.                                            
+            IF ICWCOP-ACOP-MIN-QTY NOT NUMERIC                          TGF16288
+               MOVE ZERO               TO ICWCOP-ACOP-MIN-QTY.          TGF16288
+            IF ICWCOP-MIN-QTY-REQ  NOT NUMERIC                          TGF16288
+               MOVE ZERO               TO ICWCOP-MIN-QTY-REQ.           TGF16288
+            IF ICWCOP-WARNING-QTY  NOT NUMERIC                          TGF16288
+               MOVE ZERO               TO ICWCOP-WARNING-QTY.           TGF16288
+      *    INITIALIZE SETACQ-TS-QUEUE.                                          
+           SET SETACQ-GET-BID-NBR          TO TRUE.                             
+           MOVE ICWCOP-QTY-ORDERED         TO SETACQ-QTY-ORDERED.               
+           IF TB-CPO4-ACOP-TIER-PRICING                                 TGF16288
+              IF SETACQ-PROGRAM-TYPE > SPACES  AND                      TGF16288
+                 (ICWCOP-ACOP-MIN-QTY > ZERO OR                         TGF16288
+                 ICWCOP-MIN-QTY-REQ > ZERO)                             TGF16288
+                 NEXT SENTENCE                                          TGF16288
+              ELSE                                                      TGF16288
+                 IF TC-PROGRAM-TYPE > SPACES                            TGF16288
+                    MOVE TC-PROGRAM-TYPE                                TGF16288
+                                       TO SETACQ-PROGRAM-TYPE           TGF16288
+                 ELSE                                                   TGF16288
+                    MOVE ICWCOP-PROGRAM-TYPE                            TGF16288
+                                       TO SETACQ-PROGRAM-TYPE           TGF16288
+                 END-IF                                                 TGF16288
+              END-IF                                                    TGF16288
+           ELSE                                                         TGF16288
+              MOVE ICWCOP-PROGRAM-TYPE  TO SETACQ-PROGRAM-TYPE.                 
+                                                                                
+           MOVE WS-MKT-SGMT-TYP-CD         TO SETACQ-MRKT-SGMT-TYP.             
+           MOVE ICWCOP-WRK-ORDER-TYPE      TO SETACQ-ORD-TYP.           MXK09251
+                                                                        MXK09251
+           PERFORM C450-SAVE-ENTRY-FIELDS-SETACQ.                               
+                                                                                
+           IF WS-EIB-NORESP                                                     
+              PERFORM C430-REWRITE-SETACQ                                       
+           ELSE                                                                 
+              PERFORM C420-WRITE-SETACQ.                                        
+                                                                                
+           IF SETACQ-INP292-ACCESSED AND                                TGF17041
+              ICWCOP-BID-NBR-REQUIRED                                   TGF17041
+              MOVE ' '                TO ICWCOP-BID-NBR-REQUIRED-IND    TGF17041
+           END-IF.                                                      TGF17041
+                                                                                
+           IF ICWCOP-BID-NBR-REQUIRED                                   TGF16288
+           OR SETACQ-BID-NBR-REQUIRED                                   TGF16288
+              SET WS-CTL-INDX         TO 1                              TGF16288
+              MOVE WS-ACOP-BID-SCREEN TO WS-CTL-ENTRY(WS-CTL-INDX)      TGF16288
+              MOVE ' '                TO  WS-OUTPUT-SW                  TGF16288
+              MOVE 'D'                TO  WS-SHIFT-SW                   TGF16288
+           ELSE                                                         TGF16288
+              IF (ICWCOP-ACOP-MIN-QTY > ZERO                            TGF16288
+              OR ICWCOP-MIN-QTY-REQ > ZERO)                             TGF16288
+             AND NOT SETACQ-INP292-ACCESSED                             TGF16288
+                SET WS-CTL-INDX         TO 1                            TGF16288
+                MOVE WS-ACOP-MIN-SCREEN TO                              TGF16288
+                                        WS-CTL-ENTRY(WS-CTL-INDX)       TGF16288
+                MOVE ' '                TO  WS-OUTPUT-SW                TGF16288
+                MOVE 'D'                TO  WS-SHIFT-SW                 TGF16288
+              END-IF                                                    TGF16288
+           END-IF.                                                      TGF16288
+                                                                                
+           IF ORH-BID-QUOTE-FLAG > SPACE                                        
+           OR OET-END-USER-PROCESS                                              
+              PERFORM 996-EXIT-ROUTINE.                                         
+                                                                                
+      *                                                                         
+       C500-EXIT.      EXIT.                                                    
+      *                                                                         
+                                                                                

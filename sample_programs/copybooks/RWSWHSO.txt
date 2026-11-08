@@ -1,0 +1,59 @@
+﻿      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8302
+      ******************************************************************        
+      *****************************************************************         
+      *  PROCESS CSW-DOWNLOAD - PROCEDURE DIVISION COPYBOOK           *         
+      *           S A L E S  O R D E R   D O W N L O A D              *         
+      *                     A T T R I B U T E S                       *         
+      *                                                               *         
+      *  PURPOSE:  CSW PROJECT -                                      *         
+      *            WHEN CHANGE TO SALES ORDER BATCHING OCCURS         *         
+      *            WRITE A RWLTRN RECORD TO INITIATE THE APPC         *         
+      *            PROGRAM THAT WILL SEND INFORMATION TO CSW          *         
+      *     NOTE:  IF ORSHED SEGMENT HAS NOT BEEN RETRIEVED DO        *         
+      *            COPY REPLACING ORH-COMPANY BY TC-COMPANY OR        *         
+      *            OTHER VALID SOURCE FOR COMPANY CODE.               *         
+      *****************************************************************         
+      * ============================================================= *         
+      *  RWSWHSO - PROCESS RWLTRN RECORD                              *         
+      *  12/10/03  LLV  CHANGED DEFAULT TO CUSTOMER PRIORITY LOGIC    * LLV03351
+      *  10/30/03  LLV  DEFAULT TO CUSTOMER PIRORITY IF SET IN CUSBRN * LLV03303
+      *  09/12/03  KAB  IMFIRST CANADA: CHECK RWTRN-OVERRIDE-BR-NBR     KAB03255
+      *                 FOR 'SINGLE REGION MULTI BR PROCESSING'.        KAB03255
+      *  06/10/99  JRA  CREATION OF COPYBOOK                          * PLB99336
+      * ============================================================= *         
+           MOVE SPACES                 TO RWTRN-RWRTRN.                         
+           MOVE ZEROES                 TO RWTRN-START-DATE                      
+                                          RWTRN-START-TIME                      
+                                          RWTRN-DELAY-TIME                      
+                                          RWTRN-APPC-ATTEMPTS.                  
+           MOVE ORH-COMPANY            TO RWTRN-COMPANY.                        
+      ** BRANCH OF 00 INDICATES DATA TO BE SENT TO ALL CSW DC'S                 
+           IF TB-CSW-SNGLE-REG-MULTI-BR-CONN                            KAB03255
+              MOVE TB-CSW-IM-FIRST-BRANCH                               KAB03255
+                                       TO RWTRN-BR-NBR                  KAB03255
+              MOVE WS-CSW-DC-NBR       TO RWTRN-OVERRIDE-BR-NBR         KAB03255
+           ELSE                                                         KAB03255
+              MOVE WS-CSW-DC-NBR       TO RWTRN-BR-NBR                  KAB03255
+              MOVE SPACES              TO RWTRN-OVERRIDE-BR-NBR.        KAB03255
+                                                                        KAB03255
+           MOVE 'O'                    TO RWTRN-FLOW-CODE.                      
+           IF WS-IMFIRST-OVERRIDE-PRIORITY > SPACES                     LLV03303
+               MOVE WS-IMFIRST-OVERRIDE-PRIORITY TO RWTRN-PRIORITY      LLV03303
+           ELSE                                                         LLV03303
+               MOVE '3'                TO RWTRN-PRIORITY.               LLV03303
+           MOVE EIBTIME                TO RWTRN-SEQ-NBR                         
+                                          RWTRN-START-TIME.                     
+           MOVE ZEROES                 TO RWTRN-SUB-SEQ.                        
+           MOVE 'WHSO'                 TO RWTRN-TRANS-CODE.                     
+      * FOLLOWING STATEMENT INTENTIONALLY TRUNCATES HIGH ORDER DIGITS           
+           MOVE EIBDATE                TO RWTRN-START-DATE.                     
+           MOVE 1                      TO RWTRN-APPC-ATTEMPTS.                  
+           MOVE ZEROES                 TO RWTRN-DELAY-TIME.                     
+           MOVE SPACE                  TO RWTRN-SO-DOWNLOAD-SW.                 
+           MOVE WS-CSW-SO-BR-ID        TO RWTRN-SO-BR-ID.                       
+           MOVE WS-CSW-SO-NBR          TO RWTRN-SO-NBR.                         
+           MOVE WS-CSW-SO-DIST         TO RWTRN-SO-DIST.                        
+           MOVE WS-CSW-SO-SHIP         TO RWTRN-SO-SHIP.                        
+           MOVE '09'                   TO RWTRN-TRANS-TYPE.                     
+           MOVE RWTRN-KEY-AREA         TO WS-RWTRN-KEY-AREA.                    

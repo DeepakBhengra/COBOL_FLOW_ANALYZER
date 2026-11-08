@@ -1,0 +1,941 @@
+﻿000100******************************************************************        
+000200*** YEAR 2000 READY                                              *PWLY8307
+000300******************************************************************        
+000400******************************************************************GMM97190
+000500*  SYXBATCH HAS BEEN SPLIT INTO TWO NEW COPY MEMBERS:             GMM97190
+000600*     RWSUNBAT - UNASSIGNS A BATCH                                GMM97190
+000700*     RWSBATCH -   ASSIGNS A BATCH                                GMM97190
+000800*  THE WORKING STORAGE COPY MEMBER ASSOCIATED WITH RWSBATCH IS    GMM97190
+000900*  RWRBATCH.                                                      GMM97190
+001000*-----------------------------------------------------------------GMM97190
+001100*                                                                 GMM97190
+001200*  THIS ROUTINE WILL ASSIGN THE BATCH NBR IN ORSSHH.              GMM97190
+001300*  PROGRAM MUST HAVE READ ORSHED AND ORSSHH                       GMM97190
+001400*  TO ASSIGN THE BATCH PERFORM 870-ASSIGN-BATCH-NBR THRU          GMM97190
+001500*                              870-ASSIGN-BATCH-NBR-EXIT.         GMM97190
+001600*  TO UNASSIGN THE BATCH SEE COPY MEMBER RWSUNBAT                 GMM97190
+001700*                              890-UNASSIGN-BATCH-NBR             GMM97190
+001800*                                                                 GMM97190
+001900*  WS-RECEIPT-ALLOCATION-SW MUST BE DEFINED IN ALL PROGRAMS BUT   GMM97190
+002000*  IS USED ONLY BY PUP622 WHICH SETS THE SW TO 'Y' FOR            GMM97190
+002100*  RECEIPT ALLOCATION ONLY.                                       GMM97190
+002200******************************************************************GMM97190
+      *    * 07/19/19 JYA   PORTUGAL CONVERSION PROJECT                 JYA19200
+      *    * 05/18/05 EXG   SWISS ENHANCE SHARING PROJECT               EXG05151
+      *    * 11/09/04 TLC   PRINT WHEN ON CREDIT HOLD IF FLAGS SET      TLC04314
+      *    * 02/22/04 TLC - ADD BACK ORDER AND MAX ORDER VALUE CHECK    TLC04053
+      *    *                FOR ASIA     COUNTRIES                      TLC04053
+      *    * 08/01/03 WXE - 10310  BATCH BY BOX NUMBER                  WXE03213
+      *    * 05/08/03 HXJ - ADD CHANGE TO ALLOW REBATCHING ONCE THE     HXJ03128
+      *    *                ORDER IS RELEASED IF TB-ALTCA-VAL-SW = 'Y'  HXJ03128
+      *    * 10/14/02 TLC - LOCAL TIME FOR ASIA                         TLC02286
+      *    * 07/09/02 WXE - 10028 CHANGE THE FIELD ORDER VALUE          WXE02196
+      *    *          WXE - 10030 FIX THE ZIP SELECTION FOR SWEDEN      WXE02196
+      *    * 06/07/02 TXS - ADD BACK ORDER AND MAX ORDER VALUE CHECK    TXS02195
+      *    *                FOR EUROPEAN COUNTRIES                      TXS02195
+      *    * 01/02/02 WXE - 8426  ADD ZIP PRIORITY FOR DANZAS EURAPID   WXE02002
+      *    * 05/16/01 JJD - FIX THE ABEND ON END-BROWSE OF RWLPZM       JJD01136
+      *    * 05/15/01 MJS - ADD ZIP PRIORITY FOR MICROSOFT US BUSINESS  MJS01135
+      *    * 11/20/00 PJD - PAR#38425 BATCH BASED BY NEW HANDLING CODE  PJD00325
+      *    * 11/01/00 TLC - PAR#8261 - ALLOW EUROPE TO USE ZIP          TLC00307
+      *                     PRIORITY MAINT SCREEN                       TLC00307
+      *    * 08/22/00 RPM - PAR#12965N. POPULATE ORBAT-BIN-TYPE.        RPM00233
+002300*    * 07/28/99 SCT - ADJUST LOCAL DATE                           SCT99210
+002300*    * 08/13/99 JJD - ADD SPECIAL DEL SW                          JJD99225
+002300*    * 06/19/99 TMH - OPEN BATCHING BY ZIP PRIORITY FOR CANADA    TMH99170
+002400*    * 05/17/99 BCW - CHG LOGIC TO BATCH ALL U.S. EXPORTS .       BCW99126
+002500*    * 04/26/99 BCW - ADDED LOGIC TO BATCH ALL U.S. EXPORT        BCW99106
+002600*    *                ORDERS BASED ON FIELD ORBAT-US-EXPORT-TYPE. BCW99106
+002700*    * 04/22/99 TGF - MOVED CHANGES MADE ON 4-16 TO 872-SET-BATCH TGF99111
+002800*    *                -NBR NEED TO DO THIS SO PRINT TIME WILL BE  TGF99111
+002900*    *                SET TO LOCAL TIME.                          TGF99111
+003000*    * 04/16/99 TGF - FIXES FOR LATIN AMERICA BATCH - TIME        TGF99106
+003100*    * 04/05/99 MAM - ADDED CHECK FOR CUSTOM'S FORM SWITCH BATCH  MAM99095
+003200*    *                CRITERIA FOR BATCHING CUSTOM LABEL ORDERS   MAM99095
+003300*    * 03/08/99 TGF - ADDED TB-CPO-LATIN-AM-CNTRY BECAUSE TIME    TGF99067
+003400*    *                WAS NOT CONVERTED TO LOCAL TIME IN LATIN    TGF99067
+003500*    *                AMERICA.                                    TGF99067
+003600*    * 09/03/98 ETJ - ADDED CHECK FOR AN ORDER'S SPECIAL HANDLING ETJ98246
+003700*    *                SWITCH TO BATCH CRITERIA FOR BATCHING OF    ETJ98246
+003800*    *                THIRD PARTY AGENT ORDERS.                   ETJ98246
+003900* 09/07/98 KMB  FOR EUROPE, WE WILL ALLOW THE BATCH CUTOFF      * KMB98250
+004000*               TIME ON LOCAL TIME OTHERWISE WITH THE 9/10 HOUR * KMB98250
+004100*               DIFFERENCE, THEY HAVE TO SETUP MULTIPLE BATCHES * KMB98250
+004200*               TO ACCOUNT FOR THE CLOCK GOING FROM 23:59 TO 00:00KMB98250
+004300*    * 06/05/98 ETJ - ADDED CHECK FOR SPECIAL FULFILLMENT ORDERS  ETJ98156
+004400*    * 04/15/98 MWO - NEW CONFIG FLAG VALUES FOR FRAMEWORKS.      MWO98105
+004500*    * 04/08/98 TND - FIX ZIP PRIORITY CODE TO CONSIDER SPECIFIC  TND98100
+004600*    *                CUSTOMER.                                   TND98100
+004700*    * 02/12/98 GMM - WHEN THERE'S NO ZIP MATCH IN RWLZPM FILE,   GMM98043
+004800*    *                BYPASS ORLBAT RECS WITH PRI CODE > SPACES.  GMM98043
+004900*    * 09/16/97 DJP - DO NOT UPDATE LAST-PRINT-DATE/TIME ON CONFIGDJP97259
+005000*    * 08/25/97 GMM - UPDATE ORSH-LANE-DIVERT-CODE USING ORLBAT   GMM97237
+005100*    * 08/18/97 JJD - EMEERGENCY CHANGE, CHECK FOR NUMERIC        JJD97230
+005200*    * 07/09/97 GMM - SPLIT SYXBATCH INTO TWO NEW MEMBERS:        GMM97190
+005300*    *                   RWSUNBAT - UNASSIGNS A BATCH             GMM97190
+005400*    *                   RWSBATCH -   ASSIGNS A BATCH             GMM97190
+005500*    *                ADDED PRIORITY CODE LOGIC WHICH WILL BE USEDGMM97190
+005600*    *                AS A BATCH CRITERIA FOR ORDER BATCHING.     GMM97190
+005700*    * 02/04/97 TMH - ANOTHER FIX FOR SHR INVENTORY               TMH97035
+005800*    * 01/13/97 MXW - ADD LOGIC FOR CONFIG B/T IN TRANSIT.        MXW97013
+005900*    * 01/10/96 TMH - FIX CARRIER BATCH CRITERIA FOR SHR INVENTORYTMH97010
+006000*    * 10/15/96 KAB - REMOVED ALL LOGIC FOR:                      KAB96289
+006100*    *                   ORBAT-BULK-PROCESS-SW                    KAB96289
+006200*    *                   ORBAT-CARRIER-CODE (SINGLE)              KAB96289
+006300*    *                   ORBAT-SINGLE-ORDER-CODE                  KAB96289
+006400*    *              - ADDED MULTIPLE CARRIER CODES LOGIC          KAB96289
+006500*    *              - ADDED WEIGHT MAX LOGIC                      KAB96289
+006600*    *              - ADDED LINES MAX LOGIC                       KAB96289
+006700*    * 08/14/96 TMH ADD SHARED INV BATCHING                       TMH96228
+006800*    * 08/13/96 JJD RESET A SW TO 'N'                             JJD96226
+006900*    * 06/21/96 JJD ADD RANGE OF ZIP                              JJD96173
+007000*    * 03/29/96 TMH EXPAND CRITERIA LOGIC FOR THE UK. SECURICOR   TMH96111
+007100*    *              SHIPMENTS ARE ASSIGNED A PRIORITY CODE BASED  TMH96111
+007200*    *              ON CARRIER TERMINAL/POSTAL CODE CRITERIA.     TMH96111
+007300*    * 10/09/95 JJD IF ORLBAT IS EMPTY STILL ASSIGN MAN BATCH     JJD95282
+007400*    * 08/03/95 JMB USE ORH-COMPANY = 'FT' INSTEAD OF TC-CANADA   JMB95215
+007500*    *              REFERENCE.                                    JMB95215
+007600*    * 08/01/95 JMB FOR THE TIME BEING, DO NOT BATCH CANADA ORDERSJMB95210
+007700*    *              THAT TAKE STOCK FROM THE U.S.                 JMB95210
+007800*    * 07/26/95 RXD MAKE TRIGERRING OF CONFIG PROCESS NON COMPANY RXD95207
+007900*    *              SPECIFIC                                      RXD95207
+008000*    * 07/17/95 JXH ALLOW NON-NUMERIC ZIP - CANADA PICK ASSGN     JXH95195
+008100*    * 07/07/95 MWD CONFIGURATION DISTRIBUTIONS SELECTED FOR      MWD95188
+008200*    *              DOWNLOAD TO PCS, ADD BATCH FOR CONFIGURATIONS MWD95188
+008300*    * 06/20/95 JEW US MODEL COMPANY CHANGES                      JEW95171
+008400*    * 01/30/95 JJD SET PRINT DATE / TIME EVEN WHEN BATCH IS MAN  JJD95030
+008500*    * 11/18/94 RXD SET PRINT COUNT/DATE/TIME TO ZERO WHEN        RXD94322
+008600*    *              UNBATCHING AN ORDER NOT AT WHSE YET           RXD94322
+008700*    * 11/07/94 JJD IGNORE BACKORDER SW                           JJD94311
+008800*    * 11/04/94 JJD DO NOT SET PC TO ZERO WHEN UNBTACH            JJD94307
+008900*    * 10/28/94 JJD UPDATE SEQ NBR WHEN PROCESSING 'ERR' BATCH    JJD94301
+009000*    * 10/07/94 JJD RESET PRINT COUNT O ZERO WHEN UNBATCH         JJD94280
+009100*    * 10/05/94 JJD DO NOT RESET TIME/DATE WHEN UNBATCHING        JJD94272
+009200*    * 09/29/94 JJD TAKE OUT LAST CHANGE . IT WILL BE DONE IN     JJD94272
+009300*    *              ORP270MD                                      JJD94272
+009400*    * 09/28/94 JJD DO NOT UPDATE PRINT COUNT IF BATCH IS MAN     JJD94271
+009500*    * 09/21/94 JJD UPDATE PRINT-COUNT                            JJD94264
+009600*    * CUSTOMER BR   DMR93062           03/03/93   03/03/93       DMR93062
+009700*    * 1. ALLOW FOR USER TO BATCH A SPECIFIC CUSTOMER BRANCH      DMR93062
+009800*    *     FOR ALL CUSTOMERS.                                     DMR92366
+009900*    * BO & DATE     DMR92366           12/31/92   12/31/92       DMR92366
+010000*    * 1. UPDATE SHIPPMENT HEADER PRINT DATE AND TIME WITH        DMR92366
+010100*    *     THE DATE AND TIME ORDER WAS BATCHED.                   DMR92366
+010200*    * 2. DO NOT BATCH BACKORDERS UNLESS AN INDICATOR IS SET      DMR92366
+010300*    *     FROM WITHIN SPECIFIC PROGRAMS.                         DMR92366
+010400*    * PROD FIX      DMR                12/09/92   12/09/92       DMR92344
+010500*    * 1. FIX OC7 ERROR FOR OLD ORDERS THAT WERE STILL ON THE     DMR92344
+010600*    *     ORDER DATABASE PRIOR TO NEW BATCH PROGRAMS GOING IN.   DMR92344
+010700*    * PAR#6418      BCA                09/14/92   09/14/92       BCA92258
+010800*    * - ADD NEW LOGIC FOR THE NEW BATCHING CRITERIA AND LIMITS   BCA92258
+010900*    *   FOR THE BRANCH 10 PROJECT AND ADD DEFAULT BATCH ASSIGN   BCA92258
+011000*    *   IF BATCH NOT FOUND.                                      BCA92258
+011100*    * PC 60194      FRED               01/27/87   01/27/87       00000010
+011200*    * PC 60144      FRED               12/16/86   01/07/87       00000020
+011300*    * PC 60133      FRED               11/12/86                  00000030
+011400*    * PC 60123      FRED               10/27/86   11/07/86       00000040
+011500******************************************************************00000170
+011600*                                                                 00000180
+011700*  870-ASSIGN-BATCH-NBR.                                          00000190
+011800*                                                                 00000200
+011900     MOVE SPACES                 TO ORSH-BATCH-NBR.               00000210
+012000     MOVE ZEROS                  TO ORSH-BATCH-SEQ.               00000220
+012100     IF ORSH-CREDIT-MEMO                                          00000230
+012200        OR ORSH-RMA                                               00000230
+012300        OR ORSH-DIRECT-ORDER                                      00000230
+012400        OR ORH-ORDER-IN-PROGRESS                                  00000230
+012500        GO TO 870-ASSIGN-BATCH-NBR-EXIT.                          00000240
+012600* FOR NOW, DO NOT BATCH CANADA ORDERS TAKING U.S. STOCK           JMB95210
+012700     IF ORH-COMPANY = 'FT' AND                                    JMB95215
+012800         ORSH-ALT-WAREHOUSE-CO > SPACES AND                       JMB95210
+012900         ORSH-ALT-WAREHOUSE-CO NOT = ORH-COMPANY                  JMB95215
+013000         GO TO 870-ASSIGN-BATCH-NBR-EXIT.                         JMB95210
+013100*                                                                         
+013200*DO NOT BATCH BACKORDERS UNLESS AN INDICATOR IS SET TO DO SO.     DMR92366
+013300*                                                                 DMR92366
+013400*    IF WS-SYRBATCH-DONOT-BATCH-BO                                JJD94311
+013500*       IF ORSH-SHIP-NBR GREATER THAN 1                           JJD94311
+013600*          GO TO 870-ASSIGN-BATCH-NBR-EXIT.                       JJD94311
+013700*                                                                         
+101300     MOVE ORH-COMPANY            TO    TB-BRN3-COMPANY-CODE       HXJ03128
+101400     MOVE ORSH-BR-NBR-SHIP-FROM  TO    TB-BRN3-BRANCH             HXJ03128
+101600     CALL 'SYU510'               USING TB-BRN3-PROC-IA            HXJ03128
+                                                                        HXJ03128
+           IF ORSH-CREDIT-HOLD-STATUS                                   TLC04314
+              MOVE ORH-COMPANY   TO  TB-BRN4-COMPANY-CODE               TLC04314
+                                     TB-CAR3-CO                         TLC04314
+238900        MOVE ORSH-CARRIER-CODE    TO  TB-CAR3-CODE                TLC04314
+288000        MOVE ORSH-BR-NBR-SHIP-FROM                                TLC04314
+288100                                 TO  TB-BRN4-BRANCH               TLC04314
+288200        CALL 'SYU510'         USING  TB-BRN4-PROC-IA              TLC04314
+239000        CALL 'SYU510' USING TB-CARRIER3-TABLE-IA                  TLC04314
+           END-IF.                                                      TLC04314
+                                                                        TLC04314
+013800     IF ORSH-OPEN-STATUS OR                                       00000250
+013900        ORSH-TAG-HOLD-STATUS OR                                   HXJ03128
+              (TB-BRN3-ALTCA-VAL-SW = 'Y' AND                           HXJ03128
+               ORSH-RELEASED-ORDER)                                     HXJ03128
+278500        OR (ORSH-CREDIT-HOLD-STATUS AND                           TLC04314
+                     (TB-BRN4-PRINT-CR-HOLD-SW = 'Y' AND                TLC04314
+                      TB-CAR3-PRINT-CR-HOLD-SW = 'Y'))                  TLC04314
+014000         NEXT SENTENCE                                            00000270
+014100     ELSE                                                         00000280
+014200         GO TO 870-ASSIGN-BATCH-NBR-EXIT.                         00000290
+014300*                                                                 00000200
+014400*SET HEADER ZIP CODE TO A STANDARD 5-4 NUMERIC FORMAT             00000200
+014500*                                                                 00000200
+014600     MOVE ZEROES                 TO WS-SYRBATCH-ZIP-CODE.         00000200
+014700     IF ORH-ZIP-CODE NUMERIC                                      00000200
+014800        MOVE ORH-ZIP-CODE        TO WS-SYRBATCH-ZIP-4-5           00000200
+014900        IF WS-SYRBATCH-ZIP-4 EQUAL ZEROES                         00000200
+015000           MOVE WS-SYRBATCH-ZIP-5                                 00000200
+015100                                 TO WS-SYRBATCH-ZIP-9-5           00000200
+015200           MOVE ZEROES           TO WS-SYRBATCH-ZIP-9-4           00000200
+015300           MOVE WS-SYRBATCH-ZIP-9                                 00000200
+015400                                 TO WS-SYRBATCH-ZIP-CODE          00000200
+015500        ELSE                                                      00000200
+015600           MOVE ORH-ZIP-CODE     TO WS-SYRBATCH-ZIP-CODE          00000200
+015700     ELSE                                                         00000200
+015800        MOVE ORH-POSTAL-CODES    TO WS-SYRBATCH-POSTAL-CODES      00000200
+015900        IF WS-SYRBATCH-POSTAL-5 NUMERIC                           00000200
+016000           MOVE WS-SYRBATCH-POSTAL-5                              00000200
+016100                                 TO WS-SYRBATCH-ZIP-9-5           00000200
+016200           MOVE ZEROES           TO WS-SYRBATCH-ZIP-9-4           00000200
+016300           MOVE WS-SYRBATCH-ZIP-9                                 00000200
+016400                                 TO WS-SYRBATCH-ZIP-CODE.         00000200
+016500     MOVE SPACES TO WS-SYRBATCH-POSTAL-CODES.                     JXH95195
+016600     IF ORH-COMPANY NOT = 'MD' AND                                JXH95195
+016700        WS-SYRBATCH-ZIP-CODE = ZEROES                             JXH95195
+016800           MOVE ORH-POSTAL-CODES TO WS-SYRBATCH-POSTAL-CODES.     JXH95195
+016900*                                                                 TMH99170
+017000     IF ORH-US-MODEL-COMPANY                                      TMH99170
+017100        IF ORH-ZIP-CODE NOT NUMERIC                               TMH99170
+017200              MOVE 0 TO ORH-ZIP-CODE.                             TMH99170
+017300                                                                  TMH99170
+017400     IF ORH-COMPANY = 'MD' OR 'FT' OR 'MS'                        MJS01135
+            OR TB-CPO-EUROPEAN-CNTRY                                    TLC00307
+017500        PERFORM 870-BATCH-ZIP-PRIORITY.                           TMH99170
+017600                                                                  TMH99170
+017700     MOVE ORH-COMPANY            TO WS-ORBAT-COMPANY.             TND98100
+017800     MOVE ORSH-BR-NBR-SHIP-FROM  TO WS-ORBAT-SHIP-FROM-BR.        TND98100
+017900     MOVE SPACES                 TO WS-ORBAT-BATCH-NBR.           TND98100
+018000     PERFORM 890-STARTBR-ORLBAT THRU 890-STARTBR-ORLBAT-EXIT.     TND98100
+018100     IF  WS-ORBAT-NORESP                                          TND98100
+018200           PERFORM 871-PROCESS-ORLBAT                             GMM97190
+018300              THRU 871-PROCESS-ORLBAT-EXIT                        GMM97190
+018400                 UNTIL NOT WS-ORBAT-NORESP                        GMM97190
+018500     ELSE                                                         TND98100
+018600           IF ORSH-ALT-WAREHOUSE-CO GREATER THAN SPACES           GMM97190
+018700              MOVE 'SHR'         TO WS-ORBAT-BATCH-NBR            GMM97190
+018800           ELSE                                                   GMM97190
+018900              MOVE 'MAN'         TO WS-ORBAT-BATCH-NBR            GMM97190
+019000           END-IF                                                 GMM97190
+019100           PERFORM 872-SET-BATCH-NBR THRU 872-SET-BATCH-NBR-EXIT. GMM97190
+019200*                                                                 00000370
+019300 870-ASSIGN-BATCH-NBR-EXIT.  EXIT.                                00000380
+019400*                                                                 00000390
+019500 870-BATCH-ZIP-PRIORITY.                                          TMH99170
+019600     IF ORH-COMPANY = 'MD' OR                                     MJS01135
+              (ORH-COMPANY = 'MS' AND ORH-BR-NBR NOT = '68')            MJS01135
+019700        MOVE ORH-ZIP-CODE          TO WS-SYRBATCH-POSTAL-CODES    TMH99170
+019800        MOVE WS-SYRBATCH-POSTAL-5X TO ZP-BEG-ZIP                  TMH99170
+019900     ELSE                                                         TMH99170
+             IF TB-CPO-EUROPEAN-CNTRY                                   TLC00307
+020100        MOVE ORH-POSTAL-CODES  TO WS-SYRBATCH-POSTAL-CODES        TLC00307
+019800        MOVE WS-SYRBATCH-POSTAL-5X TO ZP-BEG-ZIP                  TLC00307
+             ELSE                                                       TLC00307
+020000         IF ORH-COMPANY = 'FT'                                    TMH99170
+020100            MOVE ORH-POSTAL-CODES  TO WS-SYRBATCH-POSTAL-CODES    TMH99170
+020200            MOVE WS-SYRBATCH-POSTAL-CODES TO ZP-BEG-ZIP.          TMH99170
+020300                                                                  TMH99170
+           IF TB-CPO-EUROPEAN-CNTRY AND ORSH-CARRIER-CODE = 'DX'        WXE02002
+              EVALUATE WS-SYRBATCH-EXPORT-COUNTRY                       WXE02002
+                    WHEN 'CZ'                                           WXE02002
+                    WHEN 'DE'                                           WXE02002
+                    WHEN 'ES'                                           WXE02002
+                    WHEN 'PT'                                           JYA19200
+                    WHEN 'FI'                                           WXE02002
+                    WHEN 'FR'                                           WXE02002
+                    WHEN 'IT'                                           WXE02002
+                    WHEN 'SE'  MOVE WS-SYRBATCH-EXPORT-ZIP(1:5)         WXE02002
+                                         TO WS-SYRBATCH-EXPORT-ZIP      WXE02002
+                    WHEN 'GB'                                           WXE02002
+                    WHEN 'UK'                                           WXE02002
+                       IF WS-SYRBATCH-EXPORT-ZIP(2:1) = SPACE OR        WXE02002
+                          WS-SYRBATCH-EXPORT-ZIP(2:1) NUMERIC           WXE02002
+                             IF WS-SYRBATCH-EXPORT-ZIP(2:1) = SPACE     WXE02002
+                                MOVE '0' TO WS-SYRBATCH-EXPORT-ZIP(2:1) WXE02002
+                             END-IF                                     WXE02002
+                             MOVE ' ' TO WS-SYRBATCH-EXPORT-ZIP(4:1)    WXE02002
+                             IF WS-SYRBATCH-EXPORT-ZIP(3:1) NOT NUMERIC WXE02002
+                                MOVE WS-SYRBATCH-EXPORT-ZIP(2:1)        WXE02002
+                                         TO WS-SYRBATCH-EXPORT-ZIP(3:1) WXE02002
+                                MOVE '0' TO WS-SYRBATCH-EXPORT-ZIP(2:1) WXE02002
+                             END-IF                                     WXE02002
+                       ELSE                                             WXE02002
+                             IF WS-SYRBATCH-EXPORT-ZIP(4:1) NOT NUMERIC WXE02002
+                                MOVE WS-SYRBATCH-EXPORT-ZIP(3:1)        WXE02002
+                                         TO WS-SYRBATCH-EXPORT-ZIP(4:1) WXE02002
+                                MOVE '0' TO WS-SYRBATCH-EXPORT-ZIP(3:1) WXE02002
+                             ELSE                                       WXE02002
+                                IF WS-SYRBATCH-EXPORT-ZIP(3:1) = SPACE  WXE02002
+                                   MOVE '0'                             WXE02002
+                                         TO WS-SYRBATCH-EXPORT-ZIP(3:1) WXE02002
+                                END-IF                                  WXE02002
+                             END-IF                                     WXE02002
+                       END-IF                                           WXE02002
+                       MOVE SPACES       TO WS-SYRBATCH-EXPORT-ZIP(5:8) WXE02002
+                    WHEN NOT 'IE'                                       WXE02002
+                               MOVE WS-SYRBATCH-EXPORT-ZIP(1:4)         WXE02002
+                                         TO WS-SYRBATCH-EXPORT-ZIP      WXE02002
+              END-EVALUATE                                              WXE02002
+           END-IF.                                                      WXE02002
+                                                                        WXE02002
+020400     MOVE ORH-COMPANY           TO ZP-COMPANY                     TMH99170
+020500     MOVE ORSH-BR-NBR-SHIP-FROM TO ZP-SHIP-FROM-BR                TMH99170
+020600     MOVE ORSH-CARRIER-CODE     TO ZP-CARRIER                     TMH99170
+           IF TB-CPO-EUROPEAN-CNTRY AND ORSH-CARRIER-CODE = 'DX'        WXE02002
+              MOVE WS-SYRBATCH-EXPORT-COUNTRY                           WXE02002
+                                      TO ZP-COMPANY                     WXE02002
+              MOVE '**'               TO ZP-SHIP-FROM-BR                WXE02002
+              MOVE 'DX'               TO ZP-CARRIER                     WXE02002
+              MOVE WS-SYRBATCH-EXPORT-ZIP                               WXE02002
+                                      TO ZP-BEG-ZIP                     WXE02002
+           END-IF.                                                      WXE02002
+020700     MOVE SPACES                TO ZP-END-ZIP                     TMH99170
+020800                                   WS-SYRBATCH-ZP-ZIP-SW          TMH99170
+020900     MOVE ZEROS                 TO ZP-BEG-WEIGHT                  TMH99170
+021000                                   ZP-END-WEIGHT                  TMH99170
+021100     PERFORM 915-STARTBR-RWLZPM    THRU 915-EXIT                  TMH99170
+021600     IF WS-ZP-NORESP                                              JJD01136
+021700        PERFORM 881-PROCESS-RWLZPM THRU 881-EXIT                  JJD01136
+021300        PERFORM 930-ENDBR-RWLZPM   THRU 930-EXIT.                 JJD01136
+021900                                                                  TMH99170
+022000 871-PROCESS-ORLBAT.                                              00000400
+022100*                                                                 00000410
+022200     PERFORM 891-READNEXT-ORLBAT THRU 891-READNEXT-ORLBAT-EXIT.   00000420
+022300     IF NOT WS-ORBAT-NORESP                                       00000430
+022400         PERFORM 892-ENDBR-ORLBAT                                 00000440
+022500         IF ORSH-ALT-WAREHOUSE-CO GREATER THAN SPACES             TMH96228
+022600              MOVE 'SHR'         TO WS-ORBAT-BATCH-NBR            TMH96228
+022700         ELSE MOVE 'MAN'         TO WS-ORBAT-BATCH-NBR            TMH96228
+022800         END-IF                                                   TMH96228
+022900         MOVE  ORSH-BR-NBR-SHIP-FROM                              JJD95282
+023000                                 TO WS-ORBAT-SHIP-FROM-BR         JJD95282
+023100         PERFORM 872-SET-BATCH-NBR THRU 872-SET-BATCH-NBR-EXIT    BCA92258
+023200         MOVE 'N'                TO WS-ORBAT-IO-SW                BCA92258
+023300         GO TO 871-PROCESS-ORLBAT-EXIT.                           00000450
+023400     IF ORBAT-COMPANY EQUAL ORH-COMPANY AND                       00000460
+023500        ORBAT-SHIP-FROM-BR EQUAL ORSH-BR-NBR-SHIP-FROM                    
+023600         NEXT SENTENCE                                            00000480
+023700     ELSE                                                         00000490
+023800         PERFORM 892-ENDBR-ORLBAT                                 00000500
+023900         IF ORSH-ALT-WAREHOUSE-CO GREATER THAN SPACES             TMH96228
+024000              MOVE 'SHR'         TO WS-ORBAT-BATCH-NBR            TMH96228
+024100         ELSE MOVE 'MAN'         TO WS-ORBAT-BATCH-NBR            TMH96228
+024200         END-IF                                                   TMH96228
+024300         MOVE  ORH-COMPANY       TO WS-ORBAT-COMPANY              EXG05151
+024300         MOVE  ORSH-BR-NBR-SHIP-FROM                              JJD95282
+024400                                 TO WS-ORBAT-SHIP-FROM-BR         JJD95282
+024500         PERFORM 872-SET-BATCH-NBR THRU 872-SET-BATCH-NBR-EXIT    BCA92258
+024600         MOVE 'N'                TO WS-ORBAT-IO-SW                00000510
+024700         GO TO 871-PROCESS-ORLBAT-EXIT.                           00000520
+024800                                                                  GMM97190
+024900     MOVE 'N'                    TO WS-SYRBATCH-ZIP-SW.           TND98100
+025000     MOVE 'N'                    TO WS-SYRBATCH-TBL-SW.           TND98100
+025100     MOVE 'N'                    TO WS-SYRBATCH-MATCH-SW.         TND98100
+025200     PERFORM 902-CHECK-ZIP-RANGE THRU 902-MATCH-EXIT              TND98100
+025300        VARYING WS-SYRBATCH-SUB FROM 1 BY 1                       GMM97190
+025400          UNTIL WS-SYRBATCH-SUB    > 16                           GMM97190
+025500             OR WS-SYRBATCH-ZIP-SW = 'Y'                          GMM97190
+025600             OR WS-SYRBATCH-TBL-SW = 'Y'.                         GMM97190
+025700                                                                  TMH96228
+025800     IF ORBAT-ORDER-TYPE GREATER THAN SPACES                      00000900
+025900        OR ORBAT-ORDER-SPECIFIC-TYPE GREATER THAN SPACES          ETJ98246
+025900        OR ORBAT-SPECIAL-DEL-SW      GREATER THAN SPACES          JJD99225
+026000        OR ORBAT-CUSTOM-FORM-SW GREATER THAN SPACES               MAM99095
+026100        OR ORBAT-CUST-PICK-GROUP GREATER THAN SPACES              BCA92258
+026200        OR (ORBAT-CUST-BR GREATER THAN SPACES AND                 BCA92258
+026300            ORBAT-CUST-NBR GREATER THAN SPACES)                   BCA92258
+026400        OR ORBAT-CUT-OFF-HOUR GREATER THAN ZEROES                 BCA92258
+026500        OR WS-SYRBATCH-ZIP-SPECIFIED                              JXH95195
+026600        OR ORBAT-CONFIG-ORDER-SW GREATER THAN SPACES              MWD95188
+026700        OR ORBAT-POSTAL-PRIORITY-CODE GREATER THAN SPACES         TMH96111
+026800        OR ORBAT-INV-SHARING-CO-BR    GREATER THAN SPACES         TMH96228
+026900        OR ORBAT-CARRIER-TABLE  GREATER THAN  SPACES              KAB96289
+027000        OR ORBAT-WEIGHT-MAX  GREATER THAN  ZEROES                 KAB96289
+027100        OR ORBAT-LINES-MAX   GREATER THAN  ZEROES                 KAB96289
+027200        OR ORBAT-RWLZPM-PRIORITY-CD GREATER THAN SPACES           TND98100
+              OR ORBAT-BIN-TYPE           GREATER THAN SPACES           RPM00233
+              OR ORBAT-SPECIAL-HANDLE-CODE GREATER THAN SPACES          PJD00325
+027300         NEXT SENTENCE                                            BCA92258
+027400     ELSE                                                         BCA92258
+027500         GO TO 871-PROCESS-ORLBAT-EXIT.                           BCA92258
+                                                                        PJD00325
+027700     IF  ORBAT-SPECIAL-HANDLE-CODE >  SPACES                      PJD00325
+027800       IF  ORSH-SPECIAL-HANDLE-SW      > SPACES                   PJD00325
+027900         IF  ORBAT-SPECIAL-HANDLE-CODE  = ORSH-SPECIAL-HANDLE-SW  PJD00325
+028100                 NEXT SENTENCE                                    PJD00325
+028200         ELSE   GO TO 871-PROCESS-ORLBAT-EXIT                     PJD00325
+028300       ELSE     GO TO 871-PROCESS-ORLBAT-EXIT.                    PJD00325
+                                                                                
+           IF ORBAT-BIN-TYPE < SPACES                                   RPM00233
+              MOVE SPACES  TO ORBAT-BIN-TYPE.                           RPM00233
+                                                                        RPM00233
+           IF ORH-BIN-TYPE   < SPACES                                   RPM00233
+              MOVE SPACES  TO ORH-BIN-TYPE.                             RPM00233
+                                                                        RPM00233
+           IF ORBAT-BIN-TYPE = ORH-BIN-TYPE                             RPM00233
+              CONTINUE                                                  RPM00233
+           ELSE                                                         RPM00233
+              GO TO 871-PROCESS-ORLBAT-EXIT.                            RPM00233
+                                                                                
+027700     IF  ORSH-ALT-WAREHOUSE-CO GREATER THAN SPACES                TMH97035
+027800       IF  ORBAT-INV-SHARING-CO-BR GREATER THAN SPACES            TMH97035
+027900         IF  ORBAT-INV-SHARING-CO  EQUAL ORSH-ALT-WAREHOUSE-CO    TMH97035
+028000             AND ORBAT-INV-SHARING-BR EQUAL ORSH-BR-NBR-SHIP-FROM TMH97035
+028100                 NEXT SENTENCE                                    TMH97035
+028200         ELSE   GO TO 871-PROCESS-ORLBAT-EXIT                     TMH97035
+028300       ELSE     GO TO 871-PROCESS-ORLBAT-EXIT.                    TMH97035
+028400                                                                  ETJ98156
+028500     IF ORBAT-ORDER-SPECIFIC-TYPE GREATER THAN SPACES             ETJ98156
+028600        IF ORBAT-FULFILLMENT-TYPE                                 ETJ98156
+028700           IF ORH-FULFILLMENT                                     ETJ98156
+028800              NEXT SENTENCE                                       ETJ98156
+028900           ELSE                                                   ETJ98156
+029000              GO TO 871-PROCESS-ORLBAT-EXIT                       ETJ98246
+029100           END-IF                                                 ETJ98246
+029200        ELSE                                                      ETJ98246
+029300            IF ORBAT-AGENT-THIRD-PARTY                            ETJ98246
+029400               IF ORH-AGENCY-ORDER-HANDLE                         ETJ98246
+029500                  NEXT SENTENCE                                   ETJ98246
+029600               ELSE                                               ETJ98246
+029700                  GO TO 871-PROCESS-ORLBAT-EXIT                   ETJ98246
+029800               END-IF                                             ETJ98246
+029900            ELSE                                                  BCW99106
+030000               IF ORBAT-US-EXPORT-TYPE                            BCW99106
+030100                   IF ORSH-EXPORT-ORD-IND = 'Y'                   BCW99126
+030200                      NEXT SENTENCE                               BCW99106
+030300                   ELSE                                           BCW99106
+030400                      GO TO 871-PROCESS-ORLBAT-EXIT               BCW99106
+030500                   END-IF                                         BCW99106
+030600               END-IF                                             BCW99106
+030700            END-IF                                                ETJ98246
+030800        END-IF                                                    BCW99126
+030900     END-IF.                                                      BCW99126
+031000                                                                  MAM99095
+031100     IF ORBAT-GEN-CUSTOM-LABEL                                    MAM99095
+031200        IF ORH-GEN-CUSTOM-LABEL                                   MAM99095
+031300           NEXT SENTENCE                                          MAM99095
+031400        ELSE                                                      MAM99095
+031500           GO TO 871-PROCESS-ORLBAT-EXIT                          MAM99095
+031600        END-IF                                                    MAM99095
+031700     END-IF.                                                      MAM99095
+031800                                                                  TMH97035
+           IF TB-CPO-EUROPEAN-CNTRY OR TB-CPO-ASIA-PACIFIC-CNTRY        TLC04053
+              IF ORBAT-BACKORDER-CODE = 'Y' AND                         TXS02195
+                        ORH-LAST-SHIPMENT-NBR = 1                       TXS02195
+                 GO TO 871-PROCESS-ORLBAT-EXIT                          TXS02195
+              END-IF                                                    TXS02195
+              IF ORBAT-BACKORDER-CODE = 'N' AND                         TXS02195
+                        ORH-LAST-SHIPMENT-NBR > 1                       TXS02195
+                 GO TO 871-PROCESS-ORLBAT-EXIT                          TXS02195
+              END-IF                                                    TXS02195
+              IF ORBAT-MAX-ORDER-VALUE NUMERIC AND                      TXS02195
+                    ORBAT-MAX-ORDER-VALUE  >  0                         TXS02195
+                 IF ORSH-TOTAL-SALES > ORBAT-MAX-ORDER-VALUE            WXE02196
+                    GO TO 871-PROCESS-ORLBAT-EXIT                       TXS02195
+                 END-IF                                                 TXS02195
+              END-IF                                                    TXS02195
+           END-IF.                                                      TXS02195
+                                                                        TXS02195
+           IF (TB-CPO-EUROPEAN-CNTRY OR TB-CPO-ASIA-PACIFIC-CNTRY)      WXE03213
+                 AND WS-SYRBATCH-ORDER-BOXES > 0                        WXE03213
+              IF ORBAT-MAX-ORDER-BOXES NUMERIC AND                      WXE03213
+                    ORBAT-MAX-ORDER-BOXES > 0                           WXE03213
+                 IF WS-SYRBATCH-ORDER-BOXES > ORBAT-MAX-ORDER-BOXES     WXE03213
+                    GO TO 871-PROCESS-ORLBAT-EXIT                       WXE03213
+                 END-IF                                                 WXE03213
+              END-IF                                                    WXE03213
+           END-IF.                                                      WXE03213
+                                                                        WXE03213
+031900     IF ORBAT-CUST-PICK-GROUP GREATER THAN SPACES                 BCA92258
+032000        IF ORBAT-CUST-PICK-GROUP = ORSH-CUSTOMER-PICK-GROUP       BCA92258
+032100           NEXT SENTENCE                                          BCA92258
+032200        ELSE                                                      BCA92258
+032300           GO TO 871-PROCESS-ORLBAT-EXIT.                         00000570
+032400     IF (ORBAT-CUST-BR GREATER THAN SPACES AND                    00000680
+032500         ORBAT-CUST-NBR GREATER THAN SPACES)                      00000690
+032600         IF (ORBAT-CUST-BR EQUAL ORH-BILL-TO-BR-NBR AND           00000700
+032700             ORBAT-CUST-NBR EQUAL ORH-BILL-TO-CUST-NBR)           00000710
+032800            OR                                                    DMR93062
+032900            (ORBAT-CUST-BR EQUAL ORH-BILL-TO-BR-NBR AND           DMR93062
+033000             ORBAT-CUST-NBR EQUAL ALL '*')                        DMR93062
+033100             NEXT SENTENCE                                        00000720
+033200         ELSE                                                     00000730
+033300             GO TO 871-PROCESS-ORLBAT-EXIT.                       00000740
+033400                                                                          
+033500******************************************************************KMB98250
+033600** FOR EUROPE, THE TIME DIFFERENCE IS TOO GREAT FROM THE SYSTEM **KMB98250
+033700** (PST) TIME AND THEY WERE FORCED TO CREATE MANY BATCHES TO    **KMB98250
+033800** ACCOMMODATE FOR THE TIME ROLLOVER 23:59 TO 00:00 SO WE WILL  **KMB98250
+033900** TAKE INTO ACCOUNT TO SIMPLIFY BATCH MANAGEMENT.              **KMB98250
+034000******************************************************************KMB98250
+034100     MOVE WS-SYRBATCH-TIME   TO WS-SYRBATCH-TIME-W-DIFF.          KMB98250
+034200     IF TB-CPO-EUROPEAN-CNTRY AND                                 KMB98250
+034300        (ORBAT-CUT-OFF-HOUR GREATER THAN ZEROES) AND              KMB98250
+034400        (TB-BRN-TIME-DIFF NUMERIC)                                KMB98250
+034500        IF TB-BRN-TIME-DIFF GREATER THAN ZEROES                   KMB98250
+034600            ADD TB-BRN-TIME-DIFF                                  KMB98250
+034700                             TO WS-SYRBATCH-BATCH-HR              KMB98250
+034800            IF WS-SYRBATCH-BATCH-HR GREATER THAN 24               KMB98250
+034900                SUBTRACT 24  FROM WS-SYRBATCH-BATCH-HR.           KMB98250
+035000                                                                  TGF99067
+035100     IF (TB-CPO-LATIN-AM-CNTRY OR                                 TLC02286
+034200      TB-CPO-ASIA-PACIFIC-CNTRY) AND                              TLC02286
+035200        (TB-BRN-TIME-DIFF NUMERIC)                                TGF99067
+035300        IF TB-BRN-TIME-DIFF GREATER THAN ZEROES                   TGF99067
+035400            ADD TB-BRN-TIME-DIFF                                  TGF99067
+035500                             TO WS-SYRBATCH-BATCH-HR              TGF99067
+035600            IF WS-SYRBATCH-BATCH-HR GREATER THAN 24               TGF99067
+035700                SUBTRACT 24  FROM WS-SYRBATCH-BATCH-HR            SCT99210
+035700                MOVE 1       TO   WS-SYRBATCH-DAY-ADJUST.         SCT99210
+035800                                                                          
+035900     IF ORBAT-CUT-OFF-HOUR GREATER THAN ZEROES                    BCA92258
+036000         IF WS-SYRBATCH-BATCH-HOUR LESS THAN ORBAT-CUT-OFF-HOUR   KMB98250
+036100             NEXT SENTENCE                                        BCA92258
+036200         ELSE                                                     BCA92258
+036300             GO TO 871-PROCESS-ORLBAT-EXIT.                       BCA92258
+036400                                                                  TMH97035
+036500*    IF ORBAT-INV-SHARING-CO-BR GREATER THAN SPACES               TMH97035
+036600*        IF ORBAT-INV-SHARING-CO  EQUAL ORSH-ALT-WAREHOUSE-CO     TMH97035
+036700*           AND ORBAT-INV-SHARING-BR EQUAL ORSH-BR-NBR-SHIP-FROM  TMH97035
+036800*               NEXT SENTENCE                                     TMH97035
+036900*        ELSE                                                     TMH97035
+037000*               GO TO 871-PROCESS-ORLBAT-EXIT.                    TMH97035
+037100                                                                  TMH97035
+037200*                                                                 TND98100
+037300** A NEW FILE HAS BEEN CREATED (RWLZPM) WHICH WILL STORE BEG/END  TND98100
+037400** ZIP CODE RANGES, ALONG WITH AN ASSOCIATED PRIORITY CODE.       TND98100
+037500** IF WS-SYRBATCH-ZP-ZIP-SW EQUALS 'Y', THEN THE ORDER ZIP# HAS   TND98100
+037600** FALLEN WITHIN THE BEG/END ZIP RANGE ON THE RWLZPM FILE. IF SO, TND98100
+037700** IT WILL LOOK TO MATCH THE PRIORITY CODE ON THE ORLBAT FILE.    TND98100
+037800** IF IT MATCHES, IT WILL ASSIGN A BATCH NUMBER. IF THERE IS NO   TND98100
+037900** HIT, NORMAL PROCESSING CONTINUES.                              TND98100
+038000*                                                                 TND98100
+038100     MOVE 'N'              TO  WS-SYRBATCH-ZP-PRIORITY-SW.        TND98100
+038200     IF  ORBAT-RWLZPM-PRIORITY-CD > SPACES                        TND98100
+038300        IF  WS-SYRBATCH-ZP-ZIP-SW = 'Y'                           TND98100
+038400            IF  ORBAT-RWLZPM-PRIORITY-CD = ZP-PRIORITY            TND98100
+038500                MOVE 'Y'   TO  WS-SYRBATCH-ZP-PRIORITY-SW         TND98100
+038600            ELSE                                                  TND98100
+038700                GO                  TO 871-PROCESS-ORLBAT-EXIT    TND98100
+038800        ELSE                                                      TND98100
+038900            GO                      TO 871-PROCESS-ORLBAT-EXIT.   TND98100
+039000** IF FOUND IN THE RWLZPM ZIP FILE, BYPASS THE ZIP TABLE          TND98100
+039100     IF  WS-SYRBATCH-ZP-PRIORITY-SW NOT = 'Y'                     GMM97190
+039200     AND WS-SYRBATCH-ZIP-SW = 'Y'                                 GMM97190
+039300        MOVE 'N'                    TO WS-SYRBATCH-TBL-SW         JJD96173
+039400        PERFORM 900-MATCH-ZIP-RANGE THRU 900-MATCH-EXIT           JJD96173
+039500        VARYING WS-SYRBATCH-SUB FROM 1 BY 1                       JJD96173
+039600                         UNTIL WS-SYRBATCH-SUB > 16               JJD96173
+039700        OR WS-SYRBATCH-TBL-SW = 'Y'                               JJD96173
+039800        OR WS-SYRBATCH-MATCH-SW = 'Y'                             JJD96173
+039900        IF WS-SYRBATCH-MATCH-SW NOT = 'Y'                         JJD96173
+040000           GO                       TO 871-PROCESS-ORLBAT-EXIT.   JJD96173
+040100                                                                  JJD96173
+040200     IF ORBAT-ORDER-TYPE GREATER THAN SPACES                      00000900
+040300         IF ORBAT-ORDER-TYPE EQUAL ORSH-ORDER-TYPE                00000910
+040400             NEXT SENTENCE                                        00000920
+040500         ELSE                                                     00000930
+040600             GO TO 871-PROCESS-ORLBAT-EXIT.                       00000940
+040700                                                                  MXW97013
+040200     IF ORBAT-SPECIAL-DEL-SW > SPACES                             JJD99225
+040300         IF ORBAT-SPECIAL-DEL-SW = ORSH-SPECIAL-DELIVERY          JJD99225
+040400             NEXT SENTENCE                                        JJD99225
+040500         ELSE                                                     JJD99225
+040600             GO TO 871-PROCESS-ORLBAT-EXIT.                       JJD99225
+040700                                                                  MXW97013
+040800     IF ORBAT-CONFIG-ORDER-SW GREATER THAN SPACES                 MXW97013
+040900        IF ORBAT-CONFIG-ORDER-SW EQUAL 'T'                        MXW97013
+041000           IF ORSH-CONFIG-BT-INFLIGHT-YES                         MXW97013
+041100              NEXT SENTENCE                                       MXW97013
+041200           ELSE                                                   MXW97013
+041300              GO TO 871-PROCESS-ORLBAT-EXIT                       MXW97013
+041400           END-IF                                                 MXW97013
+041500        ELSE                                                      MXW97013
+041600           IF ORBAT-CONFIG-ORDER-SW EQUAL ORSH-CONFIG-FLAG        MXW97013
+041700              NEXT SENTENCE                                       MXW97013
+041800           ELSE                                                   MXW97013
+041900              IF ORBAT-CONFIG-ORDER-SW EQUAL '*'                  MWO98105
+042000                 AND ORSH-CUST-CONFIG-ORDER                       MWO98105
+042100                 NEXT SENTENCE                                    MWO98105
+042200              ELSE                                                MWO98105
+042300                 GO TO 871-PROCESS-ORLBAT-EXIT                    MWO98105
+042400              END-IF                                              MWO98105
+042500           END-IF                                                 MXW97013
+042600        END-IF                                                    MXW97013
+042700     END-IF.                                                      MXW97013
+042800                                                                  TMH96111
+042900     IF ORBAT-POSTAL-PRIORITY-CODE GREATER THAN SPACES            TMH96111
+043000        IF ORH-COMPANY EQUAL 'UK'                                 TMH96111
+043100            AND  (ORBAT-POSTAL-PRIORITY-CODE                      TMH96111
+043200                  EQUAL ORH-POSTAL-PRIORITY-CODE)                 TMH96111
+043300                        NEXT SENTENCE                             TMH96111
+043400       ELSE GO TO 871-PROCESS-ORLBAT-EXIT.                        TMH96111
+043500                                                                  TMH96111
+043600     IF  ORBAT-WEIGHT-MAX  GREATER THAN  ZEROES                   KAB96289
+043700         IF  ORSH-TOTAL-WEIGHT  GREATER THAN  ORBAT-WEIGHT-MAX    KAB96289
+043800             GO TO 871-PROCESS-ORLBAT-EXIT.                       KAB96289
+043900                                                                  KAB96289
+044000     IF  ORBAT-LINES-MAX  GREATER THAN  ZEROES                    KAB96289
+044100         IF  ORSH-TOTAL-LINES  GREATER THAN  ORBAT-LINES-MAX      KAB96289
+044200             GO TO 871-PROCESS-ORLBAT-EXIT.                       KAB96289
+044300                                                                  KAB96289
+044400     IF  ORBAT-CARRIER-TABLE  EQUAL  SPACES                       KAB96289
+044500         NEXT SENTENCE                                            KAB96289
+044600     ELSE                                                         KAB96289
+044700     IF  ORSH-CARRIER-CODE  EQUAL  SPACES                         KAB96289
+044800         NEXT SENTENCE                                            KAB96289
+044900     ELSE                                                         KAB96289
+045000         MOVE  'N'              TO  WS-SYRBATCH-CARRIER-SW        KAB96289
+045100         PERFORM  905-CHECK-CARRIER THRU 905-CHECK-CARRIER-EXIT   KAB96289
+045200           VARYING  ORBAT-IX  FROM  +1 BY +1                      KAB96289
+045300             UNTIL  ORBAT-IX  GREATER THAN  +10                   KAB96289
+045400         IF  WS-SYRBATCH-NO-CARRIER-MATCH                         KAB96289
+045500             GO TO 871-PROCESS-ORLBAT-EXIT.                       KAB96289
+045600                                                                  KAB96289
+045700     PERFORM 892-ENDBR-ORLBAT.                                    BCA92258
+045800     MOVE ORBAT-BATCH-NBR       TO WS-ORBAT-BATCH-NBR.            BCA92258
+045900     PERFORM 872-SET-BATCH-NBR THRU 872-SET-BATCH-NBR-EXIT.       00000950
+046000     MOVE 'N'                   TO WS-ORBAT-IO-SW.                00000960
+046100*                                                                 00000970
+046200 871-PROCESS-ORLBAT-EXIT.  EXIT.                                  00000980
+046300*                                                                 00000990
+046400 872-SET-BATCH-NBR.                                               00001000
+046500*                                                                 00001010
+046600     PERFORM 893-READ-ORLBAT-UPDATE THRU                          00001040
+046700             893-READ-ORLBAT-UPDATE-EXIT.                         00001050
+046800     IF NOT WS-ORBAT-NORESP                                       00001060
+046900         GO TO 872-SET-BATCH-NBR-EXIT.                            00001070
+047000     IF ORBAT-WEIGHT-LIMIT NOT NUMERIC                            JJD97230
+047100        MOVE ZEROES              TO ORBAT-WEIGHT-LIMIT.           JJD97230
+047200     ADD 1                       TO ORBAT-ORDER-LIMIT-STS.        BCA92258
+047300     ADD ORSH-TOTAL-WEIGHT       TO ORBAT-WEIGHT-LIMIT-STS.       BCA92258
+047400     ADD ORSH-TOTAL-CUBE         TO ORBAT-CUBE-LIMIT-STS.         BCA92258
+047500     ADD ORSH-TOTAL-LINES        TO ORBAT-LINES-LIMIT-STS.        BCA92258
+047600     IF ORSH-FULLCASE-LINES NUMERIC                               DMR92344
+047700        NEXT SENTENCE                                             DMR92344
+047800     ELSE                                                         DMR92344
+047900        MOVE ZEROES              TO ORSH-FULLCASE-LINES.          DMR92344
+048000     IF ORSH-REPACK-LINES NUMERIC                                 DMR92344
+048100        NEXT SENTENCE                                             DMR92344
+048200     ELSE                                                         DMR92344
+048300        MOVE ORSH-TOTAL-LINES    TO ORSH-REPACK-LINES.            DMR92344
+048400     ADD ORSH-FULLCASE-LINES     TO ORBAT-FC-LINE-LIMIT-STS.      BCA92258
+048500     ADD ORSH-REPACK-LINES    TO ORBAT-REP-LINE-LIMIT-STS.        BCA92258
+048600     IF WS-ORBAT-BATCH-NBR = 'MER'                                JJD94301
+048700        IF ORSH-FULLCASE-LINES = 999 AND                          JJD94301
+048800           ORSH-REPACK-LINES = 999                                JJD94301
+048900           ADD 1                    TO ORBAT-BATCH-SEQ-NBR        JJD94301
+049000           MOVE 1                   TO ORBAT-ORDER-LIMIT-STS      JJD94301
+049100           MOVE ORSH-TOTAL-CUBE     TO ORBAT-CUBE-LIMIT-STS       JJD94301
+049200           MOVE ORSH-TOTAL-LINES    TO ORBAT-LINES-LIMIT-STS      JJD94301
+049300           MOVE ORSH-TOTAL-WEIGHT   TO ORBAT-WEIGHT-LIMIT-STS     JJD94301
+049400           MOVE ORSH-FULLCASE-LINES TO ORBAT-FC-LINE-LIMIT-STS    JJD94301
+049500           MOVE ORSH-REPACK-LINES   TO ORBAT-REP-LINE-LIMIT-STS.  JJD94301
+049600     IF ORBAT-ORDER-LIMIT GREATER THAN ZEROES                     BCA92258
+049700       IF ORBAT-ORDER-LIMIT-STS > ORBAT-ORDER-LIMIT               BCA92258
+049800        ADD 1                    TO ORBAT-BATCH-SEQ-NBR           BCA92258
+049900        MOVE 1                   TO ORBAT-ORDER-LIMIT-STS         BCA92258
+050000        MOVE ORSH-TOTAL-CUBE     TO ORBAT-CUBE-LIMIT-STS          BCA92258
+050100        MOVE ORSH-TOTAL-LINES    TO ORBAT-LINES-LIMIT-STS         BCA92258
+050200        MOVE ORSH-TOTAL-WEIGHT   TO ORBAT-WEIGHT-LIMIT-STS        BCA92258
+050300        MOVE ORSH-FULLCASE-LINES TO ORBAT-FC-LINE-LIMIT-STS       BCA92258
+050400        MOVE ORSH-REPACK-LINES   TO ORBAT-REP-LINE-LIMIT-STS.     BCA92258
+050500     IF ORBAT-WEIGHT-LIMIT GREATER THAN ZEROES AND                BCA92258
+050600        ORBAT-ORDER-LIMIT-STS GREATER THAN 1                      BCA92258
+050700       IF ORBAT-WEIGHT-LIMIT-STS > ORBAT-WEIGHT-LIMIT             BCA92258
+050800        ADD 1                    TO ORBAT-BATCH-SEQ-NBR           BCA92258
+050900        MOVE 1                   TO ORBAT-ORDER-LIMIT-STS         BCA92258
+051000        MOVE ORSH-TOTAL-CUBE     TO ORBAT-CUBE-LIMIT-STS          BCA92258
+051100        MOVE ORSH-TOTAL-LINES    TO ORBAT-LINES-LIMIT-STS         BCA92258
+051200        MOVE ORSH-TOTAL-WEIGHT   TO ORBAT-WEIGHT-LIMIT-STS        BCA92258
+051300        MOVE ORSH-FULLCASE-LINES TO ORBAT-FC-LINE-LIMIT-STS       BCA92258
+051400        MOVE ORSH-REPACK-LINES   TO ORBAT-REP-LINE-LIMIT-STS.     BCA92258
+051500     IF ORBAT-CUBE-LIMIT GREATER THAN ZEROES AND                  BCA92258
+051600        ORBAT-ORDER-LIMIT-STS GREATER THAN 1                      BCA92258
+051700       IF ORBAT-CUBE-LIMIT-STS > ORBAT-CUBE-LIMIT                 BCA92258
+051800        ADD 1                    TO ORBAT-BATCH-SEQ-NBR           BCA92258
+051900        MOVE 1                   TO ORBAT-ORDER-LIMIT-STS         BCA92258
+052000        MOVE ORSH-TOTAL-CUBE     TO ORBAT-CUBE-LIMIT-STS          BCA92258
+052100        MOVE ORSH-TOTAL-LINES    TO ORBAT-LINES-LIMIT-STS         BCA92258
+052200        MOVE ORSH-TOTAL-WEIGHT   TO ORBAT-WEIGHT-LIMIT-STS        BCA92258
+052300        MOVE ORSH-FULLCASE-LINES TO ORBAT-FC-LINE-LIMIT-STS       BCA92258
+052400        MOVE ORSH-REPACK-LINES   TO ORBAT-REP-LINE-LIMIT-STS.     BCA92258
+052500*                                                                 00001400
+052600     IF ORBAT-LINES-LIMIT GREATER THAN ZEROES AND                 BCA92258
+052700        ORBAT-ORDER-LIMIT-STS GREATER THAN 1                      BCA92258
+052800       IF ORBAT-LINES-LIMIT-STS > ORBAT-LINES-LIMIT               BCA92258
+052900        ADD 1                    TO ORBAT-BATCH-SEQ-NBR           BCA92258
+053000        MOVE 1                   TO ORBAT-ORDER-LIMIT-STS         BCA92258
+053100        MOVE ORSH-TOTAL-CUBE     TO ORBAT-CUBE-LIMIT-STS          BCA92258
+053200        MOVE ORSH-TOTAL-LINES    TO ORBAT-LINES-LIMIT-STS         BCA92258
+053300        MOVE ORSH-TOTAL-WEIGHT   TO ORBAT-WEIGHT-LIMIT-STS        BCA92258
+053400        MOVE ORSH-FULLCASE-LINES TO ORBAT-FC-LINE-LIMIT-STS       BCA92258
+053500        MOVE ORSH-REPACK-LINES   TO ORBAT-REP-LINE-LIMIT-STS.     BCA92258
+053600*                                                                 00001400
+053700     IF ORBAT-FULLCASE-LIMIT GREATER THAN ZEROES AND              BCA92258
+053800        ORBAT-ORDER-LIMIT-STS GREATER THAN 1                      BCA92258
+053900       IF ORBAT-FC-LINE-LIMIT-STS >                               BCA92258
+054000          ORBAT-FULLCASE-LIMIT                                    BCA92258
+054100        ADD 1                    TO ORBAT-BATCH-SEQ-NBR           BCA92258
+054200        MOVE 1                   TO ORBAT-ORDER-LIMIT-STS         BCA92258
+054300        MOVE ORSH-TOTAL-CUBE     TO ORBAT-CUBE-LIMIT-STS          BCA92258
+054400        MOVE ORSH-TOTAL-LINES    TO ORBAT-LINES-LIMIT-STS         BCA92258
+054500        MOVE ORSH-TOTAL-WEIGHT   TO ORBAT-WEIGHT-LIMIT-STS        BCA92258
+054600        MOVE ORSH-FULLCASE-LINES TO ORBAT-FC-LINE-LIMIT-STS       BCA92258
+054700        MOVE ORSH-REPACK-LINES   TO ORBAT-REP-LINE-LIMIT-STS.     BCA92258
+054800*                                                                 00001400
+054900     IF ORBAT-REPACK-LIMIT GREATER THAN ZEROES AND                BCA92258
+055000        ORBAT-ORDER-LIMIT-STS GREATER THAN 1                      BCA92258
+055100       IF ORBAT-REP-LINE-LIMIT-STS >                              BCA92258
+055200          ORBAT-REPACK-LIMIT                                      BCA92258
+055300        ADD 1                    TO ORBAT-BATCH-SEQ-NBR           BCA92258
+055400        MOVE 1                   TO ORBAT-ORDER-LIMIT-STS         BCA92258
+055500        MOVE ORSH-TOTAL-CUBE     TO ORBAT-CUBE-LIMIT-STS          BCA92258
+055600        MOVE ORSH-TOTAL-LINES    TO ORBAT-LINES-LIMIT-STS         BCA92258
+055700        MOVE ORSH-TOTAL-WEIGHT   TO ORBAT-WEIGHT-LIMIT-STS        BCA92258
+055800        MOVE ORSH-FULLCASE-LINES TO ORBAT-FC-LINE-LIMIT-STS       BCA92258
+055900        MOVE ORSH-REPACK-LINES   TO ORBAT-REP-LINE-LIMIT-STS.     BCA92258
+056000*                                                                 00001400
+056100     IF ORBAT-ORDER-NBR-LIMIT GREATER THAN ZEROS                  00001110
+056200         IF ORBAT-ORDERS-WITHIN-SEQ GREATER THAN                  00001120
+056300            ORBAT-ORDER-NBR-LIMIT                                 00001130
+056400             ADD 1               TO ORBAT-BATCH-SEQ-NBR           00001140
+056500             MOVE 1              TO ORBAT-ORDERS-WITHIN-SEQ       00001150
+056600             MOVE ORSH-TOTAL-WEIGHT                               00001160
+056700                                 TO ORBAT-WEIGHT-WITHIN-SEQ       00001170
+056800             MOVE ORSH-TOTAL-CUBE                                 00001180
+056900                                 TO ORBAT-CUBE-WITHIN-SEQ.        00001190
+057000     IF ORBAT-WEIGHT-LIMIT GREATER THAN ZEROS AND                 00001200
+057100        ORBAT-ORDERS-WITHIN-SEQ GREATER THAN 1                    00001210
+057200         IF ORBAT-WEIGHT-WITHIN-SEQ GREATER THAN                  00001220
+057300            ORBAT-WEIGHT-LIMIT                                    00001230
+057400             ADD 1               TO ORBAT-BATCH-SEQ-NBR           00001240
+057500             MOVE 1              TO ORBAT-ORDERS-WITHIN-SEQ       00001250
+057600             MOVE ORSH-TOTAL-WEIGHT                               00001260
+057700                                 TO ORBAT-WEIGHT-WITHIN-SEQ       00001270
+057800             MOVE ORSH-TOTAL-CUBE                                 00001280
+057900                                 TO ORBAT-CUBE-WITHIN-SEQ.        00001290
+058000     IF ORBAT-CUBE-LIMIT GREATER THAN ZEROS AND                   00001300
+058100        ORBAT-ORDERS-WITHIN-SEQ GREATER THAN 1                    00001310
+058200         IF ORBAT-CUBE-WITHIN-SEQ GREATER THAN                    00001320
+058300            ORBAT-CUBE-LIMIT                                      00001330
+058400             ADD 1               TO ORBAT-BATCH-SEQ-NBR           00001340
+058500             MOVE 1              TO ORBAT-ORDERS-WITHIN-SEQ       00001350
+058600             MOVE ORSH-TOTAL-WEIGHT                               00001360
+058700                                 TO ORBAT-WEIGHT-WITHIN-SEQ       00001370
+058800             MOVE ORSH-TOTAL-CUBE                                 00001380
+058900                                 TO ORBAT-CUBE-WITHIN-SEQ.        00001390
+059000*                                                                 00001400
+059100     MOVE ORBAT-BATCH-NBR         TO ORSH-BATCH-NBR.              00001410
+059200     MOVE ORBAT-BATCH-SEQ-NBR     TO ORSH-BATCH-SEQ.              00001420
+059300     MOVE ORBAT-LANE-DIVERT-CODE  TO ORSH-LANE-DIVERT-CODE.       GMM97237
+059400***************************************************************   ELB94195
+059500* SET SWITCH TO TRIGGER THE PROGRAM (ORP695) THAT WILL            ELB94195
+059600* FORMAT CONFIGURATION ORDER DATA FOR TRANSFER TO                 ELB94195
+059700* THE OS/2 GATEWAY SYSTEM.TDQ ID = **CF (** = SHIP FROM BR)       ELB94195
+059800***************************************************************   ELB94195
+059900     IF ORH-CONFIGURATION-BID OR                                  ELB94195
+060000        ORSH-CUST-CONFIG-ORDER    OR                              MWD95188
+060100        ORH-CONFIGURATION-ORDER                                   ELB94195
+060200           MOVE ORSH-BR-NBR-SHIP-FROM                             ELB94195
+060300                                 TO  WS-SYRBATCH-QUEUE-ID-BR-NBR  ELB94195
+060400           MOVE ORH-COMPANY      TO  WS-SYRBATCH-QUEUE-COMPANY    ELB94195
+060500           MOVE ORH-BR-NBR       TO  WS-SYRBATCH-QUEUE-BR-NBR     ELB94195
+060600           MOVE ORH-ORDER-NBR    TO  WS-SYRBATCH-QUEUE-ORDER-NBR  ELB94195
+060700           MOVE ORSH-DIST-NBR    TO  WS-SYRBATCH-QUEUE-DIST-NBR   ELB94195
+060800           MOVE ORSH-SHIP-NBR    TO  WS-SYRBATCH-QUEUE-SHIPMENT   ELB94195
+060900           MOVE 'Y'              TO  WS-SYRBATCH-TRIGGER-SW.      ELB94195
+061000*                                                                         
+061100*SET THE PRINT DATE AND TIME TO THE BATCH DATE AND TIME.          DMR92366
+061200*                                                                 DMR92366
+061300*TIME CONVERSION IS DONE (CALL BRANCH TABLE TO GET TIME DIFF)     TGF99111
+061400*IN 871-PROCESS-ORLBAT BUT NOTHING IS DONE WITH IT OTHER THAN     TGF99111
+061500*COMPARING IT TO THE BATCH CUT-OFF.  IN LATIN AMERICA THE LOCAL   TGF99111
+061600*TIME WAS NOT BEING MOVED TO THE ORSH-LAST-PRINT-TIME.            TGF99111
+061700*THIS STATEMENT CORRECTS THIS PROBLEM.                            TGF99111
+061800     IF TB-CPO-LATIN-AM-CNTRY                                     TGF99111
+            OR TB-CPO-ASIA-PACIFIC-CNTRY                                TLC02286
+061900         MOVE WS-SYRBATCH-TIME-W-DIFF                             TGF99111
+062000                                  TO WS-SYRBATCH-TIME.            TGF99111
+062100     IF ORSH-BATCH-NBR > SPACES                                   JJD94280
+062200        IF ORSH-LAST-PRINT-DATE NUMERIC                           DJP97259
+062300           IF ORSH-LAST-PRINT-DATE > 0 AND ORSH-CUST-CONFIG-ORDER DJP97259
+062400              NEXT SENTENCE                                       DJP97259
+062500           ELSE                                                   DJP97259
+062600              MOVE WS-SYRBATCH-DATE TO ORSH-LAST-PRINT-DATE       DJP97259
+062700              MOVE WS-SYRBATCH-TIME TO ORSH-LAST-PRINT-TIME       DJP97259
+062800        ELSE                                                      DJP97259
+062900           MOVE WS-SYRBATCH-DATE TO ORSH-LAST-PRINT-DATE          DJP97259
+063000           MOVE WS-SYRBATCH-TIME TO ORSH-LAST-PRINT-TIME.         DJP97259
+063100     IF ORSH-BATCH-NBR > SPACES                                   JJD94280
+063200        ADD 1                    TO ORSH-PRINT-COUNT.             JJD94280
+063300*                                                                 JJD94280
+063400     PERFORM 894-REWRITE-ORLBAT THRU 894-REWRITE-ORLBAT-EXIT.     00001430
+063500*                                                                 00001440
+063600 872-SET-BATCH-NBR-EXIT.                                          00001450
+063700*                                                                 00001470
+063800 881-PROCESS-RWLZPM.                                              GMM97190
+063900*                                                                 GMM97190
+064000     PERFORM 920-READNEXT-RWLZPM  THRU 920-EXIT.                  GMM97190
+064100                                                                  GMM97190
+064200     IF ORH-COMPANY = 'MD'                                        TMH99170
+            OR TB-CPO-EUROPEAN-CNTRY                                    TLC00307
+            OR (ORH-COMPANY = 'MS' AND ORH-BR-NBR NOT = '68')           MJS01135
+064300      IF WS-ZP-NORESP                                             TMH99170
+064400        PERFORM 882-MATCH-RWLZPM-ZIP THRU 882-EXIT                GMM97190
+064500                                                                  GMM97190
+064600        IF WS-SYRBATCH-ZP-ZIP-SW NOT = 'Y'                        GMM97190
+064700           PERFORM 925-READPREV-RWLZPM  THRU 925-EXIT             GMM97190
+064800           IF WS-ZP-NORESP                                        GMM97190
+064900              PERFORM 925-READPREV-RWLZPM  THRU 925-EXIT          GMM97190
+065000              IF WS-ZP-NORESP                                     GMM97190
+065100                 PERFORM 882-MATCH-RWLZPM-ZIP THRU 882-EXIT.      GMM97190
+065200                                                                  GMM97190
+065300     IF ORH-COMPANY = 'FT'                                        TMH99170
+065400      IF WS-ZP-NORESP                                             TMH99170
+065500        PERFORM 883-MATCH-RWLZPM-ZIP THRU 883-EXIT                TMH99170
+065600                                                                  TMH99170
+065700        IF WS-SYRBATCH-ZP-ZIP-SW NOT = 'Y'                        TMH99170
+065800           PERFORM 925-READPREV-RWLZPM  THRU 925-EXIT             TMH99170
+065900           IF WS-ZP-NORESP                                        TMH99170
+066000              PERFORM 925-READPREV-RWLZPM  THRU 925-EXIT          TMH99170
+066100              IF WS-ZP-NORESP                                     TMH99170
+066200                 PERFORM 883-MATCH-RWLZPM-ZIP THRU 883-EXIT.      TMH99170
+066300                                                                  GMM97190
+066500*                                                                 GMM97190
+066600 881-EXIT.  EXIT.                                                 GMM97190
+066700*                                                                 GMM97190
+066800 882-MATCH-RWLZPM-ZIP.                                            GMM97190
+066900*                                                                 GMM97190
+           IF TB-CPO-EUROPEAN-CNTRY AND ORSH-CARRIER-CODE = 'DX'        WXE02002
+              IF ZP-SHIP-FROM-BR = '**' AND                             WXE02002
+                 ZP-CARRIER      = 'DX' AND                             WXE02002
+                 WS-SYRBATCH-EXPORT-COUNTRY = ZP-COMPANY AND            WXE02002
+                 WS-SYRBATCH-EXPORT-ZIP >= ZP-BEG-ZIP AND               WXE02002
+                 WS-SYRBATCH-EXPORT-ZIP <= ZP-END-ZIP                   WXE02002
+                      MOVE 'Y'         TO WS-SYRBATCH-ZP-ZIP-SW         WXE02002
+              END-IF                                                    WXE02002
+              GO TO 882-EXIT                                            WXE02002
+           END-IF.                                                      WXE02002
+067000     IF  ORSH-BR-NBR-SHIP-FROM = ZP-SHIP-FROM-BR                  GMM97190
+067100     AND ORSH-CARRIER-CODE     = ZP-CARRIER                       GMM97190
+067200         IF  ZP-BEG-ZIP > SPACES                                  GMM97190
+067300         AND ZP-END-ZIP > SPACES                                  GMM97190
+067400         AND WS-SYRBATCH-POSTAL-5X NOT = SPACES                   GMM97190
+067500             IF WS-SYRBATCH-POSTAL-5X  < ZP-BEG-ZIP               GMM97190
+067600             OR WS-SYRBATCH-POSTAL-5X  > ZP-END-ZIP               GMM97190
+067700                GO TO 882-EXIT                                    GMM97190
+067800             ELSE                                                 GMM97190
+067900                MOVE 'Y'         TO WS-SYRBATCH-ZP-ZIP-SW.        GMM97190
+068000*                                                                 GMM97190
+068100 882-EXIT.  EXIT.                                                 GMM97190
+068200*                                                                 GMM97190
+068300 883-MATCH-RWLZPM-ZIP.                                            TMH99170
+068400*                                                                 TMH99170
+068500     IF  ORSH-BR-NBR-SHIP-FROM = ZP-SHIP-FROM-BR                  TMH99170
+068600     AND ORSH-CARRIER-CODE     = ZP-CARRIER                       TMH99170
+068700         IF  ZP-BEG-ZIP > SPACES                                  TMH99170
+068800         AND ZP-END-ZIP > SPACES                                  TMH99170
+068900         AND WS-SYRBATCH-POSTAL-CODES NOT = SPACES                TMH99170
+069000             IF WS-SYRBATCH-POSTAL-CODES < ZP-BEG-ZIP             TMH99170
+069100             OR WS-SYRBATCH-POSTAL-CODES > ZP-END-ZIP             TMH99170
+069200                GO TO 883-EXIT                                    TMH99170
+069300             ELSE                                                 TMH99170
+069400                MOVE 'Y'         TO WS-SYRBATCH-ZP-ZIP-SW.        TMH99170
+069500*                                                                 TMH99170
+069600 883-EXIT.  EXIT.                                                 TMH99170
+069700*                                                                 TMH99170
+069800 900-MATCH-ZIP-RANGE.                                                     
+069900                                                                  JJD96173
+070000     IF ORBAT-FROM-ZIP-X (WS-SYRBATCH-SUB) = SPACES               JJD96173
+070100         MOVE 'Y'                    TO WS-SYRBATCH-TBL-SW        JJD96173
+070200         GO                          TO 900-MATCH-EXIT.           JJD96173
+070300* CHK NUMERIC ZIP                                                 JJD96173
+070400     IF ORBAT-FROM-ZIP (WS-SYRBATCH-SUB) NUMERIC AND              JJD96173
+070500        ORBAT-TO-ZIP (WS-SYRBATCH-SUB) NUMERIC                    JJD96173
+070600        IF ORBAT-FROM-ZIP (WS-SYRBATCH-SUB) > 0 AND               JJD96173
+070700           ORBAT-TO-ZIP (WS-SYRBATCH-SUB) > 0 AND                 JJD96173
+070800           WS-SYRBATCH-ZIP-CODE NUMERIC                           JJD96173
+070900           IF (WS-SYRBATCH-ZIP-CODE <                             JJD96173
+071000              ORBAT-FROM-ZIP (WS-SYRBATCH-SUB)                    JJD96173
+071100                        OR                                        JJD96173
+071200              WS-SYRBATCH-ZIP-CODE >                              JJD96173
+071300              ORBAT-TO-ZIP (WS-SYRBATCH-SUB))                     JJD96173
+071400              GO                    TO 900-MATCH-EXIT             JJD96173
+071500           ELSE                                                   JJD96173
+071600               MOVE 'Y'             TO WS-SYRBATCH-MATCH-SW       JJD96173
+071700               GO                   TO 900-MATCH-EXIT.            JJD96173
+071800* CHK ALPHA ZIP                                                   JJD96173
+071900     IF ORBAT-FROM-ZIP-X (WS-SYRBATCH-SUB) > SPACES AND           JJD96173
+072000           ORBAT-TO-ZIP-X (WS-SYRBATCH-SUB) > SPACES AND          JJD96173
+072100           WS-SYRBATCH-POSTAL-5X NOT = SPACES                     JJD96173
+              IF ORH-COUNTRY-CODE = 'SE'                                WXE02196
+                 IF WS-SYRBATCH-POSTAL-CODES <                          WXE02196
+                    ORBAT-FROM-ZIP-X (WS-SYRBATCH-SUB)                  WXE02196
+                              OR                                        WXE02196
+                    WS-SYRBATCH-POSTAL-CODES >                          WXE02196
+                    ORBAT-TO-ZIP-X (WS-SYRBATCH-SUB)                    WXE02196
+                    GO                    TO 900-MATCH-EXIT             WXE02196
+                 ELSE                                                   WXE02196
+                    MOVE 'Y'             TO WS-SYRBATCH-MATCH-SW        WXE02196
+                 END-IF                                                 WXE02196
+              ELSE                                                      WXE02196
+072200           IF (WS-SYRBATCH-POSTAL-5X <                            JJD96173
+072300              ORBAT-FROM-ZIP-X (WS-SYRBATCH-SUB)                  JJD96173
+072400                        OR                                        JJD96173
+072500              WS-SYRBATCH-POSTAL-5X >                             JJD96173
+072600              ORBAT-TO-ZIP-X (WS-SYRBATCH-SUB))                   JJD96173
+072700              GO                    TO 900-MATCH-EXIT             JJD96173
+072800           ELSE                                                   JJD96173
+072900               MOVE 'Y'             TO WS-SYRBATCH-MATCH-SW       JJD96173
+073000               GO                   TO 900-MATCH-EXIT.            JJD96173
+073100 900-MATCH-EXIT.                                                  JJD96173
+073200     EXIT.                                                        JJD96173
+073300                                                                  JJD96173
+073400 902-CHECK-ZIP-RANGE.                                             JJD96173
+073500                                                                  JJD96173
+073600     IF ORBAT-FROM-ZIP-X (WS-SYRBATCH-SUB) = SPACES               JJD96173
+073700         MOVE 'Y'                    TO WS-SYRBATCH-TBL-SW        JJD96173
+073800         GO                          TO 902-MATCH-EXIT.           JJD96173
+073900     IF ORBAT-FROM-ZIP (WS-SYRBATCH-SUB) NUMERIC AND              JJD96173
+074000        ORBAT-TO-ZIP (WS-SYRBATCH-SUB) NUMERIC                    JJD96173
+074100        IF ORBAT-FROM-ZIP (WS-SYRBATCH-SUB) NOT = ZEROES AND      JJD96173
+074200           ORBAT-TO-ZIP (WS-SYRBATCH-SUB) NOT = ZEROES            JJD96173
+074300           MOVE 'Y'              TO WS-SYRBATCH-ZIP-SW            JJD96173
+074400        END-IF                                                    JJD96173
+074500     ELSE                                                         JJD96173
+074600        IF ORBAT-FROM-ZIP-X (WS-SYRBATCH-SUB) > SPACES AND        JJD96173
+074700           ORBAT-TO-ZIP-X (WS-SYRBATCH-SUB) > SPACES              JJD96173
+074800           MOVE 'Y'             TO WS-SYRBATCH-ZIP-SW.            JJD96173
+074900 902-MATCH-EXIT.                                                  JJD96173
+075000     EXIT.                                                        JJD96173
+075100                                                                  KAB96289
+075200 905-CHECK-CARRIER.                                               KAB96289
+075300* IF A SHARED INVENTORY ORDER, AND SHARED INVENTORY ALLOWED,      TMH97010
+075400* WE CHECK IF THE HEADER IS SET UP FOR ORDER BATCHING. IF YES,    TMH97010
+075500* THEN CONTINUE, ELSE GO TO EXIT.                                 TMH97010
+075600                                                                  TMH97010
+075700     IF ORSH-ALT-WAREHOUSE-CO GREATER THAN SPACES                 TMH97010
+075800        IF ORBAT-INV-SHARING-CO  EQUAL ORSH-ALT-WAREHOUSE-CO      TMH97010
+075900           AND ORBAT-INV-SHARING-BR EQUAL ORSH-BR-NBR-SHIP-FROM   TMH97010
+076000               NEXT SENTENCE                                      TMH97010
+076100     ELSE GO TO 905-CHECK-CARRIER-EXIT.                           TMH97010
+076200                                                                  KAB96289
+076300     IF  ORBAT-CARRIER-CD (ORBAT-IX)  =  ORSH-CARRIER-CODE        KAB96289
+076400         MOVE  'Y'              TO  WS-SYRBATCH-CARRIER-SW.       KAB96289
+076500                                                                  KAB96289
+076600 905-CHECK-CARRIER-EXIT.                                          KAB96289
+076700     EXIT.                                                        KAB96289

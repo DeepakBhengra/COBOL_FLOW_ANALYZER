@@ -1,0 +1,115 @@
+      ***************************************************************           
+      * I/L IM/DSI URL REALTED INFO INQUIRY     CUSTOMER TO INGRAM              
+      *                                                                         
+      *  PURPOSE:  TO DISPLAY URL RELATED INFO FOR ESD PRODUCTS                 
+      *             ON AN ORDER THATS FLAGGED AS AN ESD ORDER.                  
+      *  06/01/18 ROR  ADDED SELECT SOURCE INPUT FIELDS.                ROR18152
+      *  01/28/13 ROR  NEW COPYBOOK FOR URL RELATED  INFO LOOKUP.       ROR13028
+      ***************************************************************           
+      ***************************************************************           
+       01  LURESD-ESD-URL-LOOKUP-REQUEST.                                       
+      ***************************************************************           
+      *    INTERNAL AREA, THIS HOLDS DATA THAT IS NOT PASSED FROM OR            
+      *    TO CUSTOMER, BUT IT KEPT ON CBLLUL FILE SO WE CAN HELP               
+      *    TRACK AND MONITOR PROBLEMS.                                          
+      ***************************************************************           
+         03  LURESD-INTERNAL-AREA.                                              
+           05  LURESD-FILLER-AREA              PIC X(12).                       
+           05  LURESD-DATE-RECEIVED            PIC X(10).                       
+      *************  FORMAT IS CCYY/MM/DD  **************************           
+           05  LURESD-TIME-RECEIVED            PIC X(08).                       
+           05  LURESD-TIME-SENT                PIC X(08).                       
+           05  LURESD-TIME-SENT2               PIC X(08).                       
+      ***************************************************************           
+      *    RECEIPT AREA.      THIS AREA PASSED FROM LU6.2 IN                    
+      ***************************************************************           
+         03  LURESD-RECEIPT-AREA.                                               
+             05  LURESD-TCH-AREA.                                               
+               10  LURESD-SYSTEM-ID            PIC X(02).                       
+                   88  LURESD-INTERNET         VALUE 'I '.                      
+               10  LURESD-ING-PGM-NAME         PIC X(08).                       
+               10  LURESD-COMM-RET-CODE        PIC X(04).                       
+               10  LURESD-CUSTOMER-BR          PIC X(02).                       
+               10  LURESD-CUSTOMER-NBR         PIC X(06).                       
+               10  LURESD-CUSTOMER-PSWD        PIC X(10).                       
+               10  LURESD-VERSION-NBR          PIC X(01).                       
+               10  LURESD-REQUEST-FUNCTION     PIC X(04).                       
+               10  LURESD-COUNTRY-CODE         PIC X(02).                       
+               10  LURESD-REGION-SELECT        PIC X(01).                       
+               10  LURESD-TCH-ERROR-TYPE       PIC X(01).                       
+               10  LURESD-SS-END-USER-BR       PIC X(02).               ROR18152
+               10  LURESD-SS-END-USER-NBR      PIC X(06).               ROR18152
+               10  LURESD-ALTERNATE-SYSTEM-SW PIC X(01).                ROR18152
+               10  LURESD-TCH-FILLER           PIC X(09).               ROR18152
+         03  LURESD-REQUEST-AREA.                                               
+             05  LURESD-DATA-AREA.                                              
+               10  LURESD-RECORD-ID            PIC X(03).                       
+                   88 LURESD-REC-ID                VALUE 'ESD'.                 
+             05  LURESD-IM-ORDER-NBR.                                           
+                 10 LURESD-ORDER-BR            PIC X(02).                       
+                 10 LURESD-ORDER-NBR           PIC X(05).                       
+                 10 LURESD-ORDER-DIST          PIC X(01).                       
+                 10 LURESD-ORDER-SHIP          PIC X(01).                       
+             05  LURESD-ORDER-LOCATION         PIC X(01).                       
+             05  LURESD-CUSTOMER-TO-INGRAM-PO  PIC X(18).                       
+             05  LURESD-LINE-COUNTER           PIC 9(05).                       
+             05  LURESD-QTY-COUNTER            PIC 9(05).                       
+             05  LURESD-ORIG-CUSTOMER-BR       PIC X(02).               ROR18152
+             05  LURESD-ORIG-CUSTOMER-NBR      PIC X(06).               ROR18152
+             05  LURESD-REQUEST-FILLER         PIC X(283).              ROR18152
+      ***************************************************************           
+      *    RESPONSE AREA.  THIS AREA IS POPULATED BY INGRAM AND SENT            
+      *    BACK TO THE CUSTOMER.                                                
+      ***************************************************************           
+         03  LURESD-RESPONSE-AREA.                                              
+            04  LURESD-ERROR-CODE.                                              
+             05  LURESD-R-RECORD-RESPONSE-FLG        PIC X(01).                 
+                 88  LURESD-R-RECORD-NO-ERRORS           VALUE ' '.             
+                 88  LURESD-R-RECORD-ERRORS-FOUND        VALUE 'E'.             
+                 88  LURESD-R-RECORD-DB2-ERROR           VALUE 'F'.             
+                 88  LURESD-R-RECORD-WARNING             VALUE 'W'.             
+             05  LURESD-R-ERROR-TYPE-FLAG            PIC X(01).                 
+                 88  LURESD-R-ERROR-CUST-NOT-FOUND       VALUE 'C'.             
+                 88  LURESD-R-ERROR-ORDER-NOT-FOUND      VALUE 'O'.             
+                 88  LURESD-R-ESD-ORDER-NOT-FOUND        VALUE 'R'.             
+                 88  LURESD-R-NOT-ESD-DIST               VALUE 'D'.             
+                 88  LURESD-R-ERROR-NO-MATCH             VALUE 'N'.             
+                 88  LURESD-R-ERROR-DB2-UNAVAIL          VALUE '9'.             
+            04 LURESD-NEW-ERROR-CODE REDEFINES LURESD-ERROR-CODE                
+                                             PIC X(02).                         
+               88 LURESD-R-ERROR-ESD-ORDER-TBL          VALUE 'FA'.             
+               88 LURESD-R-ERROR-OPN-ESD-LNE-CSR        VALUE 'FB'.             
+               88 LURESD-R-ERROR-FCH-ESD-LNE-CSR        VALUE 'FC'.             
+               88 LURESD-R-ERROR-OPN-ESD-QTY-CSR        VALUE 'FD'.             
+               88 LURESD-R-ERROR-FCH-ESD-QTY-CSR        VALUE 'FE'.             
+               88 LURESD-R-ERROR-CLS-ESD-QTY-CSR        VALUE 'FG'.             
+               88 LURESD-R-ERROR-CLS-ESD-LNE-CSR        VALUE 'FH'.             
+               88 LURESD-R-ERROR-OPN-H-ORD-CSR          VALUE 'FI'.             
+               88 LURESD-R-ERROR-FCH-H-ORD-CSR          VALUE 'FJ'.             
+               88 LURESD-R-ERROR-OPN-H-LNE-CSR          VALUE 'FK'.             
+               88 LURESD-R-ERROR-FCH-H-LNE-CSR          VALUE 'FL'.             
+               88 LURESD-R-ERROR-CLS-H-ORD-CSR          VALUE 'FO'.             
+               88 LURESD-R-ERROR-CLS-H-LNE-CSR          VALUE 'FN'.             
+               88 LURESD-R-ERROR-OPN-H-ESD-LNE          VALUE 'FP'.             
+               88 LURESD-R-ERROR-FCH-H-ESD-LNE          VALUE 'FQ'.             
+               88 LURESD-R-ERROR-OPN-H-ESD-QTY          VALUE 'FR'.             
+               88 LURESD-R-ERROR-FCH-H-ESD-QTY          VALUE 'FS'.             
+               88 LURESD-R-ERROR-CLS-H-ESD-QTY          VALUE 'FU'.             
+               88 LURESD-R-ERROR-CLS-H-ESD-LNE          VALUE 'FV'.             
+            04  LURESD-R-RESPONSE-LIST-ALL.                                     
+             05  LURESD-R-LINE-COUNTER               PIC 9(05).                 
+             05  LURESD-R-QTY-COUNTER                PIC 9(05).                 
+             05  LURESD-R-LOCATION                   PIC X(01).                 
+             05  LURESD-R-LINE-INFO                  OCCURS 5 TIMES.            
+                10  LURESD-R-INGRAM-LINE-NBR           PIC 9(03).               
+                10  LURESD-R-CUST-LINE-NBR             PIC 9(03).               
+                10  LURESD-R-LINE-TYPE                 PIC X(01).               
+                10  LURESD-R-INGRAM-PART-NBR           PIC X(12).               
+                10  LURESD-R-VENDOR-NBR                PIC X(04).               
+                10  LURESD-R-QTY-ORDERED               PIC 9(07).               
+                10  LURESD-R-URL-INFO-PER-QTY        OCCURS 10 TIMES.           
+                    15  LURESD-R-SEQ-IN-QTY              PIC 9(03).             
+                    15  LURESD-R-XMIT-STATUS             PIC X(20).             
+                    15  LURESD-R-CREATE-TIMESTAMP        PIC X(15).             
+                    15  LURESD-R-XMIT-TIMESTAMP          PIC X(15).             
+                    15  LURESD-R-XACT-ID                 PIC X(255).            

@@ -1,0 +1,44 @@
+000100******************************************************************        
+000200*** YEAR 2000 READY                                              *PWLY9050
+000201******************************************************************        
+000202*================================================================*        
+000203*  COPYBOOK:  ICSCOP3                                            *        
+000204*  INSTANT REBATE / ACOP DELTA COMPARE COPYBOOK.                 *        
+000300*                                                                *        
+000400* REVISION INFO:                                                 *        
+000400* 01/16/08 MXK SSEU ENHANCED ACOP PROJECT: EU, CA, TP            *MXK08016
+000500* 11/15/05 MXK REPL "GREATER" CONDITION WITH "GREATER OR EQUAL"  *MXK05319
+000501*              TO PREVENT INITIALIZATION OF BTL ACOP FIELDS WHEN *MXK05319
+000502*              ACOP AND REBATE DELTAS ARE ZERO                   *MXK05319
+000503* 06/17/03 MXK CHANGES FOR SINGLE SOURCE PROJECT                 *MXK03168
+000510* 02/19/99 TXM NEW COPYBOOK.                                     *TXM99050
+000600*================================================================*        
+000700*                                                                         
+000800*--- DETERMINE THE BETTER AMOUNT BETWEEN REBATE AND ACOP DELTA            
+000900*--- THIS PROCESS ONLY APPLY WHEN REBATE INDICATOR IS "N" AND             
+001000*--- ACOP-REPRICE-DELTA-IND IS "Y".                                       
+001010     IF TB-CPO4-SSEU-ENABLED AND TB-CPO4-SSEU-ACOP-FEATURES       MXK03168
+001020     AND ICWCOP-COST-OVERRIDE                                     MXK03168
+001030         SET ICWCOP-RECALC-PRICE-DELTA TO TRUE                    MXK03168
+001100     ELSE                                                         MXK03168
+001110     IF ICWCOP-PRG-PART-OVERRIDE                                          
+001200     OR ICWCOP-PRG-VEND-OVERRIDE                                          
+001300        SET ICWCOP-RECALC-PRICE-DELTA TO TRUE.                            
+001400*                                                                         
+001500     IF  ICWCOP-RECALC-PRICE-DELTA                                        
+001600     AND NOT ICWCOP-PRG-APPLY-REBATE                                      
+001700         IF WS-INM-COST-REBATE-AMT > ZERO                         MXK08016
+001701         AND WS-INM-COST-REBATE-AMT > ICWCOP-TOT-ACOP-DELTA-PRC   MXK08016
+001702             PERFORM A130-MOVE-INDMST-COSTS                       MXK08016
+001703             INITIALIZE COP-ICLCOP                                MXK08016
+001704             INITIALIZE ICWCOP-FIELDS                             MXK08016
+001705             INITIALIZE ICWCOP-ADDITIONAL-ACOP-FIELDS             MXK08016
+001706             INITIALIZE ICWCOP-SEGMENT-ACOP-FIELDS                MXK08016
+001707         ELSE                                                     MXK08016
+001800             MOVE SPACES TO WS-SKU-HAS-REBATE-SW                          
+001900                            WS-INM-COST-CODE                              
+002000             MOVE +0     TO WS-INM-COST-REBATE-AMT                        
+002100                            WS-INM-COST-REB-CUST-AMT                      
+002200                            WS-INM-COST-REB-LOCAL-AMT                     
+002300                            WS-INM-COST-MAX-QTY                           
+002400                            WS-INM-COST-MAQ.                      MXK08016

@@ -1,0 +1,186 @@
+      ***************************************************************           
+      *  LU6.2 ORDER ACTION (VESRION 2).                            *           
+      *                                                             *           
+      *  PURPOSE:  TO CALL THE BASERATE SYSTEM TO OBTAIN ESTIMATED  *           
+      *            COST, CARRIER NAME, "OPTIMAL" CARRIER, ETC.      *           
+      *                                                             *           
+      *  08/31/99 ROR ADDED NEW-FIELD LURITA2-R-ERROR-TYPE-NEW REDEFINE ROR99250
+      *                FROM LURITA2-R-RECORD-RESPONSE.                  ROR99250
+      *  22/01/99 ROR  -  ADD 50 BYTES OF FILLER TO REQUEST AND                 
+      *                   RESPONSE AREAS.                                       
+      *  01/07/99 ROR ADDED ONE NEW FIELD  :                                    
+      *               LURITA2-ADDRESS-OVERRIDE-FLAG IN REQUEST AREA             
+      *  01/06/99 ROR  ADDED 5 NEW  FIELDS IN THE RESPONSE AREA.                
+      *                LURITA2-R-ADDRESS-LINE1                                  
+      *                LURITA2-R-ADDRESS-LINE2                                  
+      *                LURITA2-R-CITY                                           
+      *                LURITA2-R-STATE                                          
+      *                LURITA2-R-ZIP                                            
+      *  12/11/98 JDN ADDED 88-LEVEL LURITA2-CHANGE-CARRIER &       *           
+      *               LURITA2-FINALIZE-RELEASE.                     *           
+      *  11/11/98 ROR ADDED A NEW FIELD LURITA2-R-EST-TAX TO        *           
+      *               LURITA2-WHSE-TABLE IN RESPONSE AREA.          *           
+      *  10/09/98 JDN  CLONED FROM LURITA. ADDED SOME FIELDS (SEE   *   JDN99015
+      *                '       ').                                  *   JDN99015
+      ***************************************************************           
+       01  LURITA2-LU62-ORDER-ACTION.                                           
+         02  LURITA2-OA-PRINT-CANCEL-AREA.                                      
+      ***************************************************************           
+          03  LURITA2-INTERNAL-AREA.                                            
+           05  LURITA2-FILLER-AREA             PIC X(12).                       
+           05  LURITA2-DATE-RECEIVED           PIC X(10).                       
+      *************  FORMAT IS CCYY/MM/DD  **************************           
+           05  LURITA2-TIME-RECEIVED           PIC X(08).                       
+           05  LURITA2-TIME-SENT               PIC X(08).                       
+           05  LURITA2-TIME-SENT2              PIC X(08).                       
+          03  LURITA2-RECEIPT-AREA.                                             
+             05  LURITA2-TCH-AREA.                                              
+               10  LURITA2-SYSTEM-ID           PIC X(02).                       
+                   88  LURITA2-INTERNET        VALUE 'I '.                      
+               10  LURITA2-ING-PGM-NAME        PIC X(08).                       
+               10  LURITA2-COMM-RET-CODE       PIC X(04).                       
+               10  LURITA2-CUSTOMER-BR         PIC X(02).                       
+               10  LURITA2-CUSTOMER-NBR        PIC X(06).                       
+               10  LURITA2-CUSTOMER-PSWD       PIC X(10).                       
+               10  LURITA2-VERSION-NBR         PIC X(01).                       
+               10  LURITA2-REQUEST-FUNCTION    PIC X(04).                       
+               10  LURITA2-COUNTRY-CODE        PIC X(02).                       
+               10  LURITA2-REGION-SELECT       PIC X(01).                       
+               10  LURITA2-TCH-ERROR-TYPE      PIC X(01).                       
+               10  LURITA2-TCH-FILLER          PIC X(18).                       
+          03  LURITA2-INPUT-DATA-AREA.                                          
+           05  LURITA2-RECORD-ID               PIC X(03).                       
+                   88  LURITA2-REC-ID         VALUE 'ORA'.                      
+           05  LURITA2-INGRAM-ORDER.                                            
+               10  LURITA2-INGRAM-ORDER-BR         PIC X(02).                   
+               10  LURITA2-INGRAM-ORDER-NBR        PIC X(05).                   
+               10  LURITA2-INGRAM-ORDER-SUFFIX.                                 
+                   88  LURITA2-ORDER-IN-PROGRESS      VALUE SPACES.             
+                   15  LURITA2-INGRAM-ORDER-DIST   PIC X(01).                   
+                   15  LURITA2-INGRAM-ORDER-SHIP   PIC X(01).                   
+           05  LURITA2-ACTION-CODE             PIC X(02).                       
+               88 LURITA2-ACTION-CANCEL            VALUE 'CC'.                  
+               88 LURITA2-ACTION-RELEASE           VALUE 'OR'.                  
+               88 LURITA2-ACTION-FINALIZE          VALUE 'FO'.                  
+               88 LURITA2-CHANGE-CARRIER           VALUE 'MA'.                  
+               88 LURITA2-FINALIZE-RELEASE         VALUE 'FR'.                  
+           05  LURITA2-SHIP-VIA-CODE           PIC X(02).                       
+           05  LURITA2-BCK-BACKORDER-FLAG      PIC X(01).                       
+               88  LURITA2-BCK-ALLOW-BACKORDERS    VALUE 'Y'.                   
+               88  LURITA2-BCK-NO-BACKORDERS       VALUE 'N'.                   
+               88  LURITA2-BCK-SHIP-COMPLETE       VALUE 'C'.                   
+           05  LURITA2-SHIP-TO-ADDRESS-1       PIC X(35).                       
+           05  LURITA2-SHIP-TO-ADDRESS-2       PIC X(35).                       
+           05  LURITA2-SHIP-TO-ADDRESS-3       PIC X(35).                       
+           05  LURITA2-SHIP-TO-CITY            PIC X(21).                       
+           05  LURITA2-SHIP-TO-STATE           PIC X(02).                       
+           05  LURITA2-SHIP-TO-ZIP             PIC X(09).                       
+           05  LURITA2-SHIP-TO-ATTN            PIC X(35).                       
+           05  LURITA2-CUST-TO-ING-PO-NBR      PIC X(18).                       
+           05  LURITA2-CUST-TO-CUST-PO-NBR     PIC X(18).                       
+           05  LURITA2-BILL-TO-SUFFIX          PIC X(03).                       
+           05  LURITA2-SHIP-TO-SUFFIX          PIC X(03).                       
+           05  LURITA2-THIRD-PARTY-FRT-ACCT    PIC X(12).                       
+           05  LURITA2-INTERNET-HOLD           PIC X(01).                       
+           05  LURITA2-SHIP-TO-CNTRY-CODE      PIC X(02).                       
+           05  LURITA2-SPLIT-INV-SW            PIC X(01).                       
+               88  LURITA2-SPLIT-INV-NO            VALUE ' '.                   
+               88  LURITA2-SPLIT-INV-YES           VALUE 'Y'.                   
+           05  LURITA2-END-CUST-NUM            PIC X(10).                       
+           05  LURITA2-END-CUST-ID             PIC X(25).                       
+           05  LURITA2-CARRIER-SELECTED        PIC X(01).                       
+               88 LURITA2-CARRIER-BASERATE         VALUE 'B'.                   
+               88 LURITA2-CARRIER-DEFAULT          VALUE 'D', ' '.              
+           05  LURITA2-TRANSIT-DAYS            PIC 9(01).                       
+           05  LURITA2-CARRIER-MODE            PIC X(03).                       
+           05  LURITA2-ADDRESS-OVERRIDE-FLAG   PIC X(01).                       
+               88  LURITA2-ADDRESS-OVERRIDE        VALUE 'Y'.                   
+               88  LURITA2-ADDRESS-NO-OVERRIDE     VALUE 'N'.                   
+      ***************************************************************           
+      * FOLLOWING IS FOR FUTURE USE.                                            
+      ***************************************************************           
+           05  LURITA2-REQUEST-FILLER          PIC X(50).                       
+      ***************************************************************           
+      *    RESPONSE AREA.  THIS AREA IS ADDED ON TO DATA RECEIVED               
+      * BY ELCOM TO BE SENT BACK TO ELCOM FOR RESPONSE.                         
+      ***************************************************************           
+          03  LURITA2-RESPONSE-AREA.                                            
+           05  LURITA2-R-RECORD-RESPONSE.                               ROR99250
+           10  LURITA2-R-RECORD-RESPONSE-FLAG  PIC X(01).               ROR99250
+               88  LURITA2-R-RECORD-NO-ERRORS      VALUE ' '.                   
+               88  LURITA2-R-RECORD-ERRORS-FOUND   VALUE 'E'.                   
+           10  LURITA2-R-ERROR-TYPE            PIC X(01).                       
+               88  LURITA2-R-ERROR-NO-ERROR        VALUE ' '.                   
+               88  LURITA2-R-ERROR-ACTION-CODE     VALUE 'A'.                   
+               88  LURITA2-R-ERROR-BACKORDER-FLAG  VALUE 'B'.                   
+               88  LURITA2-R-ERROR-SHIP-COMPLETE   VALUE 'C'.                   
+               88  LURITA2-R-ERROR-ORDR-TAXED      VALUE 'G'.                   
+               88  LURITA2-R-ERROR-ORDR-NOT-TAXED  VALUE 'H'.                   
+               88  LURITA2-R-ERROR-BAD-ADDR-ACCPT  VALUE 'L'.                   
+               88  LURITA2-R-ERROR-AGENCY-NOTAX    VALUE 'M'.                   
+               88  LURITA2-R-ERROR-NEXUS           VALUE 'N'.                   
+               88  LURITA2-R-ERROR-ORDER-NOTFOUND  VALUE 'O'.                   
+      *        88  LURITA2-R-ERROR-INVALID-ZIP     VALUE 'P'.                   
+               88  LURITA2-R-ERROR-NO-ADDRCHANGE   VALUE 'P'.                   
+               88  LURITA2-R-ERROR-INVALID-CITY    VALUE 'Q'.                   
+               88  LURITA2-R-ERROR-ORDER-RELEASED  VALUE 'R'.                   
+               88  LURITA2-R-ERROR-ORDER-STATUS    VALUE 'S'.                   
+               88  LURITA2-R-ERROR-SHIP-VIA        VALUE 'V'.                   
+               88  LURITA2-R-ERROR-ADDR-MODIFIED   VALUE 'Y'.                   
+               88  LURITA2-R-ERROR-COMPANY-CODE    VALUE 'Z'.                   
+               88  LURITA2-R-ERROR-G-AND-Y-ERRORS  VALUE '5'.                   
+               88  LURITA2-R-ERROR-G-AND-L-ERRORS  VALUE '8'.                   
+               88  LURITA2-R-ERROR-CUST-SPLITINV   VALUE '6'.                   
+               88  LURITA2-R-ERROR-FLOOR-SPLITINV  VALUE '7'.                   
+               88  LURITA2-R-ERROR-INV-CARRIER     VALUE 'I'.                   
+           05  LURITA2-R-ERROR-TYPE-NEW   REDEFINES                     ROR99250
+               LURITA2-R-RECORD-RESPONSE.                               ROR99250
+               10  LURITA2-R-ERROR-TYPE-NEW    PIC X(02).               ROR99250
+                 88 LURITA2-R-ERROR-DENIED-NAME    VALUE 'B1'.          ROR99250
+                 88 LURITA2-R-ERROR-DENIED-ADD1    VALUE 'B2'.          ROR99250
+                 88 LURITA2-R-ERROR-DENIED-ADD2    VALUE 'B3'.          ROR99250
+                 88 LURITA2-R-ERROR-DENIED-ADD3    VALUE 'B4'.          ROR99250
+                 88 LURITA2-R-ERROR-DEN-BILL-ADD1  VALUE 'B5'.          ROR99250
+                 88 LURITA2-R-ERROR-DEN-BILL-ADD2  VALUE 'B6'.          ROR99250
+                 88 LURITA2-R-ERROR-DEN-BILL-ADD3  VALUE 'B7'.          ROR99250
+           05  LURITA2-R-ADDRESS-LINE1         PIC X(35).                       
+           05  LURITA2-R-ADDRESS-LINE2         PIC X(35).                       
+           05  LURITA2-R-CITY                  PIC X(21).                       
+           05  LURITA2-R-STATE                 PIC X(02).                       
+           05  LURITA2-R-ZIP                   PIC X(09).                       
+      ***************************************************************           
+      * THIS 02 AREA REPRESENTS THE 'EXTRA' DATA PORTION WHICH WILL             
+      * BE REUTURNED TO ELCOM FOR A ACTION REQUEST FO 'FO' (FINALIZE).          
+      ***************************************************************           
+         02  LURITA2-OA-FINALIZE-EXTRA-AREA.                                    
+           05  LURITA2-NBR-WHSE-TABLE-OCCURS   PIC 9(01).                       
+           05  LURITA2-WHSE-TABLE       OCCURS 0 TO 9 TIMES                     
+                             DEPENDING ON LURITA2-NBR-WHSE-TABLE-OCCURS.        
+               10  LURITA2-DS-ERROR-CODE       PIC X(01).                       
+                   88  LURITA2-DS-NO-ERROR         VALUE ' '.                   
+                   88  LURITA2-DS-ERROR-FOUND      VALUE 'E'.                   
+                   88  LURITA2-DS-WARNING          VALUE 'W'.                   
+               10  LURITA2-DS-ERROR-TYPE       PIC X(02).                       
+                   88  LURITA2-DS-INVALID-CARRIER  VALUE 'CA'.                  
+                   88  LURITA2-DS-INVALID-ZIPCODE  VALUE 'ZI'.                  
+                   88  LURITA2-DS-INVALID-DIST-SHIP VALUE 'DS'.                 
+                   88  LURITA2-DS-INVALID-TRANSIT  VALUE 'TR'.                  
+                   88  LURITA2-DS-INVALID-MODE     VALUE 'MO'.                  
+                   88  LURITA2-DS-INVALID-BASERATE VALUE 'BA'.                  
+               10  LURITA2-ORDER-SUFFIX        PIC X(02).                       
+               10  LURITA2-WHSE-ASSIGNED-NBR   PIC X(02).                       
+               10  LURITA2-R-TOTAL-WEIGHT      PIC 9(05).                       
+               10  LURITA2-R-CARRIER-CODE      PIC X(02).                       
+               10  LURITA2-R-SHIP-VIA          PIC X(12).                       
+               10  LURITA2-R-FRT-RATE          PIC 9(15)V99.                    
+               10  LURITA2-R-TRANSIT-DAYS      PIC 9(01).                       
+               10  LURITA2-R-CARRIER-MODE      PIC X(03).                       
+               10  LURITA2-R-EST-TAX  PIC  9(15)V9(02) VALUE ZEROES.            
+               10  LURITA2-NBR-LINE-TABLE-OCCURS   PIC 9(03).                   
+               10  LURITA2-NBR-LINE-SUFFIX OCCURS 50 TIMES.                     
+                   15  LURITA2-ING-LINE-NBR        PIC X(03).                   
+                   15  LURITA2-ING-BILL-TO-SUFFIX  PIC X(03).                   
+      ***************************************************************           
+      * FOLLOWING IS FOR FUTURE USE.                                            
+      ***************************************************************           
+           05  LURITA2-R-RESPONSE-FILLER       PIC X(50).                       

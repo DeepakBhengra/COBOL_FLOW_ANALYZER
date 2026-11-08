@@ -1,0 +1,167 @@
+      ****************************************************************          
+      *  COPYBOOK:  WHT804                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES WHV804 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: WHV804-INPUT-DATA                                 *          
+      *            - OBJECT ID                                       *          
+      *            - ACTION CODE                                     *          
+      *            - USER ID                                         *          
+      *            - COMPANY CODE                                    *          
+      *            - CARRIER CODE                                    *          
+      *     INPUT/OUTPUT: WHV804-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - WHV804-ARRAY (OCCURS UP TO 20 TIMES)            *          
+      *              - WHV804-CO-CD                                  *          
+      *              - WHV804-PARTNER-ID                             *          
+      *              - WHV804-PARTNER-DES                            *          
+      *              - WHV804-PRNT-PARTNER-ID                        *          
+      *              - WHV804-ACTV-DT                                *          
+      *              - WHV804-DEACTV-DT                              *          
+      *              - WHV804-NOTE-TXT                               *          
+      *              - WHV804-LST-CHG-TS                             *          
+      *              - WHV804-LST-CHG-NAM                            *          
+      *              - WHV804-PRCS-OPTN-FLG                          *          
+      *                                                              *          
+      *    OUTPUT: WHV804-OUTPUT-DATA                                *          
+      *          - WHV804-ROW-COUNT                                  *          
+      *          - WHV804-MODULE-RESULT-CD                           *          
+      *          - WHV804-MODULE-MESSAGE                             *          
+      *          - WHV804-DATABASE-RESULT-CODES:                     *          
+      *              - WHV804-SQLCODE                                *          
+      *              - WHV804-SQLSTATE                               *          
+      *              - WHV804-SQL-MESSAGE                            *          
+      *                                                              *          
+      *                                                              *          
+      *   WHV804 EXAMPLE FOR REQUESTING A SINGLETON SELECT ACTION.   *          
+      *     INITIALIZE WHV804-COMMUNICATIONS-AREA.                   *          
+      *     MOVE PGM-CARRIER-CD TO WHV804-CARRIER-CODE.              *          
+      *     MOVE 'S ' TO WHV804-ACTION-CD.     .                     *          
+      *     MOVE 'DV_INSURANCE      ' TO WHV804-OBJECT-ID.           *          
+      *                                                              *          
+      *     CALL 'WHV804' USING WHV804-COMMUNICATIONS-AREA.          *          
+      *     IF WHV804-STATUS-OK                                      *          
+      *     THEN                                                     *          
+      *          CONTINUE WITH EXPECTED PROCESSING                   *          
+      *     ELSE                                                     *          
+      *          CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND    *          
+      *          TAKE APPROPRIATE ACTIONS.                           *          
+      *                                                              *          
+      *      NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN         *          
+      *            APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER  *          
+      *            IS REQUESTING A SINGLETON SELECT ACTION TO RETURN *          
+      *            DATA FOR A PARTICULAR CARRIER_CODE.               *          
+      *                                                              *          
+      *            THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT  *          
+      *            CODE RETURNED FROM WHV804 TO VALIDTE THAT IT      *          
+      *            WORKED PROPERLY (SEE THE COPYBOOK WHT018 FOR A    *          
+      *            LIST OF ERROR CODES).                             *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                02/19/04  JAK   ORIGINAL.                     *  JAK04050
+      ****************************************************************          
+                                                                                
+       01  WHV804-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  WHV804-ACTION-CD                  PIC  X(002).                   
+               88  WHV804-SELECT                 VALUE 'S '.                    
+               88  WHV804-INSERT                 VALUE 'I '.                    
+               88  WHV804-SINGLETON-UPDATE       VALUE 'U '.                    
+               88  WHV804-KEYED-DELETE           VALUE 'D '.                    
+               88  WHV804-CURSOR-OPEN            VALUE 'CO'.                    
+               88  WHV804-CURSOR-FETCH           VALUE 'CF'.                    
+               88  WHV804-CURSOR-CL              VALUE 'CL'.                    
+               88  WHV804-COUNT                  VALUE 'C '.                    
+               88  WHV804-MAX                    VALUE 'MX'.                    
+               88  WHV804-MIN                    VALUE 'MN'.                    
+               88  WHV804-MASS-DELETE            VALUE 'MD'.                    
+               88  WHV804-MASS-UPDATE            VALUE 'MU'.                    
+               88  WHV804-MASS-INSERT            VALUE 'MI'.                    
+               88  WHV804-GET                    VALUE 'G '.                    
+           05  WHV804-USER-ID                    PIC  X(010).                   
+           05  WHV804-KEY-AREA.                                                 
+               10  WHV804-KEY-CO-CD              PIC  X(002).                   
+               10  WHV804-KEY-CARR-CD            PIC  X(004).                   
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  WHV804-INPUT-OUTPUT-AREA.                                        
+               10  WHV804-OBJECT-ID              PIC X(030).                    
+                   88  WHV804-NULL-OBJECT        VALUE SPACES.                  
+                   88  WHV804-DV-INSURANCE       VALUE                          
+                                  'DV_INSURANCE                  '.             
+               10  WHV804-ARRAY-COUNT            PIC 9(003).                    
+                   88  WHV804-MAX-ARRAY-COUNT    VALUE 020.                     
+               10  WHV804-ARRAY OCCURS 20 TIMES.                                
+                   15  WHV804-CO-CD              PIC X(002).                    
+                   15  WHV804-CARR-CD            PIC X(002).                    
+                   15  WHV804-CARR-AUTO-COVERAGE PIC S9(11)V99 COMP-3.          
+                   15  WHV804-IMI-AUTO-COVERAGE  PIC S9(11)V99 COMP-3.          
+                   15  WHV804-COST-PER           PIC S9(11)V99 COMP-3.          
+                   15  WHV804-COST-PER-AMT       PIC S9(11)V99 COMP-3.          
+                   15  WHV804-MIN-CRTN-FEE       PIC S9(11)V99 COMP-3.          
+                   15  WHV804-MAX-CRTN-VALUE     PIC S9(11)V99 COMP-3.          
+                   15  WHV804-WHITEGLV-THRSHLD   PIC S9(11)V99 COMP-3.          
+                   15  WHV804-IMI-ORD-THRSHLD    PIC S9(11)V99 COMP-3.          
+                   15  WHV804-INS-PRGM-CD        PIC X(002).                    
+                   15  WHV804-LST-CHG-OPID       PIC X(004).                    
+                   15  WHV804-LST-CHG-TS         PIC X(026).                    
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  WHV804-OUTPUT-DATA.                                              
+               10  WHV804-ROW-COUNT              PIC  S9(009).                  
+               10  WHV804-MODULE-RESULT-CD       PIC  X(002).                   
+                   88  WHV804-STATUS-OKAY           VALUE 'OK'.                 
+                   88  WHV804-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  WHV804-PKEY-NOTFOUND         VALUE 'NF'.                 
+                   88  WHV804-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  WHV804-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  WHV804-INSERT-FAIL           VALUE 'IF'.                 
+                   88  WHV804-UPDATE-FAIL           VALUE 'UF'.                 
+                   88  WHV804-DELETE-RI-FAIL        VALUE 'DR'.                 
+                   88  WHV804-ARRAY-OVRFLW-FAIL     VALUE 'OF'.                 
+                   88  WHV804-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  WHV804-BUS-EDIT-FAIL         VALUE 'BF'.                 
+                   88  WHV804-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  WHV804-MODULE-MESSAGE         PIC  X(090).                   
+               10  WHV804-EXCEPTION-MESSAGE.                                    
+                   15  WHV804-MSG-OBJECT         PIC  X(030).                   
+                   15  WHV804-EXTRA-MESSAGE-1    PIC  X(128).                   
+                   15  WHV804-EXTRA-MESSAGE-2    PIC  X(128).                   
+                   15  WHV804-SQLCA.                                            
+                       20  WHV804-SQLCAID        PIC  X(008).                   
+                       20  WHV804-SQLCABC        PIC  S9(009).                  
+                       20  WHV804-SQLCODE        PIC  S9(009).                  
+                       20  WHV804-SQLERRM.                                      
+                           25  WHV804-SQLERRML   PIC  S9(004).                  
+                           25  WHV804-SQLERRMC   PIC  X(070).                   
+                       20  WHV804-SQLERRP        PIC  X(008).                   
+                       20  WHV804-SQLERRD OCCURS 6 TIMES                        
+                                                 PIC  S9(009).                  
+                       20  WHV804-SQLWARN.                                      
+                           25  WHV804-SQLWARN0   PIC  X(001).                   
+                           25  WHV804-SQLWARN1   PIC  X(001).                   
+                           25  WHV804-SQLWARN2   PIC  X(001).                   
+                           25  WHV804-SQLWARN3   PIC  X(001).                   
+                           25  WHV804-SQLWARN4   PIC  X(001).                   
+                           25  WHV804-SQLWARN5   PIC  X(001).                   
+                           25  WHV804-SQLWARN6   PIC  X(001).                   
+                           25  WHV804-SQLWARN7   PIC  X(001).                   
+                       20  WHV804-SQLEXT.                                       
+                           25  WHV804-SQLWARN8   PIC  X(001).                   
+                           25  WHV804-SQLWARN9   PIC  X(001).                   
+                           25  WHV804-SQLWARNA   PIC  X(001).                   
+                           25  WHV804-SQLSTATE   PIC  X(005).                   

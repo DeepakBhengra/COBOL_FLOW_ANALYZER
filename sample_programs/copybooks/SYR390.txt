@@ -1,0 +1,383 @@
+      *****************************************************************         
+      *  COPYBOOK: SYR390                                             *         
+      *****************************************************************         
+      *  PROGRAMS: SYV390 - DATE CALCULATIONS ROUTINE (BATCH)         *         
+      *            SYU390 - DATE CALCULATIONS ROUTINE (CICS)          *         
+      *                                                               *         
+      *  PURPOSE:  1) COMPUTE THE DIFFERENCE IN DAYS BETWEEN TWO      *         
+      *               8-POSITION GREGORIAN (CCYYMMDD) DATES           *         
+      *            2) COMPUTE THE DIFFERENCE IN DAYS BETWEEN TWO      *         
+      *               6-POSITION GREGORIAN (YYMMDD) DATES             *         
+      *            3) CALCULATE A NEW DATE BASED ON AN 8-POSITION     *         
+      *               GREGORIAN (CCYYMMDD) DATE AND A NUMBER OF DAYS  *         
+      *            4) CALCULATE A NEW DATE BASED ON A 6-POSITION      *         
+      *               GREGORIAN (YYMMDD) DATE AND A NUMBER OF DAYS    *         
+      *            5) COMPUTE THE NUMBER OF DAYS DIFFERENCE BETWEEN   *         
+      *               TWO 7-POSITION JULIAN (CCYYDDD) DATES           *         
+      *            6) COMPUTE THE NUMBER OF DAYS DIFFERENCE BETWEEN   *         
+      *               TWO 5-POSITION JULIAN (YYDDD) DATES             *         
+      *            7) CALCULATE A NEW DATE BASED ON A 7-POSITION      *         
+      *               JULIAN (CCYYMMDD) DATE AND A NUMBER OF DAYS     *         
+      *            8) CALCULATE A NEW DATE BASED ON A 5-POSITION      *         
+      *               JULIAN (YYMMDD) DATE AND A NUMBER OF DAYS       *         
+      *                                                               *         
+      * DESCRIPTION: THE CALLING PROGRAM SPECIFIES THE OPERATION TO   *         
+      * BE PERFORMED AND THE FORMAT OF THE INPUT DATE(S) USING ONE OF *         
+      * THE 88 LEVEL DATA NAMES FOR SY390-IN-OPERATION-CODE.  THE     *         
+      * CALLING PROGRAM ALSO SUPPLIES "FROM" AND "TO" DATES IF THE    *         
+      * OPERATION IS TO BE A DIFFERENCE CALCULATION, OR "FROM" DATE AND         
+      * NUMBER OF DAYS IF THE OPERATION IS TO COMPUTE A NEW DATE. THE *         
+      * ROUTINE WILL RETURN AN ERROR INDICATOR AND THE RESULTS OF THE *         
+      * OPERATION IF NO INPUT ERRORS ARE DETECTED.                    *         
+      * IF THE CALLING PROGRAM HAS A DATE IN A FORMAT OTHER THAN      *         
+      * CCYYMMDD, YYMMDD, CCYYDDD OR YYDDD (E.G. MM/DD/YY, MMDDYY,    *         
+      * ETC.) IT IS SUGGESTED THAT SYV777/SYU777 ROUTINE BE CALLED TO *         
+      * CONVERT IT.  WHEN USING THE CALCULATE NEW DATE OPERATIONS.    *         
+      * THE INPUT DATE WILL ALWAYS BE PASSED IN THE "FROM" INPUT DATE *         
+      * FIELDS (I.E. SY390-IN-CCYYMMDD-1, SY390-IN-YYMMDD-1,          *         
+      * SY390-IN-CCYYDDD-1, AND SY390-IN-YYDDD-1) AND VALUES IN       *         
+      * SY390-IN-CCYYMMDD-2, ETC. WILL BE IGNORED                     *         
+      *                                                               *         
+      * CALL FORMATS: BATCH - CALL 'SYV390' USING SY390-PARM-DATA     *         
+      *               CICS  - CALL 'SYV390' USING DFHEIBLK            *         
+      *                                           DFHCOMMAREA         *         
+      *                                           SY390-PARM-DATA     *         
+      *                                                               *         
+      *****************************************************************         
+      * EXAMPLE 1: COMPUTE THE DIFFERENCE IN DAYS BETWEEN TWO         *         
+      *            8-POSITION GREGORIAN (CCYYMMDD) DATES IN A BATCH   *         
+      *            PROGRAM.                                           *         
+      *                                                               *         
+      *     WORKING-STORAGE SECTION.                                  *         
+      *     01  WS-FROM-GREG-8       PIC  9(08) VALUE 19991201.       *         
+      *     01  WS-TO-GREG-8         PIC  9(08) VALUE 20000101.       *         
+      *     01  WS-DAYS-DIFF         PIC S9(05) COMP-3.                         
+      *                                                               *         
+      *     COPY SYR390.                                              *         
+      *                                                               *         
+      *     PROCEDURE DIVISION                                        *         
+      *         INITIALIZE SY390-PARM-DATA                            *         
+      *         SET SY390-CCYYMMDD-DIFFERENCE TO TRUE                 *         
+      *         MOVE WS-FROM-GREG-8 TO SY390-IN-GREG-CCYYMMDD-1       *         
+      *         MOVE WS-TO-GREG-8 TO SY390-IN-GREG-CCYYMMDD-2         *         
+      *                                                               *         
+      *         CALL 'SYV390' USING SY390-PARM-DATA                   *         
+      *                                                               *         
+      *         IF SY390-OUT-NORMAL-RETURN                            *         
+      *            MOVE SY390-OUT-DAYS-DIFFERENCE TO WS-DAYS-DIFF     *         
+      *         ELSE                                                  *         
+      *            MOVE 'AN ERROR WAS ENCOUNTERED IN THE INPUT PARMS' *         
+      *              TO WS-ERROR-MESSAGE.                             *         
+      *                                                               *         
+      * NOTE: THE ROUTINE SUBTRACTS SY390-IN-GREG-CCYYMMDD-1 FROM     *         
+      *       SY390-IN-GREG-CCYYMMDD-2.  THE VALUE RETURNED IN        *         
+      *       SY390-OUT-DAYS-DIFFERENCE WILL BE POSITIVE IF THE DATE  *         
+      *       IN SY390-IN-GREG-CCYYMMDD-1 IS EARLIER THAN THE DATE IN *         
+      *       SY390-IN-GREG-CCYYMMDD-2, AND WILL BE NEGATIVE IF THE   *         
+      *       DATE IN SY390-IN-GREG-CCYYMMDD-1 IS LATER THAN THE DATE *         
+      *       IN SY390-IN-GREG-CCYYMMDD-2.                            *         
+      *****************************************************************         
+      *                                                               *         
+      * EXAMPLE 2: COMPUTE THE DIFFERENCE IN DAYS BETWEEN TWO         *         
+      *            TWO 6-POSITION GREGORIAN (YYMMDD) DATES IN A CICS  *         
+      *            PROGRAM.                                           *         
+      *                                                               *         
+      *     WORKING-STORAGE SECTION.                                  *         
+      *     01  WS-FROM-GREG-6       PIC  9(06) VALUE 991201.         *         
+      *     01  WS-TO-GREG-6         PIC  9(06) VALUE 000101.         *         
+      *     01  WS-DAYS-DIFF         PIC S9(05) COMP-3.               *         
+      *                                                               *         
+      *     COPY SYR390.                                              *         
+      *                                                               *         
+      *     PROCEDURE DIVISION                                        *         
+      *         INITIALIZE SY390-PARM-DATA                            *         
+      *         SET SY390-YYMMDD-DIFFERENCE TO TRUE                   *         
+      *         MOVE WS-FROM-GREG-6 TO SY390-IN-GREG-YYMMDD-1         *         
+      *         MOVE WS-TO-GREG-6 TO SY390-IN-GREG-YYMMDD-2           *         
+      *                                                               *         
+      *         CALL 'SYU390' USING DFHEIBLK                          *         
+      *                             DFHCOMMAREA                       *         
+      *                             SY390-PARM-DATA                   *         
+      *                                                               *         
+      *         IF SY390-OUT-NORMAL-RETURN                            *         
+      *            MOVE SY390-OUT-DAYS-DIFFERENCE TO WS-DAYS-DIFF     *         
+      *         ELSE                                                  *         
+      *            MOVE 'AN ERROR WAS ENCOUNTERED IN THE INPUT PARMS' *         
+      *              TO WS-ERROR-MESSAGE.                             *         
+      *                                                               *         
+      *****************************************************************         
+      *                                                               *         
+      * EXAMPLE 3: CALCULATE A NEW DATE BASED ON AN 8-POSITION        *         
+      *            GREGORIAN (CCYYMMDD) DATE AND A NUMBER OF DAYS IN  *         
+      *            A BATCH PROGRAM                                    *         
+      *                                                               *         
+      *     WORKING-STORAGE SECTION.                                  *         
+      *     01  WS-FROM-GREG-8       PIC  9(08) VALUE 19991201.       *         
+      *     01  WS-DAYS              PIC S9(05) COMP-3 VALUE +30.     *         
+      *                                                               *         
+      *     COPY SYR390.                                              *         
+      *                                                               *         
+      *     PROCEDURE DIVISION                                        *         
+      *         INITIALIZE SY390-PARM-DATA                            *         
+      *         SET                                                   *         
+      *         MOVE WS-FROM-GREG-8 TO SY390-IN-GREG-CCYYMMDD-1       *         
+      *         MOVE WS-DAYS TO SY390-IN-NUMBER-OF-DAYS               *         
+      *                                                               *         
+      *         CALL 'SYV390' USING SY390-PARM-DATA                   *         
+      *                                                               *         
+      *         IF SY390-OUT-NORMAL-RETURN                            *         
+      *            MOVE SY390-OUT-GREG-CCYYMMDD  TO WS-NEW-GREG-8     *         
+      *            MOVE SY390-OUT-GREG-YYMMDD    TO WS-NEW-GREG-6     *         
+      *            MOVE SY390-OUT-JULIAN-CCYYDDD TO WS-NEW-JULIAN-7   *         
+      *            MOVE SY390-OUT-JULIAN-YYDDD   TO WS-NEW-JULIAN-5   *         
+      *         ELSE                                                  *         
+      *            MOVE 'AN ERROR WAS ENCOUNTERED IN THE INPUT PARMS' *         
+      *              TO WS-ERROR-MESSAGE.                             *         
+      *                                                               *         
+      * NOTE1: THE VALUE PASSED IN SY390-IN-NUMBER-OF-DAYS MAY BE     *         
+      *        POSITIVE OR NEGATIVE.  IF POSITIVE, THAT NUMBER OF     *         
+      *        DAYS IS ADDED TO THE INPUT DATE TO PRODUCE THE OUTPUT. *         
+      *        DATE.  IF NEGATIVE, THAT NUMBER OF DAYS IS SUBTRACTED  *         
+      *        FROM THE INPUT DATE TO PRODUCE THE OUTPUT DATE.        *         
+      *                                                               *         
+      * NOTE2: NOTICE THAT THE OUTPUT DATE IS RETURNED IN FOUR        *         
+      *        FORMATS.                                               *         
+      *****************************************************************         
+      *                                                               *         
+      * EXAMPLE 4: CALCULATE A NEW DATE BASED ON A 6-POSITION         *         
+      *            GREGORIAN (YYMMDD) DATE AND A NUMBER OF DAYS IN    *         
+      *            A CICS PROGRAM.                                    *         
+      *                                                               *         
+      *     WORKING-STORAGE SECTION.                                  *         
+      *     01  WS-FROM-GREG-6       PIC  9(06) VALUE 991201.         *         
+      *     01  WS-DAYS              PIC S9(05) COMP-3 VALUE -30.     *         
+      *                                                               *         
+      *     COPY SYR390.                                              *         
+      *                                                               *         
+      *     PROCEDURE DIVISION                                        *         
+      *         INITIALIZE SY390-PARM-DATA                            *         
+      *         SET SY390-YYMMDD-CALCULATION TO TRUE                  *         
+      *         MOVE WS-FROM-GREG-6 TO SY390-IN-GREG-YYMMDD-1         *         
+      *         MOVE WS-DAYS TO SY390-IN-NUMBER-OF-DAYS               *         
+      *                                                               *         
+      *         CALL 'SYU390' USING DFHEIBLK                          *         
+      *                             DFHCOMMAREA                       *         
+      *                             SY390-PARM-DATA                   *         
+      *                                                               *         
+      *         IF SY390-OUT-NORMAL-RETURN                            *         
+      *            MOVE SY390-OUT-GREG-YYMMDD    TO WS-NEW-GREG-6     *         
+      *         ELSE                                                  *         
+      *            MOVE 'AN ERROR WAS ENCOUNTERED IN THE INPUT PARMS' *         
+      *              TO WS-ERROR-MESSAGE.                             *         
+      *                                                               *         
+      *****************************************************************         
+      *                                                               *         
+      * EXAMPLE 5: COMPUTE THE NUMBER OF DAYS DIFFERENCE BETWEEN      *         
+      *            TWO 7-POSITION JULIAN (CCYYDDD) DATES IN A BATCH   *         
+      *            PROGRAM.                                           *         
+      *                                                               *         
+      *     WORKING-STORAGE SECTION.                                  *         
+      *     01  WS-FROM-JULIAN-7     PIC  9(07) COMP-3 VALUE 1999331. *         
+      *     01  WS-TO-JULIAN-7       PIC  9(07) COMP-3 VALUE 2000001. *         
+      *     01  WS-DAYS-DIFF         PIC S9(05) COMP-3.               *         
+      *                                                               *         
+      *     COPY SYR390.                                              *         
+      *                                                               *         
+      *     PROCEDURE DIVISION                                        *         
+      *         INITIALIZE SY390-PARM-DATA                            *         
+      *         SET SY390-CCYYDDD-DIFFERENCE TO TRUE                  *         
+      *         MOVE WS-FROM-JULIAN-7 TO SY390-IN-JULIAN-CCYYDDD-1    *         
+      *         MOVE WS-TO-JULIAN-7 TO SY390-IN-JULIAN-CCYYDDD-2      *         
+      *                                                               *         
+      *         CALL 'SYV390' USING SY390-PARM-DATA                   *         
+      *                                                               *         
+      *         IF SY390-OUT-NORMAL-RETURN                            *         
+      *            MOVE SY390-OUT-DAYS-DIFFERENCE TO WS-DAYS-DIFF     *         
+      *         ELSE                                                  *         
+      *            MOVE 'AN ERROR WAS ENCOUNTERED IN THE INPUT PARMS' *         
+      *              TO WS-ERROR-MESSAGE.                             *         
+      *                                                               *         
+      *****************************************************************         
+      *                                                               *         
+      * EXAMPLE 6: COMPUTE THE NUMBER OF DAYS DIFFERENCE BETWEEN      *         
+      *            TWO 5-POSITION JULIAN (YYDDD) DATES IN A CICS      *         
+      *            PROGRAM.                                           *         
+      *                                                               *         
+      *     WORKING-STORAGE SECTION.                                  *         
+      *     01  WS-FROM-JULIAN-5     PIC  9(05) COMP-3 VALUE 99331.   *         
+      *     01  WS-TO-JULIAN-5       PIC  9(05) COMP-3 VALUE 00001.   *         
+      *     01  WS-DAYS-DIFF         PIC S9(05) COMP-3.               *         
+      *                                                               *         
+      *     COPY SYR390.                                              *         
+      *                                                               *         
+      *     PROCEDURE DIVISION                                        *         
+      *         INITIALIZE SY390-PARM-DATA                            *         
+      *         SET SY390-YYDDD-DIFFERENCE TO TRUE                    *         
+      *         MOVE WS-FROM-JULIAN-5 TO SY390-IN-JULIAN-YYDDD-1      *         
+      *         MOVE WS-TO-JULIAN-5 TO SY390-IN-JULIAN-YYDDD-2        *         
+      *                                                               *         
+      *         CALL 'SYU390' USING DFHEIBLK                          *         
+      *                             DFHCOMMAREA                       *         
+      *                             SY390-PARM-DATA                   *         
+      *                                                               *         
+      *         IF SY390-OUT-NORMAL-RETURN                            *         
+      *            MOVE SY390-OUT-DAYS-DIFFERENCE TO WS-DAYS-DIFF     *         
+      *         ELSE                                                  *         
+      *            MOVE 'AN ERROR WAS ENCOUNTERED IN THE INPUT PARMS' *         
+      *              TO WS-ERROR-MESSAGE.                             *         
+      *                                                               *         
+      *****************************************************************         
+      *                                                               *         
+      * EXAMPLE 7: CALCULATE A NEW DATE BASED ON A 7-POSITION         *         
+      *            JULIAN (CCYYDDD) DATE AND A NUMBER OF DAYS IN      *         
+      *            A BATCH PROGRAM.                                   *         
+      *                                                               *         
+      *     WORKING-STORAGE SECTION.                                  *         
+      *     01  WS-FROM-JULIAN-7     PIC  9(07) COMP-3 VALUE 1999331. *         
+      *     01  WS-DAYS              PIC S9(05) COMP-3 VALUE +30.     *         
+      *                                                               *         
+      *     COPY SYR390.                                              *         
+      *                                                               *         
+      *     PROCEDURE DIVISION                                        *         
+      *         INITIALIZE SY390-PARM-DATA                            *         
+      *         SET SY390-CCYYDDD-CALCULATION TO TRUE                 *         
+      *         MOVE WS-FROM-JULIAN-7 TO SY390-IN-JULIAN-CCYYDDD-1    *         
+      *         MOVE WS-DAYS TO SY390-IN-NUMBER-OF-DAYS               *         
+      *                                                               *         
+      *         CALL 'SYV390' USING SY390-PARM-DATA                   *         
+      *                                                               *         
+      *         IF SY390-OUT-NORMAL-RETURN                            *         
+      *            MOVE SY390-OUT-JULIAN-CCYYDDD TO WS-NEW-JULIAN-7   *         
+      *         ELSE                                                  *         
+      *            MOVE 'AN ERROR WAS ENCOUNTERED IN THE INPUT PARMS' *         
+      *              TO WS-ERROR-MESSAGE.                             *         
+      *                                                               *         
+      *****************************************************************         
+      *                                                               *         
+      * EXAMPLE 8: CALCULATE A NEW DATE BASED ON A 5-POSITION         *         
+      *            JULIAN (YYDDD) DATE AND A NUMBER OF DAYS IN A      *         
+      *            CICS PROGRAM.                                      *         
+      *                                                               *         
+      *     WORKING-STORAGE SECTION.                                  *         
+      *     01  WS-FROM-JULIAN-5     PIC  9(05) COMP-3 VALUE 99331.   *         
+      *     01  WS-DAYS              PIC S9(05) COMP-3 VALUE -30.     *         
+      *                                                               *         
+      *     COPY SYR390.                                              *         
+      *                                                               *         
+      *     PROCEDURE DIVISION                                        *         
+      *         INITIALIZE SY390-PARM-DATA                            *         
+      *         SET SY390-YYDDD-CALCULATION TO TRUE                   *         
+      *         MOVE WS-FROM-JULIAN-5 TO SY390-IN-JULIAN-CCYYDDD-1    *         
+      *         MOVE WS-DAYS TO SY390-IN-NUMBER-OF-DAYS               *         
+      *                                                               *         
+      *         CALL 'SYU390' USING DFHEIBLK                          *         
+      *                             DFHCOMMAREA                       *         
+      *                             SY390-PARM-DATA                   *         
+      *                                                               *         
+      *         IF SY390-OUT-NORMAL-RETURN                            *         
+      *            MOVE SY390-OUT-JULIAN-YYDDD   TO WS-NEW-JULIAN-5   *         
+      *         ELSE                                                  *         
+      *            MOVE 'AN ERROR WAS ENCOUNTERED IN THE INPUT PARMS' *         
+      *              TO WS-ERROR-MESSAGE.                             *         
+      *                                                               *         
+      * TIPS: WHEN USING THE CALCULATE NEW DATE OPERATIONS            *         
+      *       SY390-IN-NUMBER-OF-DAYS MAY BE ZERO, AND SINCE ALL      *         
+      *       FORMS OF THE NEW DATE ARE RETURNED, THIS ROUTINE MAY BE *         
+      *       USED AS A CONVENIENT WAY OF CONVERTING JULIAN DATES TO  *         
+      *       GREGORIAN DATES, GREGORIAN TO JULIAN DATES, DETERMINING *         
+      *       THE CENTURY FOR SHORT DATES AND DATE VALIDATION.        *         
+      *                                                               *         
+      * FOR EXAMPLE,                                                  *         
+      *                                                               *         
+      *     WORKING-STORAGE SECTION.                                  *         
+      *     01  WS-JULIAN-5          PIC  9(05) COMP-3 VALUE 99331.   *         
+      *                                                               *         
+      *     COPY SYR390.                                              *         
+      *                                                               *         
+      *     PROCEDURE DIVISION                                        *         
+      *         INITIALIZE SY390-PARM-DATA                            *         
+      *         SET SY390-YYDDD-CALCULATION TO TRUE                   *         
+      *         MOVE WS-JULIAN-5 TO SY390-IN-JULIAN-CCYYDDD-1         *         
+      *         MOVE ZERO TO SY390-IN-NUMBER-OF-DAYS                  *         
+      *                                                               *         
+      *         CALL 'SYU390' USING DFHEIBLK                          *         
+      *                             DFHCOMMAREA                       *         
+      *                             SY390-PARM-DATA                   *         
+      *                                                               *         
+      *         IF SY390-OUT-NORMAL-RETURN                            *         
+      *            MOVE SY390-OUT-GREG-CCYYMMDD                       *         
+      *              TO WS-EXPANDED-CONVERTED-DATE                    *         
+      *         ELSE                                                  *         
+      *            IF SY390-OUT-INVALID-OP-CODE                       *         
+      *            OR SY390-OUT-INVALID-NO-OF-DAYS                    *         
+      *               MOVE 'A CODING ERROR' TO WS-ERROR-MESSAGE       *         
+      *            ELSE                                               *         
+      *               MOVE 'AN INVALID DATE TO WS-ERROR-MESSAGE.      *         
+      *****************************************************************         
+                                                                                
+      *****************************************************************         
+      *     REVISION INFORMATION                                      *         
+      *****************************************************************         
+      *   DATE   PGMR  DESCRIPTION                                    *         
+      * -------- ---  ----------------------------------------------  *         
+      * 03/16/00 GXN  INITIAL IMPLEMENTATION                          * GXN00076
+      *****************************************************************         
+                                                                                
+       01  SY390-PARM-DATA.                                                     
+      *****************************************************************         
+      *            INPUT FIELDS                                       *         
+      *****************************************************************         
+                                                                                
+           05  SY390-IN-OPERATION-CODE         PIC  X(01).                      
+               88  SY390-CCYYMMDD-DIFFERENCE              VALUE '1'.            
+               88  SY390-YYMMDD-DIFFERENCE                VALUE '2'.            
+               88  SY390-CCYYMMDD-CALCULATION             VALUE '3'.            
+               88  SY390-YYMMDD-CALCULATION               VALUE '4'.            
+               88  SY390-CCYYDDD-DIFFERENCE               VALUE '5'.            
+               88  SY390-YYDDD-DIFFERENCE                 VALUE '6'.            
+               88  SY390-CCYYDDD-CALCULATION              VALUE '7'.            
+               88  SY390-YYDDD-CALCULATION                VALUE '8'.            
+                                                                                
+           05  SY390-IN-GREG-CCYYMMDD-1        PIC  9(08).                      
+                                                                                
+           05  SY390-IN-GREG-CCYYMMDD-2        PIC  9(08).                      
+                                                                                
+           05  SY390-IN-GREG-YYMMDD-1          PIC  9(06).                      
+                                                                                
+           05  SY390-IN-GREG-YYMMDD-2          PIC  9(06).                      
+                                                                                
+           05  SY390-IN-JULIAN-CCYYDDD-1       PIC  9(07) COMP-3.               
+                                                                                
+           05  SY390-IN-JULIAN-CCYYDDD-2       PIC  9(07) COMP-3.               
+                                                                                
+           05  SY390-IN-JULIAN-YYDDD-1         PIC  9(05) COMP-3.               
+                                                                                
+           05  SY390-IN-JULIAN-YYDDD-2         PIC  9(05) COMP-3.               
+                                                                                
+           05  SY390-IN-NUMBER-OF-DAYS         PIC S9(05) COMP-3.               
+                                                                                
+      *****************************************************************         
+      *           OUTPUT FIELDS                                       *         
+      *****************************************************************         
+                                                                                
+           05  SY390-OUT-ERR-SW                PIC  X(01).                      
+               88  SY390-OUT-NORMAL-RETURN                VALUE SPACE.          
+               88  SY390-OUT-INVALID-INPUT                                      
+                   VALUES '1' THROUGH '3'.                                      
+               88  SY390-OUT-INVALID-OP-CODE              VALUE '1'.            
+               88  SY390-OUT-INVALID-DATE                 VALUE '2'.            
+               88  SY390-OUT-INVALID-NO-OF-DAYS           VALUE '3'.            
+                                                                                
+           05  SY390-OUT-DAYS-DIFFERENCE       PIC S9(08) COMP.                 
+                                                                                
+           05  SY390-OUT-GREG-CCYYMMDD         PIC  9(08).                      
+                                                                                
+           05  SY390-OUT-GREG-YYMMDD           PIC  9(06).                      
+                                                                                
+           05  SY390-OUT-JULIAN-CCYYDDD        PIC  9(07) COMP-3.               
+                                                                                
+           05  SY390-OUT-JULIAN-YYDDD          PIC  9(05) COMP-3.               
+                                                                                
+      *****************************************************************         
+      *                    END COPYBOOK SYR390                        *         
+      *****************************************************************         

@@ -1,0 +1,274 @@
+      ****************************************************************          
+      *  COPYBOOK:  EDT411                                           *          
+      ****************************************************************          
+      *                                                              *          
+      * OVERVIEW:                                                    *          
+      *  USED IN SUB-ROUTINES EDV411 TO SUPPLY A CALLING PROGRAM     *          
+      *  ACTIONS, DATA, AND AN AREA TO RETURN DATA AND RESULT CODE   *          
+      *  INFORMATION.                                                *          
+      *                                                              *          
+      *     INPUT: EDV411-INPUT-DATA                                 *          
+      *            - COMPANY CODE                                    *          
+      *            - PARTNER ID                                      *          
+      *            - STATE CODE PRIOR                                *          
+      *            - STATE CODE CURRENT                              *          
+      *            - FORMAT ID                                       *          
+      *            - DOC ID                                          *          
+      *                                                              *          
+      *     INPUT/OUTPUT: EDV411-INPUT-OUTPUT-ARRAY-AREA             *          
+      *            - ARRAY COUNT                                     *          
+      *            - EDV411-ARRAY (OCCURS UP TO 500 TIMES)           *          
+      *                 - VARIOUS DATA FROM CURSOR JOIN              *          
+      *                                                              *          
+      *    OUTPUT: EDV411-OUTPUT-DATA                                *          
+      *             - EDV411-ROW-COUNT                               *          
+      *             - EDV411-MODULE-RESULT-CD                        *          
+      *             - EDV411-MODULE-MESSAGE                          *          
+      *             - EDV411-DATABASE-RESULT-CODES:                  *          
+      *                 - EDV411-SQLCODE                             *          
+      *                 - EDV411-SQLSTATE                            *          
+      *                 - EDV411-SQL-MESSAGE                         *          
+      *                                                              *          
+      *   EDV411 EXAMPLE FOR REQUESTING CURSOR OPEN.                 *          
+      *                                                              *          
+      *    INITIALIZE EDV411-COMMUNICATIONS-AREA.                    *          
+      *    MOVE 'EDP155    '             TO EDV411-USER-ID.          *          
+      *    MOVE 'US'                     TO EDV411-KEY-CUST-CO-CD.   *          
+      *    MOVE '10EDP740'               TO EDV411-KEY-STATE-CD-PRI. *          
+      *    MOVE '15EDP760'               TO EDV411-KEY-STATE-CD-CUR. *          
+      *    MOVE 'CU'                     TO EDV411-KEY-PRTNR-TYPE.   *          
+      *    MOVE 'X12       '             TO EDV411-KEY-FORMAT-ID.    *          
+      *    MOVE 'PO ACK    '             TO EDV411-KEY-DOC-ID.       *          
+      *    SET EDV411-CURSOR-OPEN        TO TRUE.                    *          
+      *    SET EDV411-PO-DATA-SELECT     TO TRUE.                    *          
+      *                                                              *          
+      *    CALL 'EDV411' USING EDV411-COMMUNICATIONS-AREA.           *          
+      *                                                              *          
+      *    IF EDV411-STATUS-OK                                       *          
+      *    THEN                                                      *          
+      *       CONTINUE WITH EXPECTED PROCESSING                      *          
+      *    ELSE                                                      *          
+      *       CONTINUE CHECK FOR DETAILED ERROR CONDITIONS AND       *          
+      *       TAKE APPROPRIATE ACTIONS.                              *          
+      *                                                              *          
+      *    NOTE: THIS EXAMPLE SHOWS A TYPICAL CALL FROM AN           *          
+      *          APPLICATION PROGRAM. IN THIS CASE THE PROGRAMMER    *          
+      *          IS REQUESTING AN OPEN FOR A CURSOR WHILE PASSING    *          
+      *          APPROPRIATE SELECTION CRITERIA.                     *          
+      *                                                              *          
+      *          THE PROGRAMMER SHOULD ALWAYS CHECK MODULE RESULT    *          
+      *          CODE RETURNED FROM EDV411 TO VALIDATE THAT IT       *          
+      *          WORKED PROPERLY (SEE THE COPYBOOK EDT411 FOR A      *          
+      *          LIST OF ERROR CODES).                               *          
+      *                                                              *          
+      ****************************************************************          
+      * REVISION INFO:                                               *          
+      *                                                              *          
+      * DATE      PROG  COMMENT                                      *          
+      * ---------------------------------                            *          
+      * 02/04/23  VYP   SE8799:ADD ERROR DESCRIPTION IN PO ACK       *  VYP23035
+      * 08/07/21  MYM   SE8651:ADDED NEW FIELD I.E. HEADER AND LINE  *  MYM21219
+      *                 PROMISE DATE FOR EDI FUTURE ORDER            *  MYM21219
+      * 10/07/17  CYK   HERMES PROJECT-ADDED NEW FIELD FOR HERMES    *  CYK17280
+      *                 ORDER DETAILS                                *  CYK17280
+      * 08/05/17  SXR   SE25141 - ADDED NEW FIELD FOR ORIGINAL       *  SXR17217
+      *                 SUPPLIED PART NUMBER IN EO_LINE_INFO         *  SXR17217
+      * 08/05/17  VYP   EVPN - ADDED A NEW FIELD FOR EXTENDED VEND   *  VYP17217
+      *                 PART NBR IN EO_LINE_INFO                     *  VYP17217
+      * 09/17/16  MKA   ADDED NEW FIELD EDV411-OVRD-APPL-BATCH-ID    *  MKA16261
+      * 03/05/16  DXB   ADDED NEW FIELD EDV411-ETA-SOURCE-CD         *  DXB16065
+      * 04/01/16  DXB   SE24222 INITIAL ORDER RESPONSE EMEA ETA      *  DXB16009
+      *                 IMPROVEMENT                                  *  DXB16009
+      * 03/14/15  DXB   ADDED NEW FIELD EDV411-FORMAT-ID             *  DXB15073
+      * 04/06/14  MZT   INCREASED EDV411-CUST-PART-NBR FROM 15 TO 20.*  MZT14096
+      * 04/06/14  MZT   FOR IMM DE REQUIREMENT.                      *  MZT14096
+      * 06/01/07  MMV   ADDED EDV411-VLA-TYPE FIELD                  *  MMV07164
+      * 02/01/05  JFH   ADD ORDR_TYPE FIELD                          *  JFH05032
+      * 01/13/05  LAR   ADDED SERVICE AMT AND SERVICE QTY            *  LAR05013
+      * 09/26/04  TWA   ADDED TAG AND RELS TAG TO THE KEY AREA.      *  TWA04270
+      *                 THE POST-PROCESSORS NOW ACCESS ORDER DATA    *  TWA04270
+      *                 BY THESE FIELDS, INSTEAD OF ONLY BY STATE-CD *  TWA04270
+      *                 AS BEFORE.                                   *  TWA04270
+      *           GLS   REMOVED DUPLICATED COMMENT LINE              *  TWA04270
+      * 03/25/04  CBL   ADDED FIELD EDV411-ST-CTRY                   *  CBL04085
+      * 01/13/04  KWC   ADDED FIELD EDV411-LINE-TYPE-SW              *  KWC04013
+      * 05/22/03  SDC   ADDED FIELD MISC-CHRG-SKU                    *  JFH03142
+      * 10/23/02  JFH   ADDED NEW FIELD EDV411-ACK-RPT-FLG           *  JFH02296
+      *                 ADDED NEW FIELD EDV411-DB2-CRT-TS            *  JFH02296
+      * 08/21/02  SDC   ADDED FIELD EDV411-FREE-ITEM-SW FOR PROMOS   *  SDC02233
+      * 04/03/02  TWA   ADDED FIELD APPL-ID, NEEDED FOR PROPER POST- *  MKL02093
+      *                 PROCESSOR STATE_CD UPDATE.                   *  MKL02093
+      * 02/01/02  TWA   ORIGINAL IN ADDITION TO                      *  SXP02032
+      *           MKL   INCREASED CUST_PO_NBR FROM 15 TO 18 CHARS    *  SXP02032
+      ****************************************************************          
+                                                                                
+       01  EDV411-COMMUNICATIONS-AREA.                                          
+                                                                                
+      **********************************************************                
+      *                   INPUT DATA                           *                
+      **********************************************************                
+           05  EDV411-ACTION-CD                     PIC  X(002).                
+               88  EDV411-CURSOR-OPEN               VALUE 'CO'.                 
+               88  EDV411-CURSOR-FETCH              VALUE 'CF'.                 
+               88  EDV411-CURSOR-CL                 VALUE 'CL'.                 
+           05  EDV411-USER-ID                       PIC  X(010).                
+           05  EDV411-KEY-AREA.                                                 
+               10  EDV411-KEY-CO-CD                 PIC  X(002).                
+               10  EDV411-KEY-STATE-CD-PRI          PIC  X(010).                
+               10  EDV411-KEY-STATE-CD-CUR          PIC  X(010).                
+               10  EDV411-KEY-PRTNR-TYPE            PIC  X(002).                
+               10  EDV411-KEY-FORMAT-ID             PIC  X(010).                
+               10  EDV411-KEY-DOC-ID                PIC  X(010).                
+               10  EDV411-KEY-TAG-NBR               PIC  X(012).        TWA04270
+               10  EDV411-KEY-RTAG-NBR              PIC  X(026).        TWA04270
+      **********************************************************                
+      *                   INPUT OUTPUT DATA                    *                
+      **********************************************************                
+           05  EDV411-INPUT-OUTPUT-AREA.                                        
+               10  EDV411-OBJECT-ID                 PIC  X(030).                
+                   88  EDV411-NULL-OBJECT           VALUE SPACES.               
+                   88  EDV411-PO-DATA-SELECT        VALUE                       
+                                  'PO DATA SELECT                '.             
+               10  EDV411-ARRAY-COUNT               PIC  9(003).                
+                   88  EDV411-MAX-ARRAY-COUNT       VALUE 500.                  
+               10  EDV411-ARRAY OCCURS 500 TIMES.                               
+                   15  EDV411-ORHD-PRI-KEYS.                                    
+                       20  EDV411-CUST-CO-CD      PIC  X(002).                  
+                       20  EDV411-CUST-BR         PIC  X(002).                  
+                       20  EDV411-CUST-NBR        PIC  X(006).                  
+                       20  EDV411-CUST-SFX        PIC  X(003).                  
+                       20  EDV411-CUST-PO-NBR     PIC  X(018).                  
+                       20  EDV411-SDQ-SEQ-NBR     PIC S9(010) COMP-3.           
+                       20  EDV411-CUST-PO-DT      PIC  X(010).                  
+                       20  EDV411-CUST-PO-SEQ-NBR PIC S9(010) COMP-3.           
+                   15  EDV411-TAG-NBR             PIC  X(012).                  
+                   15  EDV411-APPL-ID             PIC  X(010).          MKL02093
+                   15  EDV411-BATCH-STAT-KEY-TS   PIC  X(026).                  
+                   15  EDV411-PARTNER-ID          PIC  X(015).                  
+                   15  EDV411-IMI-ASGD-BR-NBR     PIC  X(002).                  
+                   15  EDV411-IMI-ASGD-ORDR-NBR   PIC  X(005).                  
+                   15  EDV411-ORDR-TYPE           PIC  X(002).          JFH05032
+                   15  EDV411-ORDR-CCY-CD         PIC  X(003).                  
+                   15  EDV411-ORDR-ETA-DT         PIC  X(010).                  
+                   15  EDV411-IMI-CARR-CODE       PIC  X(002).                  
+                   15  EDV411-IMI-SHIP-VIA        PIC  X(012).                  
+                   15  EDV411-BO-ORIDE-SWTCH      PIC  X(001).                  
+                   15  EDV411-ORDR-STATUS         PIC  X(002).                  
+                   15  EDV411-ORDR-REJ-FLG        PIC  X(002).                  
+                   15  EDV411-PROCESS-DT          PIC  X(010).                  
+                   15  EDV411-PROCESS-TM          PIC  X(008).                  
+                   15  EDV411-CCY-RATE         PIC S9(011)V9(06) COMP-3.        
+                   15  EDV411-ORDR-HAS-ERRS       PIC  X(001).                  
+                   15  EDV411-TAX-FLG             PIC  X(001).                  
+                   15  EDV411-ST-NAME             PIC  X(050).                  
+                   15  EDV411-ST-ATTN             PIC  X(050).                  
+                   15  EDV411-ST-ATTN-2           PIC  X(025).                  
+                   15  EDV411-ST-ADDR-1           PIC  X(050).                  
+                   15  EDV411-ST-ADDR-2           PIC  X(050).                  
+                   15  EDV411-ST-ADDR-3           PIC  X(050).                  
+                   15  EDV411-ST-ADDR-4           PIC  X(050).                  
+                   15  EDV411-ST-CITY             PIC  X(021).                  
+                   15  EDV411-ST-STATE            PIC  X(002).                  
+                   15  EDV411-ST-ZIP              PIC  X(009).                  
+                   15  EDV411-ST-CTRY             PIC  X(002).          CBL04085
+                   15  EDV411-ST-PTNR-STORE-NBR   PIC  X(030).                  
+                   15  EDV411-ST-IMI-ST-SUF       PIC  X(003).                  
+                   15  EDV411-CUST-REF-NBR2       PIC  X(020).                  
+                   15  EDV411-ORD-REF-NBR         PIC  X(010).                  
+                   15  EDV411-ORD-RELS-NBR        PIC  X(020).                  
+                   15  EDV411-IMI-REF-NBR         PIC  X(017).                  
+                   15  EDV411-END-CUST-PO-NBR     PIC  X(020).                  
+                   15  EDV411-END-CUST-REF-NBR    PIC  X(020).                  
+                   15  EDV411-DB2-CRT-TS          PIC  X(026).          JFH02296
+                   15  EDV411-VLA-TYPE            PIC  X(002).          MMV07164
+                   15  EDV411-IMI-BT-SUF          PIC  X(003).                  
+                   15  EDV411-LINE-SEQ-NBR        PIC S9(010) COMP-3.           
+                   15  EDV411-PRTNR-LINE-NBR      PIC S9(010) COMP-3.           
+                   15  EDV411-IMI-LINE-NBR        PIC S9(010) COMP-3.           
+                   15  EDV411-IMI-PART-NBR        PIC  X(012).                  
+                   15  EDV411-CUST-PART-NBR       PIC  X(020).          MZT14096
+                   15  EDV411-MFCTR-PART-NBR      PIC  X(020).                  
+                   15  EDV411-UPC-PART-NBR        PIC  X(013).                  
+                   15  EDV411-QTY-ORDERED         PIC S9(010) COMP-3.           
+                   15  EDV411-CUST-QOTD-PRC       PIC S9(013)V99 COMP-3.        
+                   15  EDV411-CUST-PART-DESC-1    PIC  X(035).                  
+                   15  EDV411-IMI-PART-DESC-1     PIC  X(035).                  
+                   15  EDV411-LINE-BO-FLG         PIC  X(001).                  
+                   15  EDV411-MISC-CHRG-SKU       PIC  X(012).          JFH03142
+                   15  EDV411-ITEM-TYPE-IND       PIC  X(001).                  
+                   15  EDV411-IMI-REJ-CD          PIC  X(002).                  
+                   15  EDV411-ACPT-REJ-FLG        PIC  X(001).                  
+                   15  EDV411-LINE-TYPE-SW        PIC  X(001).          KWC04013
+                   15  EDV411-FREE-ITEM-SW        PIC  X(001).          SDC02233
+                   15  EDV411-QTY-BO              PIC S9(010) COMP-3.           
+                   15  EDV411-UNIT-PRC            PIC S9(013)V99 COMP-3.        
+                   15  EDV411-FRGN-UNIT-PRC       PIC S9(015)V99 COMP-3.        
+                   15  EDV411-SUB-PART-NBR        PIC  X(012).                  
+                   15  EDV411-QTY-ALLOC           PIC S9(010) COMP-3.           
+                   15  EDV411-ETA                 PIC  X(010).                  
+                   15  EDV411-SVC-AMT             PIC S9(12)V99 COMP-3. LAR05013
+                   15  EDV411-SVC-QTY             PIC S9(07) COMP.      LAR05013
+                   15  EDV411-PARTNER-DES         PIC  X(050).                  
+                   15  EDV411-CUST-VDR-NBR        PIC  X(020).                  
+                   15  EDV411-ACK-PO-FLG          PIC  X(001).                  
+                   15  EDV411-ACK-RPT-FLG         PIC  X(001).          JFH02296
+                   15  EDV411-ACK-PROMO-FLG       PIC  X(001).                  
+                   15  EDV411-MULT-SHP-TO-FLG     PIC  X(001).                  
+                   15  EDV411-SEND-THRU-ID        PIC  X(015).                  
+                   15  EDV411-FORMAT-ID           PIC  X(010).          DXB15073
+                   15  EDV411-ETA-CALC-FLG        PIC  X(001).          DXB16009
+                   15  EDV411-ETA-DAYS            PIC S9(07) COMP.      DXB16009
+                   15  EDV411-CS-PK-QTY           PIC S9(07) COMP.      DXB16009
+                   15  EDV411-ETA-SOURCE-CD       PIC  X(001).          DXB16065
+                   15  EDV411-OVRD-APPL-BATCH-ID  PIC  X(010).          MKA16261
+                   15  EDV411-EXT-VEND-PART-NBR   PIC  X(040).          VYP17217
+                   15  EDV411-ORIG-SPPL-PART-NBR  PIC  X(030).          SXR17217
+                   15  EDV411-HERM-PO-NBR         PIC  X(010).          CYK17280
+                   15  EDV411-HERM-SHIP-FR-BR-NBR PIC  X(002).          CYK17280
+                   15  EDV411-HERM-UNIT-COST-AMT  PIC  S9(13)V99 COMP-3.CYK17280
+                   15  EDV411-HERM-UNIT-PRC-AMT   PIC  S9(13)V99 COMP-3.CYK17280
+                   15  EDV411-ORDR-PROM-DATE      PIC  X(010).          MYM21219
+                   15  EDV411-LINE-PROM-DATE      PIC  X(010).          MYM21219
+                   15  EDV411-IMI-REJ-CD-DESC     PIC  X(070).          VYP23035
+                                                                                
+      **********************************************************                
+      *                  OUTPUT DATA                           *                
+      **********************************************************                
+           05  EDV411-OUTPUT-DATA.                                              
+               10  EDV411-ROW-COUNT             PIC  S9(009).                   
+               10  EDV411-MODULE-RESULT-CD      PIC  X(002).                    
+                   88  EDV411-STATUS-OKAY           VALUE 'OK'.                 
+                   88  EDV411-CURSOR-OPEN-FAIL      VALUE 'CO'.                 
+                   88  EDV411-CURSOR-FETCH-FAIL     VALUE 'FF'.                 
+                   88  EDV411-END-OF-CURSOR         VALUE 'EC'.                 
+                   88  EDV411-PARM-EDIT-FAIL        VALUE 'PF'.                 
+                   88  EDV411-UNEXPECTED-SQL-CD     VALUE 'UX'.                 
+               10  EDV411-MODULE-MESSAGE            PIC  X(090).                
+               10  EDV411-EXCEPTION-MESSAGE.                                    
+                   15  EDV411-MSG-OBJECT            PIC  X(030).                
+                   15  EDV411-EXTRA-MESSAGE-1       PIC  X(128).                
+                   15  EDV411-EXTRA-MESSAGE-2       PIC  X(128).                
+                   15  EDV411-SQLCA.                                            
+                       20  EDV411-SQLCAID           PIC  X(008).                
+                       20  EDV411-SQLCABC           PIC  S9(009).               
+                       20  EDV411-SQLCODE           PIC  S9(009).               
+                       20  EDV411-SQLERRM.                                      
+                           25  EDV411-SQLERRML      PIC  S9(004).               
+                           25  EDV411-SQLERRMC      PIC  X(070).                
+                       20  EDV411-SQLERRP           PIC  X(008).                
+                       20  EDV411-SQLERRD OCCURS 6 TIMES                        
+                                                    PIC  S9(009).               
+                       20  EDV411-SQLWARN.                                      
+                           25  EDV411-SQLWARN0      PIC  X(001).                
+                           25  EDV411-SQLWARN1      PIC  X(001).                
+                           25  EDV411-SQLWARN2      PIC  X(001).                
+                           25  EDV411-SQLWARN3      PIC  X(001).                
+                           25  EDV411-SQLWARN4      PIC  X(001).                
+                           25  EDV411-SQLWARN5      PIC  X(001).                
+                           25  EDV411-SQLWARN6      PIC  X(001).                
+                           25  EDV411-SQLWARN7      PIC  X(001).                
+                       20  EDV411-SQLEXT.                                       
+                           25  EDV411-SQLWARN8      PIC  X(001).                
+                           25  EDV411-SQLWARN9      PIC  X(001).                
+                           25  EDV411-SQLWARNA      PIC  X(001).                
+                           25  EDV411-SQLSTATE      PIC  X(005).                

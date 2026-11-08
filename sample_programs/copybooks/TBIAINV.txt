@@ -1,0 +1,142 @@
+      * 02/11/14 DAK ADD ALT WHAREHOUSE BYPASS FOR IMMOBILITY           DAK14042
+      * 04/20/11 DXB ADD FIELD DUE DAYS                                 DXB11110
+      * 11/24/03 WXE 33283  EUROPEAN COMPONENTS PHASE II (FREIGHT SPLIT)WXE03328
+*     * 10/22/03 SUG - ADD TB-AINV-SECONDARY-CURR                       SUG03295
+*     *                    TB-AINV-SECONDARY-PAYEE-NBR                  SUG03295
+*     *                    TB-AINV-DEFAULT-PAYEE-NBR                    SUG03295
+*     *                    TB-AINV-CURRENCY-SPLIT                       SUG03295
+*     *                FOR COMPONENT MIGRATION PHASE II.                SUG03295
+*     * ROR02275  -ADD TB-AINV-ALIAS-BRANCH FOR WEB/IL USE.             ROR02275
+*     * MAW01310  -ADD TB-AINV-BR-HAS-ZERO-COST-SW FOR COMPUSHACK       MAW01310
+*     * JMW01257  -ADD NEW FIELD FOR EUROPE REGIONALIZED INV PROJECT    JMW01257
+*     * JAR01222  -ADD NEW FIELDS FOR SUNRISE  PROJECT FOR CONFIG       JAR01222
+*     * TLC01115  -ADD NEW FIELDS FOR SUNRISE  PROJECT                  TLC01115
+*     * TLC98134  -ADD UPS-FRT-REV-TYPE                                 TLC98134
+*     * TAD96303  -ADD MAX WEIGHT                                       TAD96303
+*     * TMH95310  -ADD FLAG TO ALLOW ORDER BATCHING FOR SHR INV ORDERS  TMH96228
+*     * TMH95310  -ADD FLAG TO ALLOW AN ALT WHSE ORDER TO TAKE STOCK    TMH95310
+*     *            FROM AN ALT INV REGION (WHEN LOCAL INVENTORY HAS     TMH95310
+*     *            NOT BEEN DEPLETED).                                  TMH95310
+*     *           -ADD FLAG TO ALLOW BACKORDERS IN ALT WHSE REGIONS     TMH95310
+*     * RDM95306  -ADD CUTOFF TIME AFTER WHICH BILLING ORDERS TAKING    RDM95306
+*     *            STOCK FROM THIS ALTERNATE BRANCH CANNOT BE DONE.     RDM95306
+*     *            THIS CUTOFF TIME CORRESPONDS WITH THE TIME THAT      RDM95306
+*     *            THE BATCH "SWEEP" OF THE TAKING COMPANIES ORDER      RDM95306
+*     *            DATABASE IS RUN                                      RDM95306
+*     * YLM95116  -ADD TWO NEW FIELDS FOR MISC. CHARGES OCCURRING AT    YLM95116
+*     *            REMOTE WAREHOUSE WHEN THE ORDER TAKES STOCK FROM     YLM95116
+*     *            OTHER CAMBAR REGION.                                 YLM95116
+*     *           -ADD ONE NEW FIELD FOR MIN. ORDER LIMIT FOR MISC.     YLM95116
+*     *            CHARGE 891 & 892.                                    YLM95116
+*     *           -SPLIT ALT-WAREHOUSE-LITERAL INTO TWO PARTS OF CO AND YLM95116
+*     *            BRANCH.                                              YLM95116
+*     * JAB95067   ADD BOH BY LOCATION FLAG TO DETERMINE IF AN ORDER IS JAB95067
+*     *            TAKING STOCK FROM A REMOTE REGION AND BOH NEEDS      JAB95067
+*     *            ADJUSTED IN THAT REGION.                             JAB95067
+*     *            ADD FLAG TO ALLOW FOR ALT WHSE COD ORDERS            JAB95067
+*     * JMB95031   ADD OPTION FLAG TO DETERMINE IF PICK TIX FOR ORDERS  JMB95031
+*     *            FOR THIS REMOTE BRANCH MUST RUN IN THIS REGION:      JMB95031
+*     *            REMOTE TDQ SWITCH                                    JMB95031
+*     * YLM94165M  ADD OPTION FLAG TO ALLOW/DISALLOW A SEAPRATE         YLM94165
+*     *            DISTRIBUTION  FOR CENTRAL WAREHOUSE ORDER LINES.     YLM94165
+*     * JMB93175   CREATE THIS TABLE FOR EUROPEAN WAREHOUSING PROJECT.  JMB91316
+*     *            TABLE IS USED AS A LIST OF ALL COMPANY/BRANCH        JMB91316
+*     *            COMBINATIONS OUTSIDE OF THE LOCAL CAMBAR SYSTEM FROM JMB91316
+*     *            WHICH INVENTORY MAY BE ACCESSED, INQUIRED UPON, OR   JMB91316
+*     *            ORDERED AND SHIPPED FROM.                            JMB91316
+*     *            EXAMPLE: FREC21 ENTRY FOR FRANCE MEANS THAT FRANCE   JMB91316
+*     *                     MAY ACCESS THE E.C. CAMBAR INVENTORY        JMB91316
+*     *                     BRANCH 21                                   JMB91316
+       01  TB-AINV-PROC-IA.                                             00000040
+           05  TB-AINV-REQUEST-CODE    PIC X(1)    VALUE 'K'.           00000050
+               88  TB-AINV-ALL                     VALUE 'A'.           00000060
+               88  TB-AINV-KEY                     VALUE 'K'.           00000070
+               88  TB-AINV-NEXT                    VALUE 'N'.           00000080
+               88  TB-AINV-CLOSE                   VALUE 'C'.           00000090
+           05  TB-AINV-RETURN-CODE     PIC X(1)    VALUE ' '.           00000100
+               88  TB-AINV-NORESP                  VALUE 'Y'.           00000110
+               88  TB-AINV-TABLE-NOTFND            VALUE 'T'.           00000120
+               88  TB-AINV-ENTRY-NOTFND            VALUE 'N'.           00000130
+               88  TB-AINV-EOT                     VALUE 'E'.           00000140
+               88  TB-AINV-NO-ROOM                 VALUE 'R'.           00000150
+           05  TB-AINV-COMPANY         PIC X(2)    VALUE '$$'.          00000160
+           05  TB-AINV-TABLE-NAME      PIC X(8)    VALUE 'TBXAINV '.    00000170
+           05  TB-AINV-IA-WORK-AREA    PIC X(20)   VALUE LOW-VALUES.    00000180
+           05  TB-AINV-ENTRY.                                           00000190
+               10  TB-AINV-COMPANY-CODE PIC X(2)   VALUE SPACES.        00000200
+               10  TB-AINV-ALT-COMPANY PIC X(2)    VALUE SPACES.        00000210
+               10  TB-AINV-ALT-BRANCH  PIC X(2)    VALUE SPACES.        00000220
+               10  TB-AINV-ALT-CURRENCY                                 00000220
+                                       PIC X(3)    VALUE SPACES.        00000220
+               10  TB-AINV-ALT-WAREHOUSE-LITERAL.                       YLM95116
+                   15  TB-AINV-ALT-WAREHOUSE-NAME  PIC X(2)             YLM95116
+                                                   VALUE SPACES.        YLM95116
+                   15  TB-AINV-ALT-WAREHOUSE-BR    PIC X(5)             YLM95116
+                                                   VALUE SPACES.        YLM95116
+               10  TB-AINV-ALT-UPDATE-SW                                JMB91316
+                                       PIC X(1)    VALUE SPACES.        TMH93242
+                   88  TB-AINV-ALT-UPDATE          VALUE 'Y'.           TMH93242
+                   88  TB-AINV-ALT-DISPLAY-ONLY    VALUE 'D'.           YLM95116
+               10  TB-AINV-ORDER-DISTRIB-SW                             YLM94165
+                                       PIC X(1)    VALUE SPACES.        YLM94165
+                   88  TB-AINV-ORDER-DISTRIB-YES   VALUE 'Y'.           YLM94165
+                   88  TB-AINV-ORDER-DISTRIB-NO    VALUE ' '  'N'.      YLM94165
+               10  TB-AINV-REMOTE-PRINT-SW                              JMB95031
+                                       PIC X(1)    VALUE SPACES.        JMB95031
+                   88  TB-AINV-REMOTE-PRINT        VALUE 'Y'.           JMB95031
+               10  TB-AINV-AUTO-PAYEE-NBR                               JMB95031
+                                       PIC X(5)    VALUE SPACES.        JMB95031
+               10  TB-AINV-ALT-CO-BR-HAS-BOH                            JAB95067
+                                       PIC X(1)    VALUE SPACES.        JAB95067
+                   88  TB-AINV-HAS-BOH             VALUE 'Y'.           JAB95067
+               10  TB-AINV-ALT-CO-COD-SW                                JAB95067
+                                       PIC X(1)    VALUE SPACES.        JAB95067
+                   88  TB-AINV-ALTCO-COD-OK        VALUE ' ' 'Y'.       JAB95067
+                   88  TB-AINV-ALTCO-COD-NOT-OK    VALUE 'N'.           JAB95067
+               10  TB-AINV-REMOTE-FREIGHT-FEE   PIC S9(11)V99  COMP-3   YLM95116
+                                                               VALUE +0.YLM95116
+               10  TB-AINV-REMOTE-HANDLING-FEE  PIC S9(11)V99  COMP-3   YLM95116
+                                                               VALUE +0.YLM95116
+               10  TB-AINV-REMOTE-MIN-ORDER     PIC S9(11)V99  COMP-3   YLM95116
+                                                               VALUE +0.YLM95116
+               10  TB-AINV-CUTOFF-TIME          PIC S9(7)      COMP-3   RDM95306
+                                                               VALUE +0.RDM95306
+               10  TB-AINV-ALLOW-ALTINV-SW                              TMH95310
+                                       PIC X(1)     VALUE SPACES.       TMH95310
+                   88  TB-AINV-ALTINV-OK            VALUE 'Y'.          TMH95310
+                   88  TB-AINV-ALTINV-NOT-OK        VALUE ' ' 'N'.      TMH95310
+                   88  TB-AINV-ALTINV-ALWAYS        VALUE '*'.          TMH95310
+               10  TB-AINV-ALT-BACKORDER-SW                             TMH95310
+                                       PIC X(1)     VALUE SPACES.       TMH95310
+                   88  TB-AINV-ALT-BACKORDER-OK     VALUE 'Y'.          TMH95310
+                   88  TB-AINV-ALT-BACKORDER-NOT-OK VALUE ' ' 'N'.      TMH95310
+               10  TB-AINV-ALT-ORDBATCH-SW                              TMH96228
+                                       PIC X(1)     VALUE SPACES.       TMH96228
+                   88  TB-AINV-ORDER-BATCH-OK       VALUE 'Y'.          TMH96228
+                   88  TB-AINV-ORDER-BATCH-NOT-OK   VALUE ' ' 'N'.      TMH96228
+               10  TB-AINV-MAX-WEIGHT    PIC S9(3)      COMP-3 VALUE +0.TAD96303
+                   88  TB-AINV-MAX-WEIGHT-UNLIMITED VALUE +999.         TAD96303
+               10  TB-AINV-UPS-FRT-REV-TYPE  PIC X  VALUE SPACE.        TLC98134
+               10  TB-AINV-IH-PHYSICAL-CNTRY PIC X(2)  VALUE SPACES.    TLC01115
+               10  TB-AINV-IH-LOCAL-SW       PIC X(1)  VALUE SPACES.    WXE03328
+                   88  TB-AINV-IH-LOCAL             VALUE 'Y'.          TLC01115
+               10  TB-AINV-ALLOW-ACOP-SW     PIC X(1).                  TLC01115
+                   88  TB-AINV-ALLOW-ACOP           VALUE 'Y'.          TLC01115
+               10  TB-AINV-IH-CFG-CO         PIC X(2)  VALUE SPACES.    JAR01222
+               10  TB-AINV-IH-CFG-BR         PIC X(2)  VALUE SPACES.    JAR01222
+               10  TB-AINV-USE-ENHANCED-INVSHR    PIC X(1) VALUE ' '.   JMW01257
+                   88  TB-AINV-USE-ENHANCED-INV-SHR VALUE 'Y'.          JMW01257
+               10  TB-AINV-BR-HAS-ZERO-COST-SW  PIC X(01) VALUE SPACES. MAW01310
+                   88 TB-AINV-BR-HAS-ZERO-COST        VALUE 'Y'.        MAW01310
+               10  TB-AINV-ALIAS-BRANCH      PIC X(02) VALUE SPACES.    ROR02275
+               10  TB-AINV-SECONDARY-CURR    PIC X(03) VALUE SPACES.    SUG03295
+               10  TB-AINV-SECONDARY-PAYEE-NBR PIC X(05) VALUE SPACES.  SUG03295
+               10  TB-AINV-DEFAULT-PAYEE-NBR PIC X(05) VALUE SPACES.    SUG03295
+               10  TB-AINV-CURRENCY-SPLIT-SW PIC X(01) VALUE SPACES.    SUG03295
+                   88 TB-AINV-CURRENCY-SPLIT           VALUE 'Y'.       SUG03295
+               10  TB-AINV-IH-LOCAL-CP-SW    PIC X(01) VALUE SPACES.    WXE03328
+                   88  TB-AINV-IH-LOCAL-CP             VALUE 'Y'.       WXE03328
+               10  TB-AINV-DUE-DAYS          PIC 9(3)  VALUE ZEROS.     DXB11110
+               10  TB-AINV-BYPASS-ALT-WH-SW  PIC X(01) VALUE SPACES.    DAK14042
+                   88  TB-AINV-BYPASS-ALT-WH           VALUE 'Y'.       DAK14042
+               10  FILLER                    PIC X(12) VALUE SPACES.    DAK14042

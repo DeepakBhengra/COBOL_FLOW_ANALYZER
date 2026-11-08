@@ -1,0 +1,923 @@
+      *************************************************************             
+      ***  DUE DATE/ DISC DATE CALCULATION BASE ON AR TERMS:    ***             
+      ***    1.  FIX DATE TERM                                  ***             
+      ***    2.  PROX     TERM                                  ***             
+      ***    3.  DAY      TERM                                  ***             
+      ***    4.  EOM      TERM                                  ***             
+      ***    5.  CUSTOMER DUE DAY TERM                          ***             
+      ***    6.  CUSTOMER DUE QUARTERLY TERM                    ***             
+      ***    7.  DAY OF WEEK TERMS                              ***     DXB03262
+      ***    8.  EXTENDED EOM TERMS                             ***     SUG09246
+      ***    9.  TERMS MID OR EOM                               ***     SUG09246
+      *************************************************************             
+      ***    INITIAL LOAD WS-INPUT-DISC-DATE & WS-INPUT-DUE-DATE***             
+      ***    BY INVOICE/SYSTEM DATE OR TB-WIN95-STDTE DATE      ***             
+      *************************************************************             
+      *** 05/05/23  JH1   ADD TERM3 TABLE CALL                  ***     JH123125
+      *** 09/03/09  SUG   ADD EXTENEDED EOM TERMS AND TERMS MID ***     SUG09246
+      ***                 OR EOM                                ***     SUG09246
+      *** 06/05/08  VJY   MODIFICATION FOR END OF MONTH DRAFT   ***     ISB08157
+      ***                 TERMS TO SET THE DISCOUNT DATE TO     ***     ISB08157
+      ***                 INVOICE DATE.                         ***     ISB08157
+      ***                 CHANGES DONE FOR THE SE-14939 (ISB056)***     ISB08157
+      *** 07/08/04  SCT   DAY TERM DUE DATE                     ***     SCT04320
+      *** 09/19/03  DXB   DAY OF WEEK TERMS                     ***     DXB03262
+      *** 04/15/03  SCT   EOM TERM                              ***     SCT03115
+      *** 08/25/00  SCT   IMPLEMENTATION                        ***     SCT00270
+      *************************************************************             
+                                                                                
+       901-CALCULATE-HEADER-TERMS.                                              
+           MOVE SPACES                 TO WS-TERMS-ERROR-SW                     
+                                          WS-TERM2-ERROR-SW             JH123125
+                                          WS-TERM3-ERROR-SW.            JH123125
+                                                                                
+           CALL 'SYU500'               USING TB-TERMS-TABLE-AI.                 
+           IF  NOT TB-TERMS-NORESP                                              
+               MOVE 'Y'                TO WS-TERMS-ERROR-SW                     
+               GO TO 901-EXIT.                                                  
+                                                                                
+           CALL 'SYU500'               USING TB-TERM2-TABLE-AI                  
+           IF  NOT TB-TERM2-NORESP                                              
+              MOVE 'Y'                TO WS-TERM2-ERROR-SW                      
+           END-IF.                                                              
+                                                                                
+           IF TB-TERMS-NO-OF-PAYMENTS > 15                              JH123125
+              CALL 'SYU500'               USING TB-TERM3-TABLE-AI       JH123125
+              IF  NOT TB-TERM3-NORESP                                   JH123125
+                  MOVE 'Y'                TO WS-TERM3-ERROR-SW          JH123125
+              END-IF                                                    JH123125
+           END-IF.                                                      JH123125
+                                                                        JH123125
+           EVALUATE TRUE                                                        
+                                                                                
+              WHEN TB-TERMS-FIXED-DATE                                          
+                PERFORM 902-DETERMINE-FIXED-DATE THRU 902-EXIT                  
+              WHEN TB-TERMS-PROX                                                
+                PERFORM 903-DETERMINE-PROX-DATE  THRU 903-EXIT                  
+              WHEN TB-TERMS-DAY                                                 
+                PERFORM 904-DETERMINE-DAY-TERMS  THRU 904-EXIT                  
+              WHEN TB-TERMS-EOM                                                 
+                PERFORM 905-DETERMINE-EOM-TERMS  THRU 905-EXIT                  
+              WHEN TB-TERMS-CUST-DUE-DAY                                        
+                PERFORM 906-CALC-CUST-DUEDAY-TERMS  THRU 906-EXIT               
+              WHEN TB-TERMS-CUST-DUE-QUARTER                                    
+                PERFORM 907-CALC-CUST-QUARTER-TERMS THRU 907-EXIT               
+              WHEN TB-TERMS-DAY-OF-WEEK                                 DXB03262
+                PERFORM 908-CALC-DAY-OF-WEEK-TERMS THRU 908-EXIT        DXB03262
+              WHEN TB-TERMS-EXTENDED-EOM                                SUG09246
+                PERFORM 909-CALC-EXT-EOM-TERMS                          SUG09246
+                   THRU 909-CALC-EXT-EOM-TERMS-EXIT                     SUG09246
+              WHEN TB-TERMS-MID-OR-EOM                                  SUG09246
+                PERFORM 910-CALC-MID-OR-EOM-TERMS                       SUG09246
+                   THRU 910-CALC-MID-OR-EOM-TERMS-EXIT                  SUG09246
+                                                                                
+           END-EVALUATE.                                                        
+                                                                                
+       901-EXIT.                                                                
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      ***>>>>>>>      FIXED DATE TERM            <<<<<<<<<<<<<<<<<<<<***        
+      ******************************************************************        
+      ******************************************************************        
+      * ** FIXED DATE CALCULATION:                                     *        
+      *- 1. IF THE FIXED DATE IS BETTER THAN INVOICE DATE              *        
+      *-    USE IT FOR THE DISC DATE AND DUE DATE                      *        
+      * ******************************************************************      
+       902-DETERMINE-FIXED-DATE.                                                
+                                                                                
+           CALL 'CAWINUP'                                                       
+               USING TB-TERMS-FIXED-DATE-DATE                                   
+                     DEFAULT-WINDOW-SPEC                                        
+                     DECIMAL5-TYPE                                              
+                     TB-TERMS-FIXED-DATE-DATE-Y2K                               
+                     THIS-YEAR-Y2K.                                             
+           CALL 'CAWINUP'                                                       
+               USING WS-INPUT-DISC-DATE                                         
+                     DEFAULT-WINDOW-SPEC                                        
+                     DECIMAL5-TYPE                                              
+                     WS-INPUT-DISC-DATE-Y2K                                     
+                     THIS-YEAR-Y2K.                                             
+                                                                                
+           IF TB-TERMS-FIXED-DATE-DATE-Y2K  GREATER THAN                        
+                                          WS-INPUT-DISC-DATE-Y2K                
+               MOVE TB-TERMS-FIXED-DATE-DATE                                    
+                                   TO WS-OUTPUT-DISC-DATE                       
+                                      WS-OUTPUT-DUE-DATE                        
+           ELSE                                                                 
+               MOVE WS-INPUT-DISC-DATE                                          
+                                   TO WS-OUTPUT-DISC-DATE                       
+               MOVE WS-INPUT-DUE-DATE                                           
+                                   TO WS-OUTPUT-DUE-DATE                        
+           END-IF.                                                              
+                                                                                
+       902-EXIT.                                                                
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      ***>>>>>>>         PROX TERM               <<<<<<<<<<<<<<<<<<<<***        
+      ******************************************************************        
+      ******************************************************************        
+      * ** PROX TERM DUE DATE CALCULATION:                             *        
+      *- 1. USE TB-TERMS-PROX-DISC-DAY OR TB-TERMS-PROX-DUE-DAY        *        
+      *-    TO DETERMINE THE DUE DAY OR DISC DAY                       *        
+      *- 2. COMPARE THE INVOICE DAY TO THE TB-TERMS-PROX-CUTOFF        *        
+      *-    TO DETERMINE THE DUE MONTH OR DISC MONTH                   *        
+      *-    IF PASSED THE CUTOFF THEN ADD +2  MONTH                    *        
+      *-       OTHERWISE         THEN ADD +1  MONTH                   *         
+      * ******************************************************************      
+       903-DETERMINE-PROX-DATE.                                                 
+           MOVE  WS-INPUT-DUE-DATE     TO  SYU1-INPUT-JULIAN-DATE.      SCT03115
+           PERFORM A98-CONVERT-JULIAN-TO-GREG-US THRU                   SCT03115
+                   A98-EXIT.                                            SCT03115
+                                                                        SCT03115
+           MOVE  SYU1-MMDDYY-DATE-6    TO WS-TERMS-DISC-DATE                    
+                                          WS-TERMS-DUE-DATE.                    
+                                                                                
+           MOVE TB-TERMS-PROX-DISC-DAY TO WS-DI-DA.                             
+           IF  TB-TERMS-PROX-DUE-DAY GREATER THAN ZEROES                        
+               MOVE TB-TERMS-PROX-DUE-DAY                                       
+                                       TO WS-DU-DA                              
+           ELSE                                                                 
+               MOVE WS-DI-DA           TO WS-DU-DA.                             
+                                                                                
+           IF  SYU1-MMDDYY-DATE-6-DD    >  TB-TERMS-PROX-CUTOFF                 
+               ADD 2                   TO WS-DU-MO WS-DI-MO                     
+           ELSE                                                                 
+               ADD 1                   TO WS-DU-MO WS-DI-MO.                    
+           IF  WS-DU-MO GREATER THAN 12                                         
+               SUBTRACT 12           FROM WS-DU-MO                              
+               ADD 1                   TO WS-DU-YR.                             
+           IF  WS-DI-MO GREATER THAN 12                                         
+               SUBTRACT 12           FROM WS-DI-MO                              
+               ADD 1                   TO WS-DI-YR.                             
+                                                                                
+           MOVE  WS-TERMS-DISC-DATE    TO SYU1-EXISTING-GREG-DATE-6.    SCT03115
+           PERFORM A99-CONVERT-GREG-US-TO-JULIAN THRU                   SCT03115
+                   A99-EXIT.                                            SCT03115
+           MOVE  SYU1-INPUT-JULIAN-DATE TO  WS-OUTPUT-DISC-DATE.        SCT03115
+                                                                        SCT03115
+           MOVE  WS-TERMS-DUE-DATE     TO SYU1-EXISTING-GREG-DATE-6.    SCT03115
+           PERFORM A99-CONVERT-GREG-US-TO-JULIAN THRU                   SCT03115
+                   A99-EXIT.                                            SCT03115
+           MOVE SYU1-INPUT-JULIAN-DATE TO  WS-OUTPUT-DUE-DATE.          SCT03115
+                                                                                
+       903-EXIT.                                                                
+           EXIT.                                                                
+                                                                                
+      ******************************************************************        
+      ***>>>>>>>         DAY  TERM               <<<<<<<<<<<<<<<<<<<<***        
+      ******************************************************************        
+      ******************************************************************        
+      * ** DAY TERMS DUE DATE CALCULATION:                             *        
+      *- 1. DIRECT DEBIT CREDIT TERMS DAYS IS USED TO DETERMINE DUE DATE        
+      *-    FOR CREDIT MEMO ONLY FOR DIRECT DEBIT CUSTOMERS            *        
+      *-    OTHER THAN DIRECT DEBIT USE TB-TERMS-DUE-DAYS              *        
+      *- 2. CALCULATE DISC DATE BY ADDING TB-TERMS-DISC-DAYS           *        
+      ******************************************************************        
+       904-DETERMINE-DAY-TERMS.                                                 
+      *                                                                         
+      *** DAY TERMS DISC DATE CALCULATION:                             *        
+      *                                                                         
+           COMPUTE WS-OUTPUT-DISC-DATE EQUAL                                    
+                              WS-INPUT-DISC-DATE + TB-TERMS-DISC-DAYS.          
+                                                                                
+           MOVE WS-OUTPUT-DISC-DATE      TO WS-TERMS-COMP-DATE.                 
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                                    
+                  GIVING WS-LEAP-YEAR-CHECK                                     
+                       REMAINDER WS-REMAINDER.                                  
+           IF  WS-REMAINDER = 0                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                            
+                  ADD 634                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           ELSE                                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                            
+                  ADD 635                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           END-IF.                                                              
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DISC-DATE.                      
+      *                                                                         
+      ***  DUE DATE CALCULATION                                                 
+      *                                                                         
+           IF  TB-TERMS-CODE > 699 AND                                          
+               TB-TERMS-CODE < 800 AND                                          
+               WS-INPUT-CREDIT-MEMO = 'Y' AND                                   
+               WS-INPUT-CREDIT-REASON NOT = 'DR'                                
+               COMPUTE WS-OUTPUT-DUE-DATE =                                     
+                       WS-INPUT-DUE-DATE + TB-TERMS-DIRDEB-CREDT-DAYS           
+           ELSE                                                                 
+               IF  TB-TERMS-DUE-DAYS  >  ZEROES                                 
+                   COMPUTE WS-OUTPUT-DUE-DATE =                                 
+                           WS-INPUT-DUE-DATE + TB-TERMS-DUE-DAYS                
+               ELSE                                                             
+                   MOVE WS-INPUT-DUE-DATE  TO WS-OUTPUT-DUE-DATE.       SCT04320
+                                                                                
+           MOVE WS-OUTPUT-DUE-DATE       TO WS-TERMS-COMP-DATE.                 
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                                    
+                  GIVING WS-LEAP-YEAR-CHECK                                     
+                       REMAINDER WS-REMAINDER.                                  
+           IF  WS-REMAINDER = 0                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                            
+                  ADD 634                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           ELSE                                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                            
+                  ADD 635                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           END-IF.                                                              
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DUE-DATE.                       
+                                                                                
+       904-EXIT.                                                                
+           EXIT.                                                                
+                                                                                
+                                                                                
+      ******************************************************************        
+      ***          END  OF  MONTH  TERMS  EOM                        ***        
+      ******************************************************************        
+      * ** EOM TERMS DUE DATE CALCULATION:                             *        
+      *--- 1. CALCULATE DUE MONTH BY TB-TERMS-DUE-DAYS / 30            *SCT03115
+      *--- 2. SET THE 'LAST' DAY OF THE MONTH IN WHICH DUE FALLS       *SCT03115
+      *--- 3. ADD TB-TERMS-EXTENDED-DAYS TO DUE DATE ONLY IF APPLICABLE*SCT03115
+      ******************************************************************        
+       905-DETERMINE-EOM-TERMS.                                                 
+                                                                                
+      *----------------------------------------------------------------*SCT03115
+      *-   EXAMPLE, INV-DATE ON DEC 31 AND TERM DAYS IS 30 DAYS       -*SCT03115
+      *-   DUE DATE WILL BE ON JAN 31TH NEXT YEAR.                    -*SCT03115
+      *----------------------------------------------------------------*SCT03115
+                                                                        SCT03115
+           MOVE  WS-INPUT-DUE-DATE     TO  SYU1-INPUT-JULIAN-DATE.      SCT03115
+           PERFORM A98-CONVERT-JULIAN-TO-GREG-US THRU                   SCT03115
+                   A98-EXIT.                                            SCT03115
+                                                                        SCT03115
+           COMPUTE SYU1-MMDDYY-DATE-6-MM =                              SCT03115
+                   SYU1-MMDDYY-DATE-6-MM + (TB-TERMS-DUE-DAYS / 30).    SCT03115
+                                                                        SCT03115
+           IF  SYU1-MMDDYY-DATE-6-MM > 12                               SCT03115
+               SUBTRACT 12             FROM SYU1-MMDDYY-DATE-6-MM       SCT03115
+               ADD      01             TO   SYU1-MMDDYY-DATE-6-YY       SCT03115
+           END-IF.                                                      SCT03115
+                                                                        SCT03115
+           IF  SYU1-MMDDYY-DATE-6-MM    =  01 OR 03 OR 05 OR 07 OR      SCT03115
+                                           08 OR 10 OR 12               SCT03115
+               MOVE  31                TO  SYU1-MMDDYY-DATE-6-DD        SCT03115
+           ELSE                                                         SCT03115
+               IF SYU1-MMDDYY-DATE-6-MM =  04 OR 06 OR 09 OR 11         SCT03115
+                   MOVE 30             TO  SYU1-MMDDYY-DATE-6-DD        SCT03115
+               ELSE                                                     SCT03115
+                   DIVIDE SYU1-MMDDYY-DATE-6-YY BY 4                    SCT03115
+                       GIVING WS-LEAP-YEAR-CHECK                        SCT03115
+                       REMAINDER WS-REMAINDER                           SCT03115
+                   IF  WS-REMAINDER > 0                                 SCT03115
+                       MOVE 28         TO  SYU1-MMDDYY-DATE-6-DD        SCT03115
+                   ELSE                                                 SCT03115
+                       MOVE 29         TO  SYU1-MMDDYY-DATE-6-DD.       SCT03115
+                                                                        SCT03115
+           MOVE SYU1-MMDDYY-DATE-6-DD  TO  SYU1-DDMMYY-DATE-6-DD        SCT03115
+                                           SYU1-YYMMDD-DATE-6-DD.       SCT03115
+           MOVE SYU1-MMDDYY-DATE-6-MM  TO  SYU1-DDMMYY-DATE-6-MM        SCT03115
+                                           SYU1-YYMMDD-DATE-6-MM.       SCT03115
+           MOVE SYU1-MMDDYY-DATE-6-YY  TO  SYU1-DDMMYY-DATE-6-YY        SCT03115
+                                           SYU1-YYMMDD-DATE-6-YY.       SCT03115
+                                                                        SCT03115
+           MOVE SYU1-MMDDYY-DATE-6 TO SYU1-EXISTING-GREG-DATE-6.        SCT03115
+           PERFORM A99-CONVERT-GREG-US-TO-JULIAN THRU                   SCT03115
+                   A99-EXIT.                                            SCT03115
+           MOVE SYU1-INPUT-JULIAN-DATE TO  WS-OUTPUT-DUE-DATE.          SCT03115
+                                                                        SCT03115
+           IF  TB-TERMS-EXTENDED-DAYS NUMERIC                           SCT03115
+               COMPUTE WS-OUTPUT-DUE-DATE =  WS-OUTPUT-DUE-DATE    +    SCT03115
+                                             TB-TERMS-EXTENDED-DAYS     SCT03115
+                                                                        SCT03115
+               MOVE WS-OUTPUT-DUE-DATE    TO WS-TERMS-COMP-DATE         SCT03115
+               DIVIDE WS-TERMS-COMP-YEAR    BY 4                        SCT03115
+                      GIVING WS-LEAP-YEAR-CHECK                         SCT03115
+                           REMAINDER WS-REMAINDER                       SCT03115
+               IF  WS-REMAINDER = 0                                     SCT03115
+                  IF  WS-TERMS-COMP-DAY GREATER THAN 366                SCT03115
+                      ADD 634                 TO WS-TERMS-COMP-DATE     SCT03115
+                  END-IF                                                SCT03115
+               ELSE                                                     SCT03115
+                  IF  WS-TERMS-COMP-DAY GREATER THAN 365                SCT03115
+                      ADD 635                 TO WS-TERMS-COMP-DATE     SCT03115
+                  END-IF                                                SCT03115
+               END-IF                                                   SCT03115
+               MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DUE-DATE.           SCT03115
+                                                                        SCT03115
+      *************************************************************     SCT03115
+      *--- EOM TERM DISCOUNT DATE                                       SCT03115
+      *************************************************************     SCT03115
+           COMPUTE WS-OUTPUT-DISC-DATE =                                SCT03115
+                   WS-INPUT-DISC-DATE + TB-TERMS-DISC-DAYS.             SCT03115
+                                                                        SCT03115
+           MOVE WS-OUTPUT-DISC-DATE    TO WS-TERMS-COMP-DATE.           SCT03115
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                            SCT03115
+                  GIVING WS-LEAP-YEAR-CHECK                             SCT03115
+                       REMAINDER WS-REMAINDER.                          SCT03115
+           IF  WS-REMAINDER = 0                                         SCT03115
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                    SCT03115
+                  ADD 634                 TO WS-TERMS-COMP-DATE         SCT03115
+              END-IF                                                    SCT03115
+           ELSE                                                         SCT03115
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                    SCT03115
+                  ADD 635                 TO WS-TERMS-COMP-DATE         SCT03115
+              END-IF                                                    SCT03115
+           END-IF.                                                      SCT03115
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DISC-DATE.              SCT03115
+                                                                        ISB08157
+           IF TB-TERMS-BANK-DRAFT                                       ISB08157
+               MOVE WS-OUTPUT-DUE-DATE TO WS-OUTPUT-DISC-DATE           ISB08157
+           END-IF.                                                      ISB08157
+                                                                        SCT03115
+       905-EXIT.                                                        SCT03115
+           EXIT.                                                        SCT03115
+                                                                                
+                                                                                
+      *********************************************************                 
+      ***          CUSTOMER DUE DAY TERMS CODE               **                 
+      *********************************************************                 
+      *---                                                                      
+      *--- 1. CALCULATE DUE DATE BY ADDING TERMS DAYS TO INPUT DATE             
+      *--- 2. MAKE DUE DATE EQUAL TO THE DAY WHICH IS STORED IN                 
+      *---    TB-TERMS-EXTENDED-DAYS                                            
+      *--- 3. IF DUE DAY ALREADY PAST THE EXTENDED DAY;SET DUE TO               
+      *---    THE NEXT MONTH                                                    
+      *********************************************************                 
+       906-CALC-CUST-DUEDAY-TERMS.                                              
+                                                                                
+           COMPUTE WS-OUTPUT-DUE-DATE   =  WS-INPUT-DUE-DATE    +               
+                                           TB-TERMS-DUE-DAYS.                   
+                                                                                
+           MOVE WS-OUTPUT-DUE-DATE     TO WS-TERMS-COMP-DATE.                   
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                                    
+                  GIVING WS-LEAP-YEAR-CHECK                                     
+                       REMAINDER WS-REMAINDER.                                  
+           IF  WS-REMAINDER = 0                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                            
+                  ADD 634                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           ELSE                                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                            
+                  ADD 635                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           END-IF.                                                              
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DUE-DATE                SCT03115
+                                      SYU1-INPUT-JULIAN-DATE.           SCT03115
+           PERFORM A98-CONVERT-JULIAN-TO-GREG-US THRU                   SCT03115
+                   A98-EXIT.                                            SCT03115
+                                                                        SCT03115
+           IF SYU1-MMDDYY-DATE-6-DD     =  TB-TERMS-EXTENDED-DAYS       SCT03115
+               NEXT SENTENCE                                            SCT03115
+           ELSE                                                         SCT03115
+              IF SYU1-MMDDYY-DATE-6-DD  <  TB-TERMS-EXTENDED-DAYS       SCT03115
+                  MOVE TB-TERMS-EXTENDED-DAYS                           SCT03115
+                                       TO  SYU1-MMDDYY-DATE-6-DD        SCT03115
+              ELSE                                                      SCT03115
+                  MOVE TB-TERMS-EXTENDED-DAYS                           SCT03115
+                                       TO  SYU1-MMDDYY-DATE-6-DD        SCT03115
+                  IF SYU1-MMDDYY-DATE-6-MM =  12                        SCT03115
+                      MOVE 01             TO  SYU1-MMDDYY-DATE-6-MM     SCT03115
+                      ADD  01             TO  SYU1-MMDDYY-DATE-6-YY     SCT03115
+                  ELSE                                                  SCT03115
+                      ADD  01             TO  SYU1-MMDDYY-DATE-6-MM.    SCT03115
+                                                                        SCT03115
+           IF SYU1-MMDDYY-DATE-6-MM  =  2                               SCT03115
+            AND SYU1-MMDDYY-DATE-6-DD  >  28                            SCT03115
+              DIVIDE SYU1-MMDDYY-DATE-6-YY  BY  4                       SCT03115
+                 GIVING    WS-LEAP-YEAR-CHECK                           SCT03115
+                 REMAINDER WS-REMAINDER                                 SCT03115
+                 IF WS-REMAINDER  >  0                                  SCT03115
+                     MOVE 28           TO  SYU1-MMDDYY-DATE-6-DD        SCT03115
+                 ELSE                                                   SCT03115
+                     MOVE 29           TO  SYU1-MMDDYY-DATE-6-DD        SCT03115
+                 END-IF                                                 SCT03115
+           END-IF.                                                      SCT03115
+                                                                        SCT03115
+           MOVE SYU1-MMDDYY-DATE-6-DD  TO  SYU1-DDMMYY-DATE-6-DD        SCT03115
+                                           SYU1-YYMMDD-DATE-6-DD.       SCT03115
+           MOVE SYU1-MMDDYY-DATE-6-MM  TO  SYU1-DDMMYY-DATE-6-MM        SCT03115
+                                           SYU1-YYMMDD-DATE-6-MM.       SCT03115
+           MOVE SYU1-MMDDYY-DATE-6-YY  TO  SYU1-DDMMYY-DATE-6-YY        SCT03115
+                                           SYU1-YYMMDD-DATE-6-YY.       SCT03115
+                                                                        SCT03115
+           MOVE SYU1-MMDDYY-DATE-6 TO SYU1-EXISTING-GREG-DATE-6.        SCT03115
+           PERFORM A99-CONVERT-GREG-US-TO-JULIAN THRU                   SCT03115
+                   A99-EXIT.                                            SCT03115
+           MOVE SYU1-INPUT-JULIAN-DATE TO  WS-OUTPUT-DUE-DATE.          SCT03115
+      *                                                                         
+      *--- CUSTOMER DUE DAY TERM - DISCOUNT DATE CALCULATION                    
+      *                                                                         
+           COMPUTE WS-OUTPUT-DISC-DATE =                                        
+                   WS-INPUT-DISC-DATE + TB-TERMS-DISC-DAYS.                     
+                                                                                
+           MOVE WS-OUTPUT-DISC-DATE    TO WS-TERMS-COMP-DATE.                   
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                                    
+                  GIVING WS-LEAP-YEAR-CHECK                                     
+                       REMAINDER WS-REMAINDER.                                  
+           IF  WS-REMAINDER = 0                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                            
+                  ADD 634                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           ELSE                                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                            
+                  ADD 635                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           END-IF.                                                              
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DISC-DATE.                      
+                                                                                
+       906-EXIT.                                                                
+           EXIT.                                                                
+                                                                                
+                                                                                
+      *********************************************************                 
+      ***          CUSTOMER DUE QUARTER TERMS               ***                 
+      *********************************************************                 
+      *- CUSTOMER DUE QUARTER TERMS CODES IMPLIES THE FOLLOWING:                
+      *- 1. MAKE THE DUE MONTH TO NEXT MONTH OF END QUARTER                     
+      *- 2. COMPUTE THE DUE DATE START WITH THE 1ST DAY OF THE                  
+      *-    DUE MONTH BY ADDING TB-TERMS-EXTENDED-DAYS                          
+      *- 3. IF TB-TERMS-EXTENDED-DAYS = 0                                       
+      *-    MAKE THE INVOICE DAY AS THE DUE DAY                                 
+      *********************************************************                 
+       907-CALC-CUST-QUARTER-TERMS.                                             
+                                                                                
+           COMPUTE WS-OUTPUT-DUE-DATE   =  WS-INPUT-DUE-DATE    +               
+                                           TB-TERMS-DUE-DAYS.                   
+                                                                                
+           MOVE WS-OUTPUT-DUE-DATE     TO WS-TERMS-COMP-DATE.                   
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                                    
+                  GIVING WS-LEAP-YEAR-CHECK                                     
+                       REMAINDER WS-REMAINDER.                                  
+           IF  WS-REMAINDER = 0                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                            
+                  ADD 634                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           ELSE                                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                            
+                  ADD 635                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           END-IF.                                                              
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DUE-DATE                SCT03115
+                                      SYU1-INPUT-JULIAN-DATE.           SCT03115
+           PERFORM A98-CONVERT-JULIAN-TO-GREG-US THRU                   SCT03115
+                   A98-EXIT.                                            SCT03115
+           MOVE  SYU1-MMDDYY-DATE-6    TO WS-TERMS-DUE-DATE.            SCT03115
+                                                                                
+           EVALUATE SYU1-MMDDYY-DATE-6-MM                               SCT03115
+               WHEN  1 THRU   3                                                 
+                    MOVE  4            TO WS-DU-MO                              
+               WHEN  4 THRU   6                                                 
+                    MOVE  7            TO WS-DU-MO                              
+               WHEN  7 THRU   9                                                 
+                    MOVE  10           TO WS-DU-MO                              
+               WHEN 10 THRU  12                                                 
+                    MOVE  1            TO WS-DU-MO                              
+                    ADD   1            TO WS-DU-YR                              
+           END-EVALUATE.                                                        
+                                                                                
+      * RESET TO THE 1ST DAY OF THE DUE MONTH                                   
+           MOVE 1                      TO WS-DU-DA.                             
+                                                                                
+      * CONVERT TO JULIAN                                                       
+           MOVE WS-TERMS-DUE-DATE  TO SYU1-EXISTING-GREG-DATE-6.        SCT03115
+           PERFORM A99-CONVERT-GREG-US-TO-JULIAN THRU                   SCT03115
+                   A99-EXIT.                                            SCT03115
+           MOVE SYU1-INPUT-JULIAN-DATE TO  WS-OUTPUT-DUE-DATE.          SCT03115
+                                                                                
+           IF TB-TERMS-EXTENDED-DAYS = 0                                        
+      * DEFAULT SET TO THE 30TH DAY                                             
+              COMPUTE WS-OUTPUT-DUE-DATE =                                      
+                      WS-OUTPUT-DUE-DATE + 30  - 1                              
+           ELSE                                                                 
+      * USE EXTENDED DAY                                                        
+              COMPUTE WS-OUTPUT-DUE-DATE =                                      
+                      WS-OUTPUT-DUE-DATE + TB-TERMS-EXTENDED-DAYS - 1           
+           END-IF.                                                              
+                                                                                
+           MOVE WS-OUTPUT-DUE-DATE     TO WS-TERMS-COMP-DATE.                   
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                                    
+                  GIVING WS-LEAP-YEAR-CHECK                                     
+                       REMAINDER WS-REMAINDER.                                  
+           IF  WS-REMAINDER = 0                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                            
+                  ADD 634                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           ELSE                                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                            
+                  ADD 635                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           END-IF.                                                              
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DUE-DATE.                       
+                                                                                
+      ***----                                                                   
+      ***---- QUARTER TERMS DISCOUNT DATE CALCULATION                           
+      ***----                                                                   
+                                                                                
+           COMPUTE WS-OUTPUT-DISC-DATE  =  WS-INPUT-DISC-DATE    +              
+                                           TB-TERMS-DISC-DAYS.                  
+                                                                                
+           MOVE WS-OUTPUT-DISC-DATE    TO WS-TERMS-COMP-DATE.                   
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                                    
+                  GIVING WS-LEAP-YEAR-CHECK                                     
+                       REMAINDER WS-REMAINDER.                                  
+           IF  WS-REMAINDER = 0                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                            
+                  ADD 634                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           ELSE                                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                            
+                  ADD 635                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           END-IF.                                                              
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DISC-DATE.                      
+                                                                                
+           MOVE  SYU1-MMDDYY-DATE-6    TO WS-TERMS-DISC-DATE.           SCT03115
+                                                                                
+           EVALUATE SYU1-MMDDYY-DATE-6-MM                               SCT03115
+               WHEN  1 THRU   3                                                 
+                    MOVE  4            TO WS-DI-MO                              
+               WHEN  4 THRU   6                                                 
+                    MOVE  7            TO WS-DI-MO                              
+               WHEN  7 THRU   9                                                 
+                    MOVE  10           TO WS-DI-MO                              
+               WHEN 10 THRU  12                                                 
+                    MOVE  1            TO WS-DI-MO                              
+                    ADD   1            TO WS-DI-YR                              
+           END-EVALUATE.                                                        
+                                                                                
+      * RESET TO THE 1ST DAY OF THE DISC MONTH                                  
+           MOVE 1                      TO WS-DI-DA.                             
+                                                                                
+      * CONVERT TO JULIAN                                                       
+           MOVE WS-TERMS-DISC-DATE TO SYU1-EXISTING-GREG-DATE-6.        SCT03115
+           PERFORM A99-CONVERT-GREG-US-TO-JULIAN THRU                   SCT03115
+                   A99-EXIT.                                            SCT03115
+           MOVE SYU1-INPUT-JULIAN-DATE TO  WS-OUTPUT-DISC-DATE.         SCT03115
+                                                                                
+           IF TB-TERMS-EXTENDED-DAYS = 0                                        
+      * DEFAULT TO THE 30TH DAY                                                 
+              COMPUTE WS-OUTPUT-DISC-DATE =                                     
+                      WS-OUTPUT-DISC-DATE + 30 - 1                              
+           ELSE                                                                 
+      * USE EXTENDED DAY                                                        
+              COMPUTE WS-OUTPUT-DISC-DATE =                                     
+                      WS-OUTPUT-DISC-DATE + TB-TERMS-EXTENDED-DAYS - 1          
+           END-IF.                                                              
+                                                                                
+           MOVE WS-OUTPUT-DISC-DATE    TO WS-TERMS-COMP-DATE.                   
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                                    
+                  GIVING WS-LEAP-YEAR-CHECK                                     
+                       REMAINDER WS-REMAINDER.                                  
+           IF  WS-REMAINDER = 0                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                            
+                  ADD 634                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           ELSE                                                                 
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                            
+                  ADD 635                 TO WS-TERMS-COMP-DATE                 
+              END-IF                                                            
+           END-IF.                                                              
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DISC-DATE.                      
+                                                                                
+       907-EXIT.                                                                
+           EXIT.                                                                
+                                                                                
+      ******************************************************************DXB03262
+      ***>>>>>>>>>>>>        DAY OF WEEK TERMS          <<<<<<<<<<<<<***DXB03262
+      ******************************************************************DXB03262
+      **** DAY OF WEEK TERMS DUE DATE CALCULATION:                     *DXB03262
+      *  1. CALCULATE DISC DATE BY ADDING TB-TERMS-DISC-DAYS           *DXB03262
+      *     THEN 'PUSH' DISC DATE FORWARD TO DAY OF WEEK INDICATED     *DXB03262
+      *     BY THE VALUE IN TB-TERMS-EXTENDED-DAYS                     *DXB03262
+      *      1 - MONDAY , 2 - TUESDAY , .... 7 - SUNDAY                *DXB03262
+      *  2. CALCULATE DUE DATE BY ADDING TB-TERMS-DUE-DAYS AND         *DXB03262
+      *     THEN 'PUSH' DUE DATE FORWARD TO DAY OF WEEK INDICATED      *DXB03262
+      *     BY THE VALUE IN TB-TERMS-EXTENDED-DAYS                     *DXB03262
+      *      1 - MONDAY , 2 - TUESDAY , .... 7 - SUNDAY                *DXB03262
+      ******************************************************************DXB03262
+       908-CALC-DAY-OF-WEEK-TERMS.                                      DXB03262
+      ******************************************************************DXB03262
+                                                                        DXB03262
+      ***                                                               DXB03262
+      *    DAY OF WEEK TERMS DISCOUNT DATE CALCULATION:                 DXB03262
+      ***                                                               DXB03262
+                                                                        DXB03262
+           COMPUTE WS-OUTPUT-DISC-DATE EQUAL                            DXB03262
+                          WS-INPUT-DISC-DATE + TB-TERMS-DISC-DAYS.      DXB03262
+                                                                        DXB03262
+           MOVE WS-OUTPUT-DISC-DATE TO WS-TERMS-COMP-DATE.              DXB03262
+                                                                        DXB03262
+           PERFORM A96-CHK-YR-RECALC-DATE THRU                          DXB03262
+                   A96-EXIT.                                            DXB03262
+                                                                        DXB03262
+           PERFORM A97-DOW-TERMS-DATE-CALC THRU                         DXB03262
+                   A97-EXIT.                                            DXB03262
+                                                                        DXB03262
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DISC-DATE.              DXB03262
+                                                                        DXB03262
+                                                                        DXB03262
+      ***                                                               DXB03262
+      *    DAY OF WEEK TERMS DUE DATE CALCULATION:                      DXB03262
+      ***                                                               DXB03262
+                                                                        DXB03262
+           COMPUTE WS-OUTPUT-DUE-DATE =                                 DXB03262
+                       WS-INPUT-DUE-DATE + TB-TERMS-DUE-DAYS.           DXB03262
+                                                                        DXB03262
+           MOVE WS-OUTPUT-DUE-DATE       TO WS-TERMS-COMP-DATE.         DXB03262
+                                                                        DXB03262
+           PERFORM A96-CHK-YR-RECALC-DATE THRU                          DXB03262
+                   A96-EXIT.                                            DXB03262
+                                                                        DXB03262
+           PERFORM A97-DOW-TERMS-DATE-CALC THRU                         DXB03262
+                   A97-EXIT.                                            DXB03262
+                                                                        DXB03262
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DUE-DATE.               DXB03262
+                                                                        DXB03262
+           IF TB-TERMS-BANK-DRAFT                                       DXB03262
+               MOVE WS-OUTPUT-DUE-DATE TO WS-OUTPUT-DISC-DATE           DXB03262
+           END-IF.                                                      DXB03262
+                                                                        DXB03262
+       908-EXIT.                                                        DXB03262
+           EXIT.                                                        DXB03262
+      *                                                                 DXB03262
+                                                                        DXB03262
+      ******************************************************************SUG09246
+      ***  EXTENDED END OF MONTH TERMS                               ***SUG09246
+      ******************************************************************SUG09246
+      * ** EOM TERMS DUE DATE CALCULATION:                             *SUG09246
+      *--- 1. CALCULATE DUE MONTH BY ADD TB-TERMS-DUE-DAYS TO INPUT    *SUG09246
+      *---    DATE                                                     *SUG09246
+      *--- 2. SET THE 'LAST' DAY OF THE MONTH IN WHICH DUE FALLS       *SUG09246
+      ******************************************************************SUG09246
+       909-CALC-EXT-EOM-TERMS.                                          SUG09246
+                                                                        SUG09246
+      *----------------------------------------------------------------*SUG09246
+      *-   EXAMPLE, INV-DATE ON DEC 31 AND TERM DAYS IS 45 DAYS       -*SUG09246
+      *-   DUE DATE WILL END OF MONTH FEBRUARY OF NEXT YEAR           -*SUG09246
+      *----------------------------------------------------------------*SUG09246
+                                                                        SUG09246
+           COMPUTE WS-OUTPUT-DUE-DATE   =  WS-INPUT-DUE-DATE    +       SUG09246
+                                           TB-TERMS-DUE-DAYS.           SUG09246
+                                                                        SUG09246
+           MOVE WS-OUTPUT-DUE-DATE     TO WS-TERMS-COMP-DATE.           SUG09246
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                            SUG09246
+                  GIVING WS-LEAP-YEAR-CHECK                             SUG09246
+                       REMAINDER WS-REMAINDER.                          SUG09246
+           IF  WS-REMAINDER = 0                                         SUG09246
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                    SUG09246
+                  ADD 634                 TO WS-TERMS-COMP-DATE         SUG09246
+              END-IF                                                    SUG09246
+           ELSE                                                         SUG09246
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                    SUG09246
+                  ADD 635                 TO WS-TERMS-COMP-DATE         SUG09246
+              END-IF                                                    SUG09246
+           END-IF.                                                      SUG09246
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DUE-DATE                SUG09246
+                                      SYU1-INPUT-JULIAN-DATE.           SUG09246
+           PERFORM A98-CONVERT-JULIAN-TO-GREG-US THRU                   SUG09246
+                   A98-EXIT.                                            SUG09246
+                                                                        SUG09246
+           IF  SYU1-MMDDYY-DATE-6-MM    =  01 OR 03 OR 05 OR 07 OR      SUG09246
+                                           08 OR 10 OR 12               SUG09246
+               MOVE  31                TO  SYU1-MMDDYY-DATE-6-DD        SUG09246
+           ELSE                                                         SUG09246
+               IF SYU1-MMDDYY-DATE-6-MM =  04 OR 06 OR 09 OR 11         SUG09246
+                   MOVE 30             TO  SYU1-MMDDYY-DATE-6-DD        SUG09246
+               ELSE                                                     SUG09246
+                   DIVIDE SYU1-MMDDYY-DATE-6-YY BY 4                    SUG09246
+                       GIVING WS-LEAP-YEAR-CHECK                        SUG09246
+                       REMAINDER WS-REMAINDER                           SUG09246
+                   IF  WS-REMAINDER > 0                                 SUG09246
+                       MOVE 28         TO  SYU1-MMDDYY-DATE-6-DD        SUG09246
+                   ELSE                                                 SUG09246
+                       MOVE 29         TO  SYU1-MMDDYY-DATE-6-DD.       SUG09246
+                                                                        SUG09246
+           MOVE SYU1-MMDDYY-DATE-6-DD  TO  SYU1-DDMMYY-DATE-6-DD        SUG09246
+                                           SYU1-YYMMDD-DATE-6-DD.       SUG09246
+           MOVE SYU1-MMDDYY-DATE-6-MM  TO  SYU1-DDMMYY-DATE-6-MM        SUG09246
+                                           SYU1-YYMMDD-DATE-6-MM.       SUG09246
+           MOVE SYU1-MMDDYY-DATE-6-YY  TO  SYU1-DDMMYY-DATE-6-YY        SUG09246
+                                           SYU1-YYMMDD-DATE-6-YY.       SUG09246
+                                                                        SUG09246
+           MOVE SYU1-MMDDYY-DATE-6 TO SYU1-EXISTING-GREG-DATE-6.        SUG09246
+           PERFORM A99-CONVERT-GREG-US-TO-JULIAN THRU                   SUG09246
+                   A99-EXIT.                                            SUG09246
+           MOVE SYU1-INPUT-JULIAN-DATE TO  WS-OUTPUT-DUE-DATE.          SUG09246
+                                                                        SUG09246
+           COMPUTE WS-OUTPUT-DISC-DATE EQUAL                            SUG09246
+                              WS-INPUT-DISC-DATE + TB-TERMS-DISC-DAYS.  SUG09246
+                                                                        SUG09246
+           MOVE WS-OUTPUT-DISC-DATE      TO WS-TERMS-COMP-DATE.         SUG09246
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                            SUG09246
+                  GIVING WS-LEAP-YEAR-CHECK                             SUG09246
+                       REMAINDER WS-REMAINDER.                          SUG09246
+           IF  WS-REMAINDER = 0                                         SUG09246
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                    SUG09246
+                  ADD 634                 TO WS-TERMS-COMP-DATE         SUG09246
+              END-IF                                                    SUG09246
+           ELSE                                                         SUG09246
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                    SUG09246
+                  ADD 635                 TO WS-TERMS-COMP-DATE         SUG09246
+              END-IF                                                    SUG09246
+           END-IF.                                                      SUG09246
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DISC-DATE.              SUG09246
+                                                                        SUG09246
+       909-CALC-EXT-EOM-TERMS-EXIT.                                     SUG09246
+           EXIT.                                                        SUG09246
+                                                                        SUG09246
+      *********************************************************         SUG09246
+      ***      TERMS MID OR EOM                              **         SUG09246
+      *********************************************************         SUG09246
+      *  1. CALCULATE DUE MONTH BY DIVIDING THE DUE DAYS BY 30          SUG09246
+      *     AND RESULT TO MONTH.                                        SUG09246
+      *  2. IF THE DUE DAY > PROX CUTOFF,THEN SET DAY TO LAST DAY OF    SUG09246
+      *     MONTH.  IF DUE DAY <= PROX CUTOFF,THEN SET DAY TO 15TH      SUG09246
+      *     OF MONTH.                                                   SUG09246
+      *********************************************************         SUG09246
+       910-CALC-MID-OR-EOM-TERMS.                                       SUG09246
+                                                                        SUG09246
+      *----------------------------------------------------------------*SUG09246
+      *-   EXAMPLE,                                                     SUG09246
+      *-   INV-DATE ON OCT 31 AND TERM DAYS IS 30 DAYS, DUE DATE WILL   SUG09246
+      *-   NOV 30TH.                                                    SUG09246
+      *-   INV-DATE ON OCT 1  AND TERM DAYS IS 60 DAYS, DUE DATE WILL   SUG09246
+      *-   DEC 15TH.                                                    SUG09246
+      *-                                                                SUG09246
+      *----------------------------------------------------------------*SUG09246
+                                                                        SUG09246
+           MOVE  WS-INPUT-DUE-DATE     TO  SYU1-INPUT-JULIAN-DATE.      SUG09246
+           PERFORM A98-CONVERT-JULIAN-TO-GREG-US THRU                   SUG09246
+                   A98-EXIT.                                            SUG09246
+                                                                        SUG09246
+           IF TB-TERMS-DUE-DAYS NUMERIC                                 SUG09246
+               COMPUTE SYU1-MMDDYY-DATE-6-MM =                          SUG09246
+                      SYU1-MMDDYY-DATE-6-MM + (TB-TERMS-DUE-DAYS / 30). SUG09246
+                                                                        SUG09246
+           IF  SYU1-MMDDYY-DATE-6-MM > 12                               SUG09246
+               SUBTRACT 12             FROM SYU1-MMDDYY-DATE-6-MM       SUG09246
+               ADD      01             TO   SYU1-MMDDYY-DATE-6-YY       SUG09246
+           END-IF.                                                      SUG09246
+                                                                        SUG09246
+           IF  SYU1-MMDDYY-DATE-6-DD >  TB-TERMS-PROX-CUTOFF            SUG09246
+               IF SYU1-MMDDYY-DATE-6-MM =  01 OR 03 OR 05 OR 07 OR      SUG09246
+                                           08 OR 10 OR 12               SUG09246
+                   MOVE 31             TO  SYU1-MMDDYY-DATE-6-DD        SUG09246
+               ELSE                                                     SUG09246
+                   IF SYU1-MMDDYY-DATE-6-MM = 04 OR 06 OR 09 OR 11      SUG09246
+                       MOVE 30         TO  SYU1-MMDDYY-DATE-6-DD        SUG09246
+                   ELSE                                                 SUG09246
+                       DIVIDE SYU1-MMDDYY-DATE-6-YY BY 4                SUG09246
+                           GIVING WS-LEAP-YEAR-CHECK                    SUG09246
+                           REMAINDER WS-REMAINDER                       SUG09246
+                       IF WS-REMAINDER > 0                              SUG09246
+                           MOVE 28     TO  SYU1-MMDDYY-DATE-6-DD        SUG09246
+                       ELSE                                             SUG09246
+                           MOVE 29     TO  SYU1-MMDDYY-DATE-6-DD.       SUG09246
+                                                                        SUG09246
+           IF SYU1-MMDDYY-DATE-6-DD <  TB-TERMS-PROX-CUTOFF             SUG09246
+               MOVE 15                 TO  SYU1-MMDDYY-DATE-6-DD.       SUG09246
+                                                                        SUG09246
+                                                                        SUG09246
+           MOVE SYU1-MMDDYY-DATE-6-DD  TO  SYU1-DDMMYY-DATE-6-DD        SUG09246
+                                           SYU1-YYMMDD-DATE-6-DD.       SUG09246
+           MOVE SYU1-MMDDYY-DATE-6-MM  TO  SYU1-DDMMYY-DATE-6-MM        SUG09246
+                                           SYU1-YYMMDD-DATE-6-MM.       SUG09246
+           MOVE SYU1-MMDDYY-DATE-6-YY  TO  SYU1-DDMMYY-DATE-6-YY        SUG09246
+                                           SYU1-YYMMDD-DATE-6-YY.       SUG09246
+                                                                        SUG09246
+           MOVE SYU1-MMDDYY-DATE-6 TO SYU1-EXISTING-GREG-DATE-6.        SUG09246
+           PERFORM A99-CONVERT-GREG-US-TO-JULIAN THRU                   SUG09246
+                   A99-EXIT.                                            SUG09246
+           MOVE SYU1-INPUT-JULIAN-DATE TO  WS-OUTPUT-DUE-DATE.          SUG09246
+                                                                        SUG09246
+           COMPUTE WS-OUTPUT-DISC-DATE EQUAL                            SUG09246
+                              WS-INPUT-DISC-DATE + TB-TERMS-DISC-DAYS.  SUG09246
+                                                                        SUG09246
+           MOVE WS-OUTPUT-DISC-DATE      TO WS-TERMS-COMP-DATE.         SUG09246
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                            SUG09246
+                  GIVING WS-LEAP-YEAR-CHECK                             SUG09246
+                       REMAINDER WS-REMAINDER.                          SUG09246
+           IF  WS-REMAINDER = 0                                         SUG09246
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                    SUG09246
+                  ADD 634                 TO WS-TERMS-COMP-DATE         SUG09246
+              END-IF                                                    SUG09246
+           ELSE                                                         SUG09246
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                    SUG09246
+                  ADD 635                 TO WS-TERMS-COMP-DATE         SUG09246
+              END-IF                                                    SUG09246
+           END-IF.                                                      SUG09246
+           MOVE WS-TERMS-COMP-DATE TO WS-OUTPUT-DISC-DATE.              SUG09246
+                                                                        SUG09246
+                                                                        SUG09246
+       910-CALC-MID-OR-EOM-TERMS-EXIT.                                  SUG09246
+           EXIT.                                                        SUG09246
+                                                                        SUG09246
+                                                                        SUG09246
+       A99-CONVERT-GREG-US-TO-JULIAN.                                   SCT03115
+           MOVE SPACES              TO WS-TERMS-DUMMY-DATE.             SCT03115
+           CALL 'SYU002'            USING  SYU1-INPUT-JULIAN-DATE       SCT03115
+                                           SYU1-EXISTING-GREG-DATE-6    SCT03115
+                                           WS-TERMS-DUMMY-DATE          SCT03115
+                                           WS-TERMS-CO-MD.              SCT03115
+                                                                        SCT03115
+       A99-EXIT.                                                        SCT03115
+           EXIT.                                                        SCT03115
+                                                                        SCT03115
+                                                                        SCT03115
+       A98-CONVERT-JULIAN-TO-GREG-US.                                   SCT03115
+           CALL 'SYU001'            USING  SYU1-INPUT-JULIAN-DATE       SCT03115
+                                           SYU1-EXISTING-GREG-DATE      SCT03115
+                                           SYU1-EXISTING-GREG-DATE-6    SCT03115
+                                           SYU1-NEW-FORMAT-FIELDS.      SCT03115
+           IF SYU1-US-FORMAT                                            SCT03115
+              MOVE SYU1-EXISTING-GREG-DATE-6 TO SYU1-MMDDYY-DATE-6      SCT03115
+           ELSE                                                         SCT03115
+            IF SYU1-UK-FORMAT                                           SCT03115
+               MOVE SYU1-EXISTING-GREG-DATE-6 TO SYU1-DDMMYY-DATE-6     SCT03115
+               MOVE SYU1-DDMMYY-DATE-6-MM TO SYU1-MMDDYY-DATE-6-MM      SCT03115
+               MOVE SYU1-DDMMYY-DATE-6-DD TO SYU1-MMDDYY-DATE-6-DD      SCT03115
+               MOVE SYU1-DDMMYY-DATE-6-YY TO SYU1-MMDDYY-DATE-6-YY      SCT03115
+            ELSE                                                        SCT03115
+              IF SYU1-EU-FORMAT                                         SCT03115
+                 MOVE SYU1-EXISTING-GREG-DATE-6 TO SYU1-YYMMDD-DATE-6   SCT03115
+                 MOVE SYU1-YYMMDD-DATE-6-MM TO SYU1-MMDDYY-DATE-6-MM    SCT03115
+                 MOVE SYU1-YYMMDD-DATE-6-DD TO SYU1-MMDDYY-DATE-6-DD    SCT03115
+                 MOVE SYU1-YYMMDD-DATE-6-YY TO SYU1-MMDDYY-DATE-6-YY    SCT03115
+              END-IF                                                    SCT03115
+            END-IF                                                      SCT03115
+           END-IF.                                                      SCT03115
+       A98-EXIT.                                                        SCT03115
+           EXIT.                                                        SCT03115
+                                                                        DXB03262
+       A97-DOW-TERMS-DATE-CALC.                                         DXB03262
+                                                                        DXB03262
+           INITIALIZE SY777-PARM-DATA.                                  DXB03262
+           MOVE TB-TERMS-CO               TO SY777-IN-COMPANY-CODE.     DXB03262
+           MOVE WS-TERMS-COMP-DATE        TO SY777-IN-JUL-YYDDD.        DXB03262
+           CALL 'SYV777'           USING SY777-PARM-DATA.               DXB03262
+                                                                        DXB03262
+           IF SY777-OUT-DAY-OF-WEEK-NUMBER = 1                          DXB03262
+               MOVE 7                     TO                            DXB03262
+                                          WS-TERMS-DOW-NBR              DXB03262
+           ELSE                                                         DXB03262
+               MOVE SY777-OUT-DAY-OF-WEEK-NUMBER                        DXB03262
+                                          TO                            DXB03262
+                                          WS-TERMS-DOW-NBR              DXB03262
+               SUBTRACT 1 FROM WS-TERMS-DOW-NBR                         DXB03262
+           END-IF.                                                      DXB03262
+                                                                        DXB03262
+           COMPUTE WS-TERMS-ADD-DAYS-DOW = TB-TERMS-EXTENDED-DAYS -     DXB03262
+                                           WS-TERMS-DOW-NBR.            DXB03262
+                                                                        DXB03262
+           IF TB-TERMS-EXTENDED-DAYS > WS-TERMS-DOW-NBR                 DXB03262
+               COMPUTE WS-TERMS-COMP-DATE = WS-TERMS-COMP-DATE +        DXB03262
+                                            WS-TERMS-ADD-DAYS-DOW       DXB03262
+           END-IF.                                                      DXB03262
+                                                                        DXB03262
+           IF TB-TERMS-EXTENDED-DAYS < WS-TERMS-DOW-NBR                 DXB03262
+               EVALUATE WS-TERMS-ADD-DAYS-DOW                           DXB03262
+                   WHEN -1                                              DXB03262
+                      MOVE  6             TO WS-TERMS-ADD-DAYS-DOW      DXB03262
+                   WHEN -2                                              DXB03262
+                      MOVE  5             TO WS-TERMS-ADD-DAYS-DOW      DXB03262
+                   WHEN -3                                              DXB03262
+                      MOVE  4             TO WS-TERMS-ADD-DAYS-DOW      DXB03262
+                   WHEN -4                                              DXB03262
+                      MOVE  3             TO WS-TERMS-ADD-DAYS-DOW      DXB03262
+                   WHEN -5                                              DXB03262
+                      MOVE  2             TO WS-TERMS-ADD-DAYS-DOW      DXB03262
+                   WHEN -6                                              DXB03262
+                      MOVE  1             TO WS-TERMS-ADD-DAYS-DOW      DXB03262
+               END-EVALUATE                                             DXB03262
+               COMPUTE WS-TERMS-COMP-DATE = WS-TERMS-COMP-DATE +        DXB03262
+                                            WS-TERMS-ADD-DAYS-DOW       DXB03262
+           END-IF.                                                      DXB03262
+                                                                        DXB03262
+           PERFORM A96-CHK-YR-RECALC-DATE THRU                          DXB03262
+                   A96-EXIT.                                            DXB03262
+                                                                        DXB03262
+       A97-EXIT.                                                        DXB03262
+           EXIT.                                                        DXB03262
+                                                                        DXB03262
+       A96-CHK-YR-RECALC-DATE.                                          DXB03262
+                                                                        DXB03262
+      *** CHECK FOR LEAP YEAR AND FOR CROSSING TO NEXT YEAR             DXB03262
+                                                                        DXB03262
+           DIVIDE WS-TERMS-COMP-YEAR    BY 4                            DXB03262
+                  GIVING WS-LEAP-YEAR-CHECK                             DXB03262
+                       REMAINDER WS-REMAINDER.                          DXB03262
+                                                                        DXB03262
+           IF  WS-REMAINDER = 0                                         DXB03262
+              IF  WS-TERMS-COMP-DAY GREATER THAN 366                    DXB03262
+                  ADD 634                 TO WS-TERMS-COMP-DATE         DXB03262
+              END-IF                                                    DXB03262
+           ELSE                                                         DXB03262
+              IF  WS-TERMS-COMP-DAY GREATER THAN 365                    DXB03262
+                  ADD 635                 TO WS-TERMS-COMP-DATE         DXB03262
+              END-IF                                                    DXB03262
+           END-IF.                                                      DXB03262
+                                                                        DXB03262
+       A96-EXIT.                                                        DXB03262
+           EXIT.                                                        DXB03262
+                                                                        DXB03262
+      *** END OF COPYBOOK ARXTERMS  ****                                        

@@ -1,0 +1,56 @@
+      *=================================================================        
+      *                                                                *        
+      *   CHECK ORH-ENTRY-METHOD AND ORH-TERM-ID TO DETERMINE          *        
+      *   ORDER ENTRY METHOD.   USES WORKING STORAGE FIELDS FROM       *        
+      *   ORWORDMN.  COULD COPY THESE FIELDS TO WORKING STORAGE        *        
+      *                                                                *        
+      *   COPYBOOK SETS FIELD WS-ORD-ENTRY-IND:                        *        
+      *                                                                *        
+      *       TELE = TELEMARKETING (ORP320)                            *        
+      *       EDI  = EDI           (EDP740)                            *        
+      *       CAPS = CAPS          (CAP710)                            *        
+      *       XML  = XML ORDER - LU6X - MUSTANG (OUTSIDE US)           *        
+      *              XML ORDER - WEBX - U.S.                           *        
+      *       WEB  = WEB ORDER                                         *        
+      *       IL   = INSIDE LINE                                       *        
+      *       TEL? = ORDER ENTRY METHOD NOT I,O,C, OR L (UNKNOWN)      *        
+      *       WEB? = ORDER ENTRY METHOD IS L BUT THE TERM ID IS        *        
+      *              IS UNKNOWN (NOT WEB* OR LU6*)                     *        
+      *                                                                *        
+      *=================================================================        
+      * REVISIONS:                                                     *        
+      * 10/17/04 RDM CREATE COPYBOOK.                                  *RDM04291
+      *                                                                *        
+      *=================================================================        
+                                                                                
+       ORDMT-CHECK-ENTRY-METHOD.                                                
+                                                                                
+           EVALUATE WS-ORH-ENTRY-METHOD                                         
+               WHEN 'I'    MOVE 'TELE'  TO WS-ORD-ENTRY-IND                     
+               WHEN 'O'    MOVE 'EDI '  TO WS-ORD-ENTRY-IND                     
+               WHEN 'C'    MOVE 'CAPS'  TO WS-ORD-ENTRY-IND                     
+               WHEN 'L'    PERFORM ORDMT-CHECK-TERM-ID                          
+                              THRU ORDMT-CHECK-TERM-ID-EXIT                     
+               WHEN OTHER  MOVE 'TEL?'  TO WS-ORD-ENTRY-IND                     
+           END-EVALUATE.                                                        
+                                                                                
+       ORDMT-CHECK-ENTRY-EXIT.                                                  
+           EXIT.                                                                
+                                                                                
+                                                                                
+       ORDMT-CHECK-TERM-ID.                                                     
+                                                                                
+           EVALUATE TRUE                                                        
+               WHEN WS-ORH-TERM-ID = 'LU6X' OR 'WEBX'                           
+                    MOVE 'XML '  TO WS-ORD-ENTRY-IND                            
+               WHEN WS-ORH-TERM-ID (1:3) = 'WEB'                                
+                    MOVE 'WEB '  TO WS-ORD-ENTRY-IND                            
+               WHEN WS-ORH-TERM-ID (1:3) = 'LU6'                                
+                    MOVE 'IL  '  TO WS-ORD-ENTRY-IND                            
+               WHEN OTHER                                                       
+                    MOVE 'WEB?'  TO WS-ORD-ENTRY-IND                            
+           END-EVALUATE.                                                        
+                                                                                
+       ORDMT-CHECK-TERM-ID-EXIT.                                                
+           EXIT.                                                                
+                                                                                

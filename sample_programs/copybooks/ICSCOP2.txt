@@ -1,0 +1,868 @@
+﻿000100******************************************************************PWLY8308
+000200*** YEAR 2000 REMEDIATED                                         *AMAY9189
+000300******************************************************************PWLY8308
+000400*================================================================*        
+000500*  THIS COPYBOOK IS USED INCONJUNCTION WITH ICWCOP AND ICSCOP    *GAE97136
+000600*  COPYBOOK.                                                     *GAE97136
+000700*                                                                *        
+000800* REVISION INFO:                                                 *        
+000810* 02/03/17 TGF NUMERIC CHECK ON MAQ-QTY-ORDERED                  *TGF17034
+000810* 10/14/16 TGF TIER PRICING                                      *TGF16288
+000810* 01/16/08 GAE SSEU ENHANCED ACOP PROJECT: EU, CA, TP            *GAE08016
+000810*              BYPASS MIN-QTY CHECK WHEN ORDER QTY CHANGED(ORP572)GAE08016
+000810* 03/08/04 KKC CHANGED A122- NOT TO OVERLAY                      *KKC04068
+000810*              INI-ADJUSTED-COST-DATA                            *KKC04068
+000810* 11/25/03 MXK IF ICWCOP-DO-NOT-PROCESS-MAQ-ACOP SKIP LIMITED    *MXK03329
+000900*              QTY ACOPS                                         *MXK03329
+000902* 06/17/03 MXK CHANGES FOR SINGLE SOURCE PROJECT                 *MXK03168
+000903* 08/14/03 MXK FOR CONSIGNED ITEMS MOVE NEW REPLACEMENT COST TO  *MXK03225
+000904*              INB-AVG-COST                                      *MXK03225
+000905* 02/03/00 GAE ADD GOVT CONTRACT ACOP LOGIC (GSA).               *GAE00034
+000906* 09/23/99 GAE FIX PRICING PERCENT CALCULATION.                  *GAE99266
+000907* 06/14/99 GAE ADDED REVERSE/PRICING ACOP LOGIC.                 *GAE99174
+000908*              Y2K ALERT (ADDED PRICING DATE CHECK)              *GAE99174
+000909* 02/19/99 TXM ADDED REPRICE LOGIC FOR NON PROGRAM TYPE.         *TXM99050
+001000* 01/11/99 RXD MAKE MORE EFFICENT IN READS TO TBLMST             *RXD99014
+001100* 11/20/98 WFP ADD FOREIGN CURRENCY ACOP LOGIC.                  *WFP98324
+001200* 11/16/98 GAE ADDED END USER ACOP.                              *GAE98320
+001300* 11/04/98 RXD Y2K REMEDIATION                                   *RXDY8308
+001400* 06/01/98 JXH RENAMING ICSCOP1 TO ICSCOP2 AND DON'T OVERLAY     *JXH98152
+001500*              INVENTORY COSTS FOR SYSTEM ITEMS.                 *JXH98152
+001600* 04/22/98 GAE ADD PROGRAM TYPE LOGIC                            *GAE98120
+001700* 01/27/98 GAE ADD LOGIC FOR ADDITIONAL ACOP BY PROGRAM          *GAE98027
+001800* 09/23/97 GAE ADD ACOP BY PROGRAM LOGIC                         *GAE97266
+001900* 05/06/97 GAE CHANGE REMARK.                                    *GAE97136
+002000* 03/31/97 GAE NEW COPYBOOK                                      *GAE97090
+002100*================================================================*        
+002200 A000-COST-OVERRIDE.                                                      
+002300*                                                                         
+002400     INITIALIZE ICWCOP-FIELDS.                                            
+002500     INITIALIZE COP-ICLCOP.                                               
+002600     INITIALIZE ICWCOP-ADDITIONAL-ACOP-FIELDS.                            
+002700     INITIALIZE ICWCOP-SEGMENT-ACOP-FIELDS.                               
+002800                                                                  WFP98324
+002900*===>  GET THE CORP TABLE.                                        WFP98324
+003000                                                                  WFP98324
+003100     IF TC-COMPANY NOT EQUAL TB-CPO-COMPANY-CODE OR               RXD99014
+003200         ICWCOP-TB-CORP-FIRSTTIME-YES                             RXD99014
+003300         SET ICWCOP-TB-CORP-FIRSTTIME-NO TO TRUE                  RXD99014
+003400         MOVE TC-COMPANY                                          WFP98324
+003500           TO TB-CPO-COMPANY-CODE                                 WFP98324
+003600         CALL 'SYU510'        USING TB-CORP-PROC-IA.              WFP98324
+003700                                                                  WFP98324
+003800*===>  GET THE ACOP TABLE.                                        WFP98324
+003900                                                                  WFP98324
+004000     IF (TC-COMPANY = TB-ACOP-COMPANY-CODE AND                    RXD99014
+004100         TB-ACOP-TYPE-CODE = 'B' AND                              RXD99014
+004200         TB-ACOP-GENERIC-CODE = SPACES)   AND                     RXD99014
+004300         ICWCOP-TB-ACOP-FIRSTTIME-NO                              RXD99014
+004400         NEXT SENTENCE                                            RXD99014
+004500       ELSE                                                       RXD99014
+004600         SET ICWCOP-TB-ACOP-FIRSTTIME-NO TO TRUE                  RXD99014
+004700         MOVE TC-COMPANY             TO TB-ACOP-COMPANY-CODE      WFP98324
+004800         MOVE 'B'                    TO TB-ACOP-TYPE-CODE         WFP98324
+004900         MOVE SPACES                 TO TB-ACOP-GENERIC-CODE      WFP98324
+005000         CALL 'SYU510' USING TB-ACOP-PROC-IA                      WFP98324
+005100         IF NOT TB-ACOP-NORESP                                    WFP98324
+005200            MOVE 'N'                                              WFP98324
+005300              TO TB-ACOP-ALLOW-GROUPS-SW                          WFP98324
+005400                 TB-ACOP-USE-INTL-OPTIONS-SW                      WFP98324
+005500            MOVE 'C'                                              WFP98324
+005600              TO TB-ACOP-USE-RATE-OE-SW                           WFP98324
+005700            MOVE 10                                               WFP98324
+005800              TO TB-ACOP-GL-BRANCH.                               WFP98324
+005900                                                                  WFP98324
+006000*                                                                         
+006100*--- CHECK FOR ACOP PROGRAM TYPE( THE FIST 2 BYTE ONLY SINCE THE  GAE98120
+006200*--- LAST 2 BYTES IS CONSIDERED AN ADDITIONAL ACOP).              GAE98120
+007500*--- CHECK IF PROGRAM HAS COST OVERRIDE FIRST                     GAE00034
+007600     IF ICWCOP-PROGRAM-TYPE1 > SPACES                                     
+007610        PERFORM A004-GET-PROGRAM-TYPE-INFO                        GAE00034
+007700        PERFORM A001-PROGRAM-OVERRIDE.                                    
+007800*                                                                 GAE98320
+007900*--- GET NEXT FOR ENDU-USER ACOP                                  GAE98320
+008000     IF  NOT ICWCOP-COST-OVERRIDE                                 GAE98320
+008100     AND ICWCOP-GET-NEXT-ACOP                                     GAE98320
+008200         IF ICWCOP-ENDUSER-NBR > +0                               GAE98320
+008300            PERFORM A003-ENDUSER-ACOP.                            GAE98320
+008400*                                                                 GAE97266
+008500*--- GET NEXT FOR NON PROGRAM ACOP IS ALWAYS SET TO "Y".          GAE97266
+008600     IF  NOT ICWCOP-COST-OVERRIDE                                         
+008700     AND ICWCOP-GET-NEXT-ACOP                                             
+008800         PERFORM A002-NON-PROGRAM-OVERRIDE.                               
+008900*                                                                 GAE97266
+009000 A001-PROGRAM-OVERRIDE.                                                   
+009100*                                                                 GAE00034
+009200*--- IF GSA CONTRACT ACOP NOT FOUND CONTINUE PROCESS USING "PA".  GAE00034
+009300     IF ICWCOP-GOVT-GSA                                           GAE00034
+009400        PERFORM A001-100-GSA-PROGRAM                              GAE00034
+009500     ELSE                                                         GAE00034
+009600        PERFORM A001-200-OTH-PROGRAM.                             GAE00034
+009700*                                                                 GAE00034
+009800 A001-100-GSA-PROGRAM.                                            GAE00034
+009900*                                                                 GAE00034
+010000*--- IF GSA CONTRACT ACOP NOT FOUND CONTINUE PROCESSING USING THE GAE00034
+010100*--- NON GSA PROGRAM TYPE                                         GAE00034
+010200     PERFORM A100-COST-OVERRIDE-PROGRAM.                          GAE00034
+010300*                                                                 GAE00034
+010400     IF ICWCOP-COST-OVERRIDE                                      GAE00034
+010500        NEXT SENTENCE                                             GAE00034
+010600     ELSE                                                         GAE00034
+010700        IF ICWCOP-PROGRAM-TYPE-ALT > SPACES                       GAE00034
+010800           MOVE ICWCOP-PROGRAM-TYPE-ALT TO ICWCOP-PROGRAM-TYPE    GAE00034
+010900           PERFORM A004-GET-PROGRAM-TYPE-INFO                     GAE00034
+011000           IF ICWCOP-PROGRAM-TYPE1 > SPACES                       GAE00034
+011100              PERFORM A001-200-OTH-PROGRAM.                       GAE00034
+011200*                                                                 GAE00034
+011201 A001-200-OTH-PROGRAM.                                            GAE00034
+011202*                                                                 GAE98027
+011203*--- GET ADDITIONAL ACOP FIRST  (NON PROGRAM TYPE ACOP)           GAE98120
+011204     MOVE 'X'                      TO ICWCOP-ADD-ACOP-IND.                
+011205     PERFORM A002-NON-PROGRAM-OVERRIDE.                                   
+011206     MOVE ICWCOP-COST-OVERRIDE-IND TO ICWCOP-ADD-ACOP-IND.                
+011207*                                                                 GAE98027
+011208*--- GET ANOTHER ADDITIONAL ACOP (4 CHARACTER PROGRAM TYPE)       GAE98120
+011209     IF ICWCOP-PROGRAM-TYPE2 > SPACES                                     
+011210        MOVE 'Y'                      TO ICWCOP-SEG-ACOP-IND              
+011211        PERFORM A100-COST-OVERRIDE-PROGRAM                                
+011212        MOVE ICWCOP-COST-OVERRIDE-IND TO ICWCOP-SEG-ACOP-IND.             
+011213*                                                                 GAE98120
+011214*--- GET BASE PROGRAM ACOP (2 CHARACTER PROGRAM TYPE) EXCEPT      GAE99174
+011215*--- FOR THE REVERSE ACOP(NO ADDITIONAL ACOP WILL BE APPLIED)     GAE99174
+011216     IF  ICWCOP-COST-OVERRIDE                                     GAE99174
+011217     AND ICWCOP-REVERSE-ACOP                                      GAE99174
+011218         MOVE SPACES TO ICWCOP-SEG-ACOP-IND                       GAE99174
+011219                        ICWCOP-ADD-ACOP-IND                       GAE99174
+011220     ELSE                                                         GAE99174
+011230        MOVE SPACES TO ICWCOP-PROGRAM-TYPE2                       GAE99174
+011231        PERFORM A100-COST-OVERRIDE-PROGRAM.                       GAE99174
+011232*                                                                 GAE98120
+011233*--- REPROCESS ADDITIONAL ACOP AS THE BASE PROGRAM TYPE ACOP      GAE98120
+011234*--- WHEN BASE PROGRAM ACOP DOES NOT EXIST.                       GAE98120
+011235     IF NOT ICWCOP-COST-OVERRIDE                                          
+011236        IF ICWCOP-SEG-COST-OVERRIDE                                       
+011237           INITIALIZE ICWCOP-SEGMENT-ACOP-FIELDS                          
+011238           MOVE ICWCOP-PROGRAM-TYPE-SEG TO ICWCOP-PROGRAM-TYPE            
+011300           PERFORM A100-COST-OVERRIDE-PROGRAM.                            
+011400*                                                                 GAE98120
+011500*--- DETERMINE REBATE INDICATOR FOR PROGRAM                       GAE98120
+011600     IF ICWCOP-COST-OVERRIDE                                              
+011700        IF ICWCOP-ADD-APPLY-REBATE                                        
+011800           MOVE ICWCOP-ADD-REBATE-IND TO ICWCOP-PRG-REBATE-IND            
+011900        ELSE                                                              
+012000        IF ICWCOP-SEG-APPLY-REBATE                                        
+012100           MOVE ICWCOP-SEG-REBATE-IND TO ICWCOP-PRG-REBATE-IND            
+012200        ELSE                                                              
+012300        IF COP-APPLY-REBATE                                               
+012400           MOVE COP-APPLY-REBATE-SW   TO ICWCOP-PRG-REBATE-IND.           
+012500*                                                                 GAE98027
+012600*--- IF THERE IS AN ADDITIONAL COST OVERRIDE, TRANSLATE REPRICE   GAE98027
+012700*--- SWITCH (REPRICE IS NO LONGER USED)                           GAE98027
+012800     IF  ICWCOP-COST-OVERRIDE                                             
+012900         IF ICWCOP-ADD-COST-OVERRIDE                                      
+013000            MOVE ICWCOP-ADD-ACOP-IND TO COP-REPRICE-SW                    
+013100         END-IF                                                           
+013200         IF ICWCOP-SEG-PRG-PART-OVERRIDE                                  
+013300            MOVE ICWCOP-SEG-ACOP-IND TO COP-REPRICE-SW                    
+013400            IF ICWCOP-ADD-CUS-PART-OVERRIDE                               
+013500               MOVE 'S'              TO COP-REPRICE-SW                    
+013600            END-IF                                                        
+013700            IF ICWCOP-ADD-CUS-VEND-OVERRIDE                               
+013800               MOVE 'T'              TO COP-REPRICE-SW                    
+013900            END-IF                                                        
+014000            IF ICWCOP-ADD-BR-PART-OVERRIDE                                
+014100               MOVE 'U'              TO COP-REPRICE-SW                    
+014200            END-IF                                                        
+014300            IF ICWCOP-ADD-BR-VEND-OVERRIDE                                
+014400               MOVE 'V'              TO COP-REPRICE-SW                    
+014500            END-IF                                                        
+014600         END-IF                                                           
+014700         IF ICWCOP-SEG-PRG-VEND-OVERRIDE                                  
+014800            MOVE ICWCOP-SEG-ACOP-IND TO COP-REPRICE-SW                    
+014900            IF ICWCOP-ADD-CUS-PART-OVERRIDE                               
+015000               MOVE 'W'              TO COP-REPRICE-SW                    
+015100            END-IF                                                        
+015200            IF ICWCOP-ADD-CUS-VEND-OVERRIDE                               
+015300               MOVE 'X'              TO COP-REPRICE-SW                    
+015400            END-IF                                                        
+015500            IF ICWCOP-ADD-BR-PART-OVERRIDE                                
+015600               MOVE 'Y'              TO COP-REPRICE-SW                    
+015700            END-IF                                                        
+015800            IF ICWCOP-ADD-BR-VEND-OVERRIDE                                
+015900               MOVE 'Z'              TO COP-REPRICE-SW                    
+016000            END-IF                                                        
+016100         END-IF.                                                          
+016200*                                                                 GAE98027
+016300     INITIALIZE ICWCOP-ADDITIONAL-ACOP-FIELDS.                            
+016400     INITIALIZE ICWCOP-SEGMENT-ACOP-FIELDS.                               
+016500*                                                                 GAE97266
+016600     IF NOT ICWCOP-COST-OVERRIDE                                          
+016700        MOVE SPACES            TO ICWCOP-PROGRAM-TYPE.                    
+016800*                                                                 GAE97266
+016900 A002-NON-PROGRAM-OVERRIDE.                                               
+017000*                                                                         
+017100*--- GET PART COST OVERRIDE FIRST                                         
+017200     IF INI-ACOP-COST-OVERRIDE-BR-CUST                                    
+017300        PERFORM A100-COST-OVERRIDE-PART.                                  
+017400*                                                                         
+017500*--- GET VENDOR COST OVERRIDE ONLY IF NO PART COST OVERRIDE               
+017600     IF NOT ICWCOP-COST-OVERRIDE                                          
+017700        IF VNH-VENDOR-NBR NOT = INI-VENDOR-NBR                            
+017800           MOVE INI-COMPANY      TO  WS-VNSHED-CO                         
+017900           MOVE INI-VENDOR-NBR   TO  WS-VNSHED-VEND                       
+018000           MOVE 'A'              TO  WS-VNSHED-CLASS                      
+018100           PERFORM 1750-GU-VNSHED                                         
+018200        END-IF                                                            
+018300        IF VNH-ACOP-COST-OVERRIDE-BR-CUST                                 
+018400           PERFORM A100-COST-OVERRIDE-VENDOR.                             
+018500*                                                                 GAE98320
+018600 A003-ENDUSER-ACOP.                                               GAE98320
+018700*                                                                 GAE98320
+018800     PERFORM A100-COST-OVERRIDE-ENDUSER.                          GAE98320
+018900*                                                                 GAE00034
+019000 A004-GET-PROGRAM-TYPE-INFO.                                      GAE00034
+019100*                                                                 GAE00034
+019200     MOVE TC-COMPANY                    TO TB-PRG-PROGRAM-CO.     GAE00034
+019300     MOVE ICWCOP-PROGRAM-TYPE           TO TB-PRG-PROGRAM-TYPE.   GAE00034
+019400*                                                                 GAE00034
+019500     CALL 'SYU510'                   USING TB-PRG-TABLE-IA.       GAE00034
+019600*                                                                 GAE00034
+019700     IF TB-PRG-NORESP                                             GAE00034
+019800        MOVE TB-PRG-CODE-PREFIX         TO ICWCOP-PROG-TYPE-LIT   GAE00034
+019900        MOVE TB-PRG-GET-NEXT-ACOP-SW    TO ICWCOP-GET-NEXT-ACOP-SWGAE00034
+020000        MOVE TB-PRG-CONTRACT-ACOP-IND   TO ICWCOP-GOVT-GSA-IND    GAE00034
+020100        MOVE ICWCOP-PROGRAM-TYPE        TO ICWCOP-PROGRAM-TYPE-SEGGAE00034
+020200     ELSE                                                         GAE00034
+020300        MOVE SPACES                     TO TB-PRG-PROGRAM-TYPE2   GAE00034
+020400        CALL 'SYU510'                USING TB-PRG-TABLE-IA        GAE00034
+020500        IF TB-PRG-NORESP                                          GAE00034
+020600          MOVE TB-PRG-CODE-PREFIX       TO ICWCOP-PROG-TYPE-LIT   GAE00034
+020700          MOVE TB-PRG-GET-NEXT-ACOP-SW  TO ICWCOP-GET-NEXT-ACOP-SWGAE00034
+020800          MOVE TB-PRG-CONTRACT-ACOP-IND TO ICWCOP-GOVT-GSA-IND    GAE00034
+020900          MOVE ICWCOP-PROGRAM-TYPE      TO ICWCOP-PROGRAM-TYPE-SEGGAE00034
+021000        ELSE                                                      GAE00034
+021100          MOVE SPACES                   TO ICWCOP-GOVT-GSA-IND    GAE00034
+021200                                           ICWCOP-PROGRAM-TYPE.   GAE00034
+021201*                                                                 GAE00034
+021202 A100-COST-OVERRIDE-PART.                                                 
+021203*                                                                         
+021204*--- GET PART-CUSTOMER COST OVERRIDE                                      
+021205     MOVE '1'    TO ICWCOP-COST-OVERRIDE-IND.                             
+021206     PERFORM A110-GET-COST-OVERRIDE.                                      
+021207*                                                                         
+021208*--- GET PART-BRANCH COST OVERRIDE IF PART-CUSTOMER COST                  
+021209*--- OVERRIDE DOES NOT EXISTS.                                            
+021210     IF NOT ICWCOP-COST-OVERRIDE                                          
+021211        MOVE '3' TO ICWCOP-COST-OVERRIDE-IND                              
+021212        PERFORM A110-GET-COST-OVERRIDE.                                   
+021213*                                                                         
+021214 A100-COST-OVERRIDE-VENDOR.                                               
+021215*                                                                         
+021216*--- GET VENDOR-CUSTOMER COST OVERRIDE                                    
+021217     MOVE '2'    TO ICWCOP-COST-OVERRIDE-IND.                             
+021218     PERFORM A110-GET-COST-OVERRIDE.                                      
+021219*                                                                         
+021220*--- GET VENDOR-BRANCH COST OVERRIDE IF VENDOR-CUSTOMER COST              
+021221*--- OVERRIDE DOES NOT EXISTS.                                            
+021222     IF NOT ICWCOP-COST-OVERRIDE                                          
+021223        MOVE '4' TO ICWCOP-COST-OVERRIDE-IND                              
+021224        PERFORM A110-GET-COST-OVERRIDE.                                   
+021300*                                                                 GAE98120
+021400 A100-COST-OVERRIDE-PROGRAM.                                              
+021500*                                                                 GAE98120
+021600     INITIALIZE ICWCOP-FIELDS.                                            
+021700     INITIALIZE COP-ICLCOP.                                               
+021800*                                                                 GAE98120
+021900*--- GET PART-PROGRAM COST OVERRIDE                               GAE98120
+022000     MOVE '5'                  TO ICWCOP-COST-OVERRIDE-IND.               
+022100     PERFORM A110-GET-COST-OVERRIDE.                                      
+022200*                                                                 GAE98120
+022300*--- GET VENDOR-PROGRAM COST OVERRIDE                             GAE98120
+022400*--- THERE ARE SOME CASES WHERE A PART NUMBER IS EXCLUDED FROM THEGAE98120
+022500*--- ACOP COST OVERRIDE (APPLY ONLY TO PROGRAM BY TYPE)           GAE98120
+022600     IF NOT ICWCOP-COST-OVERRIDE                                          
+022700        IF INI-EXCLUDE-ACOP-VEND-PGM                                      
+022800           NEXT SENTENCE                                                  
+022900        ELSE                                                              
+023000           IF VNH-VENDOR-NBR NOT = INI-VENDOR-NBR                         
+023100              MOVE INI-COMPANY    TO WS-VNSHED-CO                         
+023200              MOVE INI-VENDOR-NBR TO WS-VNSHED-VEND                       
+023300              MOVE 'A'            TO WS-VNSHED-CLASS                      
+023400              PERFORM 1750-GU-VNSHED                                      
+023500           END-IF                                                         
+023600           IF VNH-ACOP-COST-OVERRIDE-BR-CUST                              
+023700               MOVE '6'           TO ICWCOP-COST-OVERRIDE-IND             
+023800               PERFORM A110-GET-COST-OVERRIDE.                            
+023900*                                                                 GAE98120
+024000 A100-COST-OVERRIDE-ENDUSER.                                      GAE98320
+024100*                                                                 GAE98320
+024200     INITIALIZE ICWCOP-FIELDS.                                    GAE98320
+024300     INITIALIZE COP-ICLCOP.                                       GAE98320
+024400*                                                                 GAE98320
+024500*--- GET PART-ENDUSER COST OVERRIDE                               GAE98320
+024600     MOVE '7'                  TO ICWCOP-COST-OVERRIDE-IND.       GAE98320
+024700     PERFORM A110-GET-COST-OVERRIDE.                              GAE98320
+024800*                                                                 GAE98320
+024900*--- GET VENDOR-PROGRAM COST OVERRIDE                             GAE98320
+025000*--- THERE ARE SOME CASES WHERE A PART NUMBER IS EXCLUDED FROM THEGAE98320
+025100*--- ACOP COST OVERRIDE (APPLY ONLY TO PROGRAM BY TYPE)           GAE98320
+025200     IF NOT ICWCOP-COST-OVERRIDE                                  GAE98320
+025300        IF INI-EXCLUDE-ACOP-VEND-PGM                              GAE98320
+025400           NEXT SENTENCE                                          GAE98320
+025500        ELSE                                                      GAE98320
+025600           IF VNH-VENDOR-NBR NOT = INI-VENDOR-NBR                 GAE98320
+025700              MOVE INI-COMPANY    TO WS-VNSHED-CO                 GAE98320
+025800              MOVE INI-VENDOR-NBR TO WS-VNSHED-VEND               GAE98320
+025900              MOVE 'A'            TO WS-VNSHED-CLASS              GAE98320
+026000              PERFORM 1750-GU-VNSHED                              GAE98320
+026100           END-IF                                                 GAE98320
+026200           IF VNH-ACOP-COST-OVERRIDE-BR-CUST                      GAE98320
+026300               MOVE '8'           TO ICWCOP-COST-OVERRIDE-IND     GAE98320
+026400               PERFORM A110-GET-COST-OVERRIDE.                    GAE98320
+026500*                                                                 GAE98320
+026600 A110-GET-COST-OVERRIDE.                                                  
+026700*                                                                         
+026800     PERFORM A190-READ-ICLOP.                                             
+026900*                                                                         
+027000     IF WS-EIB-NORESP                                                     
+027100        PERFORM A111-CHECK-ACOP-RESTRICTION THRU A111-EXIT                
+027200     ELSE                                                                 
+027300        MOVE SPACES TO ICWCOP-COST-OVERRIDE-IND.                          
+027400*                                                                         
+027500     IF NOT ICWCOP-COST-OVERRIDE                                          
+027600        INITIALIZE ICWCOP-FIELDS                                          
+027700        INITIALIZE COP-ICLCOP.                                            
+027800*                                                                         
+027900 A111-CHECK-ACOP-RESTRICTION.                                             
+028000*                                                                         
+028100     MOVE COP-CALCULATE-PRICE-SW TO ICWCOP-RECALC-PRICE-SW.       GAE98320
+028200     MOVE COP-REPRICE-DELTA-IND  TO ICWCOP-RECALC-PRICE-DELTA-SW. TXM99050
+028300     MOVE COP-APPLY-REBATE-SW    TO ICWCOP-PRG-REBATE-IND.        TXM99050
+028400*                                                                 GAE98027
+028500*--- ONLY ADD DELTA AMOUNT WHEN CUST/BRANCH RECORD IS FLAG AS     GAE98027
+028600*--- ADDITIONAL COST OVERRIDE                                     GAE98027
+028700     IF ICWCOP-ADD-ACOP-PROCESS                                           
+028800        IF COP-ADDITIONAL-OVERRIDE                                        
+028900           NEXT SENTENCE                                                  
+029000        ELSE                                                              
+029100           MOVE SPACES TO ICWCOP-COST-OVERRIDE-IND                        
+029200           GO TO A111-EXIT.                                               
+029300*                                                                         
+029400*--- CHECK STATUS                                                         
+029500     IF NOT COP-STATUS-OK                                                 
+029600        MOVE SPACES TO ICWCOP-COST-OVERRIDE-IND                           
+029700        MOVE 'COST OVERRIDE STATUS ON HOLD'                               
+029800                    TO ICWCOP-ERROR-MESSAGE                               
+029900        GO TO A111-EXIT.                                                  
+030000*                                                                         
+030100*--- ALLOW COST OVERRIDE ONLY IF BOUGHT AS A COMPONENT OF A SYSTEM        
+030200     IF COP-COMPONENT-ONLY                                                
+030300        IF NOT ICWCOP-SYSTEM-ITEM                                         
+030400           MOVE SPACES TO ICWCOP-COST-OVERRIDE-IND                        
+030500           MOVE 'NOT ALLOWED - SKU HAS TO BE PART OF A KIT'               
+030600                       TO ICWCOP-ERROR-MESSAGE                            
+030700           GO TO A111-EXIT.                                               
+030800*                                                                         
+030900*--- CHECK EFFECTIVITY DATE                                               
+031000*Y2K********************************************************Y2K*  RXDY8308
+031100*      CA-FIX/2000 INSERTED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+031200*Y2K********************************************************Y2K*  RXDY8308
+031300     CALL 'CAWINUP'                                               RXDY8308
+031400         USING COP-EFF-DATE                                       RXDY8308
+031500               ICWCOP-DEFAULT-WINDOW-SPEC                         RXDY8308
+031600               ICWCOP-DECIMAL5-TYPE                               RXDY8308
+031700               ICWCOP-COP-EFF-DATE-Y2K                            RXDY8308
+031800               ICWCOP-THIS-YEAR-Y2K                               RXDY8308
+031900     CALL 'CAWINUP'                                               RXDY8308
+032000         USING COP-EXP-DATE                                       RXDY8308
+032100               ICWCOP-DEFAULT-WINDOW-SPEC                         RXDY8308
+032200               ICWCOP-DECIMAL5-TYPE                               RXDY8308
+032300               ICWCOP-COP-EXP-DATE-Y2K                            RXDY8308
+032400               ICWCOP-THIS-YEAR-Y2K                               RXDY8308
+032500*Y2K********************************************************Y2K*  RXDY8308
+032600*      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+032700*Y2K********************************************************Y2K*  RXDY8308
+032800*    IF  COP-EFF-DATE <= EIBDATE                                  RXDY8308
+032900     IF  ICWCOP-COP-EFF-DATE-Y2K  <= EIBDATE                      RXDY8308
+033000*Y2K********************************************************Y2K*  RXDY8308
+033100*      CA-FIX/2000 REPLACED THE FOLLOWING STATEMENT(S)         *  RXDY8308
+033200*Y2K********************************************************Y2K*  RXDY8308
+033300*    AND COP-EXP-DATE >= EIBDATE                                  RXDY8308
+033400     AND ICWCOP-COP-EXP-DATE-Y2K >= EIBDATE                       RXDY8308
+033500         NEXT SENTENCE                                                    
+033600     ELSE                                                                 
+033700         MOVE SPACES TO ICWCOP-COST-OVERRIDE-IND                          
+033800         MOVE 'COST OVERRIDE EXPIRED'                                     
+033900                     TO ICWCOP-ERROR-MESSAGE                              
+034000         GO TO A111-EXIT.                                                 
+034100*                                                                         
+034200     IF ICWCOP-QTY-ORDERED = +0                                           
+034300        MOVE +1 TO ICWCOP-QTY-INQUIRE                                     
+034400     ELSE                                                                 
+034500        MOVE +0 TO ICWCOP-QTY-INQUIRE.                                    
+034600*                                                                 GAE98320
+034700*--- CHECK FOR THE MINIMUM ORDER LIMIT TO TAKE ADVANTAGE OF ACOP  GAE98320
+034700*--- BYPASS THE MIN QTY CHECK WHEN ORDER QTY IS CHANGED(ORP572 )  GAE08016
+           IF ICWCOP-BYPASS-MIN-QTY-CHECK                               GAE08016
+              NEXT SENTENCE                                             GAE08016
+           ELSE                                                         GAE08016
+034800     IF COP-MIN-ORDER-QTY > +0                                    GAE98320
+              IF TB-CPO4-MIN-ACOP-SHIP-QTY                              TGF16288
+034900           IF COP-MIN-ORDER-QTY <= (ICWCOP-QTY-INQUIRE            TGF16288
+035000                                 +  ICWCOP-QTY-SHIPPED)           TGF16288
+035100              NEXT SENTENCE                                       TGF16288
+035200           ELSE                                                   TGF16288
+035300              MOVE SPACES        TO ICWCOP-COST-OVERRIDE-IND      TGF16288
+035400              MOVE COP-MIN-ORDER-QTY                              TGF16288
+                                       TO ICWCOP-WARNING-QTY            TGF16288
+035500              MOVE 'MIN--'       TO ICWCOP-WARNING-LIT            TGF16288
+035600              MOVE ICWCOP-WARNING-MESSAGE                         TGF16288
+                                       TO ICWCOP-ERROR-MESSAGE          TGF16288
+035700              GO TO A111-EXIT                                     TGF16288
+                 END-IF                                                 TGF16288
+              ELSE                                                      TGF16288
+034900        IF COP-MIN-ORDER-QTY <= (ICWCOP-QTY-INQUIRE               GAE98320
+035000                              +  ICWCOP-QTY-ORDERED)              GAE98320
+035100           NEXT SENTENCE                                          GAE98320
+035200        ELSE                                                      GAE98320
+035300           MOVE SPACES                 TO ICWCOP-COST-OVERRIDE-INDGAE98320
+035400           MOVE COP-MIN-ORDER-QTY      TO ICWCOP-WARNING-QTY      GAE98320
+035500           MOVE 'MIN--'                TO ICWCOP-WARNING-LIT      GAE98320
+035600           MOVE ICWCOP-WARNING-MESSAGE TO ICWCOP-ERROR-MESSAGE    GAE98320
+035700           GO TO A111-EXIT.                                       GAE98320
+035800*                                                                         
+      * THIS WILL BE UPDATED IN NEW PROCESS DUE TO HOW TIER PRICING     TGF16288
+      * ALLOCATES ACOPS                                                 TGF16288
+           IF TB-CPO4-ACOP-TIER-PRICING                                 TGF16288
+              IF COP-MIN-ORDER-QTY > ZERO                               TGF16288
+                 IF (COP-MAX-QTY    > +0) OR                            TGF16288
+                    (COP-MAX-GLFUND > +0) OR                            TGF16288
+                    (COP-MAQ        > +0)                               TGF16288
+                     PERFORM A112-INTERNATIONAL-OPITIONS                TGF16288
+                        THRU A112-EXIT                                  TGF16288
+                     GO TO A111-EXIT                                    TGF16288
+                 END-IF.                                                TGF16288
+                                                                        TGF16288
+035900*--- CHECK FOR MAXIMUM LIMIT                                              
+036000     IF COP-MAX-QTY > +0                                                  
+036001        IF ICWCOP-DO-NOT-PROCESS-MAQ-ACOP                         MXK03329
+036002           MOVE SPACES              TO ICWCOP-COST-OVERRIDE-IND   MXK03329
+036003           GO TO A111-EXIT                                        MXK03329
+036020        ELSE                                                      MXK03329
+036100        IF COP-MAX-QTY    >= (COP-MAX-QTY-TODATE                          
+036200                           +  ICWCOP-QTY-INQUIRE                          
+036300                           +  ICWCOP-QTY-ORDERED)                         
+036400           NEXT SENTENCE                                                  
+036500        ELSE                                                              
+036600           MOVE SPACES                 TO ICWCOP-COST-OVERRIDE-IND        
+036700           COMPUTE ICWCOP-MAX-QTY-LEFT  = COP-MAX-QTY                     
+036800                                        - COP-MAX-QTY-TODATE              
+036900           MOVE ICWCOP-MAX-QTY-LEFT    TO ICWCOP-WARNING-QTY              
+037000           MOVE 'IM---'                TO ICWCOP-WARNING-LIT              
+037100           MOVE ICWCOP-WARNING-MESSAGE TO ICWCOP-ERROR-MESSAGE            
+037200           GO TO A111-EXIT.                                               
+037300*                                                                         
+037400*--- CHECK FOR MAXIMUM FUND LIMIT                                         
+037500     IF COP-MAX-GLFUND > +0                                               
+037510        IF ICWCOP-DO-NOT-PROCESS-MAQ-ACOP                         MXK03329
+037520           MOVE SPACES              TO ICWCOP-COST-OVERRIDE-IND   MXK03329
+037530           GO TO A111-EXIT                                        MXK03329
+037540        ELSE                                                      MXK03329
+037600        IF COP-MAX-GLFUND >= (COP-MAX-GLFUND-TODATE                       
+037700                           +  ICWCOP-QTY-INQUIRE                          
+037800                           +  ICWCOP-QTY-ORDERED)                         
+037900           NEXT SENTENCE                                                  
+038000        ELSE                                                              
+038100           MOVE SPACES                 TO ICWCOP-COST-OVERRIDE-IND        
+038200           COMPUTE ICWCOP-FND-QTY-LEFT  = COP-MAX-GLFUND                  
+038300                                        - COP-MAX-GLFUND-TODATE           
+038400           IF ICWCOP-WARNING-LIT = SPACES                                 
+038500              MOVE ICWCOP-FND-QTY-LEFT TO ICWCOP-WARNING-QTY              
+038600              MOVE 'IM---'             TO ICWCOP-WARNING-LIT              
+038700              MOVE ICWCOP-WARNING-MESSAGE                                 
+038800                                       TO ICWCOP-ERROR-MESSAGE            
+038900           ELSE                                                           
+039000              IF ICWCOP-FND-QTY-LEFT < ICWCOP-WARNING-QTY                 
+039100                 MOVE ICWCOP-FND-QTY-LEFT TO ICWCOP-WARNING-QTY           
+039200                 MOVE 'IM---'             TO ICWCOP-WARNING-LIT           
+039300                 MOVE ICWCOP-WARNING-MESSAGE                              
+039400                                          TO ICWCOP-ERROR-MESSAGE         
+039500              END-IF                                                      
+039600           END-IF                                                         
+039700           GO TO A111-EXIT.                                               
+039800*                                                                         
+039900*--- CHECK FOR CUSTOMER SHIP TO LIMIT                                     
+040000     IF COP-MAQ > +0                                                      
+040010        IF ICWCOP-DO-NOT-PROCESS-MAQ-ACOP                         MXK03329
+040020           MOVE SPACES              TO ICWCOP-COST-OVERRIDE-IND   MXK03329
+040030           GO TO A111-EXIT                                        MXK03329
+040040        ELSE                                                      MXK03329
+040100        PERFORM A191-READ-CSLMST                                          
+040200        IF COP-MAQ        >= (MAQ-COP-QTY-ORDERED                         
+040300                           +  ICWCOP-QTY-INQUIRE                          
+040400                           +  ICWCOP-QTY-ORDERED)                         
+040500           NEXT SENTENCE                                                  
+040600        ELSE                                                              
+040700           MOVE SPACES                TO ICWCOP-COST-OVERRIDE-IND         
+040800           COMPUTE ICWCOP-MAQ-QTY-LEFT = COP-MAQ                          
+040900                                       - MAQ-COP-QTY-ORDERED              
+041000           IF ICWCOP-WARNING-LIT = SPACES                                 
+041100              MOVE ICWCOP-MAQ-QTY-LEFT TO ICWCOP-WARNING-QTY              
+041200              MOVE 'CUST-'             TO ICWCOP-WARNING-LIT              
+041300              MOVE ICWCOP-WARNING-MESSAGE                                 
+041400                                       TO ICWCOP-ERROR-MESSAGE            
+041500           ELSE                                                           
+041600              IF ICWCOP-MAQ-QTY-LEFT < ICWCOP-WARNING-QTY                 
+041700                 MOVE ICWCOP-MAQ-QTY-LEFT TO ICWCOP-WARNING-QTY           
+041800                 MOVE 'CUST-'             TO ICWCOP-WARNING-LIT           
+041900                 MOVE ICWCOP-WARNING-MESSAGE                              
+042000                                       TO ICWCOP-ERROR-MESSAGE            
+042100              END-IF                                                      
+042200           END-IF                                                         
+042300           GO TO A111-EXIT.                                               
+                                                                        TGF16288
+           PERFORM A112-INTERNATIONAL-OPITIONS                          TGF16288
+              THRU A112-EXIT.                                           TGF16288
+                                                                        TGF16288
+       A111-EXIT.                                                       TGF16288
+            EXIT.                                                       TGF16288
+                                                                        TGF16288
+       A112-INTERNATIONAL-OPITIONS.                                     TGF16288
+042400*===>                                                             WFP98324
+042500*===>  IF THE ACOP COST IS TO BE CALCULATED (PARAGRAPH A121),     WFP98324
+042600*===>  THEN WE MUST FIRST DETERMINE THE VENDOR CURRENCY.          WFP98324
+042700*===>                                                             WFP98324
+042800*===>  IF THE INTERNATIONAL OPTIONS ARE USED, AND IF              WFP98324
+042900*===>  THE CURRENCY OF THE ACOP ENTRY IS NOT THE SAME AS THE      WFP98324
+043000*===>  LOCAL IMPULSE CURRENCY, GET THE EXCHANGE RATE.             WFP98324
+043100*===>                                                             WFP98324
+043200     IF ICWCOP-ADD-ACOP-PROCESS                                   WFP98324
+043300      OR ICWCOP-SEG-ACOP-PROCESS                                  WFP98324
+043400      OR ICWCOP-CALCULATE-ACOP-COST                               WFP98324
+043500        IF TB-ACOP-USE-INTL-OPTIONS                               WFP98324
+043600         AND TB-CPO-CURRENCY-CODE NOT = COP-VENDOR-CURR           WFP98324
+043700         AND COP-VENDOR-CURR > SPACES                             WFP98324
+043800         AND ICWCOP-GET-VEND-RATE                                 WFP98324
+043900           PERFORM A125-GET-FOREIGN-ACOP-CURR                     WFP98324
+044000              THRU A125-EXIT                                      WFP98324
+044100        ELSE                                                      WFP98324
+044200           MOVE 'N'                                               WFP98324
+044300             TO ICWCOP-FOREIGN-CURR-ACOP-SW                       WFP98324
+044400           MOVE 1                                                 WFP98324
+044500             TO ICWCOP-VEND-CURR-RATE.                            WFP98324
+044600*                                                                 GAE99174
+044700     IF COP-REVERSE-ACOP                                          GAE99174
+044800        MOVE COP-REVERSE-ACOP-IND TO ICWCOP-REVERSE-ACOP-IND      GAE99174
+044900        INITIALIZE ICWCOP-ADDITIONAL-ACOP-FIELDS                  GAE99174
+045000        INITIALIZE ICWCOP-SEGMENT-ACOP-FIELDS.                    GAE99174
+045001*                                                                 GAE99174
+045002*--- GET COST OVERRIDE INFO                                               
+045003     IF ICWCOP-ADD-ACOP-PROCESS                                           
+045004     OR ICWCOP-SEG-ACOP-PROCESS                                           
+045100        PERFORM A121-CALCULATE-ACOP-COST THRU A121-EXIT                   
+045200        IF ICWCOP-SEG-ACOP-PROCESS                                GAE99174
+045300           MOVE ICWCOP-SEG-AVG-COST  TO ICWCOP-AVG-COST           GAE99174
+045400           PERFORM A126-CHECK-ACOP-PRICE                          GAE99174
+045500           MOVE +0                   TO ICWCOP-AVG-COST           GAE99174
+045600           MOVE ICWCOP-ACOP-SO-PRICE TO ICWCOP-SEG-ACOP-SO-PRICE  GAE99174
+045601        END-IF                                                    GAE99174
+045602     ELSE                                                                 
+045603        PERFORM A120-DETERMINE-ACOP-COST.                                 
+045604*                                                                         
+045605 A112-EXIT.                                                       TGF16288
+045606      EXIT.                                                               
+045700*                                                                         
+045800 A120-DETERMINE-ACOP-COST.                                                
+045900*                                                                         
+046000*--- OVERRIDE COST                                                        
+046100     IF ICWCOP-CALCULATE-ACOP-COST                                        
+046200        PERFORM A121-CALCULATE-ACOP-COST THRU A121-EXIT                   
+046300        PERFORM A122-MOVE-ACOP-COST-INSHED                                
+046400        PERFORM A123-MOVE-ACOP-COST-INSBRN.                               
+046500*                                                                         
+046600*--- DISPLAY LITERAL TO THE SCREEN ON INQUIRY                             
+046700     IF  ICWCOP-DISPLAY-LITERAL                                           
+046800     AND ICWCOP-COST-OVERRIDE                                             
+046900         PERFORM A124-CREATE-DISPLAY-LITERAL.                             
+047000*                                                                 GAE99174
+047100*--- SEGMENTED ACOP PRICE TAKES PRECEDENCE OVER MAIN PROGRAM TYPE GAE99174
+047200*--- USE "PAU1" IF FOUND OVER "PA" PROGRAM TYPE                   GAE99174
+047300     IF ICWCOP-SEG-ACOP-SO-PRICE > +0                             GAE99174
+047400        MOVE ICWCOP-SEG-ACOP-SO-PRICE TO ICWCOP-ACOP-SO-PRICE     GAE99174
+047500     ELSE                                                         GAE99174
+047501        PERFORM A126-CHECK-ACOP-PRICE.                            GAE99174
+047502*                                                                         
+047503 A122-MOVE-ACOP-COST-INSHED.                                              
+047504*                                                                         
+047505     MOVE SPACES                      TO ICWCOP-WARNING-LIT.              
+047506*                                                                         
+047507     IF ICWCOP-COST-OVERRIDE                                              
+047600     AND (NOT ICWCOP-SYSTEM-ITEM-PROCESS)                                 
+047700        MOVE ICWCOP-AVG-COST          TO INI-AVG-COST                     
+047800        MOVE ICWCOP-REPLACEMENT-COST  TO INI-REPLACEMENT-COST             
+047900        MOVE ICWCOP-ADJUSTED-COST     TO INI-ADJUSTED-COST                
+048000        MOVE ICWCOP-INGRAM-COST       TO INI-INGRAM-COST                  
+048100        MOVE ICWCOP-LANDED-COST       TO INI-LANDED-COST                  
+048200        MOVE ICWCOP-DEALER-PRICE      TO INI-DEALER-PRICE.        KKC04068
+048400*                                                                         
+048500 A123-MOVE-ACOP-COST-INSBRN.                                              
+048600*                                                                         
+048700     IF ICWCOP-COST-OVERRIDE                                              
+048800     AND (NOT ICWCOP-SYSTEM-ITEM-PROCESS)                                 
+048810         IF INI-VEND-CONSIGNED                                    MXK03225
+048820            MOVE ICWCOP-REPLACEMENT-COST TO INB-AVG-COST          MXK03225
+048900         ELSE                                                     MXK03225
+048910            MOVE ICWCOP-AVG-COST   TO INB-AVG-COST.                       
+049000*                                                                         
+049100 A124-CREATE-DISPLAY-LITERAL.                                             
+049200*                                                                         
+           IF MAQ-COP-QTY-ORDERED NUMERIC                               TGF17034
+              NEXT SENTENCE                                             TGF17034
+           ELSE                                                         TGF17034
+              MOVE ZERO                TO MAQ-COP-QTY-ORDERED           TGF17034
+           END-IF.                                                      TGF17034
+                                                                        TGF17034
+049300*--- FORMAT MAQ LITERAL                                                   
+049400     IF COP-MAQ > ZEROES                                                  
+049500        MOVE 'CUST-'               TO ICWCOP-DSP-MAQ-LIT                  
+049600        COMPUTE ICWCOP-QTY-LEFT     = COP-MAQ                             
+049700                                    - MAQ-COP-QTY-ORDERED                 
+049800        MOVE ICWCOP-QTY-LEFT       TO ICWCOP-DSP-MAQ.                     
+049900                                                                          
+050000*                                                                         
+050100*--- FORMAT MAX QTY OR GL FUND LIMIT LITERAL                              
+050200     IF  COP-MAX-QTY    > +0                                              
+050300     AND COP-MAX-GLFUND > +0                                              
+050400         MOVE ' IM-'               TO ICWCOP-DSP-MAX-LIT                  
+050500         IF COP-MAX-QTY < COP-MAX-GLFUND                                  
+050600            COMPUTE ICWCOP-QTY-LEFT = COP-MAX-QTY                         
+050700                                    - COP-MAX-QTY-TODATE                  
+050800            MOVE ICWCOP-QTY-LEFT   TO ICWCOP-DSP-MAX                      
+050900         ELSE                                                             
+051000            COMPUTE ICWCOP-QTY-LEFT = COP-MAX-GLFUND                      
+051100                                    - COP-MAX-GLFUND-TODATE               
+051200            MOVE ICWCOP-QTY-LEFT   TO ICWCOP-DSP-MAX                      
+051300     ELSE                                                                 
+051400     IF  COP-MAX-QTY    > +0                                              
+051500         MOVE ' IM-'               TO ICWCOP-DSP-MAX-LIT                  
+051600         COMPUTE ICWCOP-QTY-LEFT    = COP-MAX-QTY                         
+051700                                    - COP-MAX-QTY-TODATE                  
+051800         MOVE ICWCOP-QTY-LEFT      TO ICWCOP-DSP-MAX                      
+051900     ELSE                                                                 
+052000     IF  COP-MAX-GLFUND > +0                                              
+052100         COMPUTE ICWCOP-QTY-LEFT    = COP-MAX-GLFUND                      
+052200                                    - COP-MAX-GLFUND-TODATE               
+052300         MOVE ICWCOP-QTY-LEFT      TO ICWCOP-DSP-MAX.                     
+052400*                                                                         
+052500*--- FORMAT END DATE                                                      
+052600     MOVE ' EXP-'                  TO ICWCOP-DSP-EXP-LIT.                 
+052700     CALL 'SYU001'              USING COP-EXP-DATE                        
+052800                                      ICWCOP-DSP-EXP-DATE.                
+052900*                                                                         
+052910     IF TB-CPO4-SSEU-ENABLED AND TB-CPO4-SSEU-ACOP-FEATURES       MXK03168
+052920        EVALUATE TRUE                                             MXK03168
+053000          WHEN  ICWCOP-CUS-PART-OVERRIDE                          MXK03168
+053100          WHEN  ICWCOP-CUS-VEND-OVERRIDE                          MXK03168
+053101              MOVE ICWCOP-CUST-ACOP-LITERAL TO ICWCOP-DSP-LITERAL MXK03168
+053102          WHEN  ICWCOP-CUS-EUS-PART-OVERRIDE                      MXK03168
+053103          WHEN  ICWCOP-CUS-EUS-VEND-OVERRIDE                      MXK03168
+053104              MOVE ICWCOP-EUSER-ACOP-LITERAL TO ICWCOP-DSP-LITERALMXK03168
+053106          WHEN  ICWCOP-PRG-PART-OVERRIDE                          MXK03168
+053107          WHEN  ICWCOP-PRG-VEND-OVERRIDE                          MXK03168
+053108              MOVE ICWCOP-PROG-ACOP-LITERAL TO ICWCOP-DSP-LITERAL MXK03168
+053110          WHEN  ICWCOP-BR-PART-OVERRIDE                           MXK03168
+053111          WHEN  ICWCOP-BR-VEND-OVERRIDE                           MXK03168
+053112               MOVE ICWCOP-BRCH-ACOP-LITERAL TO ICWCOP-DSP-LITERALMXK03168
+053113          WHEN  ICWCOP-CO-PART-OVERRIDE                           MXK03168
+053114          WHEN  ICWCOP-CO-VEND-OVERRIDE                           MXK03168
+053115               MOVE ICWCOP-CO-ACOP-LITERAL TO ICWCOP-DSP-LITERAL  MXK03168
+053116          WHEN  ICWCOP-MATRIX-OVERRIDE                            MXK03168
+053118               MOVE ICWCOP-MTRX-ACOP-LITERAL TO ICWCOP-DSP-LITERALMXK03168
+053119        END-EVALUATE                                              MXK03168
+053120     ELSE                                                         MXK03168
+053121     IF ICWCOP-CUS-PART-OVERRIDE                                          
+053130     OR ICWCOP-CUS-VEND-OVERRIDE                                          
+053200        MOVE ICWCOP-CUST-LITERAL   TO ICWCOP-DSP-LITERAL                  
+053300     ELSE                                                         GAE98320
+053400     IF ICWCOP-CUS-EUS-PART-OVERRIDE                              GAE98320
+053500     OR ICWCOP-CUS-EUS-VEND-OVERRIDE                              GAE98320
+053600        MOVE ICWCOP-EUSER-LITERAL  TO ICWCOP-DSP-LITERAL          GAE98320
+053700     ELSE                                                                 
+053800     IF ICWCOP-PRG-PART-OVERRIDE                                          
+053900     OR ICWCOP-PRG-VEND-OVERRIDE                                          
+054000        MOVE ICWCOP-PROG-LITERAL   TO ICWCOP-DSP-LITERAL                  
+054100     ELSE                                                                 
+054200     IF ICWCOP-BR-PART-OVERRIDE                                           
+054300     OR ICWCOP-BR-VEND-OVERRIDE                                           
+054400        MOVE ICWCOP-BRCH-LITERAL   TO ICWCOP-DSP-LITERAL.                 
+054500                                                                  WFP98324
+054600***  SET THE ICW FIELDS SO THAT THE ICSCOP COPYBOOK CAN  ***      WFP98324
+054700***  CONVERT THE AMOUNT OF THE ACOP TO THE LOCAL         ***      WFP98324
+054800***  CURRENCY.                                           ***      WFP98324
+054900                                                                  WFP98324
+055000 A125-GET-FOREIGN-ACOP-CURR.                                      WFP98324
+055100                                                                  WFP98324
+055200     MOVE 'Y'                                                     WFP98324
+055300       TO ICWCOP-FOREIGN-CURR-ACOP-SW.                            WFP98324
+055400                                                                  WFP98324
+055500     IF TB-CURR-FROM-CURR-CODE > SPACES                           WFP98324
+055600      AND TB-CURR-RATE NUMERIC                                    WFP98324
+055700        IF TB-CURR-RATE > 0                                       WFP98324
+055800           MOVE TB-CURR-FROM-CURR-CODE                            WFP98324
+055900             TO ICWCOP-SAVE-FROM-CURR                             WFP98324
+056000        ELSE                                                      WFP98324
+056100           MOVE SPACES                                            WFP98324
+056200             TO ICWCOP-SAVE-FROM-CURR                             WFP98324
+056300     ELSE                                                         WFP98324
+056400        MOVE SPACES                                               WFP98324
+056500          TO ICWCOP-SAVE-FROM-CURR.                               WFP98324
+056600                                                                  WFP98324
+056700     IF NOT TB-CPO-NORESP                                         RXD99014
+056800         MOVE 1                                                   RXD99014
+056900            TO TB-CURR-RATE                                       RXD99014
+057000               TB-CURR-SELL-RATE                                  RXD99014
+057100               TB-CURR-GL-RATE.                                   RXD99014
+057200                                                                          
+057300     IF TB-CPO-NORESP                                             WFP98324
+057400         IF (TC-COMPANY = TB-CURR-CO AND                          RXD99014
+057500            COP-VENDOR-CURR = TB-CURR-FROM-CURR-CODE AND          RXD99014
+057600            TB-CPO-CURRENCY-CODE = TB-CURR-TO-CURR-CODE) AND      RXD99014
+057700            ICWCOP-TB-CURR-FIRSTTIME-NO                           RXD99014
+057800             NEXT SENTENCE                                        RXD99014
+057900          ELSE                                                    RXD99014
+058000            SET ICWCOP-TB-CURR-FIRSTTIME-NO TO TRUE               RXD99014
+058100            MOVE TC-COMPANY                                       WFP98324
+058200              TO TB-CURR-CO                                       WFP98324
+058300            MOVE COP-VENDOR-CURR                                  WFP98324
+058400              TO TB-CURR-FROM-CURR-CODE                           WFP98324
+058500            MOVE TB-CPO-CURRENCY-CODE                             WFP98324
+058600              TO TB-CURR-TO-CURR-CODE                             WFP98324
+058700            CALL 'SYU510'        USING TB-CURR-TABLE-IA           WFP98324
+058800            IF TB-CURR-NORESP                                     WFP98324
+058900               NEXT SENTENCE                                      WFP98324
+059000            ELSE                                                  WFP98324
+059100               MOVE 1                                             WFP98324
+059200                 TO TB-CURR-RATE                                  WFP98324
+059300                    TB-CURR-SELL-RATE                             WFP98324
+059400                    TB-CURR-GL-RATE.                              WFP98324
+059500                                                                  WFP98324
+059600     IF TB-ACOP-USE-GL-RATE-OE                                    WFP98324
+059700        MOVE TB-CURR-GL-RATE                                      WFP98324
+059800          TO ICWCOP-VEND-CURR-RATE                                WFP98324
+059900     ELSE                                                         WFP98324
+060000     IF TB-ACOP-USE-SELL-RATE-OE                                  WFP98324
+060100        MOVE TB-CURR-SELL-RATE                                    WFP98324
+060200          TO ICWCOP-VEND-CURR-RATE                                WFP98324
+060300     ELSE                                                         WFP98324
+060400        MOVE TB-CURR-RATE                                         WFP98324
+060500          TO ICWCOP-VEND-CURR-RATE.                               WFP98324
+060600                                                                  WFP98324
+060700     IF ICWCOP-SAVE-FROM-CURR > SPACES                            WFP98324
+060800        IF (TC-COMPANY EQUAL TB-CURR-CO AND                       RXD99014
+060900           ICWCOP-SAVE-FROM-CURR = TB-CURR-FROM-CURR-CODE AND     RXD99014
+061000           TB-CPO-CURRENCY-CODE = TB-CURR-TO-CURR-CODE) AND       RXD99014
+061100           ICWCOP-TB-CURR-FIRSTTIME-NO                            RXD99014
+061200            NEXT SENTENCE                                         RXD99014
+061300          ELSE                                                    RXD99014
+061400            SET ICWCOP-TB-CURR-FIRSTTIME-NO TO TRUE               RXD99014
+061500            MOVE TC-COMPANY                                       WFP98324
+061600              TO TB-CURR-CO                                       WFP98324
+061700            MOVE ICWCOP-SAVE-FROM-CURR                            WFP98324
+061800              TO TB-CURR-FROM-CURR-CODE                           WFP98324
+061900            MOVE TB-CPO-CURRENCY-CODE                             WFP98324
+062000              TO TB-CURR-TO-CURR-CODE                             WFP98324
+062100            CALL 'SYU510'        USING TB-CURR-TABLE-IA.          WFP98324
+062200                                                                  WFP98324
+062300 A125-EXIT.                                                       WFP98324
+062500      EXIT.                                                       WFP98324
+062600*                                                                 GAE99174
+062700 A126-CHECK-ACOP-PRICE.                                           GAE99174
+062800*                                                                 GAE99174
+062900     IF COP-SO-PRICE-EFF-DATE NOT NUMERIC                         GAE99174
+063000        MOVE +0 TO COP-SO-PRICE-EFF-DATE.                         GAE99174
+063100*                                                                 GAE99174
+063200     IF COP-SO-SPOT-PRICE-EFF-DATE NOT NUMERIC                    GAE00034
+063300        MOVE +0 TO COP-SO-SPOT-PRICE-EFF-DATE.                    GAE00034
+063400*                                                                 GAE99174
+063500*--- CALCULATE ACOP PRICE (APPLY SPOT REDUCTION PRICING FIRST)    GAE00034
+063600     IF ICWCOP-COST-OVERRIDE                                      GAE00034
+063700        IF COP-SO-SPOT-PRICE-EFF-DATE > +0                        GAE00034
+063800           MOVE COP-SO-SPOT-REDUCE-PRICING TO ICWCOP-PRICING      GAE00034
+063900           PERFORM A126-AA00-CALCULATE-ACOP-PRICE.                GAE00034
+064000*                                                                 GAE99174
+064100*--- IF NO SPOT REDUCTION PRICING CHECK REGULAR ACOP PRICING      GAE00034
+064200     IF ICWCOP-COST-OVERRIDE                                      GAE99174
+064300        IF ICWCOP-ACOP-SO-PRICE > +0                              GAE00034
+064400           NEXT SENTENCE                                          GAE00034
+064500        ELSE                                                      GAE00034
+064600           IF COP-SO-PRICE-EFF-DATE > +0                          GAE00034
+064700              MOVE COP-SO-PRICING          TO ICWCOP-PRICING      GAE00034
+064800              PERFORM A126-AA00-CALCULATE-ACOP-PRICE.             GAE00034
+064900*                                                                 GAE99174
+065000 A126-AA00-CALCULATE-ACOP-PRICE.                                  GAE99174
+065100*                                                                 GAE99174
+065200     PERFORM A126-AA10-INIT-PRICE-FIELDS.                         GAE99174
+065300*                                                                 GAE99174
+065400     MOVE ICWCOP-PRICE-EFF-DATE TO ICWCOP-COP-PRICE-EFF-DATE.     GAE00034
+065500     CALL 'CAWINUP'  USING ICWCOP-COP-PRICE-EFF-DATE              GAE99174
+065600                           ICWCOP-DEFAULT-WINDOW-SPEC             GAE99174
+065700                           ICWCOP-DECIMAL5-TYPE                   GAE99174
+065800                           ICWCOP-COP-PRICE-EFF-DATE-Y2K          GAE99174
+065900                           ICWCOP-THIS-YEAR-Y2K.                  GAE99174
+066000*                                                                 GAE99174
+066100     MOVE ICWCOP-PRICE-EXP-DATE TO ICWCOP-COP-PRICE-EXP-DATE.     GAE00034
+066200     CALL 'CAWINUP'  USING ICWCOP-COP-PRICE-EXP-DATE              GAE99174
+066300                           ICWCOP-DEFAULT-WINDOW-SPEC             GAE99174
+066400                           ICWCOP-DECIMAL5-TYPE                   GAE99174
+066500                           ICWCOP-COP-PRICE-EXP-DATE-Y2K          GAE99174
+066600                           ICWCOP-THIS-YEAR-Y2K.                  GAE99174
+066700*                                                                 GAE99174
+066800     IF  ICWCOP-COP-PRICE-EFF-DATE-Y2K <= EIBDATE                 GAE99174
+066900     AND ICWCOP-COP-PRICE-EXP-DATE-Y2K >= EIBDATE                 GAE99174
+067000         PERFORM A126-AA20-CALC-ACOP-PRICE.                       GAE99174
+067100*                                                                 GAE99174
+067200 A126-AA10-INIT-PRICE-FIELDS.                                     GAE99174
+067300*                                                                 GAE99174
+067400     IF ICWCOP-PRICE-EFF-DATE NOT NUMERIC                         GAE00034
+067500        MOVE +0 TO ICWCOP-PRICE-EFF-DATE.                         GAE00034
+067600*                                                                 GAE99174
+067700     IF ICWCOP-PRICE-EXP-DATE NOT NUMERIC                         GAE00034
+067800        MOVE +0 TO ICWCOP-PRICE-EXP-DATE.                         GAE00034
+067900*                                                                 GAE99174
+068000     IF ICWCOP-PRICE NOT NUMERIC                                  GAE00034
+068100        MOVE +0 TO ICWCOP-PRICE.                                  GAE00034
+068200*                                                                 GAE99174
+068300     IF ICWCOP-PRICE-DELTA NOT NUMERIC                            GAE00034
+068400        MOVE +0 TO ICWCOP-PRICE-DELTA.                            GAE00034
+068500*                                                                 GAE99174
+068600     IF ICWCOP-PRICE-PERCENT NOT NUMERIC                          GAE00034
+068700        MOVE +0 TO ICWCOP-PRICE-PERCENT.                          GAE00034
+068800*                                                                 GAE99174
+068900 A126-AA20-CALC-ACOP-PRICE.                                       GAE99174
+069000*                                                                 GAE99174
+069100     IF ICWCOP-PRICE > +0                                         GAE00034
+069200        MOVE ICWCOP-PRICE           TO ICWCOP-ACOP-SO-PRICE.      GAE00034
+069300*                                                                 GAE99174
+069400     IF ICWCOP-PRICE-DELTA > +0                                   GAE00034
+069500        COMPUTE ICWCOP-ACOP-SO-PRICE = ICWCOP-AVG-COST            GAE99174
+069600                                     + ICWCOP-PRICE-DELTA.        GAE00034
+069700*                                                                 GAE99174
+069800     IF ICWCOP-PRICE-PERCENT > +0                                 GAE00034
+069900        COMPUTE ICWCOP-ACOP-SO-PRICE ROUNDED                      GAE99174
+070000              = (ICWCOP-AVG-COST                                  GAE00034
+070100              / ( 1 - (ICWCOP-PRICE-PERCENT / 100))).             GAE00034
+070101*                                                                 GAE99174
+070102 A130-MOVE-INDMST-COSTS.                                                  
+070103*                                                                         
+070104*--- PRICE WILL BE BASED FROM THE ORIGINAL COST.                          
+070105     IF  ICWCOP-COST-OVERRIDE                                             
+070106     AND (NOT ICWCOP-RECALC-PRICE)                                GAE98320
+070107     AND (NOT ICWCOP-SYSTEM-ITEM-PROCESS)                                 
+070108         MOVE ICWCOP-AVG-COST-ORIG     TO INI-AVG-COST                    
+070109                                          INB-AVG-COST                    
+070110         MOVE ICWCOP-REPL-COST-ORIG    TO INI-REPLACEMENT-COST            
+070111         MOVE ICWCOP-ADJ-COST-ORIG     TO INI-ADJUSTED-COST               
+070112         MOVE ICWCOP-INGRAM-COST-ORIG  TO INI-INGRAM-COST                 
+070113         MOVE ICWCOP-LANDED-COST-ORIG  TO INI-LANDED-COST                 
+070114         MOVE ICWCOP-DEALER-PRICE-ORIG TO INI-DEALER-PRICE.               
+070115*                                                                 WFP98324

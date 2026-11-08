@@ -1,0 +1,31 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TBXDEMO.
+      * Small demo that uses the TBIINLN table layout (Inside Line function access by term ID).
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-WORK-AREA.
+           05  WS-STATUS-MSG     PIC X(40).
+       COPY TBIINLN.
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           PERFORM LOAD-ACCESS-RULES
+           PERFORM CHECK-PASSWORD
+           PERFORM CHECK-PRICE-OVERRIDE
+           STOP RUN.
+       LOAD-ACCESS-RULES.
+           MOVE 'Y' TO TB-IL-PASSWORD-VALIDATION-SW
+           MOVE 'N' TO TB-IL-ALLOW-PRICE-OVRD-SW
+           MOVE 'Y' TO TB-IL-EDIT-CUST-PO-NBR-SW.
+       CHECK-PASSWORD.
+           IF TB-IL-PASSWORD-VALIDATION-SW = 'Y'
+               MOVE 'PASSWORD REQUIRED' TO WS-STATUS-MSG
+           ELSE
+               MOVE 'NO PASSWORD' TO WS-STATUS-MSG
+           END-IF.
+       CHECK-PRICE-OVERRIDE.
+           IF TB-IL-VALIDATE-PASSWORD AND TB-IL-ALLOW-PRICE-OVRD
+               MOVE 'PRICE OVERRIDE ALLOWED' TO WS-STATUS-MSG
+           END-IF
+           IF TB-IL-EDIT-CUST-PO-NBR
+               DISPLAY WS-STATUS-MSG
+           END-IF.

@@ -1,0 +1,165 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8302
+      ******************************************************************        
+      *****************************************************************         
+      *  CHECK FOR HARD DIVERT - PROCEDURE DIVISION COPYBOOK          *         
+      *                                                               *         
+      *  PURPOSE:  IMPULSE ROUTING PROJECT -                          *         
+      *            TO DETERMINE IF A PARTICULAR DC IS TO HAVE CURRENT *         
+      *            ORDERS DIVERTED TO ANOTHER DC, INCLUDING BLOCKING  *         
+      *            NEW ORDERS THAT WOULD SHIP FROM THE DIVERTED DC.   *         
+      * NOTE 1:    PROGRAMS USING THIS COPYBOOK MUST HAVE ACCESS TO   *         
+      *            CUDMST DATABASE SEGMENTS AND USE THESE COPYBOOKS:  *         
+      *            CUSHED, CUSBRN, CUKHEAD, CUKBRN, CUCXP0, CUIO1004, *         
+      *            ORSHED, ORSSHH, RWKHDS,  RWRHDS, RWWCKHD, TBICARR  *         
+      *            (ORSHED & ORSSHH ARE NOT NEEDED IF A TEMP. STORAGE * MAM99061
+      *            QUEUE COPYBOOK WITH EQUIVALENT FIELDS IS COPIED).  * MAM99061
+      *            (IF CUDMST SEGMENTS HAVE ALREADY BEEN RETRIEVED THE* PLB99099
+      *            VALUES IN RWWCKHD-CUST-BR, -CUST-NBR ARE SPACES).  * PLB99099
+      * NOTE 2:    SEGMENTS ORSHED AND ORSSHH MUST HAVE BEEN RETRIEVED*         
+      *            OR TEMP. STORAGE QUEUE FIELDS CORRESPONDING TO THE * MAM99061
+      *            FIELDS REFERENCED BELOW MUST BE AVAILABLE AND YOU  * MAM99061
+      *            MUST COPY RWSCKHD REPLACING ORH- OR ORSH- FIELDS BY* MAM99061
+      *            THE CORRESPONDING TSQ FIELD OR CONDITION NAMES. IF * MAM99061
+      *            NO CORRESPONDING TSQ FIELD OR CONDITION NAME EXISTS* MAM99061
+      *            REPLACE ENTIRE STATEMENT LINE AS IN EXAMPLE BELOW: * MAM99061
+      *            ==OR ORSH-RETURN-TO-VENDOR== BY == ==              * MAM99061
+      *****************************************************************         
+      * ============================================================= *         
+      *  RWSCKHD - CHECK FOR HARD DIVERT                              *         
+      *  03/31/24  CDL  STILL READ DIVERT LOGIC FOR INVALID CARRIER  .* CDL24091
+      *  10/17/00  PLB  READ TBLMST TO DETERMINE EXCEPTION PROCESSING.* PLB00269
+      *  04/09/99  PLB  DON'T READ CUSBRN IF KEY FIELDS ARE = SPACES. * PLB99099
+      *  03/02/99  MAM  DO NOT TURN HARD DIVERT SWITCH ON WHEN ORDER  * MAM99061
+      *                 IS FOR VENDOR RETURNS FOR CONSIGNED INVENTORY * MAM99061
+      *  02/05/99  PLB  DO NOT TURN HARD DIVERT SWITCH ON WHEN FIRST  * PLB99008
+      *                 BRANCH IN HARD DIVERT SEQUENCE TABLE IS THE   * PLB99008
+      *                 SAME AS ORIGINAL BRANCH. EXPORT AND NEXUS     * PLB99008
+      *                 ORDERS BYPASS HARD DIVERT.                    * PLB99008
+      *  10/29/98  PLB  CREATION OF COPYBOOK                          * PLBY8302
+      * ============================================================= *         
+       7000-CHECK-FOR-HARD-DIVERT.                                              
+      * INITIALIZE SWITCH TO INDICATE HARD DIVERT IS OFF                        
+           MOVE 'N'                    TO RWWCKHD-HARD-DIVERT-SW.               
+           MOVE RWWCKHD-COMPANY        TO TB-DIVRT-COMPANY-CODE.        PLB00269
+           MOVE RWWCKHD-SF-BRANCH      TO TB-DIVRT-BRANCH.              PLB00269
+      * READ TBXDIVRT                                                   PLB00269
+           CALL 'SYU510' USING TB-DIVRT-PROC-IA.                        PLB00269
+           IF NOT TB-DIVRT-NORESP                                       PLB00269
+      * CONDITION NAME FOR ORH-BILL-TO-CUST-NBR BELOW                           
+              IF ORH-DEBIT-MEMO                                                 
+      * CONDITION NAME FOR ORH-SPECIAL-HANDLE-SW                        PLB99008
+              OR ORH-AGENCY-ORDER-HANDLE                                PLB99008
+      * CONDITION NAME FOR ORSH-EXPORT-ORD-IND                          PLB99008
+              OR ORSH-EXPORT-ORDER                                      PLB99008
+      * CONDITION NAME FOR ORSH-CREDIT-MEMO-CODE FOR RTV ORDERS         MAM99061
+              OR ORSH-RETURN-TO-VENDOR                                  MAM99061
+      * CONDITION NAME FOR ORSH-ORDER-TYPE BELOW                                
+              OR ORSH-FUTURE-ORDER                                              
+      * CONDITION NAMES FOR ORSH-CONFIG-FLAG BELOW                              
+              OR ORSH-CUST-CONFIG-ORDER                                         
+              OR ORSH-CONFIG-XFER-ORDER                                         
+      * CONDITION NAMES FOR ORSH-BACKORDER-STATUS BELOW                         
+              OR ORSH-SHIP-COMPLETE                                             
+              OR ORSH-FILL-OR-KILL-LINE                                         
+              OR ORSH-FILL-OR-BACKORDER-LINE                                    
+                 GO TO 7000-EXIT                                        PLB00269
+              ELSE                                                      PLB00269
+                 CONTINUE                                               PLB00269
+           ELSE                                                         PLB00269
+      * READ OF TBXDIVRT HAD A NORMAL RESPONSE, USE IT                  PLB00269
+      * CONDITION NAME FOR ORH-BILL-TO-CUST-NBR BELOW                   PLB00269
+              IF (ORH-DEBIT-MEMO                                        PLB00269
+              AND TB-DIVRT-DEBIT-MEMO = 'N')                            PLB00269
+      * CONDITION NAME FOR ORH-SPECIAL-HANDLE-SW                        PLB00269
+              OR (ORH-AGENCY-ORDER-HANDLE                               PLB00269
+              AND TB-DIVRT-AGENCY-ORDER-HANDLE = 'N')                   PLB00269
+      * CONDITION NAME FOR ORSH-EXPORT-ORD-IND                          PLB00269
+              OR (ORSH-EXPORT-ORDER                                     PLB00269
+              AND TB-DIVRT-EXPORT-ORDER = 'N')                          PLB00269
+      * CONDITION NAME FOR ORSH-CREDIT-MEMO-CODE FOR RTV ORDERS         PLB00269
+              OR (ORSH-RETURN-TO-VENDOR                                 PLB00269
+              AND TB-DIVRT-RETURN-TO-VENDOR = 'N')                      PLB00269
+      * CONDITION NAME FOR ORSH-ORDER-TYPE BELOW                        PLB00269
+              OR (ORSH-FUTURE-ORDER                                     PLB00269
+              AND TB-DIVRT-FUTURE-ORDER = 'N')                          PLB00269
+      * CONDITION NAMES FOR ORSH-CONFIG-FLAG BELOW                      PLB00269
+              OR (ORSH-CUST-CONFIG-ORDER                                PLB00269
+              AND TB-DIVRT-CUST-CONFIG-ORDER = 'N')                     PLB00269
+              OR (ORSH-CONFIG-XFER-ORDER                                PLB00269
+              AND TB-DIVRT-CONFIG-XFER-ORDER = 'N')                     PLB00269
+      * CONDITION NAMES FOR ORSH-BACKORDER-STATUS BELOW                 PLB00269
+              OR ((ORSH-SHIP-COMPLETE)                                  PLB00269
+              AND TB-DIVRT-SHIP-COMPLETE = 'N')                         PLB00269
+              OR (ORSH-FILL-OR-KILL-LINE                                PLB00269
+              AND TB-DIVRT-FILL-OR-KILL = 'N')                          PLB00269
+              OR (ORSH-FILL-OR-BACKORDER-LINE                           PLB00269
+              AND TB-DIVRT-FILL-OR-BACKORDER = 'N')                     PLB00269
+                 GO TO 7000-EXIT                                        PLB00269
+              ELSE                                                      PLB00269
+                 CONTINUE                                               PLB00269
+           END-IF.                                                      PLB00269
+      * SET UP CUSHED / CUSBRN SSAS, READ CUSBRN SEGMENT BELOW          PLB99099
+      * UNLESS CUSTOMER KEY FIELDS PASSED ARE EQUAL TO SPACES.          PLB99099
+           IF RWWCKHD-CUST-BRANCH = SPACES                              PLB99099
+           AND RWWCKHD-CUST-NBR   = SPACES                              PLB99099
+               CONTINUE                                                 PLB99099
+           ELSE                                                         PLB99099
+               MOVE RWWCKHD-COMPANY    TO WS-CUSHED-CO                  PLB99099
+               MOVE RWWCKHD-CUST-BRANCH                                 PLB99099
+                                       TO WS-CUSHED-BR                  PLB99099
+                                          WS-CUSBRN-BR                  PLB99099
+               MOVE RWWCKHD-CUST-NBR   TO WS-CUSHED-CUST                PLB99099
+               PERFORM 1004-GU-CUSBRN.                                  PLB99099
+           IF WS-CUSBRN-NORESP                                          PLB99099
+               IF CUB-BYPASS-HARD-DIVERT                                PLB99099
+                   GO TO 7000-EXIT.                                     PLB99099
+      *THIS IS TO CHECK IF BRANCH IS ACTIVE FOR DIVERT                  CDL24091
+           MOVE RWWCKHD-COMPANY        TO WS-HDS-KEY-COMPANY.                   
+           MOVE RWWCKHD-SF-BRANCH      TO WS-HDS-KEY-BRANCH.                    
+           MOVE ZEROS                  TO WS-HDS-KEY-CARRIER.                   
+           MOVE LENGTH OF RWRHDS       TO WS-HDS-IO-REC-LENGTH.                 
+           PERFORM 7025-READ-RWLHDS.                                            
+           IF NOT WS-EIB-NORESP                                                 
+               GO TO 7000-EXIT.                                                 
+           MOVE RWWCKHD-COMPANY        TO TB-CARR-CO.                           
+           IF RWWCKHD-CARRIER = '**'                                            
+               MOVE '***'              TO RWWCKHD-CARRIER-TYPE                  
+           ELSE                                                                 
+               MOVE RWWCKHD-CARRIER    TO TB-CARR-CODE                          
+               CALL 'SYU510' USING TB-CARRIER-TABLE-IA                          
+               IF TB-CARR-NORESP                                                
+                   MOVE TB-CARRIER     TO RWWCKHD-CARRIER-TYPE                  
+      *TRY TO SEARCH IF WHOLE BRANCH IS DIVERTED FOR XC                 CDL24091
+               ELSE                                                     CDL24091
+                   MOVE '***'          TO RWWCKHD-CARRIER-TYPE          CDL24091
+               END-IF                                                   CDL24091
+           END-IF.                                                      CDL24091
+           MOVE RWWCKHD-COMPANY        TO WS-HDS-KEY-COMPANY.                   
+           MOVE RWWCKHD-SF-BRANCH      TO WS-HDS-KEY-BRANCH.                    
+           MOVE RWWCKHD-CARRIER-TYPE   TO WS-HDS-KEY-CARRIER.                   
+           MOVE LENGTH OF RWRHDS       TO WS-HDS-IO-REC-LENGTH.                 
+           PERFORM 7025-READ-RWLHDS.                                            
+           IF WS-EIB-NORESP                                                     
+               IF (WS-HDS-KEY-CARRIER = '***'                           PLB99008
+               OR (HDS-SF-BR (1) NOT = WS-HDS-KEY-BRANCH))              PLB99008
+               MOVE 'Y'                TO RWWCKHD-HARD-DIVERT-SW                
+               MOVE HDS-SHIP-FROM-SEQUENCE                                      
+                                       TO RWWCKHD-SHIP-FROM-SEQUENCE            
+               END-IF                                                   PLB99008
+           ELSE                                                                 
+           IF RWWCKHD-CARRIER NOT = '**'                                        
+      * TRY DEFAULT CARRIER IF NO ENTRY FOR A SPECIFIC CARRIER                  
+               MOVE RWWCKHD-COMPANY    TO WS-HDS-KEY-COMPANY                    
+               MOVE RWWCKHD-SF-BRANCH  TO WS-HDS-KEY-BRANCH                     
+               MOVE '***'              TO WS-HDS-KEY-CARRIER                    
+               MOVE LENGTH OF RWRHDS   TO WS-HDS-IO-REC-LENGTH                  
+               PERFORM 7025-READ-RWLHDS                                         
+               IF WS-EIB-NORESP                                                 
+                   MOVE 'Y'            TO RWWCKHD-HARD-DIVERT-SW                
+                   MOVE HDS-SHIP-FROM-SEQUENCE                                  
+                                       TO RWWCKHD-SHIP-FROM-SEQUENCE.           
+                                                                                
+       7000-EXIT.                                                               
+           EXIT.                                                                
+                                                                                

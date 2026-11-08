@@ -1,0 +1,76 @@
+      ******************************************************************SXR07130
+      * BRAZIL BANK SLIP CHECK DIGIT CALCULATION PROC DIVISION          SXR07130
+      * COPYBOOK USED BY ORP561BR & ORP735MD.                           SXR07130
+      * 05/10/07  SXR  NEW COPYBOOK.                                    SXR07130
+      ******************************************************************SXR07130
+       743-BANKSLIP-CHECK-DIGIT-PARA.                                           
+      *CALCULATE CHECK DIGIT 2.                                                 
+           MOVE 0 TO SUM-OF-DIGITS                                              
+           PERFORM VARYING ITAU-INX1 FROM 1 BY 1 UNTIL                          
+                   ITAU-INX1 > 20                                               
+              SET ITAU-FAC-INX1 TO ITAU-INX1                                    
+              COMPUTE BANK-NUMBER-SUM =                                         
+              ITAU-CHECK-2-SPLIT (ITAU-INX1) *                                  
+                 ITAU-MULT-2 (ITAU-FAC-INX1)                                    
+              ADD BANK-NUMBER-SUM-1 TO SUM-OF-DIGITS                            
+              ADD BANK-NUMBER-SUM-2 TO SUM-OF-DIGITS                            
+           END-PERFORM.                                                         
+           DIVIDE   NUM-DIVISOR       INTO  SUM-OF-DIGITS                       
+                    GIVING            NUM-QUOTIENT                              
+                                      REMAINDER   NUM-REMAINDER.                
+           COMPUTE BCI-CHECK2 = 10 - NUM-REMAINDER.                             
+                                                                                
+       5000-BUILD-BANKSLIP-NUMBER.                                              
+                                                                                
+           INITIALIZE  SUM-OF-DIGITS.                                           
+                                                                                
+           MOVE     CURRENT-BANKSLIP-NBR TO BANK-RNG-BANKSLIP-NUM.              
+                                                                                
+           IF WS-ITAU                                                           
+              MOVE '12121212' TO BANK-NUMBER-FACTOR                             
+              PERFORM VARYING DX FROM 1 BY 1 UNTIL                              
+               DX > MAX-BANKNUM-LENGTH                                          
+                 SET  MX  TO  DX                                                
+                 COMPUTE BANK-NUMBER-SUM =                                      
+                  BANK-RNG-BANKSLIP-NUM-DIGIT  ( DX ) *                         
+                   BANK-MULTIPLIER              ( MX )                          
+                 ADD BANK-NUMBER-SUM-1 TO SUM-OF-DIGITS                         
+                 ADD BANK-NUMBER-SUM-2 TO SUM-OF-DIGITS                         
+              END-PERFORM                                                       
+              MOVE 10 TO NUM-DIVISOR                                            
+              MOVE 1  TO NUM-MULTIPLIER                                         
+           ELSE                                                                 
+           PERFORM  VARYING  DX  FROM  1  BY  1                                 
+                      UNTIL  DX    >   MAX-BANKNUM-LENGTH                       
+                                                                                
+                    SET  MX  TO  DX                                             
+                    COMPUTE  SUM-OF-DIGITS  =  SUM-OF-DIGITS     +              
+                             BANK-RNG-BANKSLIP-NUM-DIGIT  ( DX ) *              
+                             BANK-MULTIPLIER              ( MX )                
+                                                                                
+           END-PERFORM.                                                         
+           PERFORM 5001-COMMON-CHECK-PARA THRU  5001-EXIT.                      
+                                                                                
+       5000-EXIT.                                                               
+           EXIT.                                                                
+      *                                                                         
+       5001-COMMON-CHECK-PARA.                                                  
+           COMPUTE  SUM-OF-DIGITS  =  SUM-OF-DIGITS  *  NUM-MULTIPLIER.         
+                                                                                
+           DIVIDE   NUM-DIVISOR       INTO  SUM-OF-DIGITS                       
+                    GIVING            NUM-QUOTIENT                              
+                                      REMAINDER   NUM-REMAINDER.                
+                                                                                
+           IF WS-ITAU                                                           
+               MOVE BCI-CHECK2  TO BANKSLIP-CHECK-DIGIT                         
+           ELSE                                                                 
+               IF  NUM-REMAINDER             =  NUM-REMAINDER-VALUE             
+                   MOVE  ZERO               TO  BANKSLIP-CHECK-DIGIT            
+               ELSE                                                             
+                   MOVE  NUM-REMAINDER      TO  BANKSLIP-CHECK-DIGIT            
+               END-IF                                                           
+           END-IF.                                                              
+           COMPUTE  CURRENT-BANKSLIP-NBR     =                                  
+                    CURRENT-BANKSLIP-NBR     +  1.                              
+       5001-EXIT.                                                               
+           EXIT.                                                                

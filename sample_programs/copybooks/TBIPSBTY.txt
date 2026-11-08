@@ -1,0 +1,123 @@
+      *     PSB - TYPE   TABLE ;  ONE FOR EACH 'SUPER' PSB                      
+      * THIS TABLE IS USED IN PROGRAMS THAT USE 'SUPER' PSB'S TO        00000030
+      * ACCESS DATABASES IN MORE THAN 1 CICS REGION.                    00000030
+      *                                                                         
+      * THIS TABLE HAS TWO POSSIBLE FORMATS :                           00000030
+      *                                                                         
+      *  IF TB-PSB-TY-NUM-OF-TYPES  NOT = 00 , THEN THE TYPE-ROW        00000230
+      *   FORMAT IS USED.                                               00000230
+      *  IF TB-PSB-TY-NUM-OF-TYPES  = 00 , THEN THE TYPE-REGION-POSITION00000230
+      *   FORMAT IS USED.                                               00000230
+      *                                                                 00000230
+      *                                                                         
+      *   ********************************************                          
+      *                                                                         
+      *  TYPE-ROW  METHOD :                                             00000230
+      *                                                                 00000230
+      * IF YOU KNOW WHAT TYPE OF PCB YOU WANT, THEN YOU CAN USE THIS    00000030
+      * TABLE TO FIND OUT WHICH ROW HAS THE PCB'S OF THAT TYPE.         00000030
+      * ROW NUMBER AND THE COLUMN NUMBER ( FROM TBIPSBRG ) ARE          00000030
+      * USED TO DECIDE WHICH PCB POINTER TO USE FOR SETTING PCB ADDRESS.00000030
+      *                                                                         
+      *EXAMPLE:   HERE IS A DIAGRAM OF A PSB WITH 15 PCB'S                      
+      *                                                                         
+      *ROW =  PCB-TYPE |      COL =  REGION                                     
+      *                |   1= BE     2= EC    3= FR    4= NL    5= UK           
+      *                |..............................................          
+      *1   =   I1      | INDMSTB   INDMSTE   INDMSTF  INDMSTN  INDMSTK          
+      *                |                                                        
+      *2   =   I2      | INDMSTB   INDMSTE   INDMSTF  INDMSTN  INDMSTK          
+      *                |  BY PART   BY PART   BY PART  BY PART BY PART          
+      *                |                                                        
+      *3   =   C1      | CUDMSTB   CUDMSTE   CUDMSTF  CUDMSTN  CUDMSTK          
+                                                                                
+      *IF PCB-TYPE = I2    (INDMST BY PART)                                     
+      *   AND  REGION = FR  AND NUM OF REGIONS=5                                
+      *         THEN ROW=2 COL=3                                                
+      *         POSITION IN PSB = COL + (( ROW - 1 ) * NUM-OF-REGIONS)          
+      *                         =  3  + ((  2  - 1 ) *     5         )          
+      *                         =  8                                            
+      *                                                                         
+      *           SO THE 8'TH PCB IS THE ONE TO USE.                            
+      *                                                                         
+      ************************************************                          
+      *                                                                         
+      *  TYPE-REGION-POSITION   METHOD     :                            00000230
+      *                                                                         
+      *  IF THIS METHOD IS USED, THEN THE REGION COLUMN TABLE (TBIPSBRG)00000230
+      *      IS IGNORED.                                                00000230
+      *                                                                 00000230
+      * IF YOU KNOW WHAT TYPE OF PCB YOU WANT AND WHAT REGION YOU WANT, 00000030
+      * THEN YOU CAN USE THIS TABLE TO FIND THE RELATIVE POSITION OF    00000030
+      * THE CORRECT PCB IN THE PSB. THIS TELLS YOU                      00000030
+      * WHICH PCB POINTER TO USE FOR SETTING PCB ADDRESS.               00000030
+      *                                                                         
+      *EXAMPLE:   HERE IS A DIAGRAM OF A PSB WITH 8 PCB'S                       
+      *                                                                         
+      *     PCB TYPE   |             REGION                                     
+      *                |   B= BE     E= EC    F= FR    N= NL    K= UK           
+      *                |..............................................          
+      *        I1      | INDMSTB   INDMSTE   INDMSTF  INDMSTN  INDMSTK          
+      *                |                                                        
+      *        V1      | VNDMSTB                                                
+      *                |                                                        
+      *        C1      | CUDMSTB                                                
+      *                |                                                        
+      *        E1      | ENDMSTB                                                
+      *                                                                         
+      *                                                                         
+      * IN THIS CASE THE TYPE-REGION-POSITION TABLE                             
+      * SHOULD LOOK LIKE THIS :                                                 
+      *                                                                         
+      *   TYPE    REGION   POSITION OF PCB                                      
+      *                                                                         
+      *    I1      BE         01                                                
+      *    I1      EC         02                                                
+      *    I1      FR         03                                                
+      *    I1      NL         04                                                
+      *    I1      UK         05                                                
+      *    V1      BE         06                                                
+      *    C1      BE         07                                                
+      *    E1      BE         08                                                
+      *                                                                         
+      *                                                                         
+      *                                                                         
+      *IF PCB-TYPE = C1    (CUDMST)                                             
+      *   AND  REGION = BE                                                      
+      *         THEN                                                            
+      *         POSITION IN PSB = 07                                            
+      *           SO THE 7'TH PCB IS THE ONE TO USE.                            
+      *                                                                         
+      *******************************************************                   
+      * 06/05/20  MXV CHANGE REGION CODE FROM NUMERIC TO ALPHANUMERIC   MXV20157
+                                                                                
+       01 TB-PSB-TY-IA.                                                 00000040
+           05  TB-PSB-TY-REQUEST-CODE    PIC X(1)    VALUE 'K'.         00000050
+               88  TB-PSB-TY-ALL                     VALUE 'A'.         00000060
+               88  TB-PSB-TY-KEY                     VALUE 'K'.         00000070
+               88  TB-PSB-TY-NEXT                    VALUE 'N'.         00000080
+               88  TB-PSB-TY-CLOSE                   VALUE 'C'.         00000090
+           05  TB-PSB-TY-RETURN-CODE     PIC X(1)    VALUE ' '.         00000100
+               88  TB-PSB-TY-NORESP                  VALUE 'Y'.         00000110
+               88  TB-PSB-TY-TABLE-NOTFND            VALUE 'T'.         00000120
+               88  TB-PSB-TY-ENTRY-NOTFND            VALUE 'N'.         00000130
+               88  TB-PSB-TY-EOT                     VALUE 'E'.         00000140
+               88  TB-PSB-TY-NO-ROOM                 VALUE 'R'.         00000150
+           05  TB-PSB-TY-COMPANY-CODE    PIC X(2)    VALUE '$$'.        00000160
+           05  TB-PSB-TY-TABLE-NAME      PIC X(8)    VALUE 'TBXPSBTY'.  00000170
+           05  TB-PSB-TY-IA-WORK-AREA    PIC X(20)   VALUE LOW-VALUES.  00000180
+           05  TB-PSB-TY-KEY.                                           00000190
+               10  TB-PSB-TY-COMPANY     PIC X(2)   VALUE ' '.          00000200
+               10  TB-PSB-TY-PSBNAME     PIC X(8)    VALUE ' '.         00000210
+           05  TB-PSB-TY-NUM-OF-TYPES    PIC 9(2).                      00000230
+           05  TB-PSB-TY-TYPE-ROW-TABLE.                                00000220
+               10  TB-PSB-TY-TYPE-ROW OCCURS 45 TIMES.                  00000220
+                   15  TB-PSB-TY-TYPE            PIC X(2).              00000230
+                   15  TB-PSB-TY-ROW             PIC 9(2).              00000230
+           05  TB-PSB-TY-TYPE-REG-POS-TABLE  REDEFINES                  00000220
+               TB-PSB-TY-TYPE-ROW-TABLE.                                00000220
+               10  TB-PSB-TY-TYPE-REG-POS OCCURS 30 TIMES.              00000220
+                   15  TB-PSB-TY-TRP-TYPE            PIC X(2).          00000230
+                   15  TB-PSB-TY-TRP-REG             PIC X(2).          MXV20157
+                   15  TB-PSB-TY-TRP-POS             PIC 9(2).          00000230
+           05  TB-PSB-TY-FILLER          PIC X(08).                     00000180

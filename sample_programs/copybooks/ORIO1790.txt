@@ -1,0 +1,31 @@
+      *                                                                         
+      *  PATH TO INSERT ORDER HEADER (ORSHED) AND ORDER HEADER OVERFLOW MCV97265
+      *  (ORSHEDOF) SEGMENTS INTO IMS DATADASE.                                 
+      *                                                                         
+           ADD +1                      TO  ORH-ATTEMPTS.                MCV97265
+           MOVE ORH-ORSHED             TO  PATH-ORSHED-AREA.                    
+           MOVE ORHOF-ORSHEDOF-0       TO  PATH-ORSHEDOF-AREA.                  
+      *                                                                         
+           CALL 'CBLTDLI' USING        ISRT                                     
+                                       ORPCB                                    
+                                       PATH-ORSHED-ORSHEDOF                     
+                                       WS-ORSHED-SSA                            
+                                       WS-ORSHEDOF-SSA.                         
+           IF ORPCB-DUPREC                                                      
+               MOVE 'D'                TO  WS-ORSHED-IO-SW                      
+                                           WS-ORSHEDOF-IO-SW                    
+           ELSE                                                                 
+               IF ORPCB-NORESP                                                  
+                   MOVE 'Y'            TO  WS-ORSHED-IO-SW                      
+                                           WS-ORSHEDOF-IO-SW                    
+               ELSE                                                             
+                   MOVE 'I'            TO  WS-ORSHED-IO-SW                      
+                                           WS-ORSHEDOF-IO-SW                    
+                   MOVE '1790'         TO  WS-ABCODE                            
+                   MOVE ORPCB-STS      TO  WS-STATUS                            
+                   MOVE 'DL/1'         TO  WS-ERROR-CODE                        
+                   MOVE SPACES         TO  WS-ERROR-OPTIONAL-DATA               
+                   MOVE ORPCB          TO  WS-ERROR-DL1-PCB                     
+                   MOVE WS-ABCODE      TO  WS-ERROR-DL1-ABCODE                  
+                   PERFORM 999-ABEND.                                           
+      *                                                                         

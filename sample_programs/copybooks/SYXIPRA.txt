@@ -1,0 +1,584 @@
+      ******************************************************************        
+      *** YEAR 2000 READY                                              *PWLY8307
+      ******************************************************************        
+      *                                                                         
+      *                PRICING INITIALIZATION                                   
+      *                                                                         
+      *    REQUIRES COPYBOOK SYRPWS                                             
+      *                                                                         
+      *    THE FOLLOWING FIELDS MUST BE ESTABLISHED :                           
+      *                                                                         
+      *      CU-CUSHED         ---  CUSTOMER HEADER SEGMENT                     
+      *                                                                         
+      *  11/10/03  KKC  SSEU PHASE IV.                                  KKC03314
+      *  05/25/02  MEP  PRICING ENHANCEMENTS 2001                       MEP02145
+      *  08/16/01  LMH  SAGENCY PROJECT.                                LMH01271
+      *  02/01/01  MCV  FIX MINIMUM MARGIN FIELDS.                      MCV01032
+      *  11/15/00  RPB  ADD MINIMUM MARGIN FIELDS.                      RPB00230
+      *  03/23/00  MCV  VENDOR BUMP RATE FIELDS                         MCV00083
+      *  06/28/99  MCV  VENDOR-LEVEL RANGE PRICING                    * MCV99179
+      *  10/21/98  MJF  IF BEING USED IN ORP570 USE ORH-RESELLER NOT    MJF98294
+      *                  CUB-DEFAULT-RESELLER                           MJF98294
+      *  06/23/98  RDM  CHANGE CUSPRC READ TO USE 'A   ' FOR INITIAL    RDM98174
+      *                 READ.  ALPHANUMERIC VENDORS NOT BEING FOUND.    RDM98174
+      *  02/23/98  JXH  CHANGES FOR NEW CONTRACT PRICING METHOD.        JXH98056
+      *  01/28/97  LAB  SALES AGENT END-USER PRICING                    LAB97028
+      *                 SUBSTITUTE THE RESELLER NBR FOR THE PARENT NBR  LAB97028
+      *  01/15/97  MCV  RESTORE CUSBRN AFTER PRICE-AS PROCESSING        MCV97015
+      *  09/16/96  MCV  END-USER PRICING                                MCV96260
+      *                 IF END-USERS ARE USING PART-XREF PRICING THEN   MCV96260
+      *                 PARENT AND END-USER XREF CUSTOMER MUST BE EQUAL.MCV96260
+      *  02/16/96  MCV  GENERIC VENDOR PRICING & PRICE ROUNDING.        MCV96047
+      *  01/10/96  TND  INITIALIZE WS-INSTANT-REBATE-SW                 TND96010
+      *  10/02/95  MCV  VPA COST BASIS.                                 MCV95275
+      *                 MOVE TRANSFER CUSTOMER INIT. FROM ORP210        MCV95275
+      *  12/21/94  MCV  PREMIER VAR PLUS PRICING BY VELOCITY CODE       MCV94355
+      *  09/16/94  MCV  MOVE PREMIER VAR PLUS DEFAULT PROCESSING        MCV96260
+      *  06/20/94  MCV  PREMIER VAR PLUS PRICING                        MCV94171
+      *  11/12/93  MCV  CLEAN-UP VENDOR PRICING INITIALIZATON :         MCV93316
+      *                 REMOVE CUSHED D/B CALLS ;                       MCV93316
+      *                 CHECK CUSPRC AFTER SETTING PRICE-AS CUSTOMER #; MCV93316
+      *                 READ CUSPRC DIRECTLY WITHOUT PARENTAGE.         MCV93316
+      *  11/08/93  MCV  SKIP COLUMN INDICATOR CHECK FOR PRICE-AS PROCESSMCV93312
+      *                 PRICE-AS MUST HAVE CUSBRN ESTABLISHED.          MCV93312
+      *                 IGNORE PRICE-AS CUSTOMER'S PRICE-AS.            MCV93312
+      *  10/11/93  MCV  REMOVE CUSBRN EFFECTIVE DATE                    MCV93284
+      *  08/16/93  KMB  ADDED VENDOR LEVEL PRICING                      KMB93228
+      *  04/22/93  MCV  INITIALIZE VPA GM TABLE                         MCV93112
+      *--------------------------------------------------------------*  MCV01032
+      * CORPORATE LEVEL SETTINGS                                        MCV01032
+      *--------------------------------------------------------------*  MCV01032
+           MOVE TB-CPO3-MIN-MARGIN-SW  TO  WS-CPO3-MIN-MARGIN-SW        MCV01032
+      *--------------------------------------------------------------*  MCV01032
+      *    CUSTOMER LEVEL SETTINGS                                      MCV01032
+      *--------------------------------------------------------------*  MCV01032
+           INITIALIZE                      WS-PRC-CUSTOMER-WORK-AREA    MCV96260
+                                           WS-PRC-CUSTOMER-WORK-AREA2   MCV01032
+           MOVE WS-PRC-CUSTOMER-WORK-AREA                               MCV96260
+                                       TO  WS-PRC-CUSTOMER-PRICING (002)MCV96260
+           MOVE WS-PRC-CUSTOMER-WORK-AREA2                              MCV01032
+                                       TO  WS-PRC-CUSTOMER-PRICING2(002)MCV01032
+           SET WS-PRC-STANDARD-PROCESS TO  TRUE                         MCV96260
+      *                                                                 MCV96260
+      *    COMMON INITIALIZATION                                        MCV96260
+      *                                                                 MCV96260
+           PERFORM 830-CUSTOMER-PRICING-INIT                            MCV96260
+      *                                                                 MCV96260
+      *    END-USER PRICING --- INITIALIZE PARENT RESELLER'S PRICING    MCV96260
+      *                                                                 MCV96260
+           IF WS-PRC-END-USER-PRICING                                   MCV96260
+              PERFORM 860-PARENT-RESELLER-INIT                          MCV96260
+           ELSE                                                         MCV96260
+              IF WS-PRC-CONTRACT                                        JXH98056
+                 PERFORM 870-CONTRACT-INIT                              JXH98056
+              ELSE                                                      JXH98056
+                 MOVE WS-PRC-CUSTOMER-WORK-AREA                         MCV96260
+                                      TO  WS-PRC-CUSTOMER-PRICING (001) MCV01032
+                 MOVE WS-PRC-CUSTOMER-WORK-AREA2                        MCV01032
+                                      TO  WS-PRC-CUSTOMER-PRICING2(001).MCV01032
+      *                                                                 MCV96260
+           PERFORM 880-CALCULATE-PGM-FEE-PCT.                           LMH01271
+      *                                                                 LMH01271
+       830-CUSTOMER-PRICING-INIT.                                       MCV96260
+      *                                                                 MCV96260
+           MOVE CU-COMPANY             TO  WS-PRC-COMPANY                       
+                                           WS-CUSHED-CO.                        
+           MOVE CU-BR-NBR              TO  WS-PRC-BR-NBR                        
+                                           WS-CUSBRN-BR.                        
+           MOVE CU-CUST-NBR            TO  WS-PRC-CUST-NBR.                     
+           MOVE WS-PRC-BR-CUST         TO  WS-CUSHED-BR-CUST                    
+                                           WS-PRC-PRICE-AS.                     
+      *                                                                 MCV99179
+           IF CU-PROFITABILITY-FACTOR NUMERIC                           MCV99179
+              MOVE CU-PROFITABILITY-FACTOR                              MCV99179
+                                      TO  WS-PRC-PROFITABILITY-FACTOR.  MCV99179
+      *                                                                 MCV99179
+           IF CU-NEGOTIATE-FEE-AMT NUMERIC                              MCV99179
+              MOVE CU-NEGOTIATE-FEE-AMT                                 MCV99179
+                                      TO  WS-PRC-NEGOTIATE-FEE-AMT.     MCV99179
+      *                                                                         
+           IF  CU-PXLMST-BR-CUST-NBR > SPACES                                   
+               MOVE CU-PXLMST-BR-CUST-NBR                                       
+                                       TO  WS-PRC-XREF-BR-CUST                  
+           ELSE                                                                 
+               MOVE WS-PRC-BR-CUST     TO  WS-PRC-XREF-BR-CUST.                 
+      *                                                                         
+           MOVE CU-PRICE-CODE          TO  WS-CUST-PRICE-CODE.                  
+           MOVE CU-NO-SKU-PCT-OVERRIDE TO  WS-CU-NO-SKU-PCT-OVERRIDE.   MCV01032
+           MOVE CU-ACOP-RESTRICT-IND   TO  WS-ACOP-RESTRICT-IND.        KKC03314
+           MOVE CU-NO-PRICE-OVRD-SW    TO  WS-CU-NO-PRICE-OVRD-SW       MCV01032
+      *                                                                 JXH98056
+      *    IF THE 'CUSTOMER' IS REALLY A DUMMY CUSTOMER FOR CONTRACT    JXH98056
+      *    PRICING AND A PRICE CODE HAS NOT BEEN ENTERED, DEFAULT THE   JXH98056
+      *    PRICE CODE TO A PXLMST ONLY PRICE CODE FOR COMPAQ OR A       JXH98056
+      *    PXLMST/VENDOR PRICE CODE FOR ALL OTHER COUNTRIES (U.S.       JXH98056
+      *    CURRENTLY).                                                  JXH98056
+      *                                                                 JXH98056
+           IF CU-OTHER-LOOKUP = 'CONTRACT       '                       JXH98056
+              MOVE 'Y'                 TO  WS-PRC-CONTRACT-CUSTOMER-SW  JXH98056
+              IF CU-PRICE-CODE NOT > ' '                                JXH98056
+                 IF CU-COMPANY = 'CQ'                                   JXH98056
+                    MOVE 'W'           TO  WS-CUST-PRICE-CODE           JXH98056
+                 ELSE                                                   JXH98056
+                    MOVE 'J'           TO  WS-CUST-PRICE-CODE.          JXH98056
+                                                                        JXH98056
+           IF NOT WS-PRC-CONTRACT-PROCESS                               JXH98056
+              MOVE CU-PROMOTIONAL-SW   TO  WS-CUST-PROMOTIONAL-SW.              
+           MOVE CU-INSTANT-REBATE-SW   TO  WS-INSTANT-REBATE-SW.        TND96010
+      *                                                                         
+      *    GET GROSS MARGIN PRICING                                             
+      *                                                                         
+           IF WS-CUST-VPA-PRICING                                               
+              MOVE SPACES              TO  WS-CUM-KEY                           
+              MOVE '1'                 TO  WS-CUM-KEY                           
+              MOVE 'Z'                 TO  WS-CUM-SEG-TYPE                      
+              PERFORM 1010-GU-CUSMSC                                            
+              IF WS-CUSMSC-NORESP                                               
+                 MOVE CUM-MICROD-GMC-1    TO WS-HOLD-GM-CODE(1)         MEP02145
+                 MOVE CUM-MICROD-GMC-2    TO WS-HOLD-GM-CODE(2)         MEP02145
+                 MOVE CUM-MICROD-GMC-3    TO WS-HOLD-GM-CODE(3)         MEP02145
+                 MOVE CUM-MICROD-GMC-4    TO WS-HOLD-GM-CODE(4)         MEP02145
+                 MOVE CUM-MICROD-GMC-5    TO WS-HOLD-GM-CODE(5)         MEP02145
+                 IF TB-CPO4-PRICE-PCT-CONVERTED                         MEP02145
+                    IF CUM-MICROD-GM-1-NEW  >= 1.00 OR                  MEP02145
+                       CUM-MICROD-GM-1-NEW  <= -1.00                    MEP02145
+                       MOVE ZERO                TO WS-HOLD-GM-PCT(1)    MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-1-NEW TO WS-HOLD-GM-PCT(1)    MEP02145
+                    END-IF                                              MEP02145
+                    IF CUM-MICROD-GM-2-NEW  >= 1.00 OR                  MEP02145
+                       CUM-MICROD-GM-2-NEW  <= -1.00                    MEP02145
+                       MOVE ZERO                TO WS-HOLD-GM-PCT(2)    MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-2-NEW TO WS-HOLD-GM-PCT(2)    MEP02145
+                    END-IF                                              MEP02145
+                    IF CUM-MICROD-GM-3-NEW  >= 1.00 OR                  MEP02145
+                       CUM-MICROD-GM-3-NEW  <= -1.00                    MEP02145
+                       MOVE ZERO                TO WS-HOLD-GM-PCT(3)    MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-3-NEW TO WS-HOLD-GM-PCT(3)    MEP02145
+                    END-IF                                              MEP02145
+                    IF CUM-MICROD-GM-4-NEW  >= 1.00 OR                  MEP02145
+                       CUM-MICROD-GM-4-NEW  <= -1.00                    MEP02145
+                       MOVE ZERO                TO WS-HOLD-GM-PCT(4)    MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-4-NEW TO WS-HOLD-GM-PCT(4)    MEP02145
+                    END-IF                                              MEP02145
+                    IF CUM-MICROD-GM-5-NEW  >= 1.00 OR                  MEP02145
+                       CUM-MICROD-GM-5-NEW  <= -1.00                    MEP02145
+                       MOVE ZERO                TO WS-HOLD-GM-PCT(5)    MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-5-NEW TO WS-HOLD-GM-PCT(5)    MEP02145
+                    END-IF                                              MEP02145
+                 ELSE                                                   MEP02145
+                    IF CUM-MICROD-GMC-1 NOT > SPACES                    MEP02145
+                       MOVE ZERO            TO WS-HOLD-GM-PCT(1)        MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-1 TO WS-HOLD-GM-PCT(1)        MEP02145
+                    END-IF                                              MEP02145
+                    IF CUM-MICROD-GMC-2 NOT > SPACES                    MEP02145
+                       MOVE ZERO            TO WS-HOLD-GM-PCT(2)        MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-2 TO WS-HOLD-GM-PCT(2)        MEP02145
+                    END-IF                                              MEP02145
+                    IF CUM-MICROD-GMC-3 NOT > SPACES                    MEP02145
+                       MOVE ZERO            TO WS-HOLD-GM-PCT(3)        MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-3 TO WS-HOLD-GM-PCT(3)        MEP02145
+                    END-IF                                              MEP02145
+                    IF CUM-MICROD-GMC-4 NOT > SPACES                    MEP02145
+                       MOVE ZERO            TO WS-HOLD-GM-PCT(4)        MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-4 TO WS-HOLD-GM-PCT(4)        MEP02145
+                    END-IF                                              MEP02145
+                    IF CUM-MICROD-GMC-5 NOT > SPACES                    MEP02145
+                       MOVE ZERO            TO WS-HOLD-GM-PCT(5)        MEP02145
+                    ELSE                                                MEP02145
+                       MOVE CUM-MICROD-GM-5 TO WS-HOLD-GM-PCT(5)        MEP02145
+                    END-IF                                              MEP02145
+              ELSE                                                      MCV93112
+                 INITIALIZE                WS-HOLD-GM-TABLE             MCV93112
+           ELSE                                                         MCV93112
+              INITIALIZE                   WS-HOLD-GM-TABLE.            MCV93112
+                                                                                
+      *                                                                         
+      *    CHECK FOR COLUMN PRICING AND 'PRICE-AS' CUSTOMER                     
+      *                                                                         
+           PERFORM 840-CUST-COLUMN-PRICING.                                     
+      *                                                                         
+           IF  CU-TYPE-TRANSFER                                         MCV95275
+               MOVE 'Y'                TO  WS-PRC-SPECIAL-PRICE-SW      MCV96260
+               MOVE 'C'                TO  WS-PRC-CUST-COL-IND          MCV95275
+                                           WS-PRC-CUST-SHEET-IND        MCV95275
+               MOVE ZERO               TO  WS-PRC-CUST-REQ-DISC.        MCV96260
+      *                                                                         
+      *    SET BUMP RATE & PRICE-AS                                             
+      *                                                                         
+           IF WS-CUSBRN-NORESP                                          MCV93312
+              IF WS-PRC-STANDARD-PROCESS AND NOT WS-PRC-CONTRACT        JXH98056
+                 MOVE CUB-END-USER-SW    TO  WS-PRC-END-USER-PRICING-SW MCV96260
+              END-IF                                                    MCV96260
+              IF CUB-VENDOR-BUMP-SW = 'N'                               MCV00083
+                 MOVE 'N'                TO  WS-PRC-VENDOR-BUMP-SW      MCV00083
+              ELSE                                                      MCV00083
+                 MOVE 'Y'                TO  WS-PRC-VENDOR-BUMP-SW      MCV00083
+              END-IF                                                    MCV00083
+              MOVE CUB-VPA-PRICING-COST-BASIS                           MCV95275
+                                         TO  WS-PRC-VPA-COST-BASIS      MCV95275
+              IF CUB-BUMP-RATE NUMERIC                                  MCV93312
+                 MOVE CUB-BUMP-RATE      TO  WS-PRC-BUMP-RATE           MCV93312
+              END-IF                                                    MCV93312
+              IF CUB-MIN-FLR NUMERIC                                            
+                 MOVE CUB-MIN-FLR        TO  WS-MINIMUM-MARGIN          MCV93316
+              ELSE                                                              
+                 MOVE ZEROS              TO  WS-MINIMUM-MARGIN          MCV96047
+              END-IF                                                    MCV96047
+              MOVE CUB-GENERIC-VENDOR-SW TO  WS-GENERIC-VENDOR-SW       MCV96047
+              IF CUB-PRICE-ROUNDING NUMERIC                             MCV96047
+                 MOVE CUB-PRICE-ROUNDING TO  WS-PRICE-ROUNDING          MCV96047
+              ELSE                                                      MCV96047
+                 MOVE ZEROS              TO  WS-PRICE-ROUNDING          MCV96047
+              END-IF                                                    MCV96047
+              IF CUB-PRICE-AS > SPACES             AND                  MCV93312
+                 CUB-PRICE-AS NOT = WS-PRC-BR-CUST                      MCV93312
+                    MOVE CUB-PRICE-AS TO  WS-CUSHED-BR-CUST             MCV93312
+                                          WS-CUSBRN-BR                  MCV93312
+                    PERFORM 840-CUST-COLUMN-PRICING                     MCV93312
+                    IF WS-CUSBRN-NORESP                                 MCV93312
+                       MOVE WS-CUSHED-BR-CUST                           MCV93312
+                                       TO  WS-PRC-PRICE-AS              MCV97015
+                       MOVE WS-PRC-BR-CUST                              MCV97015
+                                       TO  WS-CUSHED-BR-CUST            MCV97015
+                                           WS-CUSBRN-BR                 MCV97015
+                       PERFORM 1004-GU-CUSBRN.                          MCV97015
+      *                                                                         
+      *    DEFAULT PREMIER VAR PLUS PRICING DISCOUNT                    MCV94171
+      *                                                                 MCV94171
+           IF WS-CUST-PREMIER-VAR-PLUS-COL                              MCV94186
+              PERFORM 850-PREMIER-VAR-PLUS-DEFAULTS.                    MCV94186
+      *                                                                         
+      *  CHECK TO SEE IF ANY VENDOR LEVEL PRICING EXISTS.               MCV93316
+      *                                                                 MCV93316
+      *    GENERIC VENDORS ARE '****' AND '++++'.                       MCV93316
+      *                                                                 MCV93316
+           IF WS-CUST-VENDOR-LEVEL-PRICING  OR                          MCV99179
+              WS-GENERIC-VENDOR-PRICING                                 MCV99179
+                 IF WS-CUST-VENDOR-LEVEL-PRICING                        MCV96047
+                    IF WS-GENERIC-VENDOR-PRICING                        MCV96047
+                       MOVE SPACES     TO  WS-CUSPRC-QUAL               MCV96047
+                    ELSE                                                MCV96047
+                       MOVE 'A   '     TO  WS-CUSPRC-VEND               RDM98174
+                       MOVE '>='       TO  WS-CUSPRC-SEARCH             MCV96047
+                 ELSE                                                   MCV96047
+                    MOVE 'A   '        TO  WS-CUSPRC-VEND               RDM98174
+                    MOVE '<'           TO  WS-CUSPRC-SEARCH             MCV96047
+                 END-IF                                                 MCV96047
+                 IF TB-CPO4-VLP-PRICE-AS-CHILD                          MEP02145
+                    PERFORM 831-PRICE-AS-VLP-CHILD                      MEP02145
+                 ELSE                                                   MEP02145
+                    PERFORM 832-PRICE-AS-VLP-PARENT                     MEP02145
+                 END-IF                                                 MEP02145
+                 MOVE '('              TO  WS-CUSPRC-QUAL               MCV93316
+                 MOVE '='              TO  WS-CUSPRC-SEARCH             MCV96047
+           ELSE                                                         MEP02145
+              MOVE 'N'                 TO  WS-PRC-VENDOR-PRICE-SW       MEP02145
+           END-IF.                                                      MEP02145
+      *                                                                 MCV93316
+           MOVE WS-PRC-BR-CUST         TO  WS-CUSHED-BR-CUST            MCV93316
+      *                                                                         
+      *    ITEM XREF PRICING AVAILABILITY                                       
+      *                                                                         
+           IF WS-CUST-PXLMST-PRICING                                    MEP02145
+              IF TB-CPO4-PXLMST-PRICE-AS-CHILD                          MEP02145
+                 PERFORM 833-PRICE-AS-PXLMST-CHILD                      MEP02145
+              ELSE                                                      MEP02145
+                 PERFORM 834-PRICE-AS-PXLMST-PARENT                     MEP02145
+              END-IF                                                    MEP02145
+           ELSE                                                         MEP02145
+              MOVE 'N'             TO  WS-PRC-ITEM-PRICE-SW             MEP02145
+           END-IF.                                                      MEP02145
+      *                                                                 MEP02145
+       831-PRICE-AS-VLP-CHILD.                                          MEP02145
+      *                                                                 MEP02145
+           IF WS-PRC-BR-CUST = WS-PRC-PRICE-AS                          MEP02145
+              PERFORM 832-PRICE-AS-VLP-PARENT                           MEP02145
+           ELSE                                                         MEP02145
+              MOVE WS-PRC-BR-CUST    TO  WS-CUSHED-BR-CUST              MEP02145
+              PERFORM 1006-GU-CUSPRC                                    MEP02145
+              IF WS-CUSPRC-NORESP                                       MEP02145
+                 MOVE 'Y'             TO  WS-PRC-VENDOR-PRICE-SW        MEP02145
+              ELSE                                                      MEP02145
+                 PERFORM 832-PRICE-AS-VLP-PARENT                        MEP02145
+              END-IF                                                    MEP02145
+           END-IF.                                                      MEP02145
+      *                                                                 MEP02145
+       832-PRICE-AS-VLP-PARENT.                                         MEP02145
+      *                                                                 MEP02145
+           MOVE WS-PRC-PRICE-AS    TO  WS-CUSHED-BR-CUST                MEP02145
+           PERFORM 1006-GU-CUSPRC                                       MEP02145
+           IF WS-CUSPRC-NORESP                                          MEP02145
+              MOVE 'Y'             TO  WS-PRC-VENDOR-PRICE-SW           MEP02145
+           ELSE                                                         MEP02145
+              MOVE 'N'             TO  WS-PRC-VENDOR-PRICE-SW           MEP02145
+           END-IF.                                                      MEP02145
+      *                                                                 MEP02145
+       833-PRICE-AS-PXLMST-CHILD.                                       MEP02145
+      *                                                                 MEP02145
+           IF WS-PRC-BR-CUST = WS-PRC-XREF-BR-CUST                      MEP02145
+              PERFORM 834-PRICE-AS-PXLMST-PARENT                        MEP02145
+           ELSE                                                         MEP02145
+              MOVE WS-PRC-COMPANY    TO  WS-PX-COMPANY                  MEP02145
+              MOVE LOW-VALUES        TO  WS-PX-CUST-PART-NBR            MEP02145
+              MOVE WS-PRC-BR-CUST    TO  WS-PX-CUST-KEY                 MEP02145
+              PERFORM 970-PX-READ-PXLMST-GTEQ THRU 970-PX-EXIT          MEP02145
+              IF WS-PX-NORESP                  AND                      MEP02145
+                 PX-COMPANY  = WS-PRC-COMPANY  AND                      MEP02145
+                 PX-CUST-KEY = WS-PRC-BR-CUST                           MEP02145
+                 MOVE 'Y'            TO  WS-PRC-ITEM-PRICE-SW           MEP02145
+              ELSE                                                      MEP02145
+                 PERFORM 834-PRICE-AS-PXLMST-PARENT                     MEP02145
+              END-IF                                                    MEP02145
+           END-IF.                                                      MEP02145
+      *                                                                 MEP02145
+       834-PRICE-AS-PXLMST-PARENT.                                      MEP02145
+      *                                                                 MEP02145
+           MOVE WS-PRC-COMPANY      TO  WS-PX-COMPANY                   MEP02145
+           MOVE LOW-VALUES          TO  WS-PX-CUST-PART-NBR             MEP02145
+           MOVE WS-PRC-XREF-BR-CUST TO  WS-PX-CUST-KEY                  MEP02145
+           PERFORM 970-PX-READ-PXLMST-GTEQ THRU 970-PX-EXIT             MEP02145
+           IF WS-PX-NORESP                  AND                         MEP02145
+              PX-COMPANY  = WS-PRC-COMPANY  AND                         MEP02145
+              PX-CUST-KEY = WS-PRC-XREF-BR-CUST                         MEP02145
+              MOVE 'Y'              TO  WS-PRC-ITEM-PRICE-SW            MEP02145
+           ELSE                                                         MEP02145
+              MOVE 'N'              TO  WS-PRC-ITEM-PRICE-SW            MEP02145
+           END-IF.                                                      MEP02145
+      *                                                                         
+       840-CUST-COLUMN-PRICING.                                                 
+      *                                                                         
+           PERFORM 1004-GU-CUSBRN.                                              
+      *                                                                         
+           IF WS-CUSBRN-NORESP        AND                               MCV94171
+              CUB-COLUMN-IND > SPACES                                   MCV93284
+                 MOVE 'Y'              TO  WS-PRC-SPECIAL-PRICE-SW      MCV96260
+                 MOVE CUB-PRICING-TIER-TABLE                            MCV94171
+                                       TO  TB-PVAR-TIER-TABLE           MCV94171
+                 MOVE CUB-PRICING-TIER TO  TB-PVAR-TIER                 MCV94171
+                 MOVE CUB-COLUMN-IND   TO  WS-PRC-CUST-COL-IND                  
+                 MOVE CUB-SHEET-IND    TO  WS-PRC-CUST-SHEET-IND                
+                 MOVE CUB-REQ-PROFIT-PCT                                        
+                                       TO  WS-PRC-CUST-REQ-DISC.        MCV96260
+      *                                                                         
+       850-PREMIER-VAR-PLUS-DEFAULTS.                                   MCV94186
+      *                                                                         
+           IF TB-PVAR-TIER-TABLE > SPACES  AND                          MCV94171
+              TB-PVAR-TIER       > SPACES  AND                          MCV94171
+              (WS-PRC-CUST-REQ-DISC = ZERO OR WS-MINIMUM-MARGIN = ZERO) MCV94171
+                 MOVE WS-PRC-COMPANY    TO  TB-PVAR-COMPANY-CODE        MCV94171
+                 CALL 'SYU510'       USING  TB-PVAR-TABLE-IA            MCV94171
+                 IF TB-PVAR-NORESP                                      MCV94171
+                    IF WS-PRC-CUST-REQ-DISC = ZERO                      MCV94171
+                       MOVE TB-PVAR-MARGIN-TABLE                        MCV94355
+                                        TO  WS-PRC-PVAR-TABLE           MCV94355
+                    ELSE                                                MCV94171
+                       INITIALIZE           WS-PRC-PVAR-TABLE           MCV94355
+                                 REPLACING  NUMERIC                     MCV94355
+                                        BY  WS-PRC-CUST-REQ-DISC        MCV94355
+                    END-IF                                              MCV94171
+                    IF WS-MINIMUM-MARGIN = ZERO                         MCV94171
+                       MOVE TB-PVAR-MARGIN-FLOOR                        MCV94171
+                                        TO  WS-MINIMUM-MARGIN           MCV94171
+                    END-IF                                              MCV94355
+                 ELSE                                                   MCV94355
+                    INITIALIZE              WS-PRC-PVAR-TABLE           MCV94355
+                                 REPLACING  NUMERIC                     MCV94355
+                                        BY  WS-PRC-CUST-REQ-DISC        MCV94355
+           ELSE                                                         MCV94355
+              INITIALIZE                    WS-PRC-PVAR-TABLE           MCV94355
+                  REPLACING NUMERIC     BY  WS-PRC-CUST-REQ-DISC.       MCV94355
+      *                                                                 MCV96260
+       860-PARENT-RESELLER-INIT.                                        MCV96260
+      *                                                                 MCV96260
+      *    END-USER'S AREN'T ELIGIBLE FOR PROMOTIONAL ITEMS, SPECIALS,  MCV96260
+      *    OR QUANTITY-BREAK PRICING.                                   MCV96260
+      *                                                                 MCV96260
+      *    ALLOW FOR FREE PARTS                                         MCV96260
+      *                                                                 MCV96260
+           SET WS-PRC-END-USER-PROCESS TO  TRUE                         MCV96260
+           IF WS-CUST-PROMOTIONAL-ALLOWED                               MCV96260
+              MOVE 'P'                 TO  WS-CUST-PROMOTIONAL-SW       MCV96260
+           ELSE                                                         MCV96260
+              SET WS-CUST-NONE-ALLOWED  TO  TRUE.                       MCV96260
+      *                                                                 MCV96260
+      *    SAVE END-USER PRICING                                        MCV96260
+      *                                                                 MCV96260
+           MOVE WS-PRC-CUSTOMER-WORK-AREA                               MCV96260
+                                      TO  WS-PRC-CUSTOMER-PRICING (001) MCV96260
+           MOVE WS-PRC-CUSTOMER-WORK-AREA2                              MCV01032
+                                      TO  WS-PRC-CUSTOMER-PRICING2(001) MCV01032
+      *                                                                 MCV96260
+      *    INITIALIZE PARENT RESELLER'S PRICING                         MCV96260
+      *                                                                 MCV96260
+           MOVE WS-PRC-CUSTOMER-PRICING (002)                           MCV96260
+                                       TO  WS-PRC-CUSTOMER-WORK-AREA    MCV96260
+           MOVE WS-PRC-CUSTOMER-PRICING2(002)                           MCV01032
+                                       TO  WS-PRC-CUSTOMER-WORK-AREA2   MCV01032
+      *                                                                 MCV96260
+      *    THE PARENT RESELLER MUST BE VALID.  FOR CUSTOMERS WITH       LAB97028
+      *    CUB-END-USER-SW = 'E', THE RESELLER NBR WILL FUNCTION AS     LAB97028
+      *    THE PARENT NBR.                                              LAB97028
+      *                                                                 MCV96260
+           IF NOT WS-PRC-EU-USE-RESELLER                                MJF98294
+              IF WS-USE-ORH-RESELLER                                    MJF98294
+                  NEXT SENTENCE                                         MJF98294
+              ELSE                                                      MJF98294
+                  MOVE CUB-DEFAULT-RESELLER-NBR TO                      MJF98294
+                                          WS-DEFAULT-RESELLER-NBR.      MJF98294
+           IF WS-PRC-EU-USE-RESELLER                                    LAB97028
+             IF CU-PARENT-NBR NOT > ZEROES   OR                         MCV96260
+                CU-PARENT-NBR = WS-PRC-BR-CUST                          MCV96260
+                   SET WS-CUSHED-NOTFND  TO  TRUE                       MCV96260
+             ELSE                                                       MCV96260
+                MOVE CU-PARENT-NBR       TO  WS-PRC-BR-CUST             MCV96260
+                                             WS-CUSHED-BR-CUST          MCV96260
+                PERFORM 1000-GU-CUSHED                                  LAB97028
+           ELSE                                                         LAB97028
+                IF WS-DEFAULT-RESELL-NBR NOT > SPACES  OR               LAB97028
+                   WS-DEFAULT-RESELL-NBR = WS-PRC-BR-CUST               LAB97028
+                     SET WS-CUSHED-NOTFND  TO  TRUE                     LAB97028
+                ELSE                                                    LAB97028
+                   MOVE WS-DEFAULT-RESELL-NBR TO WS-PRC-BR-CUST         LAB97028
+                                                 WS-CUSHED-BR-CUST      LAB97028
+                   PERFORM 1000-GU-CUSHED.                              LAB97028
+      *                                                                 MCV96260
+      *    IF THE PARENT RESELLER IS NOT FOUND ABEND !                  MCV96260
+      *                                                                 MCV96260
+           IF NOT WS-CUSHED-NORESP                                      MCV96260
+              MOVE 'CUPR'              TO  WS-ABCODE                    MCV96260
+              PERFORM 999-ABEND.                                        MCV96260
+      *                                                                 MCV96260
+      *    INITIALIZE PARENT RESELLER'S PRICING                         MCV96260
+      *                                                                 MCV96260
+           PERFORM 830-CUSTOMER-PRICING-INIT                            MCV96260
+      *                                                                 MCV96260
+      *    THE PARENT RESELLER WILL HAVE ANY REBATE APPLIED TO THEIR    MCV96260
+      *    PRICE, BUT MUST BE GENERATED FROM THE END-USER'S PROCESSING  MCV96260
+      *                                                                 MCV96260
+           SET WS-INSTANT-REBATE-NONE  TO  TRUE                         MCV96260
+      *                                                                 MCV96260
+      *    SAVE PARENT RESELLER'S PRICING                               MCV96260
+      *                                                                 MCV96260
+           MOVE WS-PRC-CUSTOMER-WORK-AREA                               MCV96260
+                                       TO  WS-PRC-CUSTOMER-PRICING (002)MCV96260
+           MOVE WS-PRC-CUSTOMER-WORK-AREA2                              MCV01032
+                                       TO  WS-PRC-CUSTOMER-PRICING2(002)MCV01032
+      *                                                                 MCV96260
+      *    RESTORE END-USER'S PRICING TO WORK AREA                      MCV96260
+      *                                                                 MCV96260
+           MOVE WS-PRC-CUSTOMER-PRICING (001)                           MCV96260
+                                       TO  WS-PRC-CUSTOMER-WORK-AREA    MCV96260
+           MOVE WS-PRC-CUSTOMER-PRICING2(001)                           MCV01032
+                                       TO  WS-PRC-CUSTOMER-WORK-AREA2   MCV01032
+      *                                                                 MCV96260
+      *    RESTORE CUSHED & CUSBRN FOR END-USER                         MCV96260
+      *                                                                 MCV96260
+           MOVE WS-PRC-BR-CUST         TO  WS-CUSHED-BR-CUST            MCV96260
+                                           WS-CUSBRN-BR                 MCV96260
+      *                                                                 MCV96260
+           PERFORM 1000-GU-CUSHED                                       MCV96260
+           PERFORM 1004-GU-CUSBRN.                                      MCV96260
+      ***                                                               JXH98056
+       870-CONTRACT-INIT.                                               JXH98056
+      *                                                                 JXH98056
+      *    SAVE THE CUSTOMER PRICING PARMS                              JXH98056
+      *                                                                 JXH98056
+           MOVE WS-PRC-CUSTOMER-WORK-AREA                               JXH98056
+                                     TO  WS-PRC-CUSTOMER-PRICING (001). JXH98056
+           MOVE WS-PRC-CUSTOMER-WORK-AREA2                              MCV01032
+                                     TO  WS-PRC-CUSTOMER-PRICING2(001). MCV01032
+      *                                                                 JXH98056
+      *    INITIALIZE CONTRACT PRICING                                  JXH98056
+      *                                                                 JXH98056
+           MOVE WS-PRC-CUSTOMER-PRICING (002)                           JXH98056
+                                     TO  WS-PRC-CUSTOMER-WORK-AREA.     JXH98056
+           MOVE WS-PRC-CUSTOMER-PRICING2(002)                           MCV01032
+                                     TO  WS-PRC-CUSTOMER-WORK-AREA2     MCV01032
+           MOVE 'C'                  TO  WS-PRC-END-USER-PROCESS-SW.    JXH98056
+      *                                                                 JXH98056
+      * USE THE CUSTOMER PROMO SWITCH FOR THE CONTRACT.                 JXH98056
+      *                                                                 JXH98056
+           MOVE CU-PROMOTIONAL-SW    TO  WS-CUST-PROMOTIONAL-SW.        JXH98056
+      *                                                                 JXH98056
+      *    WE OVERRIDE THE CU-RMA-ROLLUP-CUST-NBR WITH THE CONTRACT     JXH98056
+      *    CUSTOMER NUMBER IN THE PROGRAMS THAT ALLOW CONTRACT          JXH98056
+      *    PRICING.                                                     JXH98056
+      *                                                                 JXH98056
+           IF CU-RMA-ROLLUP-CUST-NBR NOT > SPACES                       JXH98056
+              MOVE 'CUP2'            TO  WS-ABCODE                      JXH98056
+              PERFORM 999-ABEND                                         JXH98056
+           ELSE                                                         JXH98056
+              MOVE CU-RMA-ROLLUP-CUST-NBR                               JXH98056
+                                     TO  WS-PRC-BR-CUST                 JXH98056
+                                         WS-CUSHED-BR-CUST              JXH98056
+              PERFORM 1000-GU-CUSHED.                                   JXH98056
+      *                                                                 JXH98056
+      *    IF THE CONTRACT CUSTOMER NBR IS NOT FOUND - ABEND !          JXH98056
+      *                                                                 JXH98056
+           IF NOT WS-CUSHED-NORESP                                      JXH98056
+              MOVE 'CUP3'            TO  WS-ABCODE                      JXH98056
+              PERFORM 999-ABEND.                                        JXH98056
+      *                                                                 JXH98056
+      *    INITIALIZE CONTRACT PRICING                                  JXH98056
+      *                                                                 JXH98056
+           PERFORM 830-CUSTOMER-PRICING-INIT.                           JXH98056
+      *                                                                 JXH98056
+      *    THE CONTRACT WILL HAVE ANY REBATE APPLIED TO THEIR           JXH98056
+      *    PRICE BY SYXCPRA ONLY IF REBATES ARE ALLOWED FOR BOTH        JXH98056
+      *    THE CONTRACT AND THE CUSTOMER.                               JXH98056
+      *                                                                 JXH98056
+           SET WS-INSTANT-REBATE-NONE  TO  TRUE.                        JXH98056
+      *                                                                 JXH98056
+      *    SAVE THE CONTRACT PRICING                                    JXH98056
+      *                                                                 JXH98056
+           MOVE WS-PRC-CUSTOMER-WORK-AREA                               JXH98056
+                                     TO  WS-PRC-CUSTOMER-PRICING (002). JXH98056
+           MOVE WS-PRC-CUSTOMER-WORK-AREA2                              MCV01032
+                                     TO  WS-PRC-CUSTOMER-PRICING2(002). MCV01032
+      *                                                                 JXH98056
+      *    RESTORE CUSTOMER'S PRICING TO WORK AREA                      JXH98056
+      *                                                                 JXH98056
+           MOVE WS-PRC-CUSTOMER-PRICING (001)                           JXH98056
+                                     TO  WS-PRC-CUSTOMER-WORK-AREA.     JXH98056
+           MOVE WS-PRC-CUSTOMER-PRICING2(001)                           MCV01032
+                                     TO  WS-PRC-CUSTOMER-WORK-AREA2     MCV01032
+      *                                                                 JXH98056
+      *    RESTORE CUSHED & CUSBRN FOR CUSTOMER                         JXH98056
+      *                                                                 JXH98056
+           MOVE WS-PRC-BR-CUST         TO  WS-CUSHED-BR-CUST            JXH98056
+                                           WS-CUSBRN-BR.                JXH98056
+           PERFORM 1000-GU-CUSHED                                       JXH98056
+           PERFORM 1004-GU-CUSBRN.                                      JXH98056
+      ***                                                               LMH01271
+       880-CALCULATE-PGM-FEE-PCT.                                       LMH01271
+      *                                                                 LMH01271
+           IF CUB-RESELLER-SPLIT-PCT NOT NUMERIC                        LMH01271
+              MOVE +0                  TO  CUB-RESELLER-SPLIT-PCT.      LMH01271
+      *                                                                 LMH01271
+           IF CUB-RESELLER-SPLIT-PCT > 0                                LMH01271
+              MOVE CUB-RESELLER-SPLIT-PCT                               LMH01271
+                                       TO  WS-PRC-PGM-FEE-PCT           LMH01271
+           ELSE                                                         LMH01271
+              IF WS-PRC-EU-AGENCY  AND                                  LMH01271
+                 TB-CPO3-AGENCY-PCT IS NUMERIC                          LMH01271
+                 MOVE TB-CPO3-AGENCY-PCT                                LMH01271
+                                       TO  WS-PRC-PGM-FEE-PCT           LMH01271
+              ELSE                                                      LMH01271
+                 IF WS-PRC-EU-SELECTSOURCE  AND                         LMH01271
+                    TB-CPO3-SELECTSOURCE-PCT IS NUMERIC                 LMH01271
+                    MOVE TB-CPO3-SELECTSOURCE-PCT                       LMH01271
+                                       TO  WS-PRC-PGM-FEE-PCT           LMH01271
+                 ELSE                                                   LMH01271
+                    IF WS-PRC-EU-PURCH-ORDER-FIN  AND                   LMH01271
+                       TB-CPO3-PURCH-ORDER-FIN-PCT IS NUMERIC           LMH01271
+                       MOVE TB-CPO3-PURCH-ORDER-FIN-PCT                 LMH01271
+                                       TO  WS-PRC-PGM-FEE-PCT.          LMH01271

@@ -1,0 +1,209 @@
+      ****************************************************************          
+      *   PROGRAM:                                                   *          
+      *      CICS: ICP060 - LINKED TO                                *          
+      *                                                              *          
+      ****************************************************************          
+      ****************************************************************          
+      *                                                              *          
+      *  COPYBOOK: ICW060                                            *          
+      *                                                              *          
+      *  PROGRAM FUNCTION:                                           *          
+      *                                                              *          
+      *  THE PROGRAM IS DESIGNED TO BUILD THE KEYS REQUIRED TO       *          
+      *  ACCESS CSLMST FOR MAXIMUM ALLOCATION QUANTITY PROCESSING    *          
+      *  AND INCLOP FOR COST OVERRIDE PROCESSING.                    *          
+      *                                                              *          
+      *  WHEN INQUIRE MODE IS REQUESTED, THE KEYS TO CSLMST AND/OR   *          
+      *  ICLCOP WILL BE RETURNED TO THE CALLING PROGRAM.             *          
+      *                                                              *          
+      *  WHEN DELETE MODE IS REQUESTED, THE KEYS TO CSLMST AND/OR    *          
+      *  ICLCOP WILL BE RETURNED TO THE CALLING PROGRAM AND THE      *          
+      *  ORDERED QUANTITY WILL BE REDUCED ON THE FILE(S).            *          
+      *                                                              *          
+      *  THE PROCESSING MODE IS BASED UPON THE VALUE PASSED IN       *          
+      *  ICW060-FUNCTION-IND.                                        *          
+      *                                                              *          
+      *  THE FOLLOWING INFORMATION MUST BE PASSED FROM THE CALLING   *          
+      *  PROGRAM TO ICP060.                                          *          
+      *  NOTE: IF DELETE MODE IS BEING USED, THE ORL-QTY-ORDERED     *          
+      *        MUST BE PASSED.                                       *          
+      *                                                              *          
+      *  TO ACCESS THE MAXIMUM ALLOCATION QUANTITY FOR ACOP, THE     *          
+      *  FOLLOWING IS REQUIRED.                                      *          
+      *  1.  THE COUNTRY/COMPANY CODE (ORH-COMPANY OR TC-COMPANY)    *          
+      *  2.  THE INVENTORY SKU NUMBER (ORL-PART-NBR)                 *          
+      *  3.  THE INVENTORY VENDOR (ORL-VENDOR-NBR)                   *          
+      *  4.  THE CUSTOMER/SELLING BRANCH (ORH-BR-NBR OR TC-BR-NBR)   *          
+      *  5.  THE CUSTOMER BRANCH (ORH-BILL-TO-BR-NBR)                *          
+      *  6.  THE CUSTOMER NUMBER (ORH-BILL-TO-CUST-NBR)              *          
+      *  7.  THE SHIP-TO SUFFIX (ORH-SHIP-TO-SUFFIX)                 *          
+      *  8.  THE ACOP COST OVERRIDE INDICATOR                        *          
+      *      (ORL-ACOP-COST-OVERRIDE-IND).                           *          
+      *  9.  THE ACOP END USER NUMBER (ORL-ACOP-END-USER-NBR)        *          
+      * 10.  THE ORDER QUANTITY (ORL-QTY-ORDERED)                    *          
+      * 11.  THE ACOP TRACKING NUMBER (ORC-ACOP-TRK-NBR).            *          
+      * 12.  THE ACOP CODE (ORC-ACOP-CODE).                          *          
+      * 13.  THE ACOP OVERRIDE INDICATOR (ORC-ACOP-OVERRIDE-IND).    *          
+      * 14.  THE MAXIMUM ALLOCATION QUANTITY INDICATOR (ORC-MAQ-IND) *          
+      * 15.  THE ORDER QUANTITY (ORL-QTY-ORDERED)                    *          
+      * 16.  THE REMAINING FIELDS SHOULD BE INITITALIZED TO ZEROES   *          
+      *      AND SPACES.                                             *          
+      * 17.  THE ACOP PROGRAM TYPE  (ORL-PROGRAM-TYPE).              *          
+      *                                                              *          
+      ****************************************************************          
+      *      REVISION INFO:                                          *          
+      *                                                              *          
+      *      PAR #       DATE    PROG  COMMENT                       *          
+      *      ---------------------------------                       *          
+      *                07/07/23  SS8   EVEREST PROJECT: NEW 88 LEVELS*  SS823188
+      *                                FOR ACOP OVERRIDES            *  SS823188
+      *                02/28/20  SPR   PROJECT ARMOR: ADDED ORDER    *  SPR20059
+      *                                HEADER AND LINE NBR FIELDS    *  SPR20059
+      *                06/03/09  KAB   ADD A FIELD TO TRACE THE PGM  *  INF09154
+      *                                WHICH MAKE MAX/MAQ -VE        *  INF09154
+      *                08/12/03  MJF   ORIGINAL...                   *  MJF03224
+      ****************************************************************          
+                                                                                
+       01  ICW060-LINK-DATA.                                                    
+           05  ICW060-AREA-LENGTH         PIC S9(4) COMP VALUE ZERO.            
+           05  ICW060-PROGRAM-ID          PIC X(08) VALUE 'ICP060  '.           
+                                                                                
+       01  ICW060-PARM-DATA.                                                    
+           05  ICW060-RETURN-CODE         PIC X(03).                            
+               88  ICW060-NORESP                  VALUE '000'.                  
+               88  ICW060-COMPANY-CODE-ERROR      VALUE '001'.                  
+               88  ICW060-ACOP-FUNCTION-ERROR     VALUE '002'.                  
+               88  ICW060-PART-NUMBER-ERROR       VALUE '003'.                  
+               88  ICW060-BRANCH-ERROR            VALUE '004'.                  
+               88  ICW060-CUSTOMER-NUMBER-ERROR   VALUE '005'.                  
+               88  ICW060-ORDER-QUANTITY-ERROR    VALUE '006'.                  
+               88  ICW060-VENDOR-NUMBER-ERROR     VALUE '007'.                  
+               88  ICW060-CUSTOMER-BRANCH-ERROR   VALUE '008'.                  
+               88  ICW060-ORC-MAQ-INDICATOR-ERROR VALUE '012'.                  
+               88  ICW060-ORC-TRACKING-NBR-ERROR  VALUE '013'.                  
+               88  ICW060-ORC-ACOP-OVRRIDE-ERROR  VALUE '014'.                  
+               88  ICW060-ORC-ACOP-CODE-ERROR     VALUE '015'.                  
+               88  ICW060-DB2-AVAILABILITY-ERROR  VALUE '101'.                  
+               88  ICW060-DB2-TRKNG-SELECT-ERROR  VALUE '102'.                  
+               88  ICW060-CSLMST-NOT-OPEN         VALUE '201'.                  
+               88  ICW060-CSLMST-NOT-FOUND        VALUE '202'.                  
+               88  ICW060-CSLMST-READ-ERROR       VALUE '203'.                  
+               88  ICW060-CSLMST-REWRITE-ERROR    VALUE '211'.                  
+               88  ICW060-ICLCOP-NOT-OPEN         VALUE '251'.                  
+               88  ICW060-ICLCOP-NOT-FOUND        VALUE '252'.                  
+               88  ICW060-ICLCOP-READ-ERROR       VALUE '253'.                  
+               88  ICW060-ICLCOP-REWRITE-ERROR    VALUE '261'.                  
+           05  ICW060-ERROR-MESSAGE       PIC X(30).                            
+      ****************************************************************          
+      ***                                                                       
+      ***        INPUT INFORMATION                                              
+      ***                                                                       
+      ****************************************************************          
+           05  ICW060-FUNCTION-IND        PIC X(01).                            
+               88  ICW060-DELETE-MODE           VALUE 'D'.                      
+               88  ICW060-INQUIRE-MODE          VALUE 'I'.                      
+           05  ICW060-CSLMST-SUFFIX       PIC X(01).                            
+           05  IC60ORH-COMPANY            PIC X(02).                            
+           05  IC60ORH-BR-NBR             PIC X(02).                            
+           05  IC60ORH-BILL-TO-NBR.                                             
+               10  IC60ORH-BILL-TO-BR-NBR                                       
+                                          PIC X(02).                            
+               10  IC60ORH-BILL-TO-CUST-NBR                                     
+                                          PIC X(06).                            
+               10  IC60ORH-BILL-TO-SUFFIX                                       
+                                          PIC X(03).                            
+           05  IC60ORH-SHIP-TO-SUFFIX     PIC X(03).                            
+           05  IC60ORC-ACOP-SEG.                                                
+               10  IC60ORC-ACOP-TRK-NBR                                         
+                                          PIC S9(09) COMP-3.                    
+               10  IC60ORC-ACOP-CODE      PIC X(03).                            
+               10  IC60ORC-ACOP-ORID-IND                                        
+                                          PIC X(01).                            
+                   88  IC60ORC-ACOP-COST-ORID   VALUE '1' '2' '3' '4'           
+                                                      '5' '6' '7' '8'           
+                                                      '9' '0'           SS823188
+                                                      'A' 'B' 'C' 'D'   SS823188
+                                                      'E' 'F' 'H' 'I'   SS823188
+                                                      'J' 'K'.          SS823188
+                   88  IC60ORC-ACOP-PART-ORID   VALUE '1' '3' '5' '7'           
+                                                      '9' 'A' 'C' 'E'   SS823188
+                                                      'H' 'J'.          SS823188
+                   88  IC60ORC-ACOP-VEND-ORID   VALUE '2' '4' '6' '8'           
+                                                      '0' 'B' 'D' 'F'   SS823188
+                                                      'I' 'K'.          SS823188
+                   88  IC60ORC-ACOP-CUS-PART-ORID                               
+                                                VALUE '1' 'A'.          SS823188
+                   88  IC60ORC-ACOP-CUS-VEND-ORID                               
+                                                VALUE '2' 'B'.          SS823188
+                   88  IC60ORC-ACOP-BR-PART-ORID                                
+                                                VALUE '3' 'C'.          SS823188
+                   88  IC60ORC-ACOP-BR-VEND-ORID                                
+                                                VALUE '4' 'D'.          SS823188
+                   88  IC60ORC-ACOP-PRG-PART-ORID                               
+                                                VALUE '5' 'E'.          SS823188
+                   88  IC60ORC-ACOP-PRG-VEND-ORID                               
+                                                VALUE '6' 'F'.          SS823188
+                   88  IC60ORC-ACOP-CUS-EUS-PART-ORID                           
+                                                VALUE '7' 'H'.          SS823188
+                   88  IC60ORC-ACOP-CUS-EUS-VEND-ORID                           
+                                                VALUE '8' 'I'.          SS823188
+                   88  IC60ORC-ACOP-CO-PART-ORID                                
+                                                VALUE '9' 'J'.          SS823188
+                   88  IC60ORC-ACOP-CO-VEND-ORID                                
+                                                VALUE '0' 'K'.          SS823188
+      * GLOBAL DISCOUNT SYSTEM (GDS)                                    SS823188
+                   88  IC60ORC-ACOP-GDS-PART-ORID                       SS823188
+                                                VALUE 'A' 'C' 'E' 'H'   SS823188
+                                                      'J'.              SS823188
+                   88  IC60ORC-ACOP-GDS-VEND-ORID                       SS823188
+                                                VALUE 'B' 'D' 'F' 'I'   SS823188
+                                                      'K'.              SS823188
+                   88  IC60ORC-ACOP-GDS-CUS-PART-ORID                   SS823188
+                                                VALUE 'A'.              SS823188
+                   88  IC60ORC-ACOP-GDS-CUS-VEND-ORID                   SS823188
+                                                VALUE 'B'.              SS823188
+                   88  IC60ORC-ACOP-GDS-BR-PART-ORID                    SS823188
+                                                VALUE 'C'.              SS823188
+                   88  IC60ORC-ACOP-GDS-BR-VEND-ORID                    SS823188
+                                                VALUE 'D'.              SS823188
+                   88  IC60ORC-ACOP-GDS-PRG-PART-ORID                   SS823188
+                                                VALUE 'E'.              SS823188
+                   88  IC60ORC-ACOP-GDS-PRG-VEND-ORID                   SS823188
+                                                VALUE 'F'.              SS823188
+                   88  IC60ORC-ACOP-GDS-CU-EU-PT-ORID                   SS823188
+                                                VALUE 'H'.              SS823188
+                   88  IC60ORC-ACOP-GDS-CU-EU-VN-ORID                   SS823188
+                                                VALUE 'I'.              SS823188
+                   88  IC60ORC-ACOP-GDS-CO-PART-ORID                    SS823188
+                                                VALUE 'J'.              SS823188
+                   88  IC60ORC-ACOP-GDS-CO-VEND-ORID                    SS823188
+                                                VALUE 'K'.              SS823188
+               10  IC60ORC-MAQ-IND        PIC  X(01).                           
+                   88  IC60ORC-MAQ-ACOP-SKU     VALUE 'A'.                      
+                   88  IC60ORC-MAX-ACOP-SKU     VALUE 'M'.                      
+                   88  IC60ORC-MAQ-MAX-ACOP-SKU                                 
+                                                VALUE 'B'.                      
+           05  IC60ORL-VENDOR-NBR         PIC X(04).                            
+           05  IC60ORL-PART-NBR           PIC X(12).                            
+           05  IC60ORL-QTY-ORDERED        PIC S9(7) COMP-3.                     
+           05  IC60ORL-ACOP-END-USER-NBR  PIC S9(09) COMP-3.                    
+           05  IC60OTH-REQUEST-FROM-IND   PIC X(01).                    INF09154
+               88  IC60OTH-REQUEST-FROM-ORP320  VALUE 'A'.              INF09154
+               88  IC60OTH-REQUEST-FROM-ORP472  VALUE 'B'.              INF09154
+               88  IC60OTH-REQUEST-FROM-ORP474  VALUE 'C'.              INF09154
+               88  IC60OTH-REQUEST-FROM-ORP550  VALUE 'D'.              INF09154
+               88  IC60OTH-REQUEST-FROM-CAP772  VALUE 'E'.              INF09154
+           05  IC60ORH-ENTRY-DATE         PIC S9(5) COMP-3.             SPR20059
+           05  IC60ORH-ORDER-NBR          PIC X(5).                     SPR20059
+           05  IC60ORSH-DIST-NBR          PIC X(1).                     SPR20059
+           05  IC60ORSH-SHIP-NBR          PIC X(1).                     SPR20059
+           05  IC60ORL-LINE-NBR           PIC 9(3).                     SPR20059
+           05  FILLER                     PIC X(36).                    SPR20059
+      ****************************************************************          
+      ***                                                                       
+      ***        OUTPUT INFORMATION                                             
+      ***                                                                       
+      ****************************************************************          
+           05  IC60CSF-RECORD-KEY         PIC X(34).                            
+           05  IC60COP-ICLCOP-KEY         PIC X(32).                            
+           05  FILLER                     PIC X(50).                            
