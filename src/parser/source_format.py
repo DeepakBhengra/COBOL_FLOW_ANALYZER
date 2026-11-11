@@ -12,7 +12,14 @@ free-format text and kept whole.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+
+# A paragraph header: a name with at least one hyphen, ending with a period, optionally followed by
+# EXIT. (as in "1050A-EXIT. EXIT."). Level numbers such as "05 FILLER." never match.
+HEADER_RE = re.compile(r"^[A-Z0-9]+(?:-[A-Z0-9]+)+\.(?:\s+EXIT\.)?$")
+# Words after which a name is a target, not a header: "PERFORM 1100-X" split over two lines.
+TARGET_WORDS = ("PERFORM", "THRU", "THROUGH", "GO TO", "GO", "TO", "UNTIL", "VARYING")
 
 COMMENT_INDICATORS = frozenset("*/dD")
 CONTINUATION_INDICATOR = "-"
@@ -23,6 +30,7 @@ class LogicalLine:
     number: int  # line number in the (expanded) program text
     text: str
     origin: str | None = None  # e.g. 'CUSTCOMM.cpy:12' for lines that came from a copybook
+    header: bool = False       # a paragraph header written on its own line in Area A (e.g. 1100-X.)
 
 
 def _is_fixed_layout(raw: str) -> bool:
@@ -58,5 +66,12 @@ def normalize(source: str) -> list[LogicalLine]:
                 previous.text = previous.text.rstrip() + " " + stripped
             continue
 
-        result.append(LogicalLine(number, content))
+        if content.lstrip().startswith("*"):
+            continue  # a comment written after the indicator column
+        stripped = content.strip().upper()
+        leading = len(content) - len(content.lstrip())
+        previous_text = result[-1].text.strip().upper() if result else ""
+        is_header = (leading <= 3 and HEADER_RE.match(stripped) is not None
+                     and not previous_text.endswith(TARGET_WORDS))
+        result.append(LogicalLine(number, content, header=is_header))
     return result

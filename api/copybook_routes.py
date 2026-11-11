@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from src.copybooks import CopybookLibrary
 from src.copybooks.knowledge import KnowledgeStore
 from src.copybooks.layout import CATEGORIES, layout_of_copybook
+from src.parser.source_format import normalize
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_COPYBOOK_DIR = os.path.join(ROOT, "sample_programs", "copybooks")
@@ -68,6 +69,15 @@ def export() -> dict:
     return knowledge().export_json()
 
 
+PROCEDURE_WORDS = ("DISPLAY", "CALL", "MOVE", "IF", "GOBACK", "STOP", "PERFORM", "EXEC", "COMPUTE", "GO", "ELSE")
+
+
+def _looks_like_code(code: list[dict]) -> bool:
+    """A copybook with statements and no data entries holds procedure code (for example an abend routine)."""
+    words = {w.upper() for line in code for w in line["text"].split()}
+    return any(w in words for w in PROCEDURE_WORDS)
+
+
 @router.get("/{name}")
 def get_copybook(name: str) -> dict:
     label, layout = _load(name)
@@ -91,9 +101,14 @@ def get_copybook(name: str) -> dict:
                 if note else None
             ),
         })
+    text = library().resolve(name)[1]
+    code = [{"number": line.number, "text": line.text.rstrip()} for line in normalize(text)]
+    kind = "data" if layout.has_data else ("procedure" if _looks_like_code(code) else "empty")
     return {
         "name": layout.name,
         "file": label,
+        "kind": kind,
+        "code": code if kind == "procedure" else [],
         "fingerprint": layout.fingerprint,
         "has_data": layout.has_data,
         "total_length": layout.total_length,
@@ -104,6 +119,44 @@ def get_copybook(name: str) -> dict:
         "description": description["description"] if description else "",
         "description_stale": bool(description and description.get("fingerprint") not in (None, layout.fingerprint)),
         "updated_at": description["updated_at"] if description else None,
+    }
+
+
+@router.get("/{name}/procedure")
+def procedure_analysis(name: str) -> dict:
+    """The statements of a copybook that holds procedure code, analysed as one paragraph named after it:
+    a summary, the business logic, a flow chart and the Python module. Fields the statements use that
+    the copybook does not declare are reported; they belong to the program that copies it."""
+    from src.analyzer.paragraph_analyzer import paragraph_detail  # noqa: F401  (keeps the analyser loaded)
+    from src.business.logic_extraction import extract as extract_logic
+    from src.convert.python_gen import generate as generate_python
+    from src.pipeline import analyze_source
+    from src.summary.paragraph_summary import paragraph_summary
+
+    label, layout = _load(name)
+    text = library().resolve(name)[1]
+    body = [line.text.rstrip() for line in normalize(text)]
+    if not any(line.strip() for line in body):
+        raise HTTPException(status_code=404, detail=f"Copybook {name} has no statements.")
+    paragraph = name.upper()
+    source = "\n".join(
+        ["       IDENTIFICATION DIVISION.", f"       PROGRAM-ID. {paragraph}.", "       PROCEDURE DIVISION.",
+         f"       {paragraph}."] + ["       " + line for line in body]) + "\n"
+    analysis = analyze_source(source, f"{paragraph}.txt", library=library())
+    if paragraph not in analysis.program.paragraph_map:
+        raise HTTPException(status_code=422, detail=f"Copybook {name} could not be read as statements.")
+    summary = paragraph_summary(analysis, paragraph, library=library())
+    generated = generate_python(analysis, [paragraph])
+    logic = extract_logic(generated["module"], generated["paragraphs"], {})
+    para = next((p for p in logic["paragraphs"] if p["name"] == paragraph), None)
+    return {
+        "name": paragraph,
+        "summary": summary["summary"] if summary else "",
+        "explanation": para["explanation"] if para else [],
+        "flow": para["flow"] if para else {"nodes": [], "edges": []},
+        "findings": logic["findings"],
+        "python": generated["module"],
+        "notes": generated["notes"],
     }
 
 

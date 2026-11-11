@@ -277,8 +277,14 @@ export default function CopybookPage() {
                     <div><span className="stat-label">Record</span><span className="stat-value small-value mono">{layout.roots.join(", ") || "—"}</span></div>
                   </div>
 
-                  {!layout.has_data && (
-                    <Alert tone="warn">This copybook has no data entries. It probably holds procedure code.</Alert>
+                  {layout.kind === "procedure" && (
+                    <Alert tone="info">
+                      This copybook holds procedure code, not data. Its statements run wherever it is copied into a
+                      PROCEDURE DIVISION, so it has no fields, type or PIC. The code is listed below.
+                    </Alert>
+                  )}
+                  {!layout.has_data && layout.kind !== "procedure" && (
+                    <Alert tone="warn">This copybook has no data entries.</Alert>
                   )}
                   {(layout.description_stale || staleCount > 0) && (
                     <Alert tone="warn">
@@ -299,6 +305,13 @@ export default function CopybookPage() {
                 </div>
               </Card>
 
+              {layout.kind === "procedure" && (
+                <Card className="tab-card" title="Procedure code" subtitle="Statements in this copybook, by line">
+                  <pre className="code code-compact">{layout.code.map((l) => `${String(l.number).padStart(4)}  ${l.text}`).join("\n")}</pre>
+                </Card>
+              )}
+              {layout.kind === "procedure" && <CopybookFlow name={layout.name} />}
+              {layout.kind !== "procedure" && (
               <Card className="tab-card" title="Fields" subtitle="Click a field to describe it.">
                 <div className="table-wrap">
                   <table className="data-table layout-table">
@@ -343,6 +356,7 @@ export default function CopybookPage() {
                   </table>
                 </div>
               </Card>
+              )}
 
               {item && (
                 <Card className="detail-card" title={item.path}

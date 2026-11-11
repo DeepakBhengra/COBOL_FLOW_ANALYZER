@@ -27,6 +27,7 @@ from ..models.paragraph import Statement
 
 LOCAL_PREFIX = "WS-"
 MAX_PERFORM_DEPTH = 3
+MAX_STEPS = 20000          # statements the tracer may apply for one request; the result says when reached
 REFMOD_RE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9-]*)\s*\(\s*(.+?)\s*:\s*(.*?)\s*\)$")
 COMPARE_RE = re.compile(r"^(.+?)\s+(NOT\s*=|NOT\s*<|NOT\s*>|>=|<=|=|<|>)\s+(.+)$")
 TOKEN_RE = re.compile(r"'[^']*'|\d+|[A-Za-z][A-Za-z0-9-]*|[+\-*/()]")
@@ -45,6 +46,7 @@ class Val:
     num: int | None = None
     lit: str | None = None
     slice: tuple | None = None  # (buffer name, start Val, length Val) for a reference-modified slice
+    origin: str | None = None   # the data name this value was read from (its identity, not its text)
 
     @property
     def known(self) -> bool:
@@ -102,6 +104,8 @@ class Context:
     child_of: dict = field(default_factory=dict)
     cond88: dict = field(default_factory=dict)
     cond_used: set = field(default_factory=set)
+    steps: int = 0
+    exhausted: bool = False
     constraints: list[dict] = field(default_factory=list)   # what a value must equal for a branch to be taken
     group_moves: list[dict] = field(default_factory=list)   # a slice moved into a group item
 
@@ -141,7 +145,8 @@ def _leaves(group) -> list:
 def _leaf_info(item, group) -> dict:
     meta = describe(item.pic, item.usage, False)
     return {"name": item.name.upper(), "offset": item.offset - group.offset, "bytes": item.element_length,
-            "pic": item.pic, "type": meta["type_label"], "occurs": item.occurs}
+            "pic": item.pic, "type": meta["type_label"], "occurs": item.occurs, "usage": item.usage,
+            "digits": meta["digits"] or item.element_length, "signed": bool(meta["signed"])}
 
 
 def condition_names(entries) -> dict[str, tuple[str, list[str]]]:
@@ -153,7 +158,14 @@ def condition_names(entries) -> dict[str, tuple[str, list[str]]]:
             continue
         level = tokens[0].value.lstrip("0") or "0"
         if level == "88":
-            values = [t.value[1:-1] for t in tokens[2:] if t.kind == "STRING"]
+            values = []
+            for t in tokens[2:]:
+                if t.kind == "STRING":
+                    values.append(t.value[1:-1])
+                elif t.kind == "NUMBER":
+                    values.append(t.value)
+                elif t.kind == "WORD" and t.value.upper() in ("VALUE", "VALUES", "THRU", "THROUGH"):
+                    continue
             if parent is not None:
                 out[tokens[1].value.upper()] = (parent, values)
         elif tokens[1].kind == "WORD":
@@ -228,9 +240,11 @@ def _operand(text: str, env: dict, ctx: Context) -> Val:
             return Val(shown, lit=piece, slice=(name, start_val, len_val))
         return Val(shown, slice=(name, start_val, len_val))
     if upper in env:
-        return env[upper]
+        v = env[upper]
+        return Val(v.text, v.num, v.lit, v.slice, origin=upper)
     if re.fullmatch(r"[A-Za-z][A-Za-z0-9-]*", text):
-        return env.setdefault(upper, sym(upper))
+        v = env.setdefault(upper, sym(upper))
+        return Val(v.text, v.num, v.lit, v.slice, origin=upper)
     return _expression(text, env, ctx)
 
 
@@ -289,7 +303,9 @@ def _condition(text: str, env: dict, ctx: Context):
     left = _operand(m.group(1), env, ctx)
     op = re.sub(r"\s+", " ", m.group(2).upper())
     right = _operand(m.group(3), env, ctx)
-    plain = f"{left.text} is {OP_TEXT.get(op, op.lower())} {right.text}"
+    lname = left.origin or left.text
+    rname = right.origin or right.text
+    plain = f"{lname} is {OP_TEXT.get(op, op.lower())} {rname}"
     if left.num is not None and right.num is not None:
         ops = {"=": left.num == right.num, "NOT =": left.num != right.num, "NOT=": left.num != right.num,
                ">": left.num > right.num, "<": left.num < right.num, ">=": left.num >= right.num,
@@ -324,6 +340,12 @@ def _names_in(text: str) -> list[str]:
 
 def _apply(stmt: Statement, env: dict, ctx: Context, via: str, depth: int, stack: tuple) -> bool:
     """Apply one statement. Returns False when control leaves the paragraph (GO TO, STOP)."""
+    ctx.steps += 1
+    if ctx.steps > MAX_STEPS:
+        if not ctx.exhausted:
+            ctx.exhausted = True
+            ctx.notes.append(f"analysis stopped after {MAX_STEPS} steps: the result below is partial")
+        return False
     text = _clean(stmt.text)
     upper = text.upper()
     if stmt.kind == "IF":
@@ -456,9 +478,10 @@ def add_constraint(left: Val, allowed: list[str], ctx: Context, line: int, via: 
         name, start, length = left.slice
         ctx.constraints.append({"kind": "slice", "buffer": name, "start": start, "length": length,
                                 "allowed": allowed, "line": line, "via": via, "text": shown})
-    elif left.text.upper() in ctx.child_of:
-        ctx.constraints.append({"kind": "field", "field": left.text.upper(),
-                                "group": ctx.child_of[left.text.upper()],
+    elif (left.origin or left.text.upper()) in ctx.child_of:
+        name = left.origin or left.text.upper()
+        ctx.constraints.append({"kind": "field", "field": name,
+                                "group": ctx.child_of[name],
                                 "allowed": allowed, "line": line, "via": via, "text": shown})
 
 
@@ -562,6 +585,82 @@ def trace_paragraph(analysis, paragraph: str, initial_env: dict | None = None,
     return ctx, env
 
 
+def _roles(statements) -> dict[str, dict]:
+    """Each WS- name in these statements: read, written, and the lines it appears on."""
+    from ..analyzer.reference_analyzer import walk_statements
+    roles: dict[str, dict] = {}
+
+    def note(name, role, line):
+        entry = roles.setdefault(name, {"read": False, "written": False, "lines": []})
+        entry[role] = True
+        if line not in entry["lines"]:
+            entry["lines"].append(line)
+
+    for stmt, _ in walk_statements(statements):
+        text = _clean(stmt.text)
+        if stmt.kind == "IF" or stmt.kind == "EVALUATE":
+            for n in _names_in(stmt.condition):
+                note(n, "read", stmt.line)
+            continue
+        if stmt.kind == "PERFORM" or stmt.kind == "GOTO":
+            continue
+        m = re.match(r"^MOVE\s+(.+?)\s+TO\s+(.+)$", text, re.IGNORECASE)
+        if m:
+            for n in _names_in(m.group(1)):
+                note(n, "read", stmt.line)
+            for n in _split_targets(m.group(2)):
+                note(n.upper(), "written", stmt.line)
+            continue
+        m = re.match(r"^COMPUTE\s+(.+?)\s*=\s*(.+)$", text, re.IGNORECASE)
+        if m:
+            note(m.group(1).strip().upper(), "written", stmt.line)
+            for n in _names_in(m.group(2)):
+                note(n, "read", stmt.line)
+            continue
+        m = re.match(r"^(ADD|SUBTRACT)\s+(.+?)\s+(TO|FROM)\s+(.+)$", text, re.IGNORECASE)
+        if m:
+            for n in _names_in(m.group(2)):
+                note(n, "read", stmt.line)
+            for n in _split_targets(m.group(4)):
+                note(n.upper(), "written", stmt.line)
+            continue
+        m = re.match(r"^SET\s+(.+?)\s+TO\s+(.+)$", text, re.IGNORECASE)
+        if m:
+            for n in _names_in(m.group(1)):
+                note(n, "written", stmt.line)
+            for n in _names_in(m.group(2)):
+                note(n, "read", stmt.line)
+            continue
+        for n in _names_in(text):
+            note(n, "read", stmt.line)
+    return roles
+
+
+def used_variables(analysis, paragraph: str, env: dict, layouts: dict, initial: dict) -> list[dict]:
+    """Every WS- data item the paragraph names, with its type, length, start value, end value and roles."""
+    from ..values.working_storage import names_in_code
+    para = analysis.program.paragraph_map[paragraph]
+    roles = _roles(para.statements)
+    out = []
+    for name in names_in_code(para.source_text):
+        if not name.startswith(LOCAL_PREFIX) or name not in layouts or layouts[name].get("children"):
+            continue
+        info = layouts[name]
+        role = roles.get(name, {"read": False, "written": False, "lines": []})
+        out.append({
+            "name": name,
+            "type": info.get("type"),
+            "bytes": info.get("bytes"),
+            "pic": info.get("pic"),
+            "initial": initial[name].text if name in initial else None,
+            "final": env[name].text if name in env else None,
+            "read": bool(role["read"]),
+            "written": bool(role["written"]),
+            "lines": role["lines"],
+        })
+    return out
+
+
 def analyze_values(analysis, paragraph: str, initial_env: dict | None = None) -> dict | None:
     """Follow the local variables through one paragraph and the paragraphs it PERFORMs."""
     traced = trace_paragraph(analysis, paragraph, initial_env)
@@ -605,6 +704,8 @@ def analyze_values(analysis, paragraph: str, initial_env: dict | None = None) ->
         })
     return {
         "paragraph": paragraph,
+        "used_variables": used_variables(analysis, paragraph, env, layouts, initial),
+        "exhausted": ctx.exhausted,
         "locals": locals_out,
         "chain": chain,
         "decisions": decisions,

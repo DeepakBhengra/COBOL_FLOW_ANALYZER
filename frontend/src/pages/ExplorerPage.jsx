@@ -5,6 +5,7 @@ import {
   Alert, Badge, Card, Conditions, DataTable, Empty, PageTag, SearchBar, StatStrip, Tabs, statusTone,
 } from "../components/ui.jsx";
 import ParagraphSummary from "../components/ParagraphSummary.jsx";
+import ConvertToPython from "../components/ConvertToPython.jsx";
 
 const FILTERS = {
   all: () => true,
@@ -182,6 +183,12 @@ export default function ExplorerPage() {
       )}
 
       {selected && analysis && <ParagraphSummary analysisId={analysis.id} name={selected} />}
+
+      {selected && analysis && (
+        <Card className="convert-card" title="Convert to Python" subtitle={`Python equivalent of ${selected}`}>
+          <ConvertToPython analysisId={analysis.id} name={selected} />
+        </Card>
+      )}
     </div>
   );
 }

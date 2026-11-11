@@ -72,7 +72,7 @@ export default function ValuesPage() {
   const built = input?.built;
   const stats = [
     { label: "Input buffers", value: input?.buffers?.length ?? "—", icon: "layers", muted: !input },
-    { label: "Local variables", value: localRows.length || "—", icon: "list", muted: !locals },
+    { label: "Local variables", value: locals?.used_variables?.length ?? (localRows.length || "—"), icon: "list", muted: !locals },
     { label: "Logic steps", value: locals?.chain?.length ?? "—", icon: "flow", muted: !locals },
     { label: "Decisions", value: locals?.decisions?.length ?? "—", icon: "network", muted: !locals },
   ];
@@ -192,14 +192,23 @@ export default function ValuesPage() {
                 { key: "bytes", label: "Bytes", className: "num", render: (v) => v.bytes ?? "—" },
                 { key: "init", label: "Starts as", className: "mono", render: (v) => v.initial ?? "—" },
                 { key: "final", label: "Ends as", className: "mono", render: (v) => v.final ?? "—" },
-                { key: "changes", label: "Changes", className: "num", render: (v) => v.history.length },
+                {
+                  key: "used",
+                  label: "Used as",
+                  render: (v) => [v.read && "read", v.written && "set"].filter(Boolean).join(" + ") || "—",
+                },
+                { key: "changes", label: "Changes", className: "num", render: (v) => (v.history || []).length },
               ]}
-              rows={localRows}
+              rows={locals.used_variables || localRows}
               rowKey={(v) => v.name}
               selectedKey={selectedLocal}
               onRowClick={(v) => setSelectedLocal(v.name)}
               empty="No local variable is set in this paragraph."
             />
+
+            {locals.exhausted && (
+              <Alert tone="warn">The analysis stopped early for this program size, so some values are partial.</Alert>
+            )}
 
             {selectedLocal && (
               <>

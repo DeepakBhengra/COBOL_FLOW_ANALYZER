@@ -164,6 +164,31 @@ def _writes(statement, catalog: Catalog) -> list[dict]:
     return out
 
 
+def _from_copybook(analysis, line: int) -> str:
+    """' (in copybook ERXBATCH.txt:3)' when the line is copied in from a copybook, otherwise ''."""
+    program = analysis.program
+    origin = program.line_origin.get(line)
+    if origin and not origin.startswith(program.source_name + ":"):
+        return f" (in copybook {origin})"
+    return ""
+
+
+def _action(stmt) -> str:
+    """A statement as it reads in a summary: a PERFORM keeps its THRU range."""
+    if stmt.kind == "PERFORM" and stmt.target:
+        return f"PERFORM {stmt.target}" + (f" THRU {stmt.thru}" if stmt.thru else "")
+    return stmt.text
+
+
+def _performs(statements) -> list[dict]:
+    """Every paragraph PERFORMed inside these statements, including nested IF / EVALUATE bodies."""
+    found = []
+    for stmt, _ in walk_statements(statements):
+        if stmt.kind == "PERFORM" and stmt.target:
+            found.append({"target": stmt.target, "thru": stmt.thru, "line": stmt.line})
+    return found
+
+
 def paragraph_summary(analysis, name: str, library: CopybookLibrary | None = None,
                       catalog: Catalog | None = None) -> dict | None:
     detail = paragraph_detail(analysis, name)
@@ -178,10 +203,15 @@ def paragraph_summary(analysis, name: str, library: CopybookLibrary | None = Non
             plain = plain_condition(stmt.condition, catalog)
             names = _names_in(stmt.condition, catalog)
             reads.extend(n for n in names if n not in reads)
-            true_actions = [s.text for s in (stmt.branches[0].body if stmt.branches else [])][:4]
+            true_body = next((b.body for b in stmt.branches if b.label == "TRUE"), [])
+            else_body = next((b.body for b in stmt.branches if b.label == "FALSE"), [])
+            true_actions = [_action(x) for x in true_body]
+            else_actions = [_action(x) for x in else_body]
+            performs = _performs(true_body + else_body)
             decisions.append({
                 "line": stmt.line, "condition": stmt.condition, "plain": plain, "fields": names,
                 "enclosing": list(enclosing), "when_true": true_actions,
+                "when_else": else_actions, "performs": performs,
             })
         else:
             writes.extend(_writes(stmt, catalog))
@@ -198,14 +228,28 @@ def paragraph_summary(analysis, name: str, library: CopybookLibrary | None = Non
         {"field": f, "meaning": catalog.meaning(f)} for f in reads
     ]
 
-    sentences = []
+    # Each sentence carries its line so the summary reads in program order. PERFORMs that are
+    # not inside an IF are sentences of their own (PERFORMs inside an IF appear in its "If so").
+    timed: list[tuple[int, str]] = []
     for d in decisions:
-        action = f" If so: {d['when_true'][0]}." if d["when_true"] else ""
-        sentences.append(f"Line {d['line']}: if {d['plain']}.{action}")
+        action = f" If so: {'; '.join(d['when_true'])}." if d["when_true"] else ""
+        other = f" Otherwise: {'; '.join(d['when_else'])}." if d.get("when_else") else ""
+        timed.append((d["line"], f"Line {d['line']}{_from_copybook(analysis, d['line'])}: "
+                                 f"if {d['plain']}.{action}{other}"))
+    for stmt in para.statements:
+        if stmt.kind == "PERFORM" and stmt.target:
+            thru = f" THRU {stmt.thru}" if stmt.thru else ""
+            timed.append((stmt.line, f"Line {stmt.line}{_from_copybook(analysis, stmt.line)}: "
+                                     f"PERFORM {stmt.target}{thru}, which runs that paragraph "
+                                     f"and then returns here."))
     for c in changed:
         values = ", ".join(f"'{v}'" for v in c["values"])
-        sentences.append(f"It sets {c['field']} to {values}" + (f" ({c['meaning']})." if c["meaning"] else "."))
-    if not decisions and not changed:
+        line = min(c["lines"]) if c.get("lines") else 0
+        timed.append((line, f"It sets {c['field']} to {values}"
+                            + (f" ({c['meaning']})." if c["meaning"] else ".")))
+    timed.sort(key=lambda item: item[0])
+    sentences = [text for _, text in timed]
+    if not decisions and not changed and not sentences:
         sentences.append("It has no decisions on noted fields and changes no noted fields.")
     sentences.append(detail["after_completion"])
 

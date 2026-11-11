@@ -29,6 +29,10 @@ from src.values import analyze_values  # noqa: E402
 from src.values.buffer_builder import build_sample  # noqa: E402
 from src.values.buffer_search import analyze_with_buffer, build_by_execution  # noqa: E402
 from src.values.input_buffer import detect_input_buffers  # noqa: E402
+from src.values.record_builder import build_record  # noqa: E402
+from src.convert.python_gen import generate as generate_python  # noqa: E402
+from src.business.logic_extraction import extract as extract_logic  # noqa: E402
+from src.summary.paragraph_summary import build_catalog  # noqa: E402
 from src.values.local_values import const  # noqa: E402
 from src.values.working_storage import working_storage  # noqa: E402
 
@@ -221,9 +225,49 @@ def get_paragraph(analysis_id: str, name: str) -> dict:
 
 @app.get("/api/analyses/{analysis_id}/paragraphs/{name}/summary")
 def get_paragraph_summary(analysis_id: str, name: str) -> dict:
-    result = paragraph_summary(_get(analysis_id), name, library=getattr(_get(analysis_id), "library", None))
+    analysis = _get(analysis_id)
+    result = paragraph_summary(analysis, name, library=getattr(analysis, "library", None))
     if result is None:
         raise HTTPException(status_code=404, detail=f"No paragraph named {name}.")
+    # A paragraph that receives an input record gets the record built and the logic run on it.
+    for found in detect_input_buffers(analysis):
+        if found["bytes"] and any(load["paragraph"] == name for load in found["loaded_by"]):
+            result["simulation"] = build_record(analysis, found["buffer"], name, _assumptions("EIBCALEN=0"),
+                                                library=getattr(analysis, "library", None))
+            break
+    return result
+
+
+def _assumptions(text: str) -> dict:
+    out = {}
+    for pair in filter(None, (part.strip() for part in text.split(","))):
+        key, _, value = pair.partition("=")
+        if key.strip() and value.strip().lstrip("-").isdigit():
+            out[key.strip().upper()] = const(int(value))
+    return out
+
+
+@app.get("/api/analyses/{analysis_id}/simulate")
+def get_simulation(analysis_id: str, entry: str, group: str = "", assume: str = "EIBCALEN=0",
+                   values: str = "", sample: int = 1) -> dict:
+    """Build an input record (for example INP389-TRANSACTION-AREA) and run the logic from `entry` on it.
+    values: field values you give, as FIELD=value pairs separated by commas (e.g. INP389-COMPANY=FR).
+    sample: 1 to use the demo sample values, 0 to start every field blank or zero."""
+    analysis = _get(analysis_id)
+    if not group:
+        found = [b for b in detect_input_buffers(analysis) if b["bytes"]]
+        if not found:
+            raise HTTPException(status_code=404, detail="No input record was found in this program.")
+        group = found[0]["buffer"]
+    given = {}
+    for pair in filter(None, (part.strip() for part in values.split(","))):
+        key, _, value = pair.partition("=")
+        if key.strip():
+            given[key.strip().upper()] = value
+    result = build_record(analysis, group, entry, _assumptions(assume), library=getattr(analysis, "library", None),
+                          values=given, sample=bool(sample))
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"{group} has no fields, or {entry} is not in the program.")
     return result
 
 
@@ -297,6 +341,29 @@ def get_input_buffer(analysis_id: str, buffer: str = "", assume: str = "") -> di
     built = build_by_execution(analysis, chosen["entry_paragraph"], chosen["buffer"], assumptions)
     return {"buffers": [{k: v for k, v in b.items()} for b in found], "chosen": chosen["buffer"],
             "entry_paragraph": chosen["entry_paragraph"], "built": built}
+
+
+@app.get("/api/analyses/{analysis_id}/paragraphs/{name}/python")
+def get_python(analysis_id: str, name: str) -> dict:
+    """The paragraph (and the paragraphs it PERFORMs) as a Python module, with the runtime it needs."""
+    analysis = _get(analysis_id)
+    if name.upper() not in analysis.program.paragraph_map:
+        raise HTTPException(status_code=404, detail=f"No paragraph named {name}.")
+    return generate_python(analysis, [name])
+
+
+@app.get("/api/analyses/{analysis_id}/paragraphs/{name}/business-logic")
+def get_business_logic(analysis_id: str, name: str) -> dict:
+    """Business rules and plain-language explanations, read from the Python module of the paragraph."""
+    analysis = _get(analysis_id)
+    if name.upper() not in analysis.program.paragraph_map:
+        raise HTTPException(status_code=404, detail=f"No paragraph named {name}.")
+    generated = generate_python(analysis, [name])
+    catalog = build_catalog(analysis, getattr(analysis, "library", None))
+    meanings = {k: v.meaning for k, v in catalog.fields.items()}
+    result = extract_logic(generated["module"], generated["paragraphs"], meanings)
+    result["selected"] = name.upper()
+    return result
 
 
 @app.get("/api/analyses/{analysis_id}/insights")

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "../summary.css";
 import { api } from "../api.js";
 import { Alert, Card, DataTable, Empty, Badge } from "./ui.jsx";
+import SimulatedInput from "./SimulatedInput.jsx";
 
 /** Plain-language summary of one paragraph, built from the saved copybook field notes. */
 export default function ParagraphSummary({ analysisId, name }) {
@@ -46,7 +47,7 @@ export default function ParagraphSummary({ analysisId, name }) {
             columns={[
               { key: "line", label: "Line", className: "num", render: (d) => d.line },
               { key: "when", label: "When", render: (d) => d.plain },
-              { key: "true", label: "If true", className: "mono small", render: (d) => d.when_true[0] || "—" },
+              { key: "true", label: "If true", className: "mono small", render: (d) => (d.when_true.length ? d.when_true.join(" · ") : "—") },
             ]}
             rows={data.decisions}
             rowKey={(d) => `${d.line}-${d.condition}`}
@@ -67,6 +68,8 @@ export default function ParagraphSummary({ analysisId, name }) {
           />
 
           <p className="summary-after">{data.after_completion}</p>
+
+          {data.simulation && <SimulatedInput sim={data.simulation} />}
         </div>
       )}
     </Card>

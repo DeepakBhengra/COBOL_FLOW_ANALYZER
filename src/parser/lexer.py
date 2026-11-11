@@ -41,6 +41,9 @@ class Token:
 def tokenize(lines: list[LogicalLine]) -> list[Token]:
     tokens: list[Token] = []
     for logical in lines:
+        if logical.header:
+            # A header ends the sentence before it, so the name stands alone as its own sentence.
+            tokens.append(Token(PERIOD, ".", logical.number))
         for match in _TOKEN_RE.finditer(logical.text):
             tokens.append(Token(match.lastgroup, match.group(), logical.number))
     return tokens

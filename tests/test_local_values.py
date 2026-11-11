@@ -39,3 +39,19 @@ def test_unknown_input_stays_undecided_with_both_branches():
     decision = next(d for d in result["decisions"] if d["line"] == 24)
     assert decision["decided"] is None
     assert decision["when_else"] == ["MOVE SPACES TO ORRORL-LINE-REQUEST"]
+
+
+def test_a_paragraph_lists_every_local_it_uses_with_how_it_uses_it():
+    result = analyze_values(_analysis(), "0500-PARSE-INPUT")
+    names = {v["name"]: v for v in result["used_variables"]}
+    assert "WS-START-POS" in names and "WS-FUNC-LEN" in names
+    assert names["WS-START-POS"]["written"]
+    assert names["WS-FUNC-LEN"]["read"]
+
+
+def test_the_work_budget_stops_a_long_trace_and_says_so(monkeypatch):
+    import src.values.local_values as lv
+    monkeypatch.setattr(lv, "MAX_STEPS", 3)
+    result = analyze_values(_analysis(), "0500-PARSE-INPUT")
+    assert result["exhausted"] is True
+    assert any("stopped after 3 steps" in n for n in result["notes"])

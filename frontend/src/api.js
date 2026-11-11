@@ -39,6 +39,12 @@ export const api = {
     fetch(`${BASE}/analyses/${id}/paragraphs/${encodeURIComponent(name)}/locals`).then(parse),
   inputBuffer: (id, buffer = "", assume = "") =>
     fetch(`${BASE}/analyses/${id}/input-buffer?buffer=${encodeURIComponent(buffer)}&assume=${encodeURIComponent(assume)}`).then(parse),
+  businessLogic: (id, name) =>
+    fetch(`${BASE}/analyses/${id}/paragraphs/${encodeURIComponent(name)}/business-logic`).then(parse),
+  copybookProcedure: (name) =>
+    fetch(`${BASE}/copybooks/${encodeURIComponent(name)}/procedure`).then(parse),
+  paragraphPython: (id, name) =>
+    fetch(`${BASE}/analyses/${id}/paragraphs/${encodeURIComponent(name)}/python`).then(parse),
   paragraphSummary: (id, name) =>
     fetch(`${BASE}/analyses/${id}/paragraphs/${encodeURIComponent(name)}/summary`).then(parse),
   programLog: (limit = 200) => fetch(`${BASE}/program-log?limit=${limit}`).then(parse),
