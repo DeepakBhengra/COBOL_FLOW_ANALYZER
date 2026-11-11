@@ -97,6 +97,19 @@ python -m src.commarea sample_programs/cics_custinq.cbl          # text report
 python -m src.commarea sample_programs/cics_custinq.cbl --json   # JSON
 ```
 
+## Propose a change from a requirement
+
+`src/changes/` reads an analysis and proposes one code change. It uses the paragraph that already updates the table, the host variables moved before that SQL statement, and the DCLGEN member named by `EXEC SQL INCLUDE`. It does not modify the source file.
+
+```bash
+python -m src.changes sample_programs/INP389.cbl.txt "update SETATRK-ACOP-PROMO-FLG with 'Y'"
+python -m src.changes sample_programs/INP389.cbl.txt "set ACOP_PROMO_FLG to Y" --json
+```
+
+The text report shows the field (PICTURE, column, nullability), the paragraph and line where the edit belongs, the COBOL lines to add or replace, and what the change would affect. A value that does not fit the PICTURE is still proposed, with a warning.
+
+The architecture of the whole tool is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). How a requirement becomes an edit, including the INP389 promo-flag example, is in [docs/CHANGE_PROPOSAL.md](docs/CHANGE_PROPOSAL.md).
+
 ## Run the tests
 
 ```bash
