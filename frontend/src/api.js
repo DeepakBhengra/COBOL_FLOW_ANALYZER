@@ -44,6 +44,12 @@ export const api = {
   copybookProcedure: (name) =>
     fetch(`${BASE}/copybooks/${encodeURIComponent(name)}/procedure`).then(parse),
   programLayout: (id) => fetch(`${BASE}/analyses/${id}/layout`).then(parse),
+  saveItemDescription: (id, body) =>
+    fetch(`${BASE}/analyses/${id}/layout/description`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(parse),
   paragraphPython: (id, name) =>
     fetch(`${BASE}/analyses/${id}/paragraphs/${encodeURIComponent(name)}/python`).then(parse),
   paragraphSummary: (id, name) =>
