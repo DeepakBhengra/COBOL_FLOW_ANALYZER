@@ -111,6 +111,7 @@ def _payload(analysis_id: str, a: Analysis) -> dict:
             "name": p.name,
             "source_name": p.source_name,
             "line_count": p.line_count,
+            "description": p.description,
             "data_item_count": p.data_item_count,
             "procedure_start_line": p.procedure_start_line,
             "procedure_origin": _origin(p, p.procedure_start_line),

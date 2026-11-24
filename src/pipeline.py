@@ -16,6 +16,7 @@ from .copybooks.meanings import field_meanings
 from .models.flow_node import CallSite, ExecEvent, ExternalCall
 from .models.program import Program
 from .parser import build_paragraphs, normalize, parse_structure, tokenize
+from .parser.description import program_description
 
 
 @dataclass
@@ -83,6 +84,7 @@ def analyze_source(text: str, source_name: str = "program.cbl",
         procedure_start_line=structure.procedure_start_line,
         source_lines=source_map,
         line_origin=origins,
+        description=program_description(text),
     )
 
     roots, _ = build_layout(structure.data_entries)

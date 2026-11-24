@@ -1,28 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../api.js";
 import { useAnalysis } from "../state.jsx";
-import { Alert, Card, DataTable, Empty, Field, PageTag, SearchBar, StatStrip, Tabs } from "../components/ui.jsx";
+import { Alert, Card, Empty, Field, PageTag, SearchBar, StatStrip } from "../components/ui.jsx";
 
-const TABS = [
-  { key: "divisions", label: "Divisions" },
-  { key: "sections", label: "Sections" },
-  { key: "source", label: "Source" },
-];
+/** The program's own description, from the comment block between DATE-COMPILED and REVISIONS INFO. */
+function Description({ analysis }) {
+  const text = analysis?.program?.description || "";
+  if (!analysis) return <Empty>No program loaded yet. Choose a COBOL file or load the sample, then click ANALYZE.</Empty>;
+  if (!text) {
+    return (
+      <Empty>
+        This program has no description block between DATE-COMPILED and REVISIONS INFO.
+      </Empty>
+    );
+  }
+  return (
+    <div className="program-description">
+      <h3 className="sub-title">Program description</h3>
+      <pre className="program-description-text">{text}</pre>
+    </div>
+  );
+}
 
 export default function UploadPage() {
   const { analysis, load, busy, error, setError, clear } = useAnalysis();
   const [pending, setPending] = useState(null); // { name, source }
-  const [tab, setTab] = useState("divisions");
-  const [sourceLines, setSourceLines] = useState(null);
   const fileRef = useRef(null);
-
-  useEffect(() => {
-    if (tab === "source" && analysis && !sourceLines) {
-      api.source(analysis.id).then((d) => setSourceLines(d.lines)).catch((e) => setError(e.message));
-    }
-  }, [tab, analysis, sourceLines, setError]);
-
-  useEffect(() => setSourceLines(null), [analysis?.id]);
 
   const stats = analysis?.stats;
   const statItems = [
@@ -55,13 +58,9 @@ export default function UploadPage() {
 
   function reset() {
     setPending(null);
-    setSourceLines(null);
     if (fileRef.current) fileRef.current.value = "";
     clear();
   }
-
-  const divisionRows = analysis?.divisions ?? [];
-  const sectionRows = analysis?.sections ?? [];
 
   return (
     <div className="page">
@@ -110,61 +109,9 @@ export default function UploadPage() {
           </div>
         </div>
 
-        <Tabs
-          tabs={[
-            { ...TABS[0], count: divisionRows.length },
-            { ...TABS[1], count: sectionRows.length },
-            { ...TABS[2] },
-          ]}
-          active={tab}
-          onChange={setTab}
-        />
-
-        {!analysis && tab !== "source" && (
-          <Empty>No results yet. Choose a COBOL file or load the sample, then click ANALYZE.</Empty>
-        )}
-
-        {analysis && tab === "divisions" && (
-          <DataTable
-            columns={[
-              { key: "name", label: "Division" },
-              { key: "origin", label: "Source line" },
-            ]}
-            rows={divisionRows}
-            rowKey={(r) => r.name}
-          />
-        )}
-
-        {analysis && tab === "sections" && (
-          <DataTable
-            columns={[
-              { key: "name", label: "Section" },
-              { key: "division", label: "Division" },
-              { key: "origin", label: "Source line" },
-              { key: "paragraph_count", label: "Paragraphs", className: "num" },
-            ]}
-            rows={sectionRows}
-            rowKey={(r) => r.name}
-            empty="No sections found."
-          />
-        )}
-
-        {tab === "source" && (
-          <div className="code-block">
-            {!analysis && <Empty>Analyze a program to see its source.</Empty>}
-            {analysis && !sourceLines && <Empty>Loading source…</Empty>}
-            {analysis && sourceLines && (
-              <pre className="code">
-                {sourceLines.map((l) => (
-                  <div key={l.number} className="code-line">
-                    <span className="ln">{l.number}</span>
-                    <span>{l.text || " "}</span>
-                  </div>
-                ))}
-              </pre>
-            )}
-          </div>
-        )}
+        <div className="card-inner">
+          <Description analysis={analysis} />
+        </div>
       </Card>
     </div>
   );

@@ -33,6 +33,8 @@ class Program:
     source_lines: dict[int, str] = field(default_factory=dict)
     # expanded line number -> where it came from ('MAIN.cbl:12' or 'CUSTCOMM.cpy:3')
     line_origin: dict[int, str] = field(default_factory=dict)
+    # the program's own description: the comment block between DATE-COMPILED and REVISIONS INFO
+    description: str = ""
 
     @property
     def paragraph_map(self) -> dict[str, Paragraph]:
