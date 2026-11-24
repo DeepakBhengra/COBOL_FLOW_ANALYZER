@@ -372,7 +372,36 @@ def get_business_logic(analysis_id: str, name: str) -> dict:
 def get_program_layout(analysis_id: str) -> dict:
     """The program's WORKING-STORAGE in the copybook layout format, and the copybooks and DCLGEN members used."""
     analysis = _get(analysis_id)
-    return working_layout(analysis, getattr(analysis, "library", None))
+    return working_layout(analysis, getattr(analysis, "library", None), _knowledge())
+
+
+@app.put("/api/analyses/{analysis_id}/layout/description")
+def save_item_description(analysis_id: str, body: dict) -> dict:
+    """Save the description of one working-storage item. An item from a copybook is saved against that
+    copybook's field (so every program that copies it shows it); a program's own item is saved against
+    the program."""
+    from src.values.program_layout import _copybook_path, item_source
+    analysis = _get(analysis_id)
+    item_name = str(body.get("name", "")).strip().upper()
+    line = body.get("line")
+    text = str(body.get("description", ""))
+    if not item_name:
+        raise HTTPException(status_code=422, detail="name is required")
+    store = _knowledge()
+    source, local = item_source(analysis, int(line)) if line else (analysis.program.source_name, None)
+    if source == analysis.program.source_name or source == analysis.program.name:
+        store.set_program_note(analysis.program.name, item_name, text)
+        return {"saved_to": "program", "name": item_name}
+    library = getattr(analysis, "library", None)
+    path = _copybook_path(library, source, local) if local else None
+    if path is None:
+        raise HTTPException(status_code=422, detail=f"Cannot find the field of {item_name} in {source}.")
+    from src.copybooks.knowledge import KnowledgeStore  # noqa: F401
+    if text.strip():
+        store.upsert_field(source, path, text.strip(), "", [], None)
+    else:
+        store.delete_field(source, path)
+    return {"saved_to": source, "name": item_name, "path": path}
 
 
 @app.get("/api/analyses/{analysis_id}/insights")

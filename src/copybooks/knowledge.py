@@ -22,6 +22,13 @@ DEFAULT_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.pat
 ENV_VAR = "COBOL_KNOWLEDGE_DB"
 
 _SCHEMA = """
+CREATE TABLE IF NOT EXISTS program_item_notes (
+    program      TEXT NOT NULL,
+    item         TEXT NOT NULL,
+    description  TEXT NOT NULL,
+    updated_at   TEXT NOT NULL,
+    PRIMARY KEY (program, item)
+);
 CREATE TABLE IF NOT EXISTS copybook_notes (
     copybook     TEXT PRIMARY KEY,
     description  TEXT NOT NULL DEFAULT '',
@@ -115,6 +122,26 @@ class KnowledgeStore:
         with self._connect() as conn:
             rows = conn.execute("SELECT copybook, COUNT(*) AS n FROM field_notes GROUP BY copybook").fetchall()
         return {r["copybook"]: r["n"] for r in rows}
+
+    # ------------------------------------------------------------ program items
+    def get_program_notes(self, program: str) -> dict[str, str]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT item, description FROM program_item_notes WHERE program = ?",
+                                (program.strip().upper(),)).fetchall()
+        return {r["item"]: r["description"] for r in rows}
+
+    def set_program_note(self, program: str, item: str, description: str) -> None:
+        key = (program.strip().upper(), item.strip().upper())
+        with self._connect() as conn:
+            if not description.strip():
+                conn.execute("DELETE FROM program_item_notes WHERE program = ? AND item = ?", key)
+                return
+            conn.execute(
+                "INSERT INTO program_item_notes (program, item, description, updated_at) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(program, item) DO UPDATE SET description = excluded.description, "
+                "updated_at = excluded.updated_at",
+                (key[0], key[1], description.strip(), _now()),
+            )
 
     def export_json(self) -> dict:
         with self._connect() as conn:

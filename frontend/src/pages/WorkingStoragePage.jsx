@@ -8,8 +8,50 @@ function valuesText(values) {
   return Array.isArray(values) ? values.map((v) => `'${v}'`).join(" ") : String(values);
 }
 
-/** One layout table: the same columns as the Copybook Layout page, with the levels indented. */
-export function LayoutTable({ items }) {
+/** The description cell: edit it, and it is saved when the field loses focus or Enter is pressed. */
+function DescriptionCell({ item, analysisId, onSaved }) {
+  const [text, setText] = useState(item.description || "");
+  const [state, setState] = useState("");
+  const [error, setError] = useState(null);
+
+  useEffect(() => setText(item.description || ""), [item.description]);
+
+  function save() {
+    if ((item.description || "") === text) return;
+    setState("saving");
+    setError(null);
+    api
+      .saveItemDescription(analysisId, { name: item.name, line: item.line, description: text })
+      .then(() => {
+        setState("saved");
+        onSaved(item.name, text);
+      })
+      .catch((e) => {
+        setState("");
+        setError(e.message);
+      });
+  }
+
+  return (
+    <div className="desc-cell">
+      <input
+        className="desc-input"
+        value={text}
+        placeholder="Add a description"
+        aria-label={`Description of ${item.name}`}
+        onChange={(e) => { setText(e.target.value); setState(""); }}
+        onBlur={save}
+        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+      />
+      {state === "saving" && <span className="muted small">saving…</span>}
+      {state === "saved" && <span className="muted small">saved</span>}
+      {error && <span className="desc-error small">{error}</span>}
+    </div>
+  );
+}
+
+/** The copybook layout format for one set of items, with a description column. */
+function ItemsTable({ items, analysisId, onSaved, withDescription }) {
   if (!items || items.length === 0) return <Empty>No data items.</Empty>;
   return (
     <div className="table-wrap">
@@ -25,11 +67,12 @@ export function LayoutTable({ items }) {
             <th className="num">Length</th>
             <th className="num">Occurs</th>
             <th>Conditions (88)</th>
+            {withDescription && <th>Description</th>}
           </tr>
         </thead>
         <tbody>
           {items.map((it, i) => (
-            <tr key={`${it.path || it.name}-${i}`}>
+            <tr key={`${it.name}-${i}`}>
               <td className="mono">{String(it.level).padStart(2, "0")}</td>
               <td className="mono" style={{ paddingLeft: 8 + (it.depth || 0) * 18 }}>{it.name}</td>
               <td>{it.type_label || (it.is_group ? "Group" : "—")}</td>
@@ -40,11 +83,14 @@ export function LayoutTable({ items }) {
               <td className="num">{it.occurs > 1 ? it.occurs : ""}</td>
               <td>
                 {(it.conditions || []).map((c) => (
-                  <div key={c.name} className="mono small">
-                    {c.name} = {valuesText(c.values)}
-                  </div>
+                  <div key={c.name} className="mono small">{c.name} = {valuesText(c.values)}</div>
                 ))}
               </td>
+              {withDescription && (
+                <td>
+                  <DescriptionCell item={it} analysisId={analysisId} onSaved={onSaved} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -92,7 +138,7 @@ function MemberRow({ member }) {
           <p className="muted small">
             {layout.file} · {layout.total_length} bytes · {layout.items.length} fields
           </p>
-          <LayoutTable items={layout.items} />
+          <ItemsTable items={layout.items} withDescription={false} />
         </>
       )}
     </div>
@@ -111,6 +157,13 @@ export default function WorkingStoragePage() {
       .then(setLayout)
       .catch((e) => setError(e.message));
   }, [analysis?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onSaved(name, description) {
+    setLayout((current) => current && {
+      ...current,
+      items: current.items.map((i) => (i.name === name ? { ...i, description } : i)),
+    });
+  }
 
   if (!analysis) {
     return (
@@ -150,45 +203,6 @@ export default function WorkingStoragePage() {
         </Alert>
       )}
 
-      <Card className="tab-card" title="Working-storage layout" subtitle="Every item the program declares, with the copybook it came from">
-        <div className="card-inner">
-          {!layout ? <Empty>Reading the working storage…</Empty> : (
-            <div className="table-wrap">
-              <table className="data-table layout-table">
-                <thead>
-                  <tr>
-                    <th>Level</th>
-                    <th>Field</th>
-                    <th>Type</th>
-                    <th>PIC</th>
-                    <th>Usage</th>
-                    <th className="num">Offset</th>
-                    <th className="num">Length</th>
-                    <th className="num">Occurs</th>
-                    <th>From</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((it, i) => (
-                    <tr key={`${it.name}-${i}`}>
-                      <td className="mono">{String(it.level).padStart(2, "0")}</td>
-                      <td className="mono" style={{ paddingLeft: 8 + (it.depth || 0) * 18 }}>{it.name}</td>
-                      <td>{it.type_label}</td>
-                      <td className="mono">{it.pic || "—"}</td>
-                      <td className="mono small">{it.usage || "—"}</td>
-                      <td className="num">{it.offset}</td>
-                      <td className="num">{it.length}</td>
-                      <td className="num">{it.occurs > 1 ? it.occurs : ""}</td>
-                      <td className="mono small">{it.source}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </Card>
-
       <Card className="tab-card" title="Copybooks used" subtitle="Expand a copybook to see its layout in the same format">
         <div className="card-inner">
           {!layout && <Empty>Loading…</Empty>}
@@ -201,6 +215,14 @@ export default function WorkingStoragePage() {
         <div className="card-inner">
           {layout && dclgens.length === 0 && <Empty>The program has no EXEC SQL INCLUDE.</Empty>}
           {dclgens.map((m) => <MemberRow key={`dclgen-${m.name}`} member={m} />)}
+        </div>
+      </Card>
+
+      <Card className="tab-card" title="Working-storage layout" subtitle="Every item the program declares. Edit a description and it is saved when you leave the cell.">
+        <div className="card-inner">
+          {!layout ? <Empty>Reading the working storage…</Empty> : (
+            <ItemsTable items={items} analysisId={analysis.id} onSaved={onSaved} withDescription />
+          )}
         </div>
       </Card>
     </div>

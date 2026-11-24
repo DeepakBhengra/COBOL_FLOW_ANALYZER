@@ -18,7 +18,9 @@ def _origin_name(origin: str | None, source_name: str) -> str:
     """'CUSTCOMM.txt:3' -> 'CUSTCOMM.txt'; the program's own lines -> the program name."""
     if not origin or origin.startswith(source_name + ":"):
         return source_name
-    return origin.rsplit(":", 1)[0].replace(" (uploaded)", "")
+    name = origin.rsplit(":", 1)[0].replace(" (uploaded)", "")
+    stem, dot, ext = name.rpartition(".")
+    return stem if dot and ext.lower() in ("txt", "cpy") else name
 
 
 def _depth(item) -> int:
@@ -30,7 +32,24 @@ def _depth(item) -> int:
     return depth
 
 
-def working_layout(analysis, library=None) -> dict:
+def _copybook_path(library, copy: str, local_line: int) -> str | None:
+    """The declared path in a copybook of the field on a given line of that copybook."""
+    from ..copybooks.layout import layout_of_copybook
+    found = library.resolve(copy) if library is not None else None
+    if found is None:
+        return None
+    return layout_of_copybook(copy, found[1]).line_to_path.get(local_line)
+
+
+def item_source(analysis, line: int) -> tuple[str, int | None]:
+    """(copybook name or program name, the line inside that copybook or program)."""
+    origin = analysis.program.line_origin.get(line) or ""
+    name = _origin_name(origin, analysis.program.source_name)
+    local = origin.rsplit(":", 1)[1] if ":" in origin else None
+    return name, int(local) if local and local.isdigit() else None
+
+
+def working_layout(analysis, library=None, store=None) -> dict:
     program = analysis.program
     conditions = {}
     for name, (parent, values) in condition_names(analysis.data_entries).items():
@@ -73,6 +92,26 @@ def working_layout(analysis, library=None) -> dict:
         if name not in seen:
             seen.add(name)
             dclgen.append({"name": name, "source": None, "line": None, "kind": "dclgen"})
+
+    program_notes = store.get_program_notes(program.name) if store is not None else {}
+    cache: dict[str, dict] = {}
+    for item in items:
+        if item["source"] == program.source_name or item["source"] == program.name:
+            item["description"] = program_notes.get(item["name"], "")
+            item["description_from"] = "program"
+            continue
+        item["description"], item["description_from"] = "", "copybook"
+        if store is None or library is None:
+            continue
+        copy = item["source"]
+        _, local = item_source(analysis, item["line"])
+        path = _copybook_path(library, copy, local) if local else None
+        if path is None:
+            continue
+        if copy not in cache:
+            cache[copy] = store.get_fields(copy)
+        note = cache[copy].get(path)
+        item["description"] = note["meaning"] if note else ""
 
     members = used + dclgen
     for member in members:
