@@ -9,6 +9,7 @@ import FlowMapPage from "./pages/FlowMapPage.jsx";
 import CopybookPage from "./pages/CopybookPage.jsx";
 import ProgramLogPage from "./pages/ProgramLogPage.jsx";
 import ValuesPage from "./pages/ValuesPage.jsx";
+import WorkingStoragePage from "./pages/WorkingStoragePage.jsx";
 
 const PAGES = [
   { path: "/", label: "Program Upload", icon: "home", Component: UploadPage },
@@ -19,6 +20,7 @@ const PAGES = [
   { path: "/copybooks", label: "Copybook Layout", icon: "book", Component: CopybookPage },
   { path: "/program-log", label: "Program Log", icon: "list", Component: ProgramLogPage },
   { path: "/values", label: "Program Values", icon: "flow", Component: ValuesPage },
+  { path: "/working-storage", label: "Working Storage", icon: "book", Component: WorkingStoragePage },
 ];
 
 export default function App() {

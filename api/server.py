@@ -35,6 +35,7 @@ from src.business.logic_extraction import extract as extract_logic  # noqa: E402
 from src.summary.paragraph_summary import build_catalog  # noqa: E402
 from src.values.local_values import const  # noqa: E402
 from src.values.working_storage import working_storage  # noqa: E402
+from src.values.program_layout import working_layout  # noqa: E402
 
 SAMPLE_PATH = os.path.join(ROOT, "sample_programs", "sample01.cbl")
 MAX_STORED = 20
@@ -365,6 +366,13 @@ def get_business_logic(analysis_id: str, name: str) -> dict:
     result = extract_logic(generated["module"], generated["paragraphs"], meanings)
     result["selected"] = name.upper()
     return result
+
+
+@app.get("/api/analyses/{analysis_id}/layout")
+def get_program_layout(analysis_id: str) -> dict:
+    """The program's WORKING-STORAGE in the copybook layout format, and the copybooks and DCLGEN members used."""
+    analysis = _get(analysis_id)
+    return working_layout(analysis, getattr(analysis, "library", None))
 
 
 @app.get("/api/analyses/{analysis_id}/insights")

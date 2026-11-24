@@ -43,6 +43,7 @@ export const api = {
     fetch(`${BASE}/analyses/${id}/paragraphs/${encodeURIComponent(name)}/business-logic`).then(parse),
   copybookProcedure: (name) =>
     fetch(`${BASE}/copybooks/${encodeURIComponent(name)}/procedure`).then(parse),
+  programLayout: (id) => fetch(`${BASE}/analyses/${id}/layout`).then(parse),
   paragraphPython: (id, name) =>
     fetch(`${BASE}/analyses/${id}/paragraphs/${encodeURIComponent(name)}/python`).then(parse),
   paragraphSummary: (id, name) =>
