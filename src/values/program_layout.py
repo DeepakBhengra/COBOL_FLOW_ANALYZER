@@ -155,7 +155,7 @@ def search_fields(analysis, query: str, library=None, store=None, limit: int = 5
             matches.append({
                 "name": it["name"], "source": layout["program"], "kind": "program", "level": it["level"],
                 "pic": it["pic"], "type_label": it["type_label"], "offset": it["offset"],
-                "length": it["length"], "line": it["line"], "description": it["description"],
+                "length": it["length"], "line": it["line"], "path": it["path"], "description": it["description"],
                 "description_from": it["description_from"],
             })
     for member in layout["copybooks"]:
@@ -172,7 +172,7 @@ def search_fields(analysis, query: str, library=None, store=None, limit: int = 5
             matches.append({
                 "name": item.name.upper(), "source": member["name"], "kind": member["kind"],
                 "level": item.level, "pic": item.pic, "type_label": item.type_label,
-                "offset": item.offset, "length": item.length, "line": item.line,
+                "offset": item.offset, "length": item.length, "line": item.line, "path": item.path,
                 "description": note["meaning"] if note else "", "description_from": "copybook",
             })
     return {"query": query, "matches": matches[:limit], "count": len(matches),

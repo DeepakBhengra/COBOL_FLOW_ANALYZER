@@ -396,6 +396,20 @@ def save_item_description(analysis_id: str, body: dict) -> dict:
     if not item_name:
         raise HTTPException(status_code=422, detail="name is required")
     store = _knowledge()
+    if body.get("kind") or body.get("path"):
+        # A match from the field search names its own program or copybook and field path.
+        if str(body.get("kind", "")).lower() == "program":
+            store.set_program_note(analysis.program.name, item_name, text)
+            return {"saved_to": "program", "name": item_name}
+        source = str(body.get("source", "")).strip()
+        path = str(body.get("path", "")).strip()
+        if not source or not path:
+            raise HTTPException(status_code=422, detail="source and path are required for a copybook field")
+        if text.strip():
+            store.upsert_field(source, path, text.strip(), "", [], None)
+        else:
+            store.delete_field(source, path)
+        return {"saved_to": source, "name": item_name, "path": path}
     source, local = item_source(analysis, int(line)) if line else (analysis.program.source_name, None)
     if source == analysis.program.source_name or source == analysis.program.name:
         store.set_program_note(analysis.program.name, item_name, text)

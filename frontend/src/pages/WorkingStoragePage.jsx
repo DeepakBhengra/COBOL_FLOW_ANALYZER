@@ -8,24 +8,23 @@ function valuesText(values) {
   return Array.isArray(values) ? values.map((v) => `'${v}'`).join(" ") : String(values);
 }
 
-/** The description cell: edit it, and it is saved when the field loses focus or Enter is pressed. */
-function DescriptionCell({ item, analysisId, onSaved }) {
-  const [text, setText] = useState(item.description || "");
+/**
+ * An editable description. It is saved when the field loses focus or Enter is pressed;
+ * onSave(text) returns a promise for the save.
+ */
+function DescriptionCell({ name, description, onSave }) {
+  const [text, setText] = useState(description || "");
   const [state, setState] = useState("");
   const [error, setError] = useState(null);
 
-  useEffect(() => setText(item.description || ""), [item.description]);
+  useEffect(() => setText(description || ""), [description]);
 
   function save() {
-    if ((item.description || "") === text) return;
+    if ((description || "") === text) return;
     setState("saving");
     setError(null);
-    api
-      .saveItemDescription(analysisId, { name: item.name, line: item.line, description: text })
-      .then(() => {
-        setState("saved");
-        onSaved(item.name, text);
-      })
+    onSave(text)
+      .then(() => setState("saved"))
       .catch((e) => {
         setState("");
         setError(e.message);
@@ -38,7 +37,7 @@ function DescriptionCell({ item, analysisId, onSaved }) {
         className="desc-input"
         value={text}
         placeholder="Add a description"
-        aria-label={`Description of ${item.name}`}
+        aria-label={`Description of ${name}`}
         onChange={(e) => { setText(e.target.value); setState(""); }}
         onBlur={save}
         onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
@@ -88,7 +87,15 @@ function ItemsTable({ items, analysisId, onSaved, withDescription }) {
               </td>
               {withDescription && (
                 <td>
-                  <DescriptionCell item={it} analysisId={analysisId} onSaved={onSaved} />
+                  <DescriptionCell
+                    name={it.name}
+                    description={it.description}
+                    onSave={(text) =>
+                      api
+                        .saveItemDescription(analysisId, { name: it.name, line: it.line, description: text })
+                        .then(() => onSaved(it.name, text))
+                    }
+                  />
                 </td>
               )}
             </tr>
@@ -174,7 +181,26 @@ function FieldSearch({ analysisId }) {
                       <td className="mono">{m.pic || "—"}</td>
                       <td className="num">{m.offset}</td>
                       <td className="num">{m.length}</td>
-                      <td>{m.description || <span className="muted">—</span>}</td>
+                      <td>
+                        <DescriptionCell
+                          name={m.name}
+                          description={m.description}
+                          onSave={(text) =>
+                            api
+                              .saveItemDescription(analysisId, {
+                                name: m.name,
+                                kind: m.kind,
+                                source: m.source,
+                                path: m.path,
+                                description: text,
+                              })
+                              .then(() => setResult((r) => r && {
+                                ...r,
+                                matches: r.matches.map((x, j) => (j === i ? { ...x, description: text } : x)),
+                              }))
+                          }
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
