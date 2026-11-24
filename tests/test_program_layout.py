@@ -39,3 +39,17 @@ def test_working_storage_is_laid_out_with_its_copybook_and_dclgen_members():
     assert kinds["CUSTREC"] == "copy"
     assert kinds["SYTAJDLG"] == "dclgen"
     assert "SYTAJDLG" in layout["missing"]
+
+
+def test_search_finds_a_field_in_the_program_and_in_its_copybook():
+    from src.values.program_layout import search_fields
+    library = CopybookLibrary.from_environment(texts={"CUSTREC": CUST})
+    analysis = analyze_source(PROGRAM, "laytest.cbl", library=library)
+    analysis.library = library
+    found = search_fields(analysis, "cust-", library)
+    places = {(m["name"], m["source"]) for m in found["matches"]}
+    assert ("CUST-ID", "CUSTREC") in places
+    assert ("CUST-STATUS", "CUSTREC") in places
+    assert all("CUST-" in m["name"] for m in found["matches"])
+    assert search_fields(analysis, "ws-flag", library)["matches"][0]["source"] == "LAYTEST"
+    assert search_fields(analysis, "  ", library)["count"] == 0

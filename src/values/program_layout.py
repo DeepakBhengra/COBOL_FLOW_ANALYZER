@@ -125,3 +125,55 @@ def working_layout(analysis, library=None, store=None) -> dict:
         "copybooks": members,
         "missing": [m["name"] for m in members if not m["found"]],
     }
+
+
+_COPYBOOK_LAYOUTS: dict[tuple[str, str], object] = {}
+
+
+def _layout_of_member(library, name: str):
+    """The parsed layout of a copybook, cached by name and text so searching does not re-parse it."""
+    from ..copybooks.layout import fingerprint, layout_of_copybook
+    found = library.resolve(name) if library is not None else None
+    if found is None:
+        return None
+    key = (name, fingerprint(found[1]))
+    if key not in _COPYBOOK_LAYOUTS:
+        _COPYBOOK_LAYOUTS[key] = layout_of_copybook(name, found[1])
+    return _COPYBOOK_LAYOUTS[key]
+
+
+def search_fields(analysis, query: str, library=None, store=None, limit: int = 500) -> dict:
+    """Every field whose name contains the query (case-insensitive): the program's own working storage and
+    the fields of each copybook and DCLGEN member it uses."""
+    needle = (query or "").strip().upper()
+    if not needle:
+        return {"query": query or "", "matches": [], "count": 0, "truncated": False}
+    layout = working_layout(analysis, library, store)
+    matches = []
+    for it in layout["items"]:
+        if needle in it["name"]:
+            matches.append({
+                "name": it["name"], "source": layout["program"], "kind": "program", "level": it["level"],
+                "pic": it["pic"], "type_label": it["type_label"], "offset": it["offset"],
+                "length": it["length"], "line": it["line"], "description": it["description"],
+                "description_from": it["description_from"],
+            })
+    for member in layout["copybooks"]:
+        if not member["found"]:
+            continue
+        cb = _layout_of_member(library, member["name"])
+        if cb is None:
+            continue
+        notes = store.get_fields(member["name"]) if store is not None else {}
+        for item in cb.items:
+            if needle not in item.name.upper():
+                continue
+            note = notes.get(item.path)
+            matches.append({
+                "name": item.name.upper(), "source": member["name"], "kind": member["kind"],
+                "level": item.level, "pic": item.pic, "type_label": item.type_label,
+                "offset": item.offset, "length": item.length, "line": item.line,
+                "description": note["meaning"] if note else "", "description_from": "copybook",
+            })
+    return {"query": query, "matches": matches[:limit], "count": len(matches),
+            "truncated": len(matches) > limit}

@@ -99,6 +99,94 @@ function ItemsTable({ items, analysisId, onSaved, withDescription }) {
   );
 }
 
+/** Search any variable name across the program's working storage and every copybook and DCLGEN it uses. */
+function FieldSearch({ analysisId }) {
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResult(null);
+      setError(null);
+      setBusy(false);
+      return undefined;
+    }
+    setBusy(true);
+    const timer = setTimeout(() => {
+      api
+        .searchLayout(analysisId, q)
+        .then((r) => { setResult(r); setError(null); })
+        .catch((e) => setError(e.message))
+        .finally(() => setBusy(false));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, analysisId]);
+
+  const q = query.trim();
+  return (
+    <div className="field-search">
+      <input
+        type="search"
+        className="field-search-input"
+        placeholder="Search any variable name, e.g. CUST-ID"
+        aria-label="Search variable names"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {busy && <span className="muted small">searching…</span>}
+      {error && <Alert tone="error">{error}</Alert>}
+      {result && q && (
+        <>
+          <p className="muted small">
+            {result.count} match{result.count === 1 ? "" : "es"}
+            {result.truncated ? `, first ${result.matches.length} shown` : ""}
+          </p>
+          {result.matches.length === 0 ? (
+            <Empty>No field name contains “{q}”.</Empty>
+          ) : (
+            <div className="table-wrap">
+              <table className="data-table layout-table">
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>Found in</th>
+                    <th>Level</th>
+                    <th>Type</th>
+                    <th>PIC</th>
+                    <th className="num">Offset</th>
+                    <th className="num">Length</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.matches.map((m, i) => (
+                    <tr key={`${m.source}-${m.name}-${i}`}>
+                      <td className="mono">{m.name}</td>
+                      <td className="mono small">
+                        {m.kind === "program" ? "This program" : m.source}
+                        {m.kind === "dclgen" && <span className="muted"> (DCLGEN)</span>}
+                      </td>
+                      <td className="mono">{String(m.level).padStart(2, "0")}</td>
+                      <td>{m.type_label || "—"}</td>
+                      <td className="mono">{m.pic || "—"}</td>
+                      <td className="num">{m.offset}</td>
+                      <td className="num">{m.length}</td>
+                      <td>{m.description || <span className="muted">—</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 /** A copybook or DCLGEN member the program uses, with its layout one click away. */
 function MemberRow({ member }) {
   const [open, setOpen] = useState(false);
@@ -205,6 +293,7 @@ export default function WorkingStoragePage() {
 
       <Card className="tab-card" title="Copybooks used" subtitle="Expand a copybook to see its layout in the same format">
         <div className="card-inner">
+          <FieldSearch analysisId={analysis.id} />
           {!layout && <Empty>Loading…</Empty>}
           {layout && copies.length === 0 && <Empty>The program copies no copybooks.</Empty>}
           {copies.map((m) => <MemberRow key={`copy-${m.name}`} member={m} />)}

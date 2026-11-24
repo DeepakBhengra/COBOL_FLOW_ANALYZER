@@ -44,6 +44,8 @@ export const api = {
   copybookProcedure: (name) =>
     fetch(`${BASE}/copybooks/${encodeURIComponent(name)}/procedure`).then(parse),
   programLayout: (id) => fetch(`${BASE}/analyses/${id}/layout`).then(parse),
+  searchLayout: (id, q) =>
+    fetch(`${BASE}/analyses/${id}/layout/search?q=${encodeURIComponent(q)}`).then(parse),
   saveItemDescription: (id, body) =>
     fetch(`${BASE}/analyses/${id}/layout/description`, {
       method: "PUT",

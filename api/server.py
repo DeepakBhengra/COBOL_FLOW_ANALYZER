@@ -375,6 +375,14 @@ def get_program_layout(analysis_id: str) -> dict:
     return working_layout(analysis, getattr(analysis, "library", None), _knowledge())
 
 
+@app.get("/api/analyses/{analysis_id}/layout/search")
+def search_program_fields(analysis_id: str, q: str = "") -> dict:
+    """Fields whose name contains q, from the program's working storage and from each copybook and DCLGEN it uses."""
+    from src.values.program_layout import search_fields
+    analysis = _get(analysis_id)
+    return search_fields(analysis, q, getattr(analysis, "library", None), _knowledge())
+
+
 @app.put("/api/analyses/{analysis_id}/layout/description")
 def save_item_description(analysis_id: str, body: dict) -> dict:
     """Save the description of one working-storage item. An item from a copybook is saved against that
